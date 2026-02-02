@@ -1,8 +1,9 @@
 "use client";
+
 import { useSearch } from "@/app/contextAPI/searchContext";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FaSearch, FaTimes } from "react-icons/fa";
 import { FaCircleNotch } from "react-icons/fa6";
 
@@ -15,74 +16,208 @@ interface SearchResult {
   profile_path?: string;
 }
 
+type ResultsState = {
+  movie: SearchResult[];
+  tv: SearchResult[];
+  person: SearchResult[];
+  keyword: SearchResult[];
+};
+
+type FlatResult = {
+  key: string;
+  label: string;
+  href: string;
+  category: "movie" | "tv" | "person" | "keyword";
+  image?: string;
+};
+
+const MIN_QUERY_LENGTH = 2;
+const MAX_RECENT = 5;
+
+const emptyResults: ResultsState = {
+  movie: [],
+  tv: [],
+  person: [],
+  keyword: [],
+};
+
+function highlightLabel(text: string, query: string) {
+  if (!query || query.length < 2) return text;
+  const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = text.split(new RegExp(`(${safeQuery})`, "gi"));
+  return parts.map((part, index) =>
+    part.toLowerCase() === query.toLowerCase() ? (
+      <mark
+        key={`${part}-${index}`}
+        className="bg-amber-400 text-black rounded-sm px-1"
+      >
+        {part}
+      </mark>
+    ) : (
+      <span key={`${part}-${index}`}>{part}</span>
+    )
+  );
+}
+
+function getTitle(result: SearchResult) {
+  return result.title || result.name || "Unknown";
+}
+
+function getHref(result: SearchResult, category: FlatResult["category"]) {
+  if (category === "person") return `/app/person/${result.id}`;
+  if (category === "keyword") {
+    return `/app/search/${encodeURIComponent(
+      String(result.id)
+    )}?media_type=keyword`;
+  }
+  return `/app/${category}/${result.id}`;
+}
+
+function normalizeResults(results: ResultsState) {
+  return {
+    movie: results.movie.slice(0, 4),
+    tv: results.tv.slice(0, 4),
+    person: results.person.slice(0, 4),
+    keyword: results.keyword.slice(0, 4),
+  };
+}
+
+function useRecentSearches() {
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem("recent_searches");
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) setRecentSearches(parsed);
+    } catch {
+      setRecentSearches([]);
+    }
+  }, []);
+
+  const updateRecentSearches = (value: string) => {
+    if (!value) return;
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setRecentSearches((prev) => {
+      const next = [trimmed, ...prev.filter((item) => item !== trimmed)].slice(
+        0,
+        MAX_RECENT
+      );
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("recent_searches", JSON.stringify(next));
+      }
+      return next;
+    });
+  };
+
+  return { recentSearches, updateRecentSearches, setRecentSearches };
+}
+
 function SearchBar() {
   const [input, setInput] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [results, setResults] = useState<{
-    movie: SearchResult[];
-    tv: SearchResult[];
-    person: SearchResult[];
-    keyword: SearchResult[];
-  }>({
-    movie: [],
-    tv: [],
-    person: [],
-    keyword: [],
-  });
+  const [results, setResults] = useState<ResultsState>(emptyResults);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const { isSearchLoading, setIsSearchLoading } = useSearch();
+  const { recentSearches, updateRecentSearches, setRecentSearches } =
+    useRecentSearches();
+  const router = useRouter();
 
-  // Handle form submission
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (input.trim().length >= 2) {
-      search(input);
-    }
-  }
+  const abortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cacheRef = useRef<Record<string, ResultsState>>({});
 
-  // Navigate to search page
-  function search(text: string) {
-    setIsSearchLoading(true);
-    const encodedText = encodeURIComponent(text);
-    router.push(`/app/search/${encodedText}`);
-    setIsModalOpen(false); // Close modal on submit
-  }
+  const query = input.trim();
+  const displayResults = useMemo(() => normalizeResults(results), [results]);
 
-  // Fetch search results on input change
+  const flatResults = useMemo<FlatResult[]>(() => {
+    const flattened: FlatResult[] = [];
+    (["movie", "tv", "person", "keyword"] as const).forEach((category) => {
+      displayResults[category].forEach((item) => {
+        const label = getTitle(item);
+        const image =
+          item.poster_path || item.profile_path
+            ? `https://image.tmdb.org/t/p/w92${
+                item.poster_path || item.profile_path
+              }`
+            : undefined;
+        flattened.push({
+          key: `${category}-${item.id}`,
+          label,
+          href: getHref(item, category),
+          category,
+          image,
+        });
+      });
+    });
+    return flattened;
+  }, [displayResults]);
+
   useEffect(() => {
-    const fetchResults = async () => {
-      if (input.trim().length < 2) {
-        setResults({ movie: [], tv: [], person: [], keyword: [] });
-        return;
-      }
+    if (!isModalOpen) return;
 
-      setIsLoading(true);
+    if (query.length < MIN_QUERY_LENGTH) {
+      setResults(emptyResults);
+      setError(null);
+      setIsLoading(false);
+      setActiveIndex(-1);
+      if (abortRef.current) abortRef.current.abort();
+      return;
+    }
+
+    if (cacheRef.current[query]) {
+      setResults(cacheRef.current[query]);
+      setError(null);
+      setIsLoading(false);
+      setActiveIndex(-1);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(async () => {
+      if (abortRef.current) abortRef.current.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       try {
-        // Fetch results from the API route
-        const response = await fetch(
-          `/api/search?query=${encodeURIComponent(input)}`
-        );
-        if (!response.ok) throw new Error("Failed to fetch search results");
+        const [generalResponse, keywordResponse] = await Promise.all([
+          fetch(`/api/search?query=${encodeURIComponent(query)}`, {
+            signal: controller.signal,
+          }),
+          fetch(
+            `/api/search?query=${encodeURIComponent(
+              query
+            )}&media_type=keyword`,
+            {
+              signal: controller.signal,
+            }
+          ),
+        ]);
 
-        const data = await response.json();
-        const movie = data.results.filter(
+        if (!generalResponse.ok || !keywordResponse.ok) {
+          throw new Error("Failed to fetch results");
+        }
+
+        const generalData = await generalResponse.json();
+        const keywordData = await keywordResponse.json();
+
+        const movie = generalData.results.filter(
           (item: SearchResult) => item.media_type === "movie"
         );
-        const tv = data.results.filter(
+        const tv = generalData.results.filter(
           (item: SearchResult) => item.media_type === "tv"
         );
-        const person = data.results.filter(
+        const person = generalData.results.filter(
           (item: SearchResult) => item.media_type === "person"
         );
-
-        // Keyword search
-        const keywordResponse = await fetch(
-          `/api/search?query=${encodeURIComponent(input)}&media_type=keyword`
-        );
-        if (!keywordResponse.ok) throw new Error("Failed to fetch keywords");
-
-        const keywordData = await keywordResponse.json();
         const keyword = keywordData.results.map(
           (kw: { id: number; name: string }) => ({
             id: kw.id,
@@ -91,27 +226,101 @@ function SearchBar() {
           })
         );
 
-        setResults({ movie, tv, person, keyword });
-      } catch (error) {
-        console.error("Error fetching search results:", error);
-        setResults({ movie: [], tv: [], person: [], keyword: [] });
+        const nextResults = { movie, tv, person, keyword };
+        cacheRef.current[query] = nextResults;
+        setResults(nextResults);
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+        console.error("Error fetching search results:", err);
+        setError("Something went wrong. Please try again.");
+        setResults(emptyResults);
       } finally {
         setIsLoading(false);
       }
+    }, 250);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
     };
+  }, [query, isModalOpen]);
 
-    fetchResults();
-  }, [input]);
+  useEffect(() => {
+    if (flatResults.length === 0) {
+      setActiveIndex(-1);
+    } else if (activeIndex >= flatResults.length) {
+      setActiveIndex(flatResults.length - 1);
+    }
+  }, [flatResults, activeIndex]);
 
-  // Open modal on input click
-  const handleInputClick = () => {
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setInput("");
+    setResults(emptyResults);
+    setError(null);
+    setActiveIndex(-1);
+    setIsSearchLoading(false);
+  };
+
+  const openModal = () => {
     setIsModalOpen(true);
   };
 
-  // Close modal
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setInput(""); // Optional: clear input on close
+  const handleSearch = (value: string, category?: string) => {
+    const term = value.trim();
+    if (term.length < MIN_QUERY_LENGTH) return;
+    updateRecentSearches(term);
+    setIsSearchLoading(true);
+    const encoded = encodeURIComponent(term);
+    const queryString = category ? `?media_type=${category}` : "";
+    router.push(`/app/search/${encoded}${queryString}`);
+    closeModal();
+  };
+
+  const handleSelectResult = (result: FlatResult) => {
+    updateRecentSearches(query);
+    setIsSearchLoading(true);
+    router.push(result.href);
+    closeModal();
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeModal();
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (flatResults.length === 0) return;
+      setActiveIndex((prev) => (prev + 1) % flatResults.length);
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      if (flatResults.length === 0) return;
+      setActiveIndex((prev) =>
+        prev <= 0 ? flatResults.length - 1 : prev - 1
+      );
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      if (activeIndex >= 0 && flatResults[activeIndex]) {
+        handleSelectResult(flatResults[activeIndex]);
+        return;
+      }
+      handleSearch(query);
+    }
+  };
+
+  const handleClearRecent = () => {
+    setRecentSearches([]);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("recent_searches");
+    }
   };
 
   return (
@@ -122,17 +331,18 @@ function SearchBar() {
           name="searchtext"
           type="text"
           value={input}
-          onClick={handleInputClick}
+          onFocus={openModal}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
             setInput(e.target.value)
           }
-          placeholder="Search"
+          placeholder="Search movies, TV, people..."
         />
         <button
-          onClick={handleInputClick}
+          onClick={openModal}
           type="button"
           className=" md:absolute md:right-2 md:top-1/2 transform md:-translate-y-1/2 bg-neutral-700 text-neutral-100 p-1.5 rounded-full hover:bg-neutral-600"
           disabled={isSearchLoading}
+          aria-label="Open search"
         >
           {isSearchLoading ? (
             <div className="w-fit m-auto animate-spin">
@@ -144,121 +354,205 @@ function SearchBar() {
         </button>
       </form>
 
-      {/* Full-Screen Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col items-center justify-start pt-10">
-          <div className="w-full max-w-3xl px-4">
-            <div className="relative flex flex-row items-center mb-6">
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-start pt-6"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeModal();
+          }}
+        >
+          <div className="w-full max-w-4xl px-4">
+            <div className="relative flex flex-row items-center mb-4">
+              <FaSearch className="absolute left-4 text-neutral-400" />
               <input
-                className="w-full py-3 px-5 bg-neutral-800 text-neutral-200 rounded-full focus:outline-none focus:ring-2 focus:ring-neutral-500 text-base sm:text-lg placeholder-neutral-400"
+                className="w-full py-3 pl-11 pr-10 bg-neutral-800 text-neutral-200 rounded-full focus:outline-none focus:ring-2 focus:ring-neutral-500 text-base sm:text-lg placeholder-neutral-400"
                 name="searchtext"
                 type="text"
                 value={input}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setInput(e.target.value)
                 }
+                onKeyDown={handleKeyDown}
                 placeholder="Search movies, TV shows, people, or keywords..."
                 autoFocus
               />
               <button
                 type="button"
                 onClick={closeModal}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-200"
+                className="absolute right-3 text-neutral-400 hover:text-neutral-200"
+                aria-label="Close search"
               >
                 <FaTimes size={20} />
               </button>
             </div>
 
-            {/* Search Results */}
-            <div className="w-full max-h-[70vh] overflow-y-auto text-white">
-              {isLoading ? (
-                <div className="text-center py-4">
-                  <FaCircleNotch
-                    className="animate-spin inline-block"
-                    size={24}
-                  />
-                </div>
-              ) : (
-                <>
-                  {["movie", "tv", "person", "keyword"].map((category) => {
-                    const items = results[category as keyof typeof results];
-                    if (items.length === 0) return null;
+            <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-400 mb-4">
+              <span className="rounded-full border border-neutral-700 px-2 py-1">
+                Press Enter to search
+              </span>
+              <span className="rounded-full border border-neutral-700 px-2 py-1">
+                ↑ ↓ to navigate
+              </span>
+              <span className="rounded-full border border-neutral-700 px-2 py-1">
+                Esc to close
+              </span>
+            </div>
 
-                    return (
-                      <div key={category} className="mb-6">
-                        {category == "keyword" ? (
-                          <h3 className="text-lg sm:text-xl font-semibold capitalize flex flex-row mb-7 items-center gap-3 ">
-                            Keywords
-                          </h3>
-                        ) : (
-                          <Link
-                            onClick={() => setIsModalOpen(false)}
-                            href={`/app/search/${input}?media_type=${category}`}
-                            className="text-lg sm:text-xl font-semibold capitalize flex flex-row mb-7 items-center gap-3 "
-                          >
-                            {category === "tvShows" ? "TV Shows" : category}{" "}
-                            <span className="text-sm underline">
-                              (search- click)
-                            </span>
-                          </Link>
-                        )}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 h-auto">
-                          {items.map((item: any) => (
-                            <Link
-                              key={item.id}
-                              href={
-                                category === "keyword"
-                                  ? `/app/search/${encodeURIComponent(
-                                      item.id
-                                    )}?media_type=keyword`
-                                  : `/app/${category}/${item.id}-${(
-                                      item.title ||
-                                      item.name ||
-                                      ""
-                                    )
-                                      .trim()
-                                      .replace(/[^a-zA-Z0-9]/g, "-")
-                                      .replace(/-+/g, "-")}`
-                              }
-                              onClick={() => setIsModalOpen(false)}
-                              className="flex items-center gap-3 p-2 bg-neutral-700 rounded-md hover:bg-neutral-600 transition-colors"
-                            >
-                              {item.media_type !== "keyword" && (
-                                <img
-                                  src={
-                                    item.poster_path || item.profile_path
-                                      ? `https://image.tmdb.org/t/p/w92${
-                                          item.poster_path || item.profile_path
-                                        }`
-                                      : "https://placehold.co/92x138?text=No+Image"
-                                  }
-                                  alt={item.title || item.name}
-                                  className="w-12 h-18 object-cover rounded"
-                                />
-                              )}
-                              <span className="text-sm sm:text-base truncate">
-                                {item.title || item.name}
-                              </span>
-                            </Link>
-                          ))}
-                          {category !== "keyword" && (
-                            <Link
-                              onClick={() => setIsModalOpen(false)}
-                              href={`/app/search/${input}?media_type=${category}`}
-                              className="flex items-center gap-3 h-18  p-2 text-neutral-800 bg-neutral-300 rounded-md hover:bg-neutral-400 transition-colors"
-                            >
-                              more..
-                            </Link>
-                          )}
-                        </div>
+            <div className="w-full max-h-[70vh] overflow-y-auto text-white">
+              {query.length < MIN_QUERY_LENGTH && (
+                <div className="space-y-4">
+                  <div className="text-neutral-300">
+                    Start typing to search across movies, TV, people, and
+                    keywords.
+                  </div>
+                  {recentSearches.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-lg font-semibold text-neutral-100">
+                          Recent searches
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={handleClearRecent}
+                          className="text-xs text-neutral-400 hover:text-neutral-200"
+                        >
+                          Clear
+                        </button>
                       </div>
-                    );
-                  })}
-                  {Object.values(results).every((arr) => arr.length === 0) &&
-                    input.trim().length >= 2 && (
-                      <p className="text-center text-neutral-400">
-                        No results found
-                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {recentSearches.map((term) => (
+                          <button
+                            key={term}
+                            type="button"
+                            onClick={() => handleSearch(term)}
+                            className="rounded-full bg-neutral-800 px-3 py-1 text-sm text-neutral-200 hover:bg-neutral-700"
+                          >
+                            {term}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {query.length >= MIN_QUERY_LENGTH && (
+                <>
+                  {isLoading && (
+                    <div className="flex flex-col items-center gap-3 py-6 text-neutral-300">
+                      <FaCircleNotch className="animate-spin" size={24} />
+                      Searching for “{query}”
+                    </div>
+                  )}
+
+                  {error && (
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-red-200">
+                      {error}
+                    </div>
+                  )}
+
+                  {!isLoading && !error && flatResults.length === 0 && (
+                    <div className="flex flex-col items-center gap-3 py-10 text-neutral-300">
+                      <p>No results found for “{query}”.</p>
+                      <button
+                        type="button"
+                        onClick={() => handleSearch(query)}
+                        className="rounded-full bg-neutral-800 px-4 py-2 text-sm text-neutral-200 hover:bg-neutral-700"
+                      >
+                        Search anyway
+                      </button>
+                    </div>
+                  )}
+
+                  {!isLoading &&
+                    !error &&
+                    (["movie", "tv", "person", "keyword"] as const).map(
+                      (category) => {
+                        const items = displayResults[category];
+                        if (items.length === 0) return null;
+                        return (
+                          <div key={category} className="mb-6">
+                            <div className="flex items-center justify-between mb-3">
+                              <h3 className="text-lg font-semibold capitalize">
+                                {category === "tv" ? "TV Shows" : category}
+                              </h3>
+                              <button
+                                type="button"
+                                onClick={() => handleSearch(query, category)}
+                                className="text-sm text-neutral-300 hover:text-white"
+                              >
+                                View all
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                              {items.map((item) => {
+                                const flattenedIndex = flatResults.findIndex(
+                                  (flat) => flat.key === `${category}-${item.id}`
+                                );
+                                const isActive =
+                                  flattenedIndex === activeIndex;
+                                return (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() =>
+                                      handleSelectResult({
+                                        key: `${category}-${item.id}`,
+                                        label: getTitle(item),
+                                        href: getHref(item, category),
+                                        category,
+                                        image:
+                                          item.poster_path ||
+                                          item.profile_path
+                                            ? `https://image.tmdb.org/t/p/w92${
+                                                item.poster_path ||
+                                                item.profile_path
+                                              }`
+                                            : undefined,
+                                      })
+                                    }
+                                    className={`flex items-center gap-3 rounded-lg p-3 text-left transition-colors ${
+                                      isActive
+                                        ? "bg-neutral-700"
+                                        : "bg-neutral-800 hover:bg-neutral-700"
+                                    }`}
+                                  >
+                                    {item.poster_path || item.profile_path ? (
+                                      <img
+                                        src={`https://image.tmdb.org/t/p/w92${
+                                          item.poster_path ||
+                                          item.profile_path ||
+                                          ""
+                                        }`}
+                                        alt={getTitle(item)}
+                                        className="w-12 h-16 rounded object-cover"
+                                        loading="lazy"
+                                        decoding="async"
+                                      />
+                                    ) : (
+                                      <div className="w-12 h-16 rounded bg-neutral-700 flex items-center justify-center text-xs text-neutral-400">
+                                        N/A
+                                      </div>
+                                    )}
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-medium text-neutral-100">
+                                        {highlightLabel(getTitle(item), query)}
+                                      </span>
+                                      <span className="text-xs text-neutral-400 capitalize">
+                                        {category === "tv"
+                                          ? "TV show"
+                                          : category}
+                                      </span>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      }
                     )}
                 </>
               )}

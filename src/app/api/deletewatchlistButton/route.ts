@@ -2,29 +2,33 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const requestClone = req.clone();
-  const body = await requestClone.json();
-  const { itemId, name, mediaType, imgUrl, adult } = body;
+  try {
+    const requestClone = req.clone();
+    const body = await requestClone.json();
+    const { itemId } = body;
 
-  const supabase = await createClient();
+    const supabase = await createClient();
 
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data?.user) {
-    console.log("User isn't logged in");
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data?.user) {
+      return NextResponse.json(
+        { error: "User isn't logged in" },
+        { status: 401 }
+      );
+    }
+
+    const userId = data.user.id;
+
+    await removeFromWatchList(userId, itemId);
+
+    return NextResponse.json({ message: "Removed" }, { status: 200 });
+  } catch (error) {
+    console.error("Delete watchlist error:", error);
     return NextResponse.json(
-      { error: "User isn't logged in" },
-      { status: 401 }
+      { error: "Internal server error." },
+      { status: 500 }
     );
   }
-
-  const userId = data.user.id;
-
-  // Check if the item exists before attempting to delete it
-
-  // Proceed to delete the item
-  await removeFromWatchList(userId, itemId);
-
-  return NextResponse.json({ message: "Removed" }, { status: 200 });
 }
 
 async function removeFromWatchList(userId: string, itemId: string) {
@@ -38,7 +42,7 @@ async function removeFromWatchList(userId: string, itemId: string) {
 
   if (deleteError) {
     console.log("Error deleting item:", deleteError);
-    return NextResponse.json({ error: "Error deleting item" }, { status: 500 });
+    throw deleteError;
   }
 
   // Decrement the watchlist count

@@ -112,7 +112,7 @@ export function FollowerBtnClient({
   return (
     <>
       {modal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[9999]">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-9999">
           <div className="bg-neutral-700 w-full h-fit max-w-3xl sm:rounded-lg p-5 shadow-xl">
             <div className="flex justify-between items-center p-4 border-b">
               <Link
@@ -164,22 +164,33 @@ export function ShowFollowing({ followingCount, userId }: any) {
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [following, setFollowing] = useState([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function getFollowing() {
       if (modal) {
         setLoading(true);
+        setError(null);
         try {
           const response = await fetch("/api/getfollowing", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ userId }),
           });
-          if (!response.ok) throw new Error("Failed to fetch following");
+          if (!response.ok) {
+            if (response.status === 401) {
+              throw new Error("Log in to view following.");
+            }
+            if (response.status === 403) {
+              throw new Error("Following list is private.");
+            }
+            throw new Error("Failed to fetch following");
+          }
           const res = await response.json();
           setFollowing(res.connection);
         } catch (error) {
           console.error("Error fetching following:", error);
+          setError((error as Error).message || "Failed to fetch following");
         } finally {
           setLoading(false);
         }
@@ -212,6 +223,8 @@ export function ShowFollowing({ followingCount, userId }: any) {
 
             {loading ? (
               <p>Loading...</p>
+            ) : error ? (
+              <p className="text-red-500">{error}</p>
             ) : following.length !== 0 ? (
               <ul className="text-neutral-700">
                 {following.map((user: any, index: number) => (
@@ -238,22 +251,33 @@ export function ShowFollower({ followerCount, userId }: any) {
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [following, setFollowing] = useState([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function getFollowing() {
       if (modal) {
         setLoading(true);
+        setError(null);
         try {
           const response = await fetch("/api/getfollower", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ userId }),
           });
-          if (!response.ok) throw new Error("Failed to fetch following");
+          if (!response.ok) {
+            if (response.status === 401) {
+              throw new Error("Log in to view followers.");
+            }
+            if (response.status === 403) {
+              throw new Error("Followers list is private.");
+            }
+            throw new Error("Failed to fetch following");
+          }
           const res = await response.json();
           setFollowing(res.connection);
         } catch (error) {
           console.error("Error fetching following:", error);
+          setError((error as Error).message || "Failed to fetch followers");
         } finally {
           setLoading(false);
         }
@@ -286,6 +310,8 @@ export function ShowFollower({ followerCount, userId }: any) {
 
             {loading ? (
               <p>Loading...</p>
+            ) : error ? (
+              <p className="text-red-500">{error}</p>
             ) : following.length > 0 ? (
               <ul className="text-neutral-700">
                 {following.map((user: any, index: number) => (

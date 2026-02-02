@@ -23,6 +23,7 @@ export default function Movie({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cardData, setCardData] = useState([]) as any;
   const [showFullOverview, setShowFullOverview] = useState(false);
+  const movieGenres = Array.isArray(movie?.genres) ? movie.genres : [];
 
   const handleCardTransfer = (data: any) => {
     setCardData(data);
@@ -46,14 +47,14 @@ export default function Movie({
         <div className="relative flex flex-col items-center justify-center w-full min-h-[550px] h-full">
           <div className="md:absolute w-full h-full overflow-hidden">
             <div
-              className="absolute inset-0 z-10 bg-gradient-to-r from-neutral-900 via-transparent to-neutral-900"
+              className="absolute inset-0 z-10 bg-linear-to-r from-neutral-900 via-transparent to-neutral-900"
               style={{
                 background:
                   "linear-gradient(to left,  #171717, transparent 60%, #171717, #171717)",
               }}
             ></div>
             <div
-              className="absolute inset-0 z-10 bg-gradient-to-l from-neutral-900 via-transparent to-neutral-900"
+              className="absolute inset-0 z-10 bg-linear-to-l from-neutral-900 via-transparent to-neutral-900"
               style={{
                 background:
                   "linear-gradient(to right,  #171717, transparent 60%, #171717, #171717)",
@@ -92,7 +93,7 @@ export default function Movie({
             </div>
 
             {/* Movie Details */}
-            <div className="flex-[2] w-full">
+            <div className="flex-2 w-full">
               <h1 className="text-4xl font-bold mb-4">
                 {movie?.adult && (
                   <span className="text-sm px-3 py-1 rounded-md m-2 bg-red-600 text-white z-20">
@@ -117,7 +118,7 @@ export default function Movie({
 
               {/* Buttons */}
               <ThreeUserPrefrenceBtn
-                genres={movie.genres.map((genre: any) => genre.name)}
+                genres={movieGenres.map((genre: any) => genre.name)}
                 cardId={movie.id}
                 cardType={"movie"}
                 cardName={movie.name || movie.title}

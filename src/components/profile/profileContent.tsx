@@ -13,25 +13,55 @@ const getUserData = async (id: any) => {
     .select("*", { count: "exact", head: true })
     .eq("user_id", id);
 
-  const { data: watchlist } = await supabase
+  const { data: watchlist, error: watchlistError } = await supabase
     .from("user_watchlist")
     .select()
     .eq("user_id", id)
     .order("id", { ascending: false });
-  const { count: watchlistCount } = await supabase
+  const { count: watchlistCount, error: watchlistCountError } = await supabase
     .from("user_watchlist")
     .select("*", { count: "exact", head: true })
     .eq("user_id", id);
-  const { count: favoriteCount } = await supabase
+  const { count: favoriteCount, error: favoriteCountError } = await supabase
     .from("favorite_items")
     .select("*", { count: "exact", head: true })
     .eq("user_id", id);
-  const { data: favorates } = await supabase
+  const { data: favorates, error: favoritesError } = await supabase
     .from("favorite_items")
     .select()
     .eq("user_id", id)
     .order("id", { ascending: false });
-  return { watchlistCount, watchedCount, favoriteCount, favorates, watchlist };
+
+  if (
+    countError ||
+    watchlistError ||
+    watchlistCountError ||
+    favoriteCountError ||
+    favoritesError
+  ) {
+    console.error("Profile content fetch error:", {
+      countError,
+      watchlistError,
+      watchlistCountError,
+      favoriteCountError,
+      favoritesError,
+    });
+    return {
+      watchlistCount: 0,
+      watchedCount: 0,
+      favoriteCount: 0,
+      favorates: [],
+      watchlist: [],
+    };
+  }
+
+  return {
+    watchlistCount: watchlistCount ?? 0,
+    watchedCount: watchedCount ?? 0,
+    favoriteCount: favoriteCount ?? 0,
+    favorates: favorates ?? [],
+    watchlist: watchlist ?? [],
+  };
 };
 
 async function profileContent({ profileId }: any) {

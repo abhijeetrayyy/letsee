@@ -1,4 +1,5 @@
 "use client";
+
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { useContext } from "react";
 import { CiHeart } from "react-icons/ci";
@@ -8,6 +9,19 @@ import { PiEyeBold } from "react-icons/pi";
 import { RiEyeCloseLine } from "react-icons/ri";
 import CardMovieButton from "./cardButtons";
 
+export type ThreePreferenceBtnProps = {
+  /** Movie/TV/person ID (number or string from DB). */
+  cardId: number | string;
+  cardType: string;
+  cardName: string;
+  cardAdult?: boolean;
+  cardImg?: string | null;
+  /** Genre names or IDs; nulls are filtered out. */
+  genres: (string | null)[];
+  /** Optional extra data (e.g. for AI reco); not used by preference logic. */
+  data?: unknown;
+};
+
 export default function ThreePrefrencebtn({
   cardId,
   cardType,
@@ -15,41 +29,39 @@ export default function ThreePrefrencebtn({
   cardAdult,
   cardImg,
   genres,
-}: any) {
-  const { userPrefrence }: any = useContext(UserPrefrenceContext);
+  data: _data,
+}: ThreePreferenceBtnProps) {
+  const {
+    hasWatched,
+    hasFavorite,
+    hasWatchLater,
+  } = useContext(UserPrefrenceContext);
 
-  const isItemWatched = (itemId: number): boolean => {
-    if (!userPrefrence || !userPrefrence.watched) return false;
-    return userPrefrence.watched.some((pref: any) => pref.item_id === itemId);
-  };
-
-  const isItemPreferred = (itemId: number): boolean => {
-    if (!userPrefrence || !userPrefrence.favorite) return false;
-    return userPrefrence.favorite.some((pref: any) => pref.item_id === itemId);
-  };
-
-  const isItemInWatchLater = (itemId: number): boolean => {
-    if (!userPrefrence || !userPrefrence.watchlater) return false;
-    return userPrefrence.watchlater.some(
-      (pref: any) => pref.item_id === itemId
-    );
-  };
+  const id = Number(cardId);
+  const adult = cardAdult ?? false;
+  const imgUrl = cardImg ?? "";
+  const genreList = (genres ?? []).filter(
+    (g): g is string => g != null && typeof g === "string"
+  );
+  const watched = hasWatched(cardId);
+  const favorite = hasFavorite(cardId);
+  const watchLater = hasWatchLater(cardId);
 
   return (
     <div>
       <div className="w-full bg-neutral-900 overflow-hidden">
         <div className="w-full h-14 grid grid-cols-3">
           <CardMovieButton
-            genres={genres}
-            itemId={cardId}
+            genres={genreList}
+            itemId={id}
             mediaType={cardType}
             name={cardName}
-            state={isItemWatched(cardId)}
-            funcType={"watched"}
-            adult={cardAdult}
-            imgUrl={cardImg}
+            state={watched}
+            funcType="watched"
+            adult={adult}
+            imgUrl={imgUrl}
             icon={
-              isItemWatched(cardId) ? (
+              watched ? (
                 <PiEyeBold className="text-green-600" />
               ) : (
                 <RiEyeCloseLine />
@@ -57,27 +69,27 @@ export default function ThreePrefrencebtn({
             }
           />
           <CardMovieButton
-            genres={genres}
-            itemId={cardId}
+            genres={genreList}
+            itemId={id}
             mediaType={cardType}
             name={cardName}
-            state={isItemPreferred(cardId)}
-            funcType={"favorite"}
-            adult={cardAdult}
-            imgUrl={cardImg}
-            icon={isItemPreferred(cardId) ? <FcLike /> : <CiHeart />}
+            state={favorite}
+            funcType="favorite"
+            adult={adult}
+            imgUrl={imgUrl}
+            icon={favorite ? <FcLike /> : <CiHeart />}
           />
           <CardMovieButton
-            genres={genres}
-            itemId={cardId}
+            genres={genreList}
+            itemId={id}
             mediaType={cardType}
             name={cardName}
-            state={isItemInWatchLater(cardId)}
-            funcType={"watchlater"}
-            adult={cardAdult}
-            imgUrl={cardImg}
+            state={watchLater}
+            funcType="watchlater"
+            adult={adult}
+            imgUrl={imgUrl}
             icon={
-              isItemInWatchLater(cardId) ? (
+              watchLater ? (
                 <MdOutlineWatchLater className="font-bold text-green-500" />
               ) : (
                 <MdOutlineWatchLater />

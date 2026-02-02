@@ -2,40 +2,51 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const requestClone = req.clone();
-  const body = await requestClone.json();
-  const { itemId, name, mediaType, imgUrl, adult } = body;
+  try {
+    const requestClone = req.clone();
+    const body = await requestClone.json();
+    const { itemId } = body;
 
-  const supabase = await createClient();
+    const supabase = await createClient();
 
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data?.user) {
-    console.log("User isn't logged in");
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data?.user) {
+      return NextResponse.json(
+        { error: "User isn't logged in" },
+        { status: 401 }
+      );
+    }
+
+    const userId = data.user.id;
+
+    const { data: existingItem, error: fetchError } = await supabase
+      .from("favorite_items")
+      .select("item_id")
+      .eq("user_id", userId)
+      .eq("item_id", itemId)
+      .maybeSingle();
+
+    if (fetchError) {
+      return NextResponse.json(
+        { error: "Failed to fetch favorites." },
+        { status: 500 }
+      );
+    }
+
+    if (!existingItem) {
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    }
+
+    await removeFromFavorite(userId, itemId);
+
+    return NextResponse.json({ message: "Removed" }, { status: 200 });
+  } catch (error) {
+    console.error("Delete favorite error:", error);
     return NextResponse.json(
-      { error: "User isn't logged in" },
-      { status: 401 }
+      { error: "Internal server error." },
+      { status: 500 }
     );
   }
-
-  const userId = data.user.id;
-
-  // Check if the item exists before attempting to delete it
-  const { data: existingItem, error: fetchError } = await supabase
-    .from("favorite_items")
-    .select("item_id")
-    .eq("user_id", userId)
-    .eq("item_id", itemId)
-    .single();
-
-  if (fetchError || !existingItem) {
-    console.log("Item not found in the database:", fetchError);
-    return NextResponse.json({ error: "Item not found" }, { status: 404 });
-  }
-
-  // Proceed to delete the item
-  await removeFromFavorite(userId, itemId);
-
-  return NextResponse.json({ message: "Removed" }, { status: 200 });
 }
 
 async function removeFromFavorite(userId: string, itemId: string) {
@@ -49,7 +60,7 @@ async function removeFromFavorite(userId: string, itemId: string) {
 
   if (deleteError) {
     console.log("Error deleting item:", deleteError);
-    return NextResponse.json({ error: "Error deleting item" }, { status: 500 });
+    throw deleteError;
   }
 
   // Decrement the watchlist count

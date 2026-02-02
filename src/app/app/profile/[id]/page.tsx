@@ -212,21 +212,9 @@ export default async function ProfilePage({ params }: PageProps) {
 
         {/* Statistics */}
         <div className="px-2 grid grid-cols-3 gap-2">
-          <StatBox
-            count={stats.watchedCount}
-            label="Movies/TV Watched"
-            color="neutral"
-          />
-          <StatBox
-            count={stats.favoriteCount}
-            label="Favorites"
-            color="neutral"
-          />
-          <StatBox
-            count={stats.watchlistCount}
-            label="WatchList"
-            color="neutral"
-          />
+          <StatBox count={stats.watchedCount} label="Movies/TV Watched" />
+          <StatBox count={stats.favoriteCount} label="Favorites" />
+          <StatBox count={stats.watchlistCount} label="WatchList" />
         </div>
 
         {/* Genre Statistics */}
@@ -260,14 +248,12 @@ export default async function ProfilePage({ params }: PageProps) {
 const StatBox = ({
   count,
   label,
-  color,
 }: {
   count: number | null;
   label: string;
-  color: string;
 }) => (
   <div
-    className={`flex flex-col items-center justify-center p-4 rounded-lg shadow-md bg-neutral-700 hover:shadow-lg transition-shadow duration-300 border-l-4 border-${color}-200`}
+    className="flex flex-col items-center justify-center p-4 rounded-lg shadow-md bg-neutral-700 hover:shadow-lg transition-shadow duration-300 border-l-4 border-neutral-200"
   >
     <span className="text-2xl md:text-4xl font-bold text-neutral-100">
       {count ?? 0}

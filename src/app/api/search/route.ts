@@ -1,45 +1,46 @@
-import { NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { serverFetchJson } from "@/utils/serverFetch";
+import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get("query") || "";
-  const mediaType = searchParams.get("media_type") || "multi";
+  const query = searchParams.get("query") ?? "";
+  const mediaType = searchParams.get("media_type") ?? "multi";
 
-  if (!query) {
-    return NextResponse.json({ error: "Query is required" }, { status: 400 });
+  if (!query.trim()) {
+    return jsonError("Query is required", 400);
+  }
+
+  if (!process.env.TMDB_API_KEY) {
+    return jsonError("TMDB_API_KEY is missing on the server.", 500);
   }
 
   try {
-    let url: string;
-    if (mediaType === "keyword") {
-      // Use /discover/movie for keyword search
-      url = `https://api.themoviedb.org/3/search/keyword?api_key=${
-        process.env.TMDB_API_KEY
-      }&query=${encodeURIComponent(query)}`;
-    } else {
-      // Use /search/{endpoint} for other media types
-      let endpoint = "multi";
-      if (mediaType === "movie") endpoint = "movie";
-      else if (mediaType === "tv") endpoint = "tv";
-      else if (mediaType === "person") endpoint = "person";
+    const base = "https://api.themoviedb.org/3";
+    const key = process.env.TMDB_API_KEY;
+    const encoded = encodeURIComponent(query.trim());
 
-      url = `https://api.themoviedb.org/3/search/${endpoint}?api_key=${
-        process.env.TMDB_API_KEY
-      }&query=${encodeURIComponent(query)}`;
-    }
+    const url =
+      mediaType === "keyword"
+        ? `${base}/search/keyword?api_key=${key}&query=${encoded}`
+        : (() => {
+            let endpoint = "multi";
+            if (mediaType === "movie") endpoint = "movie";
+            else if (mediaType === "tv") endpoint = "tv";
+            else if (mediaType === "person") endpoint = "person";
+            return `${base}/search/${endpoint}?api_key=${key}&query=${encoded}`;
+          })();
 
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch data: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data, { status: 200 });
+    const data = await serverFetchJson<unknown>(url);
+    return jsonSuccess(data, {
+      maxAge: 300,
+      staleWhileRevalidate: 600,
+    });
   } catch (error) {
-    console.error("API Error:", error);
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
+    console.error("Search API error:", error);
+    return jsonError(
+      (error as Error).message ?? "Search request failed",
+      500
     );
   }
 }

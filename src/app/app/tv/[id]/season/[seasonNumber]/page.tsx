@@ -26,12 +26,17 @@ type SeasonPageProps = {
   params: Promise<{ id: string; seasonNumber: string }>;
 };
 
+const getNumericId = (value: string) => {
+  const match = String(value).match(/^\d+/);
+  return match ? match[0] : null;
+};
+
 // Fetch series and season data
 const fetchSeriesAndSeasonData = async (
   seriesId: string,
   seasonNumber: string
 ) => {
-  const apiKey = process.env.NEXT_PUBLIC_TMDB_API_KEY;
+  const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) {
     throw new Error("TMDb API key is missing");
   }
@@ -83,11 +88,15 @@ const fetchSeriesAndSeasonData = async (
 };
 
 const SeasonPage = async ({ params }: SeasonPageProps) => {
-  const { id, seasonNumber }: any = await params;
+  const { id: rawId, seasonNumber }: any = await params;
+  const numericId = getNumericId(rawId);
+  if (!numericId) {
+    return notFound();
+  }
 
   let data;
   try {
-    data = await fetchSeriesAndSeasonData(id, seasonNumber);
+    data = await fetchSeriesAndSeasonData(numericId, seasonNumber);
   } catch (error) {
     return (
       <div className="min-h-screen bg-neutral-900 text-neutral-200 flex items-center justify-center p-4">
@@ -121,7 +130,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
           )}
           <div className="flex-1">
             <Link
-              href={`/app/tv/${id}`}
+              href={`/app/tv/${numericId}`}
               className="text-2xl sm:text-4xl font-bold text-neutral-100  hover:underline "
             >
               {seriesName}
@@ -165,7 +174,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
             {currentSeason.episodes.length > 0 ? (
               currentSeason.episodes.map((episode: Episode) => (
                 <Link
-                  href={`/app/tv/${id}/season/${seasonNumber}/episode/${episode.episode_number}`}
+                  href={`/app/tv/${numericId}/season/${seasonNumber}/episode/${episode.episode_number}`}
                   key={episode.id}
                   className="flex flex-col sm:flex-row gap-4 bg-neutral-700 hover:bg-neutral-900 p-3 rounded-md"
                 >
@@ -213,7 +222,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
             {seasons.map((season: Season) => (
               <Link
                 key={season.id}
-                href={`/app/tv/${id}/season/${season.season_number}`}
+                href={`/app/tv/${numericId}/season/${season.season_number}`}
                 className={`flex flex-col items-center p-2 rounded-lg transition-colors duration-200 ${
                   season.season_number === currentSeasonNum
                     ? "bg-neutral-700"
@@ -245,7 +254,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
         {nextSeason && (
           <div className="text-center">
             <Link
-              href={`/app/tv/${id}/season/${nextSeason.season_number}`}
+              href={`/app/tv/${numericId}/season/${nextSeason.season_number}`}
               className="inline-block bg-blue-600 text-white py-2 px-6 rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors duration-300"
             >
               Next Season (Season {nextSeason.season_number})

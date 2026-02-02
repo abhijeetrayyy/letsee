@@ -11,6 +11,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!process.env.TMDB_API_KEY) {
+      return NextResponse.json(
+        { error: "TMDB_API_KEY is missing on the server." },
+        { status: 500 }
+      );
+    }
+
     // Fetch data from TMDB API
     const url = `https://api.themoviedb.org/3/search/${media_type}?api_key=${
       process.env.TMDB_API_KEY
@@ -19,7 +26,14 @@ export async function POST(request: Request) {
     const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(`TMDB API request failed: ${response.status}`);
+      return NextResponse.json(
+        {
+          error: "TMDB API request failed.",
+          upstream_status: response.status,
+          upstream_message: response.statusText,
+        },
+        { status: 502 }
+      );
     }
 
     const data = await response.json();

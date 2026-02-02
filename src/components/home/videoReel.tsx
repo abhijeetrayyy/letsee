@@ -8,6 +8,7 @@ import {
   FaVolumeUp,
 } from "react-icons/fa";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
+import { FetchError } from "@/components/ui/FetchError";
 
 // Extend Window interface for YouTube IFrame API
 declare global {
@@ -30,6 +31,7 @@ const HomeReelViewer: React.FC = () => {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -40,45 +42,46 @@ const HomeReelViewer: React.FC = () => {
   const videoSectionRef = useRef<HTMLDivElement>(null);
   const isMounted = useRef(false);
 
-  // Fetch top 5 movies with trailers
-  useEffect(() => {
-    const fetchTopMovies = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch("/api/homeVideo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          cache: "force-cache",
-          next: { revalidate: 86400 },
-        });
-        if (!response.ok) throw new Error("Failed to fetch top movies");
-        const data = await response.json();
-        const validMovies = data
-          .slice(0, 5)
-          .filter((movie: Movie) => movie.id && movie.title);
-        setMovies(
-          validMovies.length > 0
-            ? validMovies
-            : [
-                {
-                  id: 0,
-                  title: "No Video Available",
-                  poster_path: FALLBACK_IMAGE,
-                },
-              ]
-        );
-      } catch (err) {
-        console.error("Fetch Error:", err);
-        setMovies([
-          { id: 0, title: "No Video Available", poster_path: FALLBACK_IMAGE },
-        ]);
-      } finally {
-        setLoading(false);
+  const fetchTopMovies = useCallback(async () => {
+    setFetchError(null);
+    setLoading(true);
+    try {
+      const response = await fetch("/api/homeVideo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json?.error ?? "Failed to load trailers");
       }
-    };
-
-    fetchTopMovies();
+      const data = await response.json();
+      const validMovies = (Array.isArray(data) ? data : [])
+        .slice(0, 5)
+        .filter((movie: Movie) => movie.id && movie.title);
+      setMovies(
+        validMovies.length > 0
+          ? validMovies
+          : [
+              {
+                id: 0,
+                title: "No Video Available",
+                poster_path: FALLBACK_IMAGE,
+              },
+            ]
+      );
+    } catch (err) {
+      setFetchError((err as Error).message ?? "Couldn't load trailers");
+      setMovies([
+        { id: 0, title: "No Video Available", poster_path: FALLBACK_IMAGE },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchTopMovies();
+  }, [fetchTopMovies]);
 
   // Load YouTube script with error handling
   useEffect(() => {
@@ -286,6 +289,14 @@ const HomeReelViewer: React.FC = () => {
     setTouchStart(null);
     setTouchMove(null);
   }, [touchStart, touchMove, prevMovie, nextMovie]);
+
+  if (fetchError) {
+    return (
+      <div className="relative max-w-[1920px] mx-auto w-full rounded-md overflow-hidden">
+        <FetchError message={fetchError} onRetry={fetchTopMovies} />
+      </div>
+    );
+  }
 
   return (
     <div className="relative max-w-[1920px] mx-auto w-full h-[40rem] bg-black flex flex-col md:flex-row rounded-md overflow-hidden">

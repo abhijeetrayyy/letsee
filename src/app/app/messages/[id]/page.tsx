@@ -41,12 +41,17 @@ const Chat = () => {
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const isUuid = (value: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value
+    );
+
   const isRecipientValid = async (recipientId: string): Promise<boolean> => {
     const { data, error } = await supabase
       .from("users")
       .select("id")
       .eq("id", recipientId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error("Error validating recipient:", error.message);
@@ -61,7 +66,7 @@ const Chat = () => {
         .from("users")
         .select("username")
         .eq("id", userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Error fetching username:", error.message);
@@ -77,8 +82,9 @@ const Chat = () => {
       const { data: messageData, error: messageError } = await supabase
         .from("messages")
         .select("*")
-        .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
-        .or(`sender_id.eq.${recipientId},recipient_id.eq.${recipientId}`)
+        .or(
+          `and(sender_id.eq.${user.id},recipient_id.eq.${recipientId}),and(sender_id.eq.${recipientId},recipient_id.eq.${user.id})`
+        )
         .order("created_at", { ascending: false })
         .range(offsetValue, offsetValue + 49);
 
@@ -167,6 +173,11 @@ const Chat = () => {
       setUser(user);
 
       if (id) {
+        if (!isUuid(id)) {
+          setIsValidRecipient(false);
+          setLoading(false);
+          return;
+        }
         setRecipient(id);
         const valid = await isRecipientValid(id);
         setIsValidRecipient(valid);
@@ -258,7 +269,7 @@ const Chat = () => {
         } mb-4`}
       >
         <div
-          className={`break-words p-3 rounded-lg max-w-xs md:max-w-md lg:max-w-lg ${
+          className={`wrap-break-word p-3 rounded-lg max-w-xs md:max-w-md lg:max-w-lg ${
             msg.sender_id === user?.id
               ? "bg-blue-600 text-white"
               : "bg-gray-200 text-black"
@@ -317,9 +328,9 @@ const Chat = () => {
         </h2>
       </div>
       {!loading ? (
-        <div className="flex-grow flex flex-col max-h-[calc(100vh-130px)] max-w-3xl w-full m-auto">
+        <div className="grow flex flex-col max-h-[calc(100vh-130px)] max-w-3xl w-full m-auto">
           <div
-            className="chat-messages flex-grow overflow-y-auto bg-neutral-700 rounded-t-md vone-scrollbar p-4 "
+            className="chat-messages grow overflow-y-auto bg-neutral-700 rounded-t-md vone-scrollbar p-4 "
             ref={chatRef}
           >
             {isValidRecipient ? (
@@ -370,7 +381,7 @@ const Chat = () => {
                     sendMessage();
                   }
                 }}
-                className="flex-grow bg-gray-100 text-gray-800 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="grow bg-gray-100 text-gray-800 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 style={{
                   minHeight: "2.5rem",
                   maxHeight: "10rem",
@@ -395,7 +406,7 @@ const Chat = () => {
           </div>
         </div>
       ) : (
-        <div className="flex-grow flex items-center justify-center">
+        <div className="grow flex items-center justify-center">
           <p className="">Loading...</p>
         </div>
       )}

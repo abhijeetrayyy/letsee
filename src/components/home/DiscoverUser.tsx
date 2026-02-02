@@ -3,8 +3,9 @@
 import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { useApiFetch } from "@/hooks/useApiFetch";
+import { FetchError } from "@/components/ui/FetchError";
 
-// Define the User type
 interface User {
   username: string;
   about?: string;
@@ -15,34 +16,20 @@ interface User {
 
 function DiscoverUsers() {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = useState<boolean>(true);
   const [canScrollLeft, setCanScrollLeft] = useState<boolean>(false);
   const [canScrollRight, setCanScrollRight] = useState<boolean>(false);
-  const [users, setUsers] = useState<User[]>([]);
-  const [fetchError, setFetchError] = useState<string>("");
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await fetch("/api/HomeDiscover", {
-          credentials: "include", // Include cookies for auth
-        });
-        if (response.ok) {
-          const { users } = await response.json();
-          setUsers(users || []);
-        } else {
-          setFetchError("Error fetching users");
-        }
-      } catch (error) {
-        console.error("Failed to fetch users:", error);
-        setFetchError("Error fetching users");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const {
+    data,
+    error: fetchError,
+    loading,
+    refetch,
+  } = useApiFetch<{ users?: User[] }>("/api/HomeDiscover", {
+    credentials: "include",
+    enabled: true,
+  });
 
-    fetchUsers();
-  }, []);
+  const users = data?.users ?? [];
 
   const handleScroll = () => {
     const element = scrollRef.current;
@@ -81,7 +68,14 @@ function DiscoverUsers() {
   }, [users, loading]);
 
   if (fetchError) {
-    return <div>{fetchError}</div>;
+    return (
+      <div className="w-full mx-auto mb-5 md:px-4">
+        <FetchError
+          message={fetchError === "Request failed (401)" ? "Log in to discover users." : fetchError}
+          onRetry={refetch}
+        />
+      </div>
+    );
   }
 
   return (
@@ -100,16 +94,16 @@ function DiscoverUsers() {
           >
             {loading
               ? [...Array(5)].map((_, index) => (
-                  <div
-                    key={index}
-                    className="w-48 sm:w-56 md:w-72 h-64 bg-neutral-800 rounded-xl shadow-lg animate-pulse flex-shrink-0"
-                  />
+                <div
+                  key={index}
+                  className="w-48 sm:w-56 md:w-72 h-64 bg-neutral-800 rounded-xl shadow-lg animate-pulse shrink-0"
+                />
                 ))
               : users.map((item) => (
                   <Link
                     key={item.username}
                     href={`/app/profile/${item.username}`}
-                    className="user-card min-w-[12rem] sm:min-w-[14rem] md:min-w-[18rem] bg-neutral-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 hover:bg-[#1d1d1d] overflow-hidden flex-shrink-0 flex flex-col h-full"
+                    className="user-card min-w-48 sm:min-w-56 md:min-w-[18rem] bg-neutral-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 hover:bg-[#1d1d1d] overflow-hidden shrink-0 flex flex-col h-full"
                   >
                     <div className="p-4 sm:p-6 flex flex-col h-full">
                       <div className="flex items-center gap-3 sm:gap-4">
@@ -129,7 +123,7 @@ function DiscoverUsers() {
                       </div>
 
                       {/* Stats */}
-                      <div className="mt-4 sm:mt-6 space-y-2 sm:space-y-3 flex-grow">
+                      <div className="mt-4 sm:mt-6 space-y-2 sm:space-y-3 grow">
                         <div className="flex justify-between items-center p-2 sm:p-3 bg-neutral-700 rounded-lg group-hover:bg-neutral-900 transition-colors duration-300">
                           <p className="text-xs sm:text-sm text-neutral-200 group-hover:text-neutral-100">
                             Watched
@@ -161,7 +155,7 @@ function DiscoverUsers() {
             {!loading && (
               <Link
                 href="/app/profile"
-                className="min-w-[12rem] sm:min-w-[14rem] md:min-w-[18rem] h-auto bg-neutral-800 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-neutral-700 hover:border-neutral-500 overflow-hidden flex items-center justify-center flex-shrink-0"
+                className="min-w-48 sm:min-w-56 md:min-w-[18rem] h-auto bg-neutral-800 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-neutral-700 hover:border-neutral-500 overflow-hidden flex items-center justify-center shrink-0"
               >
                 <div className="text-neutral-100 font-semibold text-sm sm:text-base">
                   More
@@ -172,14 +166,14 @@ function DiscoverUsers() {
 
           {/* Left Fade Overlay */}
           <div
-            className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-16 bg-gradient-to-r from-black to-transparent pointer-events-none transition-opacity duration-300 ${
+            className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-16 bg-linear-to-r from-black to-transparent pointer-events-none transition-opacity duration-300 ${
               canScrollLeft ? "opacity-80" : "opacity-0"
             }`}
           />
 
           {/* Right Fade Overlay */}
           <div
-            className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-16 bg-gradient-to-l from-black to-transparent pointer-events-none transition-opacity duration-300 ${
+            className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-16 bg-linear-to-l from-black to-transparent pointer-events-none transition-opacity duration-300 ${
               canScrollRight ? "opacity-80" : "opacity-0"
             }`}
           />

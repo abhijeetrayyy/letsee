@@ -23,7 +23,7 @@ const Visibility: React.FC = () => {
         .from("users")
         .select("visibility")
         .eq("id", user?.user?.id)
-        .single();
+        .maybeSingle();
       if (visibilityError) {
         console.error("Error fetching visibility:", visibilityError.message);
         return;

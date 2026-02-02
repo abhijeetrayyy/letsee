@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/utils/supabase/client";
 import { createClient } from "@/utils/supabase/server";
 
 // Define the User type
@@ -14,7 +13,16 @@ interface User {
 export async function GET(request: Request) {
   const supabase = await createClient();
   try {
-    // Check if the user is authenticated (optional, depending on your requirements)
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "User isn't logged in" },
+        { status: 401 }
+      );
+    }
 
     // Fetch users and their stats from Supabase
     const { data: usersData, error: dbError } = await supabase

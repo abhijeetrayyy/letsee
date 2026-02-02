@@ -1,45 +1,84 @@
 import Link from "next/link";
 import React from "react";
+import { tmdbFetchJson } from "@/utils/tmdb";
+import { notFound } from "next/navigation";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+const getNumericId = (value: string) => {
+  const match = String(value).match(/^\d+/);
+  return match ? match[0] : null;
+};
+
+async function getShowDetails(id: string) {
+  return tmdbFetchJson<any>(
+    `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}`,
+    "TV show details",
+    { next: { revalidate: 3600 } }
+  );
+}
+
+async function getShowCredit(id: string) {
+  return tmdbFetchJson<any>(
+    `https://api.themoviedb.org/3/tv/${id}/credits?api_key=${process.env.TMDB_API_KEY}&language=en-US`,
+    "TV show credits",
+    { next: { revalidate: 3600 } }
+  );
+}
+
 async function page({ params }: PageProps) {
-  const { id }: any = await params;
-
-  async function getShowDetails(id: string) {
-    const response = await fetch(
-      `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}`
-    );
-
-    const data = await response.json();
-    return data;
+  const rawId = (await params).id;
+  const numericId = getNumericId(rawId);
+  if (!numericId) {
+    return notFound();
   }
-  async function getShowCredit(id: string) {
-    const response = await fetch(
-      `https://api.themoviedb.org/3/tv/${id}/credits?api_key=${process.env.TMDB_API_KEY}&language=en-US`
+
+  const [showResult, creditsResult] = await Promise.all([
+    getShowDetails(numericId),
+    getShowCredit(numericId),
+  ]);
+
+  const errors = [showResult.error, creditsResult.error].filter(
+    Boolean
+  ) as string[];
+
+  if (!showResult.data || !creditsResult.data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-900 text-neutral-200 p-4">
+        <div className="max-w-xl text-center">
+          <p className="text-lg font-semibold">Cast data unavailable.</p>
+          {errors.length > 0 && (
+            <ul className="mt-3 text-sm text-amber-200 list-disc list-inside">
+              {errors.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-sm text-neutral-400">
+            Try refreshing in a moment.
+          </p>
+        </div>
+      </div>
     );
-
-    const data = await response.json();
-    return data;
   }
-  const show = await getShowDetails(id);
 
-  const { cast, crew } = await getShowCredit(id);
+  const show = showResult.data;
+  const { cast, crew } = creditsResult.data;
   return (
     <div>
       <div className="relative w-full flex flex-col  overflow-y-clip justify-center items-center min-h-[590px]">
         <div className="absolute w-full  h-full overflow-hidden">
           <div
-            className="absolute inset-0 z-10 bg-gradient-to-r from-neutral-900 via-transparent to-neutral-900"
+            className="absolute inset-0 z-10 bg-linear-to-r from-neutral-900 via-transparent to-neutral-900"
             style={{
               background:
                 "linear-gradient(to left,  #171717, transparent 60%, #171717, #171717)",
             }}
           ></div>
           <div
-            className="absolute inset-0 z-10 bg-gradient-to-l from-neutral-900 via-transparent to-neutral-900"
+            className="absolute inset-0 z-10 bg-linear-to-l from-neutral-900 via-transparent to-neutral-900"
             style={{
               background:
                 "linear-gradient(to right,  #171717, transparent 60%, #171717, #171717)",
@@ -61,7 +100,7 @@ async function page({ params }: PageProps) {
         <div className="z-10 relative flex flex-row gap-5 py-3 px-6 w-full max-w-6xl">
           <div className="flex-1">
             <img
-              className="min-h[500px] rounded-md"
+              className="min-h-[500px] rounded-md"
               src={
                 show.adult
                   ? "/pixeled.webp"
@@ -70,7 +109,7 @@ async function page({ params }: PageProps) {
               alt={show.name}
             />
           </div>
-          <div className="flex-[2]">
+          <div className="flex-2">
             <h1 className="text-4xl font-bold mb-4">
               {" "}
               {show?.adult && (
@@ -83,7 +122,7 @@ async function page({ params }: PageProps) {
                 href={`/app/tv/${show.id}-${show.name
                   .trim()
                   .replace(/[^a-zA-Z0-9]/g, "-")
-                  .replace(/-+/g, "-")}}`}
+                  .replace(/-+/g, "-")}`}
               >
                 <h1 className="text-xl font-bold">{show.name}</h1>
               </Link>
@@ -129,7 +168,7 @@ async function page({ params }: PageProps) {
               href={`/app/person/${item.id}-${item.name
                 .trim()
                 .replace(/[^a-zA-Z0-9]/g, "-")
-                .replace(/-+/g, "-")}}`}
+                .replace(/-+/g, "-")}`}
             >
               <div className="flex flex-col md:flex-row gap-4 mb-4 ">
                 <img
@@ -158,7 +197,7 @@ async function page({ params }: PageProps) {
               href={`/app/person/${item.id}-${item.name
                 .trim()
                 .replace(/[^a-zA-Z0-9]/g, "-")
-                .replace(/-+/g, "-")}}`}
+                .replace(/-+/g, "-")}`}
             >
               <div>
                 <img

@@ -5,49 +5,42 @@ import { notFound } from "next/navigation";
 import PersonCredits from "@/components/person/server/personCredits";
 import Biography from "@/components/person/client/Biography";
 import Image from "next/image";
+import { tmdbFetchJson } from "@/utils/tmdb";
+
+const REVALIDATE_DAY = 86400;
+const base = (path: string) =>
+  `https://api.themoviedb.org/3/person/${path}?api_key=${process.env.TMDB_API_KEY}&language=en-US`;
 
 async function fetchPersonData(id: string) {
-  const response = await fetch(
-    `https://api.themoviedb.org/3/person/${id}?api_key=${process.env.TMDB_API_KEY}&language=en-US`,
-    { next: { revalidate: 86400 } } // Cache for 24 hours
+  return tmdbFetchJson<Record<string, unknown>>(
+    base(`${id}`),
+    "Person details",
+    { revalidate: REVALIDATE_DAY }
   );
-  if (!response.ok) {
-    throw new Error("Failed to fetch person details");
-  }
-  return response.json();
 }
 
 async function fetchExternalIds(id: string) {
-  const response = await fetch(
-    `https://api.themoviedb.org/3/person/${id}/external_ids?api_key=${process.env.TMDB_API_KEY}&language=en-US`,
-    { next: { revalidate: 86400 } }
+  return tmdbFetchJson<Record<string, unknown>>(
+    base(`${id}/external_ids`),
+    "Person external IDs",
+    { revalidate: REVALIDATE_DAY }
   );
-  if (!response.ok) {
-    throw new Error("Failed to fetch external IDs");
-  }
-  return response.json();
 }
 
 async function fetchPersonCredits(id: string) {
-  const response = await fetch(
-    `https://api.themoviedb.org/3/person/${id}/combined_credits?api_key=${process.env.TMDB_API_KEY}&language=en-US`,
-    { next: { revalidate: 86400 } }
+  return tmdbFetchJson<{ cast: unknown[]; crew: unknown[] }>(
+    base(`${id}/combined_credits`),
+    "Person credits",
+    { revalidate: REVALIDATE_DAY }
   );
-  if (!response.ok) {
-    throw new Error("Failed to fetch person credits");
-  }
-  return response.json();
 }
 
 async function getImages(id: string) {
-  const response = await fetch(
+  return tmdbFetchJson<Record<string, unknown>>(
     `https://api.themoviedb.org/3/person/${id}/images?api_key=${process.env.TMDB_API_KEY}`,
-    { next: { revalidate: 86400 } }
+    "Person images",
+    { revalidate: REVALIDATE_DAY }
   );
-  if (!response.ok) {
-    throw new Error("Failed to fetch person images");
-  }
-  return response.json();
 }
 
 type Params = Promise<{ id: string }>;
@@ -63,13 +56,40 @@ const PersonList = async ({ params }: PageProps) => {
     return notFound();
   }
 
+  const numericId = String(id).split("-")[0];
+  if (!/^\d+$/.test(numericId)) {
+    return notFound();
+  }
+
   try {
-    const [person, { cast, crew }, person_ids, images] = await Promise.all([
-      fetchPersonData(id),
-      fetchPersonCredits(id),
-      fetchExternalIds(id),
-      getImages(id), // Now fetching images
-    ]);
+    const [personResult, creditsResult, externalIdsResult, imagesResult] =
+      await Promise.all([
+        fetchPersonData(numericId),
+        fetchPersonCredits(numericId),
+        fetchExternalIds(numericId),
+        getImages(numericId),
+      ]);
+
+    if (personResult.error || !personResult.data) {
+      throw new Error(personResult.error ?? "Failed to fetch person details");
+    }
+    const person = personResult.data as {
+      name?: string;
+      profile_path?: string | null;
+      biography?: string;
+      birthday?: string;
+      place_of_birth?: string;
+      known_for_department?: string;
+    };
+
+    const credits = creditsResult.data ?? { cast: [], crew: [] };
+    const person_ids = (externalIdsResult.data ?? {}) as {
+      twitter_id?: string;
+      instagram_id?: string;
+    };
+    const images = imagesResult.data ?? {};
+
+    const { cast = [], crew = [] } = credits;
 
     // Filter top 5 "Known For" based on popularity and vote average
     const knownFor = cast
@@ -86,7 +106,7 @@ const PersonList = async ({ params }: PageProps) => {
         <div className="max-w-6xl w-full px-2 py-8">
           {/* Artist Introduction */}
           <div className="flex flex-col md:flex-row gap-8 mb-12">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               {person.profile_path ? (
                 <img
                   src={`https://image.tmdb.org/t/p/h632${person.profile_path}`}
@@ -147,14 +167,30 @@ const PersonList = async ({ params }: PageProps) => {
               </div>
             }
           >
-            <PersonCredits cast={cast} crew={crew} name={person.name} />
+            <PersonCredits cast={cast} crew={crew} name={person.name ?? ""} />
           </Suspense>
         </div>
       </div>
     );
   } catch (error) {
     console.error("Error fetching person data:", error);
-    return notFound();
+    const message = (error as Error).message || "";
+    if (message.includes("404")) {
+      return notFound();
+    }
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-900 text-neutral-200 p-4">
+        <div className="max-w-xl text-center">
+          <p className="text-lg font-semibold">Person data unavailable.</p>
+          <p className="mt-3 text-sm text-amber-200">
+            {message || "Unable to fetch person details."}
+          </p>
+          <p className="mt-3 text-sm text-neutral-400">
+            Try refreshing in a moment.
+          </p>
+        </div>
+      </div>
+    );
   }
 };
 

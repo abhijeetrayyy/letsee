@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
-  const next = searchParams.get("next") ?? "/";
+  const next = searchParams.get("next") ?? "/app";
 
   if (token_hash && type) {
     const supabase = await createClient();
@@ -23,6 +23,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // redirect the user to an error page with some instructions
-  redirect("/error");
+  // redirect the user to login with an error message
+  redirect("/login?error=Invalid%20or%20expired%20link");
 }

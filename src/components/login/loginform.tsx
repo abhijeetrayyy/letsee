@@ -5,21 +5,22 @@ import React, { useState } from "react";
 
 type LoginFormProps = {
   onLogin: (email: string, password: string) => Promise<void>;
-  onSignup: (email: string, password: string) => Promise<void>;
   loading: boolean;
   error: string;
+  info?: string;
 };
 
 const LoginForm: React.FC<LoginFormProps> = ({
   onLogin,
-
   loading,
   error,
+  info,
 }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event?: React.FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
     await onLogin(email, password);
   };
 
@@ -38,7 +39,10 @@ const LoginForm: React.FC<LoginFormProps> = ({
           </h1>
           <p>Social media for cinema.</p>
         </div>
-        <form className={"flex flex-col max-w-sm w-full m-auto gap-2"}>
+        <form
+          className={"flex flex-col max-w-sm w-full m-auto gap-2"}
+          onSubmit={handleSubmit}
+        >
           <label className="text-neutral-100 pl-2" htmlFor="email">
             Email
           </label>
@@ -47,7 +51,6 @@ const LoginForm: React.FC<LoginFormProps> = ({
             id="email"
             name="email"
             type="email"
-            onKeyDown={(e) => e.key == "enter" && handleSubmit}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -61,10 +64,10 @@ const LoginForm: React.FC<LoginFormProps> = ({
             name="password"
             type="password"
             value={password}
-            onKeyDown={(e) => e.key == "enter" && handleSubmit}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+          {info && <p className="text-emerald-400">{info}</p>}
           {error && <p className="text-red-500">{error}</p>}
 
           <p className="mt-3 text-white">
@@ -76,8 +79,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
           <div className="flex flex-col gap-3 mt-1">
             <button
               className="text-neutral-100 bg-indigo-700 py-2 rounded-md w-full hover:bg-indigo-600"
-              type="button"
-              onClick={() => handleSubmit()}
+              type="submit"
               disabled={loading}
             >
               Log in

@@ -1,21 +1,16 @@
 import TvGenre from "@components/scroll/tvGenre";
-import Link from "next/link";
+import { tmdbFetchJson } from "@/utils/tmdb";
+
+const REVALIDATE_DAY = 86400;
 
 async function page({ children }: { children: React.ReactNode }) {
-  async function getMovieGenre() {
-    try {
-      const response = await fetch(
-        `https://api.themoviedb.org/3/genre/tv/list?api_key=${process.env.TMDB_API_KEY}`
-      );
-      const res = await response.json();
-      return { genrelist: res.genres };
-    } catch (error) {
-      console.log(error);
-      return { error };
-    }
-  }
+  const result = await tmdbFetchJson<{ genres: { id: number; name: string }[] }>(
+    `https://api.themoviedb.org/3/genre/tv/list?api_key=${process.env.TMDB_API_KEY}`,
+    "TV genre list",
+    { revalidate: REVALIDATE_DAY }
+  );
+  const genrelist = result.data?.genres ?? [];
 
-  const { genrelist } = await getMovieGenre();
   return (
     <div>
       <div className="w-full max-w-7xl my-3 m-auto">

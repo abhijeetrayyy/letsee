@@ -35,13 +35,18 @@ interface PageProps {
   params: Promise<{ id: string; seasonNumber: string; episodeId: string }>;
 }
 
+const getNumericId = (value: string) => {
+  const match = String(value).match(/^\d+/);
+  return match ? match[0] : null;
+};
+
 // Fetch episode data from TMDb
 const fetchEpisodeData = async (
   id: string,
   seasonNumber: string,
   episodeId: string
 ) => {
-  const apiKey = process.env.NEXT_PUBLIC_TMDB_API_KEY;
+  const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) {
     throw new Error("TMDb API key is missing");
   }
@@ -90,9 +95,14 @@ const fetchEpisodeData = async (
 };
 
 const EpisodePage = async ({ params }: PageProps) => {
-  const id = (await params).id;
+  const rawId = (await params).id;
+  const id = getNumericId(rawId);
   const seasonNumber = (await params).seasonNumber;
   const episodeId = (await params).episodeId;
+
+  if (!id) {
+    return notFound();
+  }
 
   let data;
   try {

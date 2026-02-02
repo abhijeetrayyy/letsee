@@ -39,11 +39,9 @@ const CleanWatchlist = () => {
             .select("id")
             .eq("user_id", userId)
             .eq("item_id", item.item_id)
-            .single();
+            .maybeSingle();
 
-          if (watchedError && watchedError.code !== "PGRST116") {
-            throw watchedError;
-          }
+          if (watchedError) throw watchedError;
 
           // If the item exists in watched_items, remove it from watchlist_items
           if (watchedItem) {

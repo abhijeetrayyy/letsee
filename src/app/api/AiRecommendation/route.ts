@@ -4,15 +4,6 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// Fetch genre list from TMDB
-async function fetchMovieGenres() {
-  const response = await fetch(
-    `https://api.themoviedb.org/3/genre/movie/list?api_key=${process.env.TMDB_API_KEY}`
-  );
-  const data = await response.json();
-  return data.genres; // Returns an array of genre objects: { id: number, name: string }
-}
-
 export async function GET() {
   const supabase = await createClient();
 
@@ -26,6 +17,22 @@ export async function GET() {
   }
 
   const userId = data.user.id;
+  const tmdbKey = process.env.TMDB_API_KEY;
+  const googleKey = process.env.GOOGLE_KEY;
+
+  if (!tmdbKey) {
+    return NextResponse.json(
+      { error: "TMDB_API_KEY is missing on the server." },
+      { status: 500 }
+    );
+  }
+
+  if (!googleKey) {
+    return NextResponse.json(
+      { error: "GOOGLE_KEY is missing on the server." },
+      { status: 500 }
+    );
+  }
 
   try {
     // Fetch user's favorite movies
@@ -40,10 +47,20 @@ export async function GET() {
       .select("item_name")
       .eq("user_id", userId);
 
-    const favoriteTitles = userFavorites
+    if (userFavoritesError || userWatchedError) {
+      return NextResponse.json(
+        { error: "Failed to fetch user preferences." },
+        { status: 500 }
+      );
+    }
+
+    const favoriteList = Array.isArray(userFavorites) ? userFavorites : [];
+    const watchedList = Array.isArray(userWatched) ? userWatched : [];
+
+    const favoriteTitles = favoriteList
       .map((movie: any) => movie.item_name)
       .join(", ");
-    const watchedTitles = userWatched
+    const watchedTitles = watchedList
       .map((movie: any) => movie.item_name)
       .join(", ");
 
@@ -58,13 +75,25 @@ Based on my preferences, recommend 5 movies I might like. The recommended movies
 Do not include any additional text, explanations, or formatting. Just return the 5 movie titles as a comma-separated list.
 `;
     const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.GOOGLE_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${googleKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
       }
     );
+
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text().catch(() => "");
+      return NextResponse.json(
+        {
+          error: "Gemini request failed.",
+          upstream_status: geminiResponse.status,
+          upstream_message: errorText || geminiResponse.statusText,
+        },
+        { status: 502 }
+      );
+    }
 
     const geminiData = await geminiResponse.json();
     console.log(geminiData);
@@ -89,10 +118,16 @@ Do not include any additional text, explanations, or formatting. Just return the
       async (title: string | number | boolean) => {
         try {
           const tmdbSearchResponse = await fetch(
-            `https://api.themoviedb.org/3/search/movie?api_key=${
-              process.env.TMDB_API_KEY
-            }&query=${encodeURIComponent(title)}`
+            `https://api.themoviedb.org/3/search/movie?api_key=${tmdbKey}&query=${encodeURIComponent(
+              title
+            )}`
           );
+          if (!tmdbSearchResponse.ok) {
+            console.error(
+              `TMDB search failed for ${title}: ${tmdbSearchResponse.status}`
+            );
+            return null;
+          }
           const tmdbSearchData = await tmdbSearchResponse.json();
 
           if (tmdbSearchData.results && tmdbSearchData.results.length > 0) {

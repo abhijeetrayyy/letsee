@@ -84,6 +84,13 @@ async function fetchGenres(
 // API route function
 export async function POST(req: Request) {
   try {
+    if (!TMDB_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "TMDB_API_KEY is missing on the server." }),
+        { status: 500 }
+      );
+    }
+
     const supabase = await createClient();
 
     // Fetch watched items with null genres

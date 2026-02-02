@@ -18,6 +18,10 @@ function Page() {
   const searchParams = useSearchParams();
   const params = useParams();
   const { id } = params;
+  const rawId = Array.isArray(id) ? id[0] : (id as string) || "";
+  const decodedId = decodeURIComponent(rawId);
+  const [genreId, ...nameParts] = decodedId.split("-");
+  const genreName = nameParts.join("-") || decodedId;
 
   const page = Number(searchParams.get("page")) || 1;
 
@@ -30,7 +34,7 @@ function Page() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ genreId: id, page }),
+          body: JSON.stringify({ genreId, page }),
         });
 
         if (!response.ok) {
@@ -46,8 +50,10 @@ function Page() {
       setLoading(false);
     };
 
-    fetchData();
-  }, [id, page]);
+    if (genreId) {
+      fetchData();
+    }
+  }, [genreId, page]);
 
   const handleCardTransfer = (data: any) => {
     setCardData(data);
@@ -58,7 +64,11 @@ function Page() {
     setLoading(true);
     const newSearchParams = new URLSearchParams(searchParams);
     newSearchParams.set("page", newPage.toString());
-    router.push(`/app/tvbygenre/list/${id}?${newSearchParams.toString()}`);
+    router.push(
+      `/app/tvbygenre/list/${encodeURIComponent(
+        decodedId
+      )}?${newSearchParams.toString()}`
+    );
   };
 
   return (
@@ -71,7 +81,7 @@ function Page() {
       />
       <div>
         <p>
-          Search Results: {decodeURIComponent(id as string)} &apos;
+          Search Results: {genreName} &apos;
           {Sresults?.total_results}&apos; items
         </p>
       </div>
@@ -150,10 +160,10 @@ function Page() {
                       className="w-full flex flex-col gap-2  px-4  bg-indigo-700  text-gray-200 "
                     >
                       <Link
-                        href={`/app/tv/${data.id}--${(data.name || data.title)
+                        href={`/app/tv/${data.id}-${(data.name || data.title)
                           .trim()
                           .replace(/[^a-zA-Z0-9]/g, "-")
-                          .replace(/-+/g, "-")}}`}
+                          .replace(/-+/g, "-")}`}
                         className="mb-1"
                       >
                         <span className="">

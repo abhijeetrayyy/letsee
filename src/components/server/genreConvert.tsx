@@ -1,4 +1,3 @@
-"use client";
 import React from "react";
 import { GenreList } from "@/staticData/genreList";
 import Link from "next/link";
@@ -20,7 +19,7 @@ function genreConvert({ genreids }: any) {
       {idsName?.map((item: any) => (
         <Link
           key={item.id}
-          className="rounded-sm mr-1 bg-gray-700 text-white break-words"
+          className="rounded-sm mr-1 bg-gray-700 text-white wrap-break-word"
           href={`/app/genre/${item.id}-${item.name}`}
         >
           {item.name}

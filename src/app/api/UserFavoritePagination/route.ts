@@ -15,6 +15,39 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = await createClient();
+    const {
+      data: { user: viewer },
+    } = await supabase.auth.getUser();
+    const viewerId = viewer?.id ?? null;
+
+    const { data: profile, error: profileError } = await supabase
+      .from("users")
+      .select("visibility")
+      .eq("id", userID)
+      .maybeSingle();
+
+    if (profileError || !profile) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const visibility = profile.visibility ?? "public";
+    let canView = visibility === "public" || (viewerId && viewerId === userID);
+
+    if (!canView && viewerId && visibility === "followers") {
+      const { data: connection } = await supabase
+        .from("user_connections")
+        .select("id")
+        .eq("follower_id", viewerId)
+        .eq("followed_id", userID)
+        .maybeSingle();
+      if (connection) {
+        canView = true;
+      }
+    }
+
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     const pageNumber = Number(page);
     const itemsPerPage = Number(limit);
     const offset = (pageNumber - 1) * itemsPerPage;
@@ -42,8 +75,9 @@ export async function POST(req: NextRequest) {
       perloadLength: data.length,
     });
   } catch (error) {
+    console.error("UserFavoritePagination error:", error);
     return NextResponse.json(
-      { error: "An error occurred", details: error },
+      { error: "An error occurred" },
       { status: 500 }
     );
   }

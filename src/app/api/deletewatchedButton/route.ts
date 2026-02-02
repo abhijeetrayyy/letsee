@@ -25,12 +25,19 @@ export async function POST(req: NextRequest) {
     let removedFromFavorites = false;
 
     // Check if the item exists in watched_items
-    const { data: watchedItem } = await supabase
+    const { data: watchedItem, error: watchedError } = await supabase
       .from("watched_items")
       .select("id")
       .eq("user_id", userId)
       .eq("item_id", itemId)
-      .single();
+      .maybeSingle();
+
+    if (watchedError) {
+      return NextResponse.json(
+        { error: "Failed to fetch watched items." },
+        { status: 500 }
+      );
+    }
 
     if (watchedItem) {
       await removeFromWatched(userId, itemId);
@@ -38,12 +45,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if the item exists in favorite_items
-    const { data: favoriteItem } = await supabase
+    const { data: favoriteItem, error: favoriteError } = await supabase
       .from("favorite_items")
       .select("id")
       .eq("user_id", userId)
       .eq("item_id", itemId)
-      .single();
+      .maybeSingle();
+
+    if (favoriteError) {
+      return NextResponse.json(
+        { error: "Failed to fetch favorites." },
+        { status: 500 }
+      );
+    }
 
     if (favoriteItem) {
       await removeFromFavorites(userId, itemId);

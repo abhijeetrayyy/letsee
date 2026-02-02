@@ -32,7 +32,7 @@ function ProfilePage() {
           .from("users")
           .select("username, about")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
 
         if (data) {
           setAlreadyExists(true);
@@ -85,9 +85,14 @@ function ProfilePage() {
         .from("users")
         .select("username")
         .eq("username", sanitized)
-        .single();
+        .maybeSingle();
 
-      setUsernameAvailable(!data); // If no data, username is available
+      if (error) {
+        console.error("Error checking username:", error);
+        setUsernameAvailable(false);
+      } else {
+        setUsernameAvailable(!data);
+      }
     } catch (error) {
       console.error("Error checking username:", error);
       setUsernameAvailable(false);
@@ -151,7 +156,7 @@ function ProfilePage() {
         .from("users")
         .select("username")
         .eq("id", updatedUser?.id)
-        .single();
+        .maybeSingle();
       setLoading(true);
 
       if (data?.username) {

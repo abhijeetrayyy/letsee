@@ -6,7 +6,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-neutral-700 text-white">
       {/* Hero Section */}
       <header className="relative py-20 text-center">
-        <div className="absolute inset-0 bg-gradient-to-b from-neutral-900/50 to-neutral-700" />
+        <div className="absolute inset-0 bg-linear-to-b from-neutral-900/50 to-neutral-700" />
         <div className="relative z-10">
           <h1 className="text-5xl font-bold mb-4">Welcome to Movie Social</h1>
           <p className="text-xl text-neutral-300 mb-8">
@@ -37,7 +37,7 @@ export default function HomePage() {
               with ease.
             </p>
             <Link
-              href="/app/lists"
+            href="/app/profile"
               className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition"
             >
               View Lists
@@ -55,7 +55,7 @@ export default function HomePage() {
               powered by TMDB.
             </p>
             <Link
-              href="/app/search"
+            href="/app"
               className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition"
             >
               Start Searching
@@ -71,7 +71,7 @@ export default function HomePage() {
               the app.
             </p>
             <Link
-              href="/app/share"
+            href="/app/messages"
               className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition"
             >
               Share Now
@@ -87,7 +87,7 @@ export default function HomePage() {
               our chat feature.
             </p>
             <Link
-              href="/app/chat"
+            href="/app/messages"
               className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition"
             >
               Start Chatting
@@ -103,7 +103,7 @@ export default function HomePage() {
               love.
             </p>
             <Link
-              href="/app/reels"
+            href="/app/reel"
               className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition"
             >
               Watch Reels
@@ -119,7 +119,7 @@ export default function HomePage() {
               platform.
             </p>
             <Link
-              href="/app/features"
+            href="/app"
               className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition"
             >
               Explore All

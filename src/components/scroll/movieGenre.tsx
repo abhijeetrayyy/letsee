@@ -9,7 +9,7 @@ function MovieGenre({ genre }: any) {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
-  // Use static movieGenres instead of prop if genre.genres is undefined
+  const items = Array.isArray(genre) ? genre : [];
 
   const handleScroll = () => {
     const element = scrollRef.current;
@@ -47,16 +47,24 @@ function MovieGenre({ genre }: any) {
     }
   }, [genre]);
 
+  if (items.length === 0) {
+    return (
+      <p className="text-sm text-neutral-400">
+        Genres are unavailable right now.
+      </p>
+    );
+  }
+
   return (
     <div className="relative">
       <div
         ref={scrollRef}
         className="relative flex flex-row overflow-x-auto no-scrollbar gap-2 py-3 z-10"
       >
-        {genre.map((genreItem: any) => (
+        {items.map((genreItem: any) => (
           <Link
             href={`/app/moviebygenre/list/${genreItem.id}-${genreItem.name}`}
-            className="card-item h-24 min-w-32 sm:min-w-40 md:min-w-48 rounded-md overflow-hidden flex-shrink-0 flex items-center justify-center bg-neutral-800 bg-opacity-80 hover:bg-opacity-100"
+            className="card-item h-24 min-w-32 sm:min-w-40 md:min-w-48 rounded-md overflow-hidden shrink-0 flex items-center justify-center bg-neutral-800 bg-opacity-80 hover:bg-opacity-100"
             key={genreItem.id}
           >
             <span className="text-white text-sm sm:text-base md:text-lg font-semibold drop-shadow-md">
@@ -68,14 +76,14 @@ function MovieGenre({ genre }: any) {
 
       {/* Left Fade Overlay */}
       <div
-        className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-16 bg-gradient-to-r from-black to-transparent pointer-events-none transition-opacity duration-300 ${
+        className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-16 bg-linear-to-r from-black to-transparent pointer-events-none transition-opacity duration-300 ${
           canScrollLeft ? "opacity-80" : "opacity-0"
         }`}
       />
 
       {/* Right Fade Overlay */}
       <div
-        className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-16 bg-gradient-to-l from-black to-transparent pointer-events-none transition-opacity duration-300 ${
+        className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-16 bg-linear-to-l from-black to-transparent pointer-events-none transition-opacity duration-300 ${
           canScrollRight ? "opacity-80" : "opacity-0"
         }`}
       />

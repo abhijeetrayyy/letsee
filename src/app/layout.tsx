@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { SearchProvider } from "./contextAPI/searchContext";
 import AuthProvider from "./contextAPI/AuthProvider";
+import { LogedNavbar } from "@components/header/navbar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +32,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          <SearchProvider>{children}</SearchProvider>
+          <SearchProvider>
+            <header className="sticky top-0 w-full m-auto z-50 bg-neutral-900">
+              <LogedNavbar />
+            </header>
+            {children}
+          </SearchProvider>
         </AuthProvider>
       </body>
     </html>

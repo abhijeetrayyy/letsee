@@ -1,60 +1,20 @@
-"use client";
+import { Suspense } from "react";
+import SignupPageClient from "./SignupPageClient";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
-import SignupForm from "@/components/signup/signupForm";
-import { supabase } from "@/utils/supabase/client";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-// import { toast, ToastContainer } from "react-toastify";
-// import "react-toastify/dist/ReactToastify.css";
-
-export default function LoginPage() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const router = useRouter();
-
-  // Check if user is already logged in
-  useEffect(() => {
-    const checkUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session) {
-        router.push("/app"); // Redirect to /app if user is logged in
-      }
-    };
-    checkUser();
-  }, [router]);
-
-  const signup = async (email: string, password: string) => {
-    setLoading(true);
-    setError("");
-
-    const { error } = await supabase.auth.signUp({ email, password });
-
-    if (error) {
-      setLoading(false);
-      setError(error.message);
-    } else {
-      // toast.success(
-      //   "Sign-up successful! Please check your email to confirm your account.",
-      //   {
-      //     position: "top-right",
-      //     autoClose: 5000,
-      //     hideProgressBar: false,
-      //     closeOnClick: true,
-      //     pauseOnHover: true,
-      //     draggable: true,
-      //     progress: undefined,
-      //   }
-      // );
-      router.refresh();
-    }
-  };
-
+function SignupLoading() {
   return (
-    <>
-      <SignupForm onSignup={signup} loading={loading} error={error} />
-      {/* <ToastContainer /> */}
-    </>
+    <div className="w-full min-h-screen flex flex-col items-center justify-center gap-4 bg-neutral-900 text-white">
+      <LoadingSpinner size="lg" className="border-t-white" />
+      <p className="text-sm text-neutral-400">Loading…</p>
+    </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<SignupLoading />}>
+      <SignupPageClient />
+    </Suspense>
   );
 }

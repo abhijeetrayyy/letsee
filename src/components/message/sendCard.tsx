@@ -58,6 +58,7 @@ const SendMessageModal: React.FC<Props> = ({
   const [warning, setWarning] = useState<string | null>(null);
   const [sender, setSender] = useState<User | null>(null);
   const [logedin, setLogedin] = useState(false);
+  const [profileIncomplete, setProfileIncomplete] = useState(false);
   const [copyToggle, setCopyToggle] = useState(false);
 
   const link = `https://letsee-dusky.vercel.app/app/${
@@ -144,10 +145,18 @@ const SendMessageModal: React.FC<Props> = ({
           .from("users")
           .select("id, username")
           .eq("id", userData.user.id)
-          .single();
+          .maybeSingle();
 
         if (error) {
           console.error("Error fetching sender info:", error.message);
+          setLogedin(false);
+          return;
+        }
+
+        if (!data) {
+          setProfileIncomplete(true);
+          setLogedin(false);
+          return;
         } else {
           setSender(data);
           setLogedin(true);
@@ -271,15 +280,24 @@ const SendMessageModal: React.FC<Props> = ({
 
   if (!logedin) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-[9999]">
+      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-9999">
         <div className="bg-neutral-800 w-full h-fit max-w-3xl sm:rounded-lg p-5 shadow-xl">
           <div className="flex justify-between items-center p-4 border-b">
-            <Link
-              className="bg-blue-600 hover:bg-blue-700 rounded-md px-3 py-2 text-white text-lg font-semibold"
-              href={"/login"}
-            >
-              Log in
-            </Link>
+            {profileIncomplete ? (
+              <Link
+                className="bg-blue-600 hover:bg-blue-700 rounded-md px-3 py-2 text-white text-lg font-semibold"
+                href={"/app/profile/setup"}
+              >
+                Complete Profile
+              </Link>
+            ) : (
+              <Link
+                className="bg-blue-600 hover:bg-blue-700 rounded-md px-3 py-2 text-white text-lg font-semibold"
+                href={"/login"}
+              >
+                Log in
+              </Link>
+            )}
 
             <button
               onClick={onClose}
@@ -289,7 +307,11 @@ const SendMessageModal: React.FC<Props> = ({
             </button>
           </div>
           <div className="p-4">
-            <p className="text-white">You need to log in to send messages.</p>
+            <p className="text-white">
+              {profileIncomplete
+                ? "Complete your profile to send messages."
+                : "You need to log in to send messages."}
+            </p>
           </div>
         </div>
       </div>
@@ -297,7 +319,7 @@ const SendMessageModal: React.FC<Props> = ({
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-[9999]">
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-9999">
       <div className="bg-neutral-800 w-full max-h-screen h-fit max-w-3xl sm:rounded-lg p-5 shadow-xl">
         <div className="flex justify-between items-center p-4 border-b">
           <h2 className="text-white text-lg font-semibold">

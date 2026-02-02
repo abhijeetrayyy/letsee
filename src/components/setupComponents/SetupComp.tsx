@@ -29,11 +29,13 @@ function Page() {
           .from("users")
           .select("username, about")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
 
         if (data) {
           setUsername(data.username || "");
           setAbout(data.about || "");
+        } else if (error) {
+          console.error("Error fetching profile:", error);
         }
       }
       setLoading(false);
@@ -61,17 +63,13 @@ function Page() {
         .from("users")
         .select("username")
         .eq("username", sanitized)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code === "PGRST116") {
-        // If the username does not exist, treat it as available
-        setUsernameAvailable(true);
-      } else if (error) {
+      if (error) {
         console.error("Error checking username availability:", error);
         setUsernameAvailable(false);
       } else {
-        // If we got a result, it means the username is not available
-        setUsernameAvailable(data ? false : true);
+        setUsernameAvailable(!data);
       }
     } catch (error) {
       console.error("Error checking username:", error);

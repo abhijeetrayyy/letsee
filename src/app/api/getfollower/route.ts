@@ -10,6 +10,45 @@ export async function POST(req: NextRequest) {
 
   // Get user details from Supabase (authenticated user)
   const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    return NextResponse.json(
+      { error: "User isn't logged in" },
+      { status: 401 }
+    );
+  }
+  if (!userId) {
+    return NextResponse.json({ error: "userId is required" }, { status: 400 });
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("users")
+    .select("visibility")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const visibility = profile.visibility ?? "public";
+  const viewerId = userData.user.id;
+  let canView = visibility === "public" || viewerId === userId;
+
+  if (!canView && visibility === "followers") {
+    const { data: connection } = await supabase
+      .from("user_connections")
+      .select("id")
+      .eq("follower_id", viewerId)
+      .eq("followed_id", userId)
+      .maybeSingle();
+    if (connection) {
+      canView = true;
+    }
+  }
+
+  if (!canView) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   // Query to get emails of users followed by the specified user
   const { data: connection, error: connectionError } = await supabase

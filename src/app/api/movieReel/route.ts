@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
         );
         const movieData = await movieResponse.json();
 
-        const trailer = movieData.videos.results.find(
+        const trailer = movieData.videos?.results?.find(
           (v: any) => v.type === "Trailer" && v.site === "YouTube"
         );
 
@@ -86,8 +86,8 @@ export async function POST(req: NextRequest) {
             ? `https://www.youtube.com/embed/${trailer.key}`
             : undefined,
           poster_path: movieData.poster_path,
-          genres: movieData.genres.map((g: any) => g.name), // Extract genre names
-          imdb_id: movieData.external_ids.imdb_id, // IMDB ID for rating
+          genres: movieData.genres?.map((g: any) => g.name) || [],
+          imdb_id: movieData.external_ids?.imdb_id,
           adult: movieData.adult,
         };
       })

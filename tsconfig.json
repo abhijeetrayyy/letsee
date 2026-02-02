@@ -14,7 +14,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "baseUrl": ".",
     "plugins": [
@@ -30,18 +30,16 @@
         "src/*"
       ]
     },
-    "target": "ES2017"
+    "target": "ES2020"
   },
   "include": [
-    "types/**/*.d.ts",
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "**/*.js",
+    "**/*.jsx",
     ".next/types/**/*.ts",
-    "src/app/page.jsx",
-    "src/app/api/moviegenreList/route.ts",
-    "src/app/contextAPI/userPrefrence.tsx",
-    "postcss.config.mjs"
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

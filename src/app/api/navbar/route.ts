@@ -1,13 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
-// Define the User type
-interface User {
-  id: string;
-  username?: string;
-  [key: string]: any;
-}
-
 export async function GET(request: Request) {
   const supabase = await createClient();
   try {
@@ -18,24 +11,32 @@ export async function GET(request: Request) {
     } = await supabase.auth.getUser();
 
     if (authError || !authUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ status: "anon", user: null }, { status: 200 });
     }
 
     // Fetch additional user data from the "users" table
     const { data: userData, error: dbError } = await supabase
       .from("users")
-      .select("*")
+      .select("id, username")
       .eq("id", authUser.id)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
-    if (dbError || !userData) {
+    if (dbError) {
+      return NextResponse.json({ status: "anon", user: null }, { status: 200 });
+    }
+
+    if (!userData || !userData.username) {
       return NextResponse.json(
-        { error: "User data not found" },
-        { status: 404 }
+        {
+          status: "needs_profile",
+          user: { id: authUser.id, username: userData?.username ?? null },
+        },
+        { status: 200 }
       );
     }
 
-    return NextResponse.json({ user: userData }, { status: 200 });
+    return NextResponse.json({ status: "ok", user: userData }, { status: 200 });
   } catch (error) {
     console.error("API Error:", error);
     return NextResponse.json(

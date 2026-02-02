@@ -8,103 +8,75 @@ import HomeVideo from "@components/home/videoReel";
 import MovieGenre from "@components/scroll/movieGenre";
 import TvGenre from "@components/scroll/tvGenre";
 import HomeContentTile from "@components/movie/homeContentTile";
+import { tmdbFetchJson } from "@/utils/tmdb";
 
-async function getData() {
-  const res = await fetch(
-    `https://api.themoviedb.org/3/genre/movie/list?api_key=${process.env.TMDB_API_KEY}`
-  );
-
-  if (!res.ok) {
-    console.log(res);
-    throw new Error("Failed to fetch movie genres data");
-  }
-
-  return res.json();
-}
-
-async function getRomance() {
-  const res = await fetch(
-    `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.TMDB_API_KEY}&with_genres=10749`
-  );
-
-  if (!res.ok) {
-    console.log(res);
-    throw new Error("Failed to fetch romance data");
-  }
-
-  return res.json();
-}
-
-async function getAction() {
-  const res = await fetch(
-    `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.TMDB_API_KEY}&with_genres=28`
-  );
-
-  if (!res.ok) {
-    console.log(res);
-    throw new Error("Failed to fetch action data");
-  }
-
-  return res.json();
-}
-
-async function getTvGenre() {
-  const tvGenresResponse = await fetch(
-    `https://api.themoviedb.org/3/genre/tv/list?api_key=${process.env.TMDB_API_KEY}&language=en-US`
-  );
-  if (!tvGenresResponse.ok) {
-    throw new Error("Failed to fetch TV genres data");
-  }
-  const tvGenres = await tvGenresResponse.json();
-  return { tvGenres };
-}
-
-async function getTrending() {
-  const url = `https://api.themoviedb.org/3/trending/all/week?api_key=${process.env.TMDB_API_KEY}`;
-  const res = await fetch(url);
-
-  if (!res.ok) {
-    console.log(res);
-    throw new Error("Failed to fetch trending data");
-  }
-
-  return res.json();
-}
-
-async function getTrendingTV() {
-  const url = `https://api.themoviedb.org/3/trending/tv/day?api_key=${process.env.TMDB_API_KEY}`;
-  const res = await fetch(url);
-
-  if (!res.ok) {
-    console.log(res);
-    throw new Error("Failed to fetch trending TV data");
-  }
-
-  return res.json();
-}
-
-async function getBollywoodKeyword() {
-  const res = await fetch(
-    `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.TMDB_API_KEY}&with_keywords=315446&page=1`
-  );
-
-  if (!res.ok) {
-    console.log(res);
-    throw new Error("Failed to fetch Bollywood keyword data");
-  }
-
-  return res.json();
-}
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const REVALIDATE_HOUR = 3600; // 1 hour ISR for home sections
 
 export default async function Home() {
-  const genre = await getData();
-  const { tvGenres } = await getTvGenre();
-  const data = await getTrending();
+  const [
+    genreResult,
+    tvGenreResult,
+    trendingResult,
+    trendingTvResult,
+    romanceResult,
+    actionResult,
+    bollywoodResult,
+  ] = await Promise.all([
+    tmdbFetchJson<{ genres: any[] }>(
+      `https://api.themoviedb.org/3/genre/movie/list?api_key=${TMDB_API_KEY}`,
+      "Movie genres",
+      { revalidate: REVALIDATE_HOUR }
+    ),
+    tmdbFetchJson<{ genres: any[] }>(
+      `https://api.themoviedb.org/3/genre/tv/list?api_key=${TMDB_API_KEY}&language=en-US`,
+      "TV genres",
+      { revalidate: REVALIDATE_HOUR }
+    ),
+    tmdbFetchJson<{ results: any[] }>(
+      `https://api.themoviedb.org/3/trending/all/week?api_key=${TMDB_API_KEY}`,
+      "Trending",
+      { revalidate: REVALIDATE_HOUR }
+    ),
+    tmdbFetchJson<{ results: any[] }>(
+      `https://api.themoviedb.org/3/trending/tv/day?api_key=${TMDB_API_KEY}`,
+      "Trending TV",
+      { revalidate: REVALIDATE_HOUR }
+    ),
+    tmdbFetchJson<{ results: any[] }>(
+      `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_genres=10749`,
+      "Romance",
+      { revalidate: REVALIDATE_HOUR }
+    ),
+    tmdbFetchJson<{ results: any[] }>(
+      `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_genres=28`,
+      "Action",
+      { revalidate: REVALIDATE_HOUR }
+    ),
+    tmdbFetchJson<{ results: any[] }>(
+      `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_keywords=315446&page=1`,
+      "Bollywood",
+      { revalidate: REVALIDATE_HOUR }
+    ),
+  ]);
 
-  const TrendingTv = await getTrendingTV();
-  const RomanceData = await getRomance();
-  const ActionData = await getAction();
-  const BollywoodData = await getBollywoodKeyword();
+  const errors = [
+    genreResult.error,
+    tvGenreResult.error,
+    trendingResult.error,
+    trendingTvResult.error,
+    romanceResult.error,
+    actionResult.error,
+    bollywoodResult.error,
+  ].filter(Boolean) as string[];
+
+  const genre = genreResult.data ?? { genres: [] };
+  const tvGenres = tvGenreResult.data ?? { genres: [] };
+  const data = trendingResult.data ?? { results: [] };
+  const TrendingTv = trendingTvResult.data ?? { results: [] };
+  const RomanceData = romanceResult.data ?? { results: [] };
+  const ActionData = actionResult.data ?? { results: [] };
+  const BollywoodData = bollywoodResult.data ?? { results: [] };
 
   return (
     <>
@@ -121,6 +93,20 @@ export default async function Home() {
             <OpenAiReco />
           </div>
         </div> */}
+        {errors.length > 0 && (
+          <div className="w-full rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-amber-100">
+            <p className="font-semibold">Some data could not be loaded.</p>
+            <ul className="mt-2 list-disc pl-5 text-sm text-amber-200">
+              {errors.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-sm text-amber-200">
+              This usually happens when the TMDB API is unavailable or the
+              network drops. Try refreshing in a moment.
+            </p>
+          </div>
+        )}
         <div className="w-full">
           <SearchForm />
         </div>

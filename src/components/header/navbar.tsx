@@ -6,10 +6,10 @@ import { FaUser } from "react-icons/fa6";
 import { FcFilmReel } from "react-icons/fc";
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabase/client";
+import SignOut from "../buttons/signOut";
 import BurgerMenu from "./BurgerMenu";
 import DropdownMenu from "./dropDownMenu";
 import MessageButton from "./MessageButton";
-import RealtimeNotification from "./RealtimeNotification";
 import SearchBar from "./searchBar";
 
 // Define the User type based on your Supabase "users" table structure
@@ -19,35 +19,44 @@ interface User {
   [key: string]: any; // Flexible for additional fields
 }
 
+type NavbarStatus = "loading" | "anon" | "needs_profile" | "ok";
+
 export function LogedNavbar() {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [status, setStatus] = useState<NavbarStatus>("loading");
 
   useEffect(() => {
     const fetchUser = async () => {
       try {
         const response = await fetch("/api/navbar", {
           credentials: "include", // Include cookies for auth
+          cache: "no-store",
         });
-        if (response.ok) {
-          const { user } = await response.json();
-          setUser(user || null);
-          console.log(user);
-        } else {
-          setUser(null);
+        if (!response.ok) {
+          throw new Error(`Navbar request failed: ${response.status}`);
         }
+        const data = await response.json();
+        const nextStatus = (data?.status ?? "anon") as NavbarStatus;
+        setStatus(nextStatus);
+        setUser(data?.user ?? null);
       } catch (error) {
         console.error("Failed to fetch user:", error);
         setUser(null);
-      } finally {
-        setLoading(false);
+        setStatus("anon");
       }
     };
 
     fetchUser();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      fetchUser();
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) {
+  if (status === "loading") {
     return (
       <div className="max-w-[1520px] w-full m-auto flex flex-row items-center justify-between text-white p-3 h-full">
         <div>
@@ -63,6 +72,9 @@ export function LogedNavbar() {
     );
   }
 
+  const isAuthed = status === "ok" || status === "needs_profile";
+  const isProfileReady = status === "ok";
+
   return (
     <div className="max-w-[1520px] w-full m-auto flex flex-row items-center justify-between text-white p-3 h-full">
       <div>
@@ -72,14 +84,16 @@ export function LogedNavbar() {
       </div>
 
       <div className="flex flex-row gap-3 items-center">
-        <Link
-          className="flex items-center justify-center px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-          href="/app/reel"
-        >
-          <FcFilmReel />
-        </Link>
-        {user && <MessageButton userId={user.id} />}
-        {user && (
+        {isAuthed && (
+          <Link
+            className="flex items-center justify-center px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
+            href="/app/reel"
+          >
+            <FcFilmReel />
+          </Link>
+        )}
+        {isProfileReady && user && <MessageButton userId={user.id} />}
+        {isProfileReady && user && (
           <Link
             className="hidden md:flex items-center justify-center px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
             href="/app/notification"
@@ -88,17 +102,17 @@ export function LogedNavbar() {
             {/* <RealtimeNotification userId={user.id} /> */}
           </Link>
         )}
-        <Link
-          className="flex items-center justify-center px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-          href="/app/profile"
-        >
-          <FaUser />
-        </Link>
-        <SearchBar />
+        {isAuthed && (
+          <Link
+            className="flex items-center justify-center px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
+            href={isProfileReady ? "/app/profile" : "/app/profile/setup"}
+          >
+            <FaUser />
+          </Link>
+        )}
+        {isProfileReady && <SearchBar />}
         <div className="hidden md:flex flex-row gap-3 items-center">
-          {user ? (
-            <DropdownMenu user={user} />
-          ) : (
+          {status === "anon" && (
             <Link
               className="flex text-nowrap items-center text-gray-100 justify-center px-3 py-1 rounded-md bg-blue-600 hover:bg-blue-500 relative"
               href="/login"
@@ -106,8 +120,30 @@ export function LogedNavbar() {
               Log in
             </Link>
           )}
+          {status === "anon" && (
+            <Link
+              className="flex text-nowrap items-center text-gray-100 justify-center px-3 py-1 rounded-md bg-blue-600 hover:bg-blue-500 relative"
+              href="/signup"
+            >
+              Sign up
+            </Link>
+          )}
+          {status === "needs_profile" && (
+            <>
+              <Link
+                className="flex text-nowrap items-center text-gray-100 justify-center px-3 py-1 rounded-md bg-amber-600 hover:bg-amber-500 relative"
+                href="/app/profile/setup"
+              >
+                Complete Profile
+              </Link>
+              <div className="min-w-[140px]">
+                <SignOut />
+              </div>
+            </>
+          )}
+          {status === "ok" && user && <DropdownMenu user={user} />}
         </div>
-        <BurgerMenu userID={user?.username} />
+        <BurgerMenu status={status} username={user?.username} />
       </div>
     </div>
   );

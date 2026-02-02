@@ -1,7 +1,9 @@
 import { Metadata } from "next";
+import { tmdbFetchJson } from "@/utils/tmdb";
 import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { notFound } from "next/navigation";
 
 // Types
 type PageProps = {
@@ -37,55 +39,87 @@ interface CreditResponse {
   crew: CrewMember[];
 }
 
-async function getCredit(id: string): Promise<CreditResponse> {
-  const response = await fetch(
+const getNumericId = (value: string) => {
+  const match = String(value).match(/^\d+/);
+  return match ? match[0] : null;
+};
+
+async function getCredit(id: string) {
+  return tmdbFetchJson<CreditResponse>(
     `https://api.themoviedb.org/3/movie/${id}/credits?api_key=${process.env.TMDB_API_KEY}`,
+    "Movie credits",
     { next: { revalidate: 3600 } }
   );
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch credits");
-  }
-
-  return response.json();
 }
 
-async function getMovieDetails(id: string): Promise<MovieDetails> {
-  const response = await fetch(
+async function getMovieDetails(id: string) {
+  return tmdbFetchJson<MovieDetails>(
     `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}`,
+    "Movie details",
     { next: { revalidate: 3600 } }
   );
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch movie details");
-  }
-
-  return response.json();
 }
 
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const slugParts = (await params).id.split("-");
-  const id = slugParts[0];
-  const movie = await getMovieDetails(id);
+  const rawId = (await params).id;
+  const numericId = getNumericId(rawId);
+  if (!numericId) {
+    return {
+      title: "Cast & Crew",
+      description: "Cast and crew information",
+    };
+  }
+  const movieResult = await getMovieDetails(numericId);
+  const movie = movieResult.data;
 
   return {
-    title: `${movie.title} - Cast & Crew`,
-    description: `Cast and crew information for ${movie.title}`,
+    title: movie?.title ? `${movie.title} - Cast & Crew` : "Cast & Crew",
+    description:
+      movie?.title
+        ? `Cast and crew information for ${movie.title}`
+        : movieResult.error || "Cast and crew information",
   };
 }
 
 export default async function Page({ params }: PageProps) {
-  const slugParts = (await params).id.split("-");
-  const id = slugParts[0];
-
-  if (!id) {
-    return <div>Error: Movie ID not found</div>;
+  const rawId = (await params).id;
+  const numericId = getNumericId(rawId);
+  if (!numericId) {
+    return notFound();
   }
 
-  const movie = await getMovieDetails(id);
-  const { cast, crew } = await getCredit(id);
+  const [movieResult, creditsResult] = await Promise.all([
+    getMovieDetails(numericId),
+    getCredit(numericId),
+  ]);
+
+  if (!movieResult.data || !creditsResult.data) {
+    const errors = [movieResult.error, creditsResult.error].filter(
+      Boolean
+    ) as string[];
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-900 text-neutral-200 p-4">
+        <div className="max-w-xl text-center">
+          <p className="text-lg font-semibold">Cast data unavailable.</p>
+          {errors.length > 0 && (
+            <ul className="mt-3 text-sm text-amber-200 list-disc list-inside">
+              {errors.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-sm text-neutral-400">
+            Try refreshing in a moment.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const movie = movieResult.data;
+  const { cast, crew } = creditsResult.data;
 
   return (
     <Suspense fallback={<div>Loading...</div>}>
@@ -128,7 +162,7 @@ export default async function Page({ params }: PageProps) {
                 alt={`${movie.title} poster`}
               />
             </div>
-            <div className="flex-[2] w-full">
+            <div className="flex-2 w-full">
               <Link
                 className="hover:text-neutral-200 hover:underline"
                 href={`/app/movie/${movie.id}-${movie.title
@@ -191,7 +225,7 @@ export default async function Page({ params }: PageProps) {
                   href={`/app/person/${item.id}-${item.name
                     .trim()
                     .replace(/[^a-zA-Z0-9]/g, "-")
-                    .replace(/-+/g, "-")}}`}
+                    .replace(/-+/g, "-")}`}
                 >
                   <div>
                     <img

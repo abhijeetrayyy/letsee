@@ -10,9 +10,12 @@ function imdbRating({ id }: any) {
       setImdbRating("loading..");
 
       try {
-        const response = await fetch(
-          `https://www.omdbapi.com/?i=${id}&apikey=${process.env.NEXT_PUBLIC_OMDB_API_KEY}`
-        );
+        const response = await fetch(`/api/omdb?i=${id}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error(`OMDb request failed: ${response.status}`);
+        }
         const res = await response.json();
 
         if (res.Response == "False") {

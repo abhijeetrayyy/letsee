@@ -25,6 +25,7 @@ export default function Tv({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cardData, setCardData] = useState<any>([]);
   const [showFullOverview, setShowFullOverview] = useState(false);
+  const showGenres = Array.isArray(show?.genres) ? show.genres : [];
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -106,7 +107,9 @@ export default function Tv({
   };
 
   // Filter out "Specials" and get seasons
-  const seasons = show.seasons.filter((item: any) => item.name !== "Specials");
+  const seasons = Array.isArray(show?.seasons)
+    ? show.seasons.filter((item: any) => item.name !== "Specials")
+    : [];
   const firstSeason = seasons[0];
   const otherSeasons = seasons.slice(1);
 
@@ -123,14 +126,14 @@ export default function Tv({
         <div className="relative flex flex-col items-center justify-center w-full min-h-[550px] h-full">
           <div className="md:absolute w-full h-full overflow-hidden">
             <div
-              className="absolute inset-0 z-10 bg-gradient-to-r from-neutral-900 via-transparent to-neutral-900"
+              className="absolute inset-0 z-10 bg-linear-to-r from-neutral-900 via-transparent to-neutral-900"
               style={{
                 background:
                   "linear-gradient(to left, #171717, transparent 60%, #171717, #171717)",
               }}
             ></div>
             <div
-              className="absolute inset-0 z-10 bg-gradient-to-l from-neutral-900 via-transparent to-neutral-900"
+              className="absolute inset-0 z-10 bg-linear-to-l from-neutral-900 via-transparent to-neutral-900"
               style={{
                 background:
                   "linear-gradient(to right, #171717, transparent 60%, #171717, #171717)",
@@ -165,7 +168,7 @@ export default function Tv({
             </div>
 
             {/* Show Details */}
-            <div className="flex-[2] w-full">
+            <div className="flex-2 w-full">
               <h1 className="text-4xl font-bold mb-4">
                 {show?.adult && (
                   <span className="text-sm px-3 py-1 rounded-md m-2 bg-red-600 text-white z-20">
@@ -179,7 +182,7 @@ export default function Tv({
               {/* Buttons */}
               <div className="w-full bg-neutral-800 overflow-hidden my-4">
                 <ThreePrefrenceBtn
-                  genres={show.genres.map((genre: any) => genre.name)}
+                  genres={showGenres.map((genre: any) => genre.name)}
                   cardId={show.id}
                   cardType={"tv"}
                   cardName={show.name || show.title}
@@ -288,7 +291,7 @@ export default function Tv({
                   <span>Production Companies: </span>
                   {show.production_companies.map(
                     (company: any, index: number) => (
-                      <span className="break-words" key={index}>
+                      <span className="wrap-break-word" key={index}>
                         {company.name}
                         {index < show.production_companies.length - 1 && ", "}
                       </span>
@@ -377,14 +380,14 @@ export default function Tv({
                 </div>
                 {/* Left Fade Overlay */}
                 <div
-                  className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-20 bg-gradient-to-r from-black to-transparent pointer-events-none transition-opacity duration-300 ${
+                className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-20 bg-linear-to-r from-black to-transparent pointer-events-none transition-opacity duration-300 ${
                     canScrollLeft ? "opacity-80" : "opacity-0"
                   }`}
                 />
 
                 {/* Right Fade Overlay */}
                 <div
-                  className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-20 bg-gradient-to-l from-black to-transparent pointer-events-none transition-opacity duration-300 ${
+                className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-20 bg-linear-to-l from-black to-transparent pointer-events-none transition-opacity duration-300 ${
                     canScrollRight ? "opacity-80" : "opacity-0"
                   }`}
                 />

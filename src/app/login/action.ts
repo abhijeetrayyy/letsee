@@ -19,7 +19,7 @@ export async function login(formData: FormData) {
 
   if (error) {
     console.log(error);
-    redirect("/error");
+    redirect(`/login?error=${encodeURIComponent(error.message)}`);
   }
 
   revalidatePath("/", "layout");
@@ -36,12 +36,15 @@ export async function signup(formData: FormData) {
     password: formData.get("password") as string,
   };
 
-  const { error } = await supabase.auth.signUp(data);
+  const { data: signUpData, error } = await supabase.auth.signUp(data);
 
   if (error) {
-    redirect("/error");
+    redirect(`/signup?error=${encodeURIComponent(error.message)}`);
   }
 
   revalidatePath("/", "layout");
-  redirect("/app");
+  if (signUpData?.session) {
+    redirect("/app");
+  }
+  redirect("/login?status=check-email");
 }

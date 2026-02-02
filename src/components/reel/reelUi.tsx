@@ -97,8 +97,12 @@ const ReelViewer: React.FC = () => {
       if (movies[currentIndex]?.imdb_id) {
         try {
           const response = await fetch(
-            `https://www.omdbapi.com/?i=${movies[currentIndex].imdb_id}&apikey=${process.env.NEXT_PUBLIC_OMDB_API_KEY}`
+            `/api/omdb?i=${movies[currentIndex].imdb_id}`,
+            { cache: "no-store" }
           );
+          if (!response.ok) {
+            throw new Error(`OMDb request failed: ${response.status}`);
+          }
           const res = await response.json();
 
           setImdbRating(res.imdbRating);
@@ -231,7 +235,7 @@ const ReelViewer: React.FC = () => {
       {/* Main Layout */}
       <div className="w-full max-w-6xl flex flex-col md:flex-row gap-4">
         {/* Sidebar with Top Keywords */}
-        <aside className="w-full md:w-64 flex-shrink-0 order-2 md:order-1">
+        <aside className="w-full md:w-64 shrink-0 order-2 md:order-1">
           <h2 className="text-lg sm:text-xl font-bold text-neutral-100 mb-4 md:block hidden">
             Top Keywords
           </h2>
@@ -301,7 +305,7 @@ const ReelViewer: React.FC = () => {
           ) : movies.length > 0 ? (
             <div className="w-full space-y-4">
               {/* Video Player */}
-              <div className="relative aspect-[16/9] w-full max-w-3xl mx-auto bg-black rounded-xl overflow-hidden shadow-lg">
+              <div className="relative aspect-video w-full max-w-3xl mx-auto bg-black rounded-xl overflow-hidden shadow-lg">
                 <div ref={playerRef} className="w-full h-full" />
               </div>
 

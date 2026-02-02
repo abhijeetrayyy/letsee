@@ -17,7 +17,9 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.warn("⚠️ Error fetching session:", authError.message);
+    if (authError.message !== "Auth session missing!") {
+      console.warn("⚠️ Error fetching session:", authError.message);
+    }
     // Proceed anyway; client-side will handle auth enforcement if needed
   }
 
@@ -34,7 +36,8 @@ export async function updateSession(request: NextRequest) {
       .from("users")
       .select("username")
       .eq("id", user.id)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (profileError) {
       console.warn("⚠️ Error fetching profile:", profileError.message);
