@@ -78,34 +78,56 @@ const Visibility: React.FC = () => {
           <option value="private">Only me</option>
         </select>
       </div>
-      <div className="space-y-2 text-sm">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={profileShowDiary}
-            onChange={(e) => setProfileShowDiary(e.target.checked)}
-            className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500/50"
-          />
-          <span className="text-white/80">Show diary on profile</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={profileShowRatings}
-            onChange={(e) => setProfileShowRatings(e.target.checked)}
-            className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500/50"
-          />
-          <span className="text-white/80">Show ratings on profile</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={profileShowPublicReviews}
-            onChange={(e) => setProfileShowPublicReviews(e.target.checked)}
-            className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500/50"
-          />
-          <span className="text-white/80">Show public reviews on profile</span>
-        </label>
+      <div className="space-y-4 text-sm">
+        <p className="text-neutral-400 text-xs max-w-md">
+          These control what appears in the &quot;Reviews, ratings &amp; diary&quot; section. Diary is only ever visible to you; ratings and public reviews can be shown or hidden from visitors.
+        </p>
+        <div className="space-y-3">
+          <label className="flex items-start gap-2 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={profileShowDiary}
+              onChange={(e) => setProfileShowDiary(e.target.checked)}
+              className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500/50 mt-0.5 shrink-0"
+            />
+            <span className="text-white/80 group-hover:text-white">
+              Show my diary on my profile
+            </span>
+          </label>
+          <p className="text-neutral-500 text-xs pl-6 -mt-1.5">
+            Diary = your private notes per title (only you see them). On = you see them on your profile. Off = they stay hidden on your profile; you can still add or edit diary on each title page.
+          </p>
+
+          <label className="flex items-start gap-2 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={profileShowRatings}
+              onChange={(e) => setProfileShowRatings(e.target.checked)}
+              className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500/50 mt-0.5 shrink-0"
+            />
+            <span className="text-white/80 group-hover:text-white">
+              Show my ratings to visitors
+            </span>
+          </label>
+          <p className="text-neutral-500 text-xs pl-6 -mt-1.5">
+            Ratings = your 1–10 score per title. On = visitors see your scores. Off = visitors don’t see them (you still see yours on your own profile).
+          </p>
+
+          <label className="flex items-start gap-2 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={profileShowPublicReviews}
+              onChange={(e) => setProfileShowPublicReviews(e.target.checked)}
+              className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500/50 mt-0.5 shrink-0"
+            />
+            <span className="text-white/80 group-hover:text-white">
+              Show my public reviews to visitors
+            </span>
+          </label>
+          <p className="text-neutral-500 text-xs pl-6 -mt-1.5">
+            Public review = the review you choose to share per title (separate from private diary). On = visitors see these. Off = visitors don’t (you still see yours on your own profile).
+          </p>
+        </div>
       </div>
       <button
         type="submit"
