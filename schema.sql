@@ -91,7 +91,6 @@ create table if not exists public.watched_items (
   watched_at timestamptz not null default now(),
   review_text text,
   is_watched boolean not null default true,
-  runtime_minutes integer,
   unique (user_id, item_id)
 );
 
@@ -238,6 +237,38 @@ create table if not exists public.user_list_items (
 create index if not exists user_lists_user_id_idx on public.user_lists (user_id);
 create index if not exists user_list_items_list_id_idx on public.user_list_items (list_id);
 
+-- Profile hero / Taste in 4 (migration 011): users columns + user_favorite_display
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'users' and column_name = 'avatar_url') then
+    alter table public.users add column avatar_url text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'users' and column_name = 'banner_url') then
+    alter table public.users add column banner_url text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'users' and column_name = 'tagline') then
+    alter table public.users add column tagline text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'users' and column_name = 'featured_list_id') then
+    alter table public.users add column featured_list_id bigint references public.user_lists(id) on delete set null;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'users' and column_name = 'pinned_review_id') then
+    alter table public.users add column pinned_review_id bigint;
+    comment on column public.users.pinned_review_id is 'watched_items.id; app must ensure it belongs to this user';
+  end if;
+end $$;
+
+create table if not exists public.user_favorite_display (
+  user_id uuid not null references public.users(id) on delete cascade,
+  position smallint not null check (position >= 1 and position <= 4),
+  item_id text not null,
+  item_type text not null check (item_type in ('movie', 'tv')),
+  image_url text,
+  item_name text not null,
+  primary key (user_id, position)
+);
+create index if not exists user_favorite_display_user_id_idx on public.user_favorite_display (user_id);
+
 -- Episode-level TV tracking (for "Mark episode watched" and "Continue watching")
 create table if not exists public.watched_episodes (
   id bigserial primary key,
@@ -246,7 +277,6 @@ create table if not exists public.watched_episodes (
   season_number smallint not null check (season_number >= 0),
   episode_number smallint not null check (episode_number >= 1),
   watched_at timestamptz not null default now(),
-  runtime_minutes integer,
   unique (user_id, show_id, season_number, episode_number)
 );
 
@@ -412,6 +442,7 @@ alter table public.recommendation enable row level security;
 alter table public.user_ratings enable row level security;
 alter table public.user_lists enable row level security;
 alter table public.user_list_items enable row level security;
+alter table public.user_favorite_display enable row level security;
 alter table public.watched_episodes enable row level security;
 
 -- Users
@@ -555,6 +586,16 @@ create policy "user_list_items_delete_owner" on public.user_list_items
   for delete using (
     exists (select 1 from public.user_lists l where l.id = list_id and l.user_id = auth.uid())
   );
+
+-- Taste in 4 (user_favorite_display): anyone can read; only owner can modify
+create policy "user_favorite_display_select" on public.user_favorite_display
+  for select using (true);
+create policy "user_favorite_display_insert_self" on public.user_favorite_display
+  for insert with check (auth.uid() = user_id);
+create policy "user_favorite_display_update_self" on public.user_favorite_display
+  for update using (auth.uid() = user_id);
+create policy "user_favorite_display_delete_self" on public.user_favorite_display
+  for delete using (auth.uid() = user_id);
 
 -- Watched episodes (TV): user can modify own rows; anyone can read (for profile progress)
 create policy "watched_episodes_self" on public.watched_episodes

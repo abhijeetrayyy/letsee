@@ -127,16 +127,18 @@ const fetchProfileData = async (
     { count: watchedThisYear },
     { count: movieCount },
     { count: tvCount },
+    { count: episodesCount },
   ] = await Promise.all([
     supabase.from("watched_items").select("*", { count: "exact", head: true }).eq("user_id", profileId).eq("is_watched", true).gte("watched_at", yearStart),
     supabase.from("watched_items").select("*", { count: "exact", head: true }).eq("user_id", profileId).eq("is_watched", true).eq("item_type", "movie"),
     supabase.from("watched_items").select("*", { count: "exact", head: true }).eq("user_id", profileId).eq("is_watched", true).eq("item_type", "tv"),
+    supabase.from("watched_episodes").select("*", { count: "exact", head: true }).eq("user_id", profileId),
   ]);
 
   const totalWatched = watchedCount ?? 0;
   const movies = movieCount ?? 0;
   const tv = tvCount ?? 0;
-  const hoursWatched = Math.round((movies ?? 0) * 2 + (tv ?? 0) * 1.5);
+  const episodes = episodesCount ?? 0;
 
   let featuredList: { id: number; name: string } | null = null;
   let pinnedReview: { id: number; item_id: string; item_type: string; item_name: string; review_text: string | null; watched_at: string } | null = null;
@@ -160,9 +162,9 @@ const fetchProfileData = async (
       favoriteCount: favoriteCount ?? 0,
       watchlistCount: watchlistCount ?? 0,
       watchedThisYear: watchedThisYear ?? 0,
-      hoursWatched,
       movieCount: movies,
       tvCount: tv,
+      episodesCount: episodes,
     },
     followData,
     favoriteDisplay,
@@ -275,13 +277,16 @@ export default async function ProfilePage({ params }: PageProps) {
           <ProfileStatsStrip
             stats={[
               { value: stats.watchedCount, label: "Watched" },
+              { value: stats.movieCount ?? 0, label: "Movies" },
+              { value: stats.tvCount ?? 0, label: "TV" },
+              { value: stats.episodesCount ?? 0, label: "Episodes" },
               { value: stats.favoriteCount, label: "Favorites" },
               { value: stats.watchlistCount, label: "Watchlist" },
               { value: stats.watchedThisYear, label: `This year (${new Date().getFullYear()})` },
-              { value: stats.hoursWatched, label: "Hours" },
             ]}
             moviesCount={stats.movieCount ?? 0}
             tvCount={stats.tvCount ?? 0}
+            episodesCount={stats.episodesCount ?? 0}
           />
         </section>
 

@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:dump": "npx supabase db dump -f schema_from_supabase.sql -s public"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.11.2",

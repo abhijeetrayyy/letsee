@@ -4,10 +4,12 @@ export default function ProfileStatsStrip({
   stats,
   moviesCount,
   tvCount,
+  episodesCount = 0,
 }: {
   stats: Stat[];
   moviesCount: number;
   tvCount: number;
+  episodesCount?: number;
 }) {
   const total = moviesCount + tvCount;
   const moviePct = total > 0 ? (moviesCount / total) * 100 : 50;
@@ -27,7 +29,7 @@ export default function ProfileStatsStrip({
             </div>
           ))}
         </div>
-        {total > 0 && (
+        {(total > 0 || episodesCount > 0) && (
           <div className="flex items-center gap-3">
             <div className="flex rounded-full overflow-hidden bg-neutral-700/80 w-24 h-2">
               <div
@@ -37,6 +39,7 @@ export default function ProfileStatsStrip({
             </div>
             <span className="text-xs text-neutral-500 whitespace-nowrap">
               {moviesCount} film · {tvCount} TV
+              {episodesCount > 0 ? ` · ${episodesCount} episodes` : ""}
             </span>
           </div>
         )}
