@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { FaBars, FaXmark, FaUser } from "react-icons/fa6";
+import { FaBars, FaXmark, FaUser, FaMagnifyingGlass } from "react-icons/fa6";
 import { HiHome } from "react-icons/hi2";
 import { FcFilmReel } from "react-icons/fc";
 import { IoNotificationsOutline } from "react-icons/io5";
@@ -126,6 +126,9 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, username }) => {
         <nav className="flex flex-col gap-0.5 overflow-y-auto p-4" style={{ maxHeight: "calc(100vh - 3.5rem)" }}>
           <button type="button" onClick={() => go("/app")} className={menuItemClass}>
             <HiHome className="size-5 shrink-0" aria-hidden /> Home
+          </button>
+          <button type="button" onClick={() => go("/app/search")} className={menuItemClass}>
+            <FaMagnifyingGlass className="size-5 shrink-0" aria-hidden /> Search
           </button>
           <button type="button" onClick={() => go("/app/reel")} className={menuItemClass}>
             <FcFilmReel className="size-5 shrink-0" aria-hidden /> Reels

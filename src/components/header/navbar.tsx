@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { IoNotificationsOutline } from "react-icons/io5";
-import { FaUser } from "react-icons/fa6";
+import { FaUser, FaMagnifyingGlass } from "react-icons/fa6";
 import { FcFilmReel } from "react-icons/fc";
 import { HiHome } from "react-icons/hi2";
 import { useEffect, useState } from "react";
@@ -137,6 +137,15 @@ export function LogedNavbar() {
               aria-label={isProfileReady ? "Profile" : "Complete profile"}
             >
               <FaUser className="size-4" />
+            </Link>
+          )}
+          {isProfileReady && (
+            <Link
+              href="/app/search"
+              className={`${navIconClass} sm:hidden`}
+              aria-label="Search"
+            >
+              <FaMagnifyingGlass className="size-5" />
             </Link>
           )}
           {isProfileReady && (
