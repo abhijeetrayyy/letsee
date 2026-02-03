@@ -28,7 +28,10 @@ export async function POST(req: NextRequest) {
   const imgUrl = typeof body.imgUrl === "string" ? body.imgUrl : null;
   const adult = body.adult === true;
   const genres = Array.isArray(body.genres) ? (body.genres as string[]) : [];
-  const episodesPayload = body.episodes;
+  const episodesPayload = (body.episodes ?? null) as
+    | { list?: { season_number: number; episode_number: number }[]; seasons?: number[] }
+    | null
+    | undefined;
 
   if (!itemId || !name) {
     return NextResponse.json(
