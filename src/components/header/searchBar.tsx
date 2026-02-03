@@ -2,6 +2,10 @@
 
 import { useSearch } from "@/app/contextAPI/searchContext";
 import {
+  reRankAll,
+  getDidYouMeanSuggestion,
+} from "@/utils/searchFuzzy";
+import {
   buildSearchUrl,
   isValidSearchQuery,
   type SearchMediaType,
@@ -135,6 +139,10 @@ function SearchBar() {
 
   const query = input.trim();
   const displayResults = useMemo(() => normalizeResults(results), [results]);
+  const didYouMean = useMemo(
+    () => getDidYouMeanSuggestion(query, recentSearches),
+    [query, recentSearches]
+  );
 
   const flatResults = useMemo<FlatResult[]>(() => {
     const flattened: FlatResult[] = [];
@@ -227,7 +235,8 @@ function SearchBar() {
           })
         );
 
-        const nextResults = { movie, tv, person, keyword };
+        const rawResults = { movie, tv, person, keyword };
+        const nextResults = reRankAll(rawResults, query);
         cacheRef.current[query] = nextResults;
         setResults(nextResults);
       } catch (err) {
@@ -462,15 +471,54 @@ function SearchBar() {
 
                   {!isLoading && !error && flatResults.length === 0 && (
                     <div className="flex flex-col items-center gap-3 py-10 text-neutral-300">
-                      <p>No results found for “{query}”.</p>
+                      {didYouMean ? (
+                        <>
+                          <p>No results for "{query}".</p>
+                          <p className="text-sm text-neutral-400">
+                            Did you mean{" "}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInput(didYouMean);
+                                handleSearch(didYouMean);
+                              }}
+                              className="font-medium text-amber-400 hover:text-amber-300 underline"
+                            >
+                              {didYouMean}
+                            </button>
+                            ?
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p>No results found for "{query}".</p>
+                          <button
+                            type="button"
+                            onClick={() => handleSearch(query)}
+                            className="rounded-full bg-neutral-800 px-4 py-2 text-sm text-neutral-200 hover:bg-neutral-700"
+                          >
+                            Search anyway
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {!isLoading && !error && flatResults.length > 0 && didYouMean && (
+                    <p className="text-sm text-neutral-400 mb-3">
+                      Did you mean{" "}
                       <button
                         type="button"
-                        onClick={() => handleSearch(query)}
-                        className="rounded-full bg-neutral-800 px-4 py-2 text-sm text-neutral-200 hover:bg-neutral-700"
+                        onClick={() => {
+                          setInput(didYouMean);
+                          handleSearch(didYouMean);
+                        }}
+                        className="text-amber-400 hover:text-amber-300 underline"
                       >
-                        Search anyway
+                        {didYouMean}
                       </button>
-                    </div>
+                      ?
+                    </p>
                   )}
 
                   {!isLoading &&

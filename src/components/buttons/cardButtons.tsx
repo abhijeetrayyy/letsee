@@ -232,10 +232,10 @@ const CardMovieButton: React.FC<CardMovieButtonProps> = ({
         type="button"
         onClick={user ? handleAction : handleModal}
         title={state ? `Remove from ${funcType}` : `Add to ${funcType}`}
-        className={`h-full w-full flex items-center justify-center gap-2 transition-colors disabled:cursor-not-allowed ${
+        className={`h-full w-full min-h-[44px] flex items-center justify-center gap-2 transition-colors disabled:cursor-not-allowed touch-manipulation ${
           label
             ? "px-4 py-3 rounded-xl text-base font-medium bg-neutral-700/80 text-neutral-200 hover:bg-neutral-600 border border-neutral-600 hover:border-neutral-500 disabled:opacity-60 disabled:bg-neutral-700/50"
-            : "text-neutral-300 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:bg-transparent"
+            : "text-neutral-300 hover:text-white hover:bg-white/10 active:bg-white/15 disabled:opacity-50 disabled:bg-transparent"
         }`}
         disabled={disabled}
         aria-busy={isThisButtonPending}

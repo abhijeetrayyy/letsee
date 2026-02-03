@@ -214,7 +214,7 @@ export default function EditTasteInFour({
                                 alt={it.item_name}
                                 className="w-full h-full object-cover"
                               />
-                              <span className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity" />
+                              <span className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 active:opacity-100 transition-opacity touch-manipulation" aria-hidden />
                             </>
                           ) : (
                             <span className="flex items-center justify-center h-full text-neutral-500 text-3xl font-light">+</span>

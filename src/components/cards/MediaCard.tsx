@@ -118,12 +118,12 @@ export default function MediaCard({
             decoding="async"
           />
         </Link>
-        {/* Subtle gradient at bottom of image for legibility */}
-        <div className="absolute inset-x-0 bottom-0 h-16 pointer-events-none bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" aria-hidden />
-        {/* Actions overlay – glass bar, smooth reveal */}
+        {/* Subtle gradient at bottom of image for legibility – always visible on touch (no hover), hover-reveal on md+ */}
+        <div className="absolute inset-x-0 bottom-0 h-16 pointer-events-none bg-gradient-to-t from-black/60 to-transparent opacity-100 transition-opacity duration-300 md:opacity-0 md:group-hover:opacity-100" aria-hidden />
+        {/* Actions overlay – visible by default on mobile (no hover), hover-reveal on md+ */}
         {showActions && !isPerson && (
-          <div className="absolute bottom-0 left-0 right-0 w-full opacity-0 translate-y-2 transition-all duration-300 ease-out group-hover:opacity-100 group-hover:translate-y-0 pointer-events-none group-hover:pointer-events-auto">
-            <div className="bg-neutral-900/90 backdrop-blur-md border-t border-white/5">
+          <div className="absolute bottom-0 left-0 right-0 w-full opacity-100 translate-y-0 transition-all duration-300 ease-out pointer-events-auto md:opacity-0 md:translate-y-2 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:translate-y-0 md:group-hover:pointer-events-auto">
+            <div className="bg-neutral-900/90 backdrop-blur-md border-t border-white/5 min-h-12 flex flex-col justify-center">
               <ThreePrefrenceBtn
                 variant="compact"
                 cardId={id}
@@ -137,7 +137,7 @@ export default function MediaCard({
               {onShare != null && (
                 <button
                   type="button"
-                  className="flex w-full items-center justify-center gap-2 py-2.5 text-neutral-300 text-sm font-medium transition-colors hover:text-white hover:bg-white/5"
+                  className="flex w-full min-h-[44px] items-center justify-center gap-2 py-2.5 text-neutral-300 text-sm font-medium transition-colors hover:text-white hover:bg-white/5 active:bg-white/10 touch-manipulation"
                   onClick={onShare}
                   aria-label="Share"
                 >

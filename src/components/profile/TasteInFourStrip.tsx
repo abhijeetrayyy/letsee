@@ -34,8 +34,9 @@ export default function TasteInFourStrip({
                 alt={it.item_name}
                 className="w-full aspect-2/3 object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity" />
-              <p className="absolute bottom-0 left-0 right-0 p-2 text-xs font-medium text-white truncate bg-black/60 opacity-0 hover:opacity-100 transition-opacity">
+              {/* Gradient and title: visible on touch (mobile), hover-reveal on md+ */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-100 transition-opacity md:opacity-0 md:hover:opacity-100" />
+              <p className="absolute bottom-0 left-0 right-0 p-2 text-xs font-medium text-white truncate bg-black/60 opacity-100 transition-opacity md:opacity-0 md:hover:opacity-100">
                 {it.item_name}
               </p>
             </Link>
