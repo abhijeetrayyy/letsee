@@ -142,6 +142,8 @@ const fetchProfileData = async (
     { count: watchedThisYear },
     { count: movieCount },
     { count: tvCount },
+    { data: movieRuntimeRows },
+    { data: episodeRuntimeRows },
   ] = await Promise.all([
     supabase
       .from("watched_items")
@@ -161,12 +163,35 @@ const fetchProfileData = async (
       .eq("user_id", profileId)
       .eq("is_watched", true)
       .eq("item_type", "tv"),
+    supabase
+      .from("watched_items")
+      .select("runtime_minutes")
+      .eq("user_id", profileId)
+      .eq("is_watched", true)
+      .not("runtime_minutes", "is", null),
+    supabase
+      .from("watched_episodes")
+      .select("runtime_minutes")
+      .eq("user_id", profileId)
+      .not("runtime_minutes", "is", null),
   ]);
 
   const totalWatched = watchedCount ?? 0;
   const movies = movieCount ?? 0;
   const tv = tvCount ?? 0;
-  const hoursWatched = Math.round(movies * 2 + tv * 1.5);
+  const movieMinutes = (movieRuntimeRows ?? []).reduce(
+    (sum, row) => sum + (Number((row as { runtime_minutes?: number | null }).runtime_minutes) || 0),
+    0
+  );
+  const episodeMinutes = (episodeRuntimeRows ?? []).reduce(
+    (sum, row) => sum + (Number((row as { runtime_minutes?: number | null }).runtime_minutes) || 0),
+    0
+  );
+  const totalMinutes = movieMinutes + episodeMinutes;
+  const hoursWatched =
+    totalMinutes > 0
+      ? Math.round(totalMinutes / 60)
+      : Math.round(movies * 2 + tv * 1.5); // fallback when runtime_minutes not yet backfilled
 
   let featuredList: { id: number; name: string } | null = null;
   let pinnedReview: { id: number; item_id: string; item_type: string; item_name: string; review_text: string | null; watched_at: string } | null = null;

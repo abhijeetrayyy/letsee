@@ -79,6 +79,22 @@ export async function POST(req: NextRequest) {
       await removeFromWatchlist(userId, itemId);
     }
 
+    let runtimeMinutes: number | null = null;
+    if (mediaType === "movie" && TMDB_API_KEY && itemId) {
+      try {
+        const res = await fetchTmdb(
+          `https://api.themoviedb.org/3/movie/${itemId}?api_key=${TMDB_API_KEY}`
+        );
+        if (res.ok) {
+          const movieData = await res.json();
+          const rt = movieData?.runtime;
+          if (typeof rt === "number" && rt > 0) runtimeMinutes = Math.round(rt);
+        }
+      } catch (e) {
+        console.error("watchedButton fetch movie runtime:", e);
+      }
+    }
+
     await addToWatched(supabase, userId, {
       itemId,
       name,
@@ -86,6 +102,7 @@ export async function POST(req: NextRequest) {
       imgUrl,
       adult,
       genres,
+      runtimeMinutes,
     });
 
     if (mediaType === "tv") {
@@ -131,6 +148,7 @@ async function addToWatched(
     imgUrl: string;
     adult: boolean;
     genres: string[];
+    runtimeMinutes?: number | null;
   }
 ) {
   const { error: insertError } = await supabase.from("watched_items").insert({
@@ -141,6 +159,7 @@ async function addToWatched(
     image_url: item.imgUrl,
     item_adult: item.adult,
     genres: item.genres,
+    ...(item.runtimeMinutes != null && { runtime_minutes: item.runtimeMinutes }),
   });
 
   if (insertError) {
@@ -212,13 +231,36 @@ async function backfillAllEpisodesForShow(
   if (!res.ok) return;
   const data = await res.json();
   const seasons = Array.isArray(data?.seasons) ? data.seasons : [];
-  const rows: { user_id: string; show_id: string; season_number: number; episode_number: number }[] = [];
+  const rows: WatchedEpisodeRow[] = [];
   for (const season of seasons) {
     const sn = Number(season.season_number);
     if (sn < 0 || Number.isNaN(sn)) continue;
-    const count = Number(season.episode_count) || 0;
-    for (let ep = 1; ep <= count; ep++) {
-      rows.push({ user_id: userId, show_id: showId, season_number: sn, episode_number: ep });
+    const seasonRes = await fetchTmdb(
+      `https://api.themoviedb.org/3/tv/${showId}/season/${sn}?api_key=${TMDB_API_KEY}`
+    );
+    if (!seasonRes.ok) {
+      const count = Number(season.episode_count) || 0;
+      for (let ep = 1; ep <= count; ep++) {
+        rows.push({ user_id: userId, show_id: showId, season_number: sn, episode_number: ep });
+      }
+      continue;
+    }
+    const seasonData = await seasonRes.json();
+    const episodes = Array.isArray(seasonData?.episodes) ? seasonData.episodes : [];
+    for (const ep of episodes) {
+      const en = Number(ep.episode_number);
+      if (en >= 1) {
+        const rt = ep?.runtime;
+        const runtimeMinutes =
+          typeof rt === "number" && rt > 0 ? Math.round(rt) : null;
+        rows.push({
+          user_id: userId,
+          show_id: showId,
+          season_number: sn,
+          episode_number: en,
+          ...(runtimeMinutes != null && { runtime_minutes: runtimeMinutes }),
+        });
+      }
     }
   }
   if (rows.length === 0) return;
@@ -235,6 +277,7 @@ async function backfillAllEpisodesForShow(
 
 /**
  * Insert a specific list of (season_number, episode_number) into watched_episodes.
+ * Fetches season details from TMDB to include runtime_minutes when available.
  */
 async function insertWatchedEpisodesList(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -243,15 +286,50 @@ async function insertWatchedEpisodesList(
   list: { season_number: number; episode_number: number }[]
 ) {
   if (list.length === 0) return;
-  const rows = list
-    .filter((e) => Number.isInteger(e.season_number) && Number.isInteger(e.episode_number) && e.episode_number >= 1)
-    .map((e) => ({
+  const filtered = list.filter(
+    (e) =>
+      Number.isInteger(e.season_number) &&
+      Number.isInteger(e.episode_number) &&
+      e.episode_number >= 1
+  );
+  if (filtered.length === 0) return;
+
+  const seasonNumbers = [...new Set(filtered.map((e) => e.season_number))];
+  const episodeBySeason: Record<number, Map<number, number | null>> = {};
+  if (TMDB_API_KEY) {
+    for (const sn of seasonNumbers) {
+      if (sn < 0) continue;
+      const res = await fetchTmdb(
+        `https://api.themoviedb.org/3/tv/${showId}/season/${sn}?api_key=${TMDB_API_KEY}`
+      );
+      const map = new Map<number, number | null>();
+      if (res.ok) {
+        const data = await res.json();
+        const episodes = Array.isArray(data?.episodes) ? data.episodes : [];
+        for (const ep of episodes) {
+          const en = Number(ep.episode_number);
+          if (en >= 1) {
+            const rt = ep?.runtime;
+            map.set(en, typeof rt === "number" && rt > 0 ? Math.round(rt) : null);
+          }
+        }
+      }
+      episodeBySeason[sn] = map;
+    }
+  }
+
+  const rows: WatchedEpisodeRow[] = filtered.map((e) => {
+    const runtimeMap = episodeBySeason[e.season_number];
+    const runtimeMinutes = runtimeMap?.get(e.episode_number) ?? null;
+    return {
       user_id: userId,
       show_id: showId,
       season_number: e.season_number,
       episode_number: e.episode_number,
-    }));
-  if (rows.length === 0) return;
+      ...(runtimeMinutes != null && { runtime_minutes: runtimeMinutes }),
+    };
+  });
+
   const BATCH = 100;
   for (let i = 0; i < rows.length; i += BATCH) {
     const chunk = rows.slice(i, i + BATCH);
@@ -263,6 +341,14 @@ async function insertWatchedEpisodesList(
   }
 }
 
+type WatchedEpisodeRow = {
+  user_id: string;
+  show_id: string;
+  season_number: number;
+  episode_number: number;
+  runtime_minutes?: number | null;
+};
+
 async function backfillEpisodesForSeasons(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
@@ -270,7 +356,7 @@ async function backfillEpisodesForSeasons(
   seasonNumbers: number[]
 ) {
   if (!TMDB_API_KEY || seasonNumbers.length === 0) return;
-  const rows: { user_id: string; show_id: string; season_number: number; episode_number: number }[] = [];
+  const rows: WatchedEpisodeRow[] = [];
   for (const sn of seasonNumbers) {
     if (sn < 0 || !Number.isInteger(sn)) continue;
     const res = await fetchTmdb(
@@ -281,7 +367,18 @@ async function backfillEpisodesForSeasons(
     const episodes = Array.isArray(data?.episodes) ? data.episodes : [];
     for (const ep of episodes) {
       const en = Number(ep.episode_number);
-      if (en >= 1) rows.push({ user_id: userId, show_id: showId, season_number: sn, episode_number: en });
+      if (en >= 1) {
+        const rt = ep?.runtime;
+        const runtimeMinutes =
+          typeof rt === "number" && rt > 0 ? Math.round(rt) : null;
+        rows.push({
+          user_id: userId,
+          show_id: showId,
+          season_number: sn,
+          episode_number: en,
+          ...(runtimeMinutes != null && { runtime_minutes: runtimeMinutes }),
+        });
+      }
     }
   }
   if (rows.length === 0) return;

@@ -91,6 +91,7 @@ create table if not exists public.watched_items (
   watched_at timestamptz not null default now(),
   review_text text,
   is_watched boolean not null default true,
+  runtime_minutes integer,
   unique (user_id, item_id)
 );
 
@@ -245,6 +246,7 @@ create table if not exists public.watched_episodes (
   season_number smallint not null check (season_number >= 0),
   episode_number smallint not null check (episode_number >= 1),
   watched_at timestamptz not null default now(),
+  runtime_minutes integer,
   unique (user_id, show_id, season_number, episode_number)
 );
 
