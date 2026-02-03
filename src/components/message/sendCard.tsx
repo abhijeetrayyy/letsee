@@ -284,13 +284,15 @@ const SendMessageModal: React.FC<Props> = ({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    supabase
-      .from("users")
-      .select("id, username")
-      .ilike("username", `%${searchDebounced.trim()}%`)
-      .neq("id", sender.id)
-      .limit(10)
-      .order("username", { ascending: true })
+    void Promise.resolve(
+      supabase
+        .from("users")
+        .select("id, username")
+        .ilike("username", `%${searchDebounced.trim()}%`)
+        .neq("id", sender.id)
+        .limit(10)
+        .order("username", { ascending: true })
+    )
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) {

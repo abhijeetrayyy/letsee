@@ -29,7 +29,7 @@ export default function KnowFor({ castData }: KnowForProps) {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [cardData, setCardData] = useState<unknown>(null);
+  const [cardData, setCardData] = useState<CastItem | null>(null);
 
   const handleScroll = () => {
     const el = scrollRef.current;
@@ -69,7 +69,7 @@ export default function KnowFor({ castData }: KnowForProps) {
   return (
     <div className="relative w-full">
       <SendMessageModal
-        media_type={cardData?.media_type}
+        media_type={cardData?.media_type ?? null}
         data={cardData}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

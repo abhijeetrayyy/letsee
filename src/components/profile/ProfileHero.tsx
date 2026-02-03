@@ -20,8 +20,6 @@ type ProfileHeroProps = {
   ShowFollower: React.ComponentType<{ followerCount: number; userId: string }>;
   visibilityControl: React.ReactNode;
   userId: string;
-  followingCount: number;
-  followersCount: number;
 };
 
 export default function ProfileHero({

@@ -70,7 +70,7 @@ export default function ReelViewer() {
   const [nextLoading, setNextLoading] = useState(false);
   const [imdbRating, setImdbRating] = useState<string>("—");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [cardData, setCardData] = useState<unknown>(null);
+  const [cardData, setCardData] = useState<Movie | null>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const moodScrollRef = useRef<HTMLDivElement>(null);
   const nextReelRef = useRef<() => void>(() => {});

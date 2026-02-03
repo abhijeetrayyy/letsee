@@ -277,10 +277,10 @@ export default function SearchResultsPage() {
 
   const openTvWatchedModal = useCallback((data: SearchResult) => {
     if (data.media_type !== "tv") return;
-    const genres =
+    const genres: string[] =
       data.genre_ids
         ?.map((id) => GenreList.genres.find((g: { id: number }) => g.id === id)?.name)
-        .filter(Boolean) ?? [];
+        .filter((n): n is string => Boolean(n)) ?? [];
     setTvWatchedModalItem({
       id: data.id,
       name: data.title || data.name || "Unknown",
@@ -568,14 +568,14 @@ export default function SearchResultsPage() {
                   );
                 }
                 if (displayType === "movie" || displayType === "tv") {
-                  const year =
-                    data.release_date || data.first_air_date
-                      ? String(new Date(data.release_date || data.first_air_date).getFullYear())
-                      : null;
-                  const genres =
+                  const dateStr = data.release_date || data.first_air_date;
+                  const year = dateStr
+                    ? String(new Date(dateStr).getFullYear())
+                    : null;
+                  const genres: string[] =
                     data.genre_ids
                       ?.map((id) => GenreList.genres.find((g: { id: number }) => g.id === id)?.name)
-                      .filter(Boolean) ?? [];
+                      .filter((n): n is string => Boolean(n)) ?? [];
                   return (
                     <MediaCard
                       key={`${displayType}-${data.id}`}

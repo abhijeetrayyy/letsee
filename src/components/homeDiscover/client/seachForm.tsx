@@ -180,10 +180,10 @@ function Page() {
       !isPerson && (data.release_date || data.first_air_date)
         ? String(new Date(data.release_date || data.first_air_date || "").getFullYear())
         : null;
-    const genres =
+    const genres: string[] =
       data.genre_ids
         ?.map((id: number) => GenreList.genres.find((g: any) => g.id === id)?.name)
-        .filter(Boolean) ?? [];
+        .filter((n): n is string => Boolean(n)) ?? [];
 
     return (
       <MediaCard

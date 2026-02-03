@@ -316,8 +316,8 @@ export default function MarkTVWatchedModal({
                         </button>
                         <label className="flex flex-1 cursor-pointer items-center gap-3 min-w-0">
                           <SeasonCheckbox
-                            checked={isFullySelected}
-                            indeterminate={isPartiallySelected && !isFullySelected}
+                            checked={!!isFullySelected}
+                            indeterminate={!!(isPartiallySelected && !isFullySelected)}
                             onChange={() => toggleSeason(season)}
                           />
                           <span className="text-sm font-medium text-white truncate">{season.name}</span>

@@ -13,6 +13,7 @@ import { HiOutlineUser, HiOutlineBell } from "react-icons/hi2";
 interface FollowRequest {
   id: number;
   sender_id: string;
+  receiver_id?: string;
   created_at: string;
   users?: { username?: string | null; avatar_url?: string | null } | null;
 }
@@ -44,7 +45,7 @@ export default function NotificationPage() {
       .order("created_at", { ascending: false });
 
     if (result.error && (result.error.message?.includes("avatar_url") || result.error.code === "42703")) {
-      result = await supabase
+      const fallback = await supabase
         .from("user_follow_requests")
         .select(
           "id, sender_id, created_at, users!user_follow_requests_sender_id_fkey(username)"
@@ -52,6 +53,7 @@ export default function NotificationPage() {
         .eq("receiver_id", user.id)
         .eq("status", "pending")
         .order("created_at", { ascending: false });
+      result = { data: fallback.data, error: fallback.error } as typeof result;
     }
 
     if (result.error) {
@@ -76,7 +78,7 @@ export default function NotificationPage() {
   useEffect(() => {
     if (!userId) return;
 
-    const channel = supabase
+    const ch = supabase
       .channel("notification-follow-requests")
       .on(
         "postgres_changes",
@@ -95,18 +97,20 @@ export default function NotificationPage() {
             setRequests((prev) => prev.filter((r) => r.id !== payload.new.id));
           }
         }
-      )
+      );
+    // Third .on() - type assertion for Supabase Realtime chained overload
+    const channel = (ch as { on: (ev: string, opts: object, cb: (p: { old: { id: number } }) => unknown) => { subscribe: () => void } })
       .on(
         "postgres_changes",
         { event: "DELETE", schema: "public", table: "user_follow_requests" },
         (payload: { old: { id: number } }) => {
           setRequests((prev) => prev.filter((r) => r.id !== payload.old.id));
         }
-      )
-      .subscribe();
+      );
+    channel.subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(ch);
     };
   }, [userId]);
 

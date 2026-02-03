@@ -28,12 +28,13 @@ async function getPublicProfiles() {
 
   if (result.error) {
     if (result.error.message?.includes("avatar_url") || result.error.code === "42703") {
-      result = await supabase
+      const fallback = await supabase
         .from("users")
         .select(selectWithoutAvatar)
         .not("username", "is", null)
         .eq("visibility", "public")
         .order("updated_at", { ascending: false });
+      result = { data: fallback.data, error: fallback.error } as typeof result;
     }
   }
 
@@ -42,10 +43,15 @@ async function getPublicProfiles() {
     return { profiles: [], isAuthed: true };
   }
 
-  const profiles = (result.data ?? []).map((p: Record<string, unknown>) => ({
-    ...p,
-    avatar_url: "avatar_url" in p ? p.avatar_url : null,
-  }));
+  const profiles = (result.data ?? []).map((p: Record<string, unknown>) => {
+    const stats = (p.user_cout_stats as { watched_count?: number; favorites_count?: number; watchlist_count?: number }[])?.[0];
+    return {
+      username: String(p.username ?? ""),
+      about: p.about != null ? String(p.about) : null,
+      avatar_url: "avatar_url" in p && p.avatar_url != null ? String(p.avatar_url) : null,
+      user_cout_stats: stats ?? null,
+    };
+  });
 
   return { profiles, isAuthed: true };
 }

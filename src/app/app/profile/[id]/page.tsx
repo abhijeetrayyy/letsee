@@ -259,8 +259,8 @@ export default async function ProfilePage({ params }: PageProps) {
           tagline={user.tagline || null}
           about={user.about || null}
           isOwner={isOwner}
-          followersCount={followData.followersCount}
-          followingCount={followData.followingCount}
+          followersCount={followData.followersCount ?? 0}
+          followingCount={followData.followingCount ?? 0}
           followButton={
             <FollowerBtnClient
               profileId={user.id}

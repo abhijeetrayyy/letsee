@@ -81,7 +81,7 @@ export async function POST(req: Request) {
         }
       }
       console.log(`Updated genres for item ${item.item_id}:`, genres);
-      await delay(250); // Respect TMDB rate limits (4 requests per second)
+      await new Promise((resolve) => setTimeout(resolve, 250)); // Respect TMDB rate limits
     }
 
     return new Response(
