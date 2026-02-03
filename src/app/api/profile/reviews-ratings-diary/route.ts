@@ -2,9 +2,8 @@ import { createClient } from "@/utils/supabase/server";
 
 /**
  * GET /api/profile/reviews-ratings-diary?userId=...
- * Returns watched items that have at least one of: diary (review_text), public review, or rating.
- * Row-friendly: item_id, item_type, item_name, watched_at, score, public_review_text, review_text (owner only).
- * Diary is always hidden from visitors (only owner sees review_text).
+ * Returns watched items with score, public_review_text, and (for owner) review_text.
+ * Same visibility rules as profile; respects profile_show_diary, profile_show_ratings, profile_show_public_reviews.
  */
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -24,7 +23,9 @@ export async function GET(request: Request) {
 
   const { data: profile, error: profileError } = await supabase
     .from("users")
-    .select("visibility, profile_show_diary, profile_show_ratings, profile_show_public_reviews")
+    .select(
+      "visibility, profile_show_diary, profile_show_ratings, profile_show_public_reviews",
+    )
     .eq("id", userId)
     .maybeSingle();
 
@@ -34,7 +35,9 @@ export async function GET(request: Request) {
     });
   }
 
-  const visibility = profile.visibility ?? "public";
+  const visibility = String(profile.visibility ?? "public")
+    .toLowerCase()
+    .trim();
   let canView = visibility === "public" || (viewerId && viewerId === userId);
 
   if (!canView && viewerId && visibility === "followers") {
@@ -54,69 +57,92 @@ export async function GET(request: Request) {
   }
 
   const isOwner = viewerId === userId;
+  const profileShowDiary = profile.profile_show_diary ?? true;
   const profileShowRatings = profile.profile_show_ratings ?? true;
   const profileShowPublicReviews = profile.profile_show_public_reviews ?? true;
 
-  // Fetch watched items (up to 100, order by watched_at desc)
-  const { data: items, error: itemsError } = await supabase
+  const { data: watchedRows, error: watchedError } = await supabase
     .from("watched_items")
-    .select("item_id, item_type, item_name, watched_at, review_text, public_review_text")
+    .select(
+      "item_id, item_type, item_name, watched_at, review_text, public_review_text",
+    )
     .eq("user_id", userId)
-    .order("watched_at", { ascending: false })
-    .limit(100);
+    .eq("is_watched", true)
+    .order("watched_at", { ascending: false });
 
-  if (itemsError) {
-    return new Response(JSON.stringify({ error: itemsError.message }), {
+  if (watchedError) {
+    return new Response(JSON.stringify({ error: watchedError.message }), {
       status: 500,
     });
   }
 
-  // Fetch ratings for this user
-  let ratingsMap: Record<string, number> = {};
-  if (items?.length) {
-    const { data: ratings } = await supabase
-      .from("user_ratings")
-      .select("item_id, item_type, score")
-      .eq("user_id", userId);
-    for (const r of (ratings ?? []) as { item_id: string; item_type: string; score: number }[]) {
-      ratingsMap[`${r.item_id}:${r.item_type}`] = r.score;
-    }
+  const items = watchedRows ?? [];
+  if (items.length === 0) {
+    return new Response(JSON.stringify({ data: [] }));
   }
 
-  type Row = {
+  const { data: ratings } = await supabase
+    .from("user_ratings")
+    .select("item_id, item_type, score")
+    .eq("user_id", userId);
+
+  const ratingsMap: Record<string, number> = {};
+  for (const r of (ratings ?? []) as {
     item_id: string;
     item_type: string;
-    item_name: string;
-    watched_at: string;
-    review_text?: string | null;
-    public_review_text?: string | null;
-  };
-  const merged = (items ?? []).map((row: Row) => {
-    const key = `${row.item_id}:${row.item_type}`;
-    const score = ratingsMap[key] ?? null;
-    return { ...row, score };
-  });
+    score: number;
+  }[]) {
+    ratingsMap[`${r.item_id}:${r.item_type}`] = r.score;
+  }
 
-  // Keep only rows that have at least one of: diary, public review, or rating
-  const filtered = merged.filter(
-    (row: Row & { score: number | null }) =>
-      (row.review_text != null && row.review_text.trim() !== "") ||
-      (row.public_review_text != null && row.public_review_text.trim() !== "") ||
-      row.score != null
-  );
+  const data = items
+    .map(
+      (row: {
+        item_id: string;
+        item_type: string;
+        item_name: string;
+        watched_at: string;
+        review_text: string | null;
+        public_review_text: string | null;
+      }) => {
+        const key = `${row.item_id}:${row.item_type}`;
+        let score: number | null = ratingsMap[key] ?? null;
+        let public_review_text: string | null = row.public_review_text;
+        let review_text: string | null = row.review_text;
 
-  // Apply visibility for visitors: never send diary; null score/public_review if toggles off
-  const data = filtered.map((row: Row & { score: number | null }) => {
-    const out = { ...row };
-    if (!isOwner) {
-      (out as Record<string, unknown>).review_text = null; // diary always hidden from public
-      if (!profileShowRatings) (out as Record<string, unknown>).score = null;
-      if (!profileShowPublicReviews) (out as Record<string, unknown>).public_review_text = null;
-    }
-    return out;
-  });
+        if (!isOwner) {
+          if (!profileShowRatings) score = null;
+          if (!profileShowPublicReviews) public_review_text = null;
+          review_text = null; // diary is never shown to visitors
+        } else {
+          if (!profileShowDiary) review_text = null;
+        }
 
-  return new Response(JSON.stringify({ data }), {
-    headers: { "Content-Type": "application/json" },
-  });
+        return {
+          item_id: row.item_id,
+          item_type: row.item_type,
+          item_name: row.item_name,
+          watched_at: row.watched_at,
+          score,
+          public_review_text,
+          review_text,
+        };
+      },
+    )
+    .filter(
+      (item: {
+        score: number | null;
+        public_review_text: string | null;
+        review_text: string | null;
+      }) => {
+        // Only show if there is at least one piece of content visible
+        return (
+          item.score !== null ||
+          item.public_review_text !== null ||
+          item.review_text !== null
+        );
+      },
+    );
+
+  return new Response(JSON.stringify({ data }));
 }

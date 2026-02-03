@@ -10,13 +10,41 @@ type DisplayItem = {
   item_name: string;
 };
 
-/** GET /api/profile/favorite-display?userId=uuid — returns { items: DisplayItem[] } for that profile (anyone can read) */
+/** GET /api/profile/favorite-display?userId=uuid — returns { items: DisplayItem[] } for that profile. Respects profile visibility. */
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");
   if (!userId) {
     return jsonError("Missing userId", 400);
+  }
+
+  const { data: viewer } = await supabase.auth.getUser();
+  const viewerId = viewer?.user?.id ?? null;
+
+  if (viewerId !== userId) {
+    const { data: profile, error: profileError } = await supabase
+      .from("users")
+      .select("visibility")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profileError || !profile) {
+      return jsonError("User not found", 404);
+    }
+    const visibility = String(profile.visibility ?? "public").toLowerCase().trim();
+    let canView = visibility === "public" || viewerId === userId;
+    if (!canView && viewerId && visibility === "followers") {
+      const { data: conn } = await supabase
+        .from("user_connections")
+        .select("id")
+        .eq("follower_id", viewerId)
+        .eq("followed_id", userId)
+        .maybeSingle();
+      if (conn?.id) canView = true;
+    }
+    if (!canView) {
+      return jsonError("Forbidden", 403);
+    }
   }
 
   const { data: rows, error } = await supabase

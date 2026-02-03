@@ -5,7 +5,7 @@ import ProfileWatchlater from "./ProfileWatchlater";
 import ProfileWatched from "./profileWatched";
 import RecommendationTile from "./recomendation";
 
-const getUserData = async (id: any) => {
+const getUserData = async (id: string) => {
   const supabase = await createClient();
 
   const { count: watchedCount, error: countError } = await supabase

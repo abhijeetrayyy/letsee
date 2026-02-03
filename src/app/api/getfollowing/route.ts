@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const visibility = profile.visibility ?? "public";
+  const visibility = String(profile.visibility ?? "public").toLowerCase().trim();
   const viewerId = userData.user.id;
   let canView = visibility === "public" || viewerId === userId;
 

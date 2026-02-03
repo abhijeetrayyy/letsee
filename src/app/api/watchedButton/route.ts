@@ -16,8 +16,26 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = userData.user.id;
-  const body = await req.json();
-  const { itemId, name, mediaType, imgUrl, adult, genres, episodes: episodesPayload } = body;
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const itemId = body.itemId != null ? String(body.itemId) : null;
+  const name = typeof body.name === "string" ? body.name : "";
+  const mediaType = body.mediaType === "tv" ? "tv" : "movie";
+  const imgUrl = typeof body.imgUrl === "string" ? body.imgUrl : null;
+  const adult = body.adult === true;
+  const genres = Array.isArray(body.genres) ? (body.genres as string[]) : [];
+  const episodesPayload = body.episodes;
+
+  if (!itemId || !name) {
+    return NextResponse.json(
+      { error: "itemId and name are required" },
+      { status: 400 }
+    );
+  }
 
   try {
     const { data: existingItem, error: findError } = await supabase
@@ -53,7 +71,7 @@ export async function POST(req: NextRequest) {
         .from("watched_items")
         .update({ is_watched: true })
         .eq("user_id", userId)
-        .eq("item_id", itemId);
+        .eq("item_id", String(itemId));
       if (updateError) throw updateError;
       const { error: incError } = await supabase.rpc("increment_watched_count", {
         p_user_id: userId,
@@ -79,22 +97,6 @@ export async function POST(req: NextRequest) {
       await removeFromWatchlist(userId, itemId);
     }
 
-    let runtimeMinutes: number | null = null;
-    if (mediaType === "movie" && TMDB_API_KEY && itemId) {
-      try {
-        const res = await fetchTmdb(
-          `https://api.themoviedb.org/3/movie/${itemId}?api_key=${TMDB_API_KEY}`
-        );
-        if (res.ok) {
-          const movieData = await res.json();
-          const rt = movieData?.runtime;
-          if (typeof rt === "number" && rt > 0) runtimeMinutes = Math.round(rt);
-        }
-      } catch (e) {
-        console.error("watchedButton fetch movie runtime:", e);
-      }
-    }
-
     await addToWatched(supabase, userId, {
       itemId,
       name,
@@ -102,7 +104,6 @@ export async function POST(req: NextRequest) {
       imgUrl,
       adult,
       genres,
-      runtimeMinutes,
     });
 
     if (mediaType === "tv") {
@@ -126,10 +127,17 @@ export async function POST(req: NextRequest) {
       { message: "Added to watched", action: "added" },
       { status: 200 }
     );
-  } catch (error) {
-    console.error("Error processing request:", error);
+  } catch (error: unknown) {
+    const err = error as { message?: string; code?: string; details?: string };
+    console.error("watchedButton error:", err);
+    const message =
+      typeof err?.message === "string"
+        ? err.message
+        : err?.code
+          ? String(err.code)
+          : "Internal server error";
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: message },
       { status: 500 }
     );
   }
@@ -145,21 +153,19 @@ async function addToWatched(
     itemId: string;
     name: string;
     mediaType: string;
-    imgUrl: string;
+    imgUrl?: string | null;
     adult: boolean;
     genres: string[];
-    runtimeMinutes?: number | null;
   }
 ) {
   const { error: insertError } = await supabase.from("watched_items").insert({
     user_id: userId,
     item_name: item.name,
-    item_id: item.itemId,
-    item_type: item.mediaType,
-    image_url: item.imgUrl,
-    item_adult: item.adult,
-    genres: item.genres,
-    ...(item.runtimeMinutes != null && { runtime_minutes: item.runtimeMinutes }),
+    item_id: String(item.itemId),
+    item_type: item.mediaType === "tv" ? "tv" : "movie",
+    image_url: item.imgUrl ?? null,
+    item_adult: Boolean(item.adult),
+    genres: Array.isArray(item.genres) ? item.genres : [],
   });
 
   if (insertError) {
@@ -250,15 +256,11 @@ async function backfillAllEpisodesForShow(
     for (const ep of episodes) {
       const en = Number(ep.episode_number);
       if (en >= 1) {
-        const rt = ep?.runtime;
-        const runtimeMinutes =
-          typeof rt === "number" && rt > 0 ? Math.round(rt) : null;
         rows.push({
           user_id: userId,
           show_id: showId,
           season_number: sn,
           episode_number: en,
-          ...(runtimeMinutes != null && { runtime_minutes: runtimeMinutes }),
         });
       }
     }
@@ -277,7 +279,6 @@ async function backfillAllEpisodesForShow(
 
 /**
  * Insert a specific list of (season_number, episode_number) into watched_episodes.
- * Fetches season details from TMDB to include runtime_minutes when available.
  */
 async function insertWatchedEpisodesList(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -294,41 +295,12 @@ async function insertWatchedEpisodesList(
   );
   if (filtered.length === 0) return;
 
-  const seasonNumbers = [...new Set(filtered.map((e) => e.season_number))];
-  const episodeBySeason: Record<number, Map<number, number | null>> = {};
-  if (TMDB_API_KEY) {
-    for (const sn of seasonNumbers) {
-      if (sn < 0) continue;
-      const res = await fetchTmdb(
-        `https://api.themoviedb.org/3/tv/${showId}/season/${sn}?api_key=${TMDB_API_KEY}`
-      );
-      const map = new Map<number, number | null>();
-      if (res.ok) {
-        const data = await res.json();
-        const episodes = Array.isArray(data?.episodes) ? data.episodes : [];
-        for (const ep of episodes) {
-          const en = Number(ep.episode_number);
-          if (en >= 1) {
-            const rt = ep?.runtime;
-            map.set(en, typeof rt === "number" && rt > 0 ? Math.round(rt) : null);
-          }
-        }
-      }
-      episodeBySeason[sn] = map;
-    }
-  }
-
-  const rows: WatchedEpisodeRow[] = filtered.map((e) => {
-    const runtimeMap = episodeBySeason[e.season_number];
-    const runtimeMinutes = runtimeMap?.get(e.episode_number) ?? null;
-    return {
-      user_id: userId,
-      show_id: showId,
-      season_number: e.season_number,
-      episode_number: e.episode_number,
-      ...(runtimeMinutes != null && { runtime_minutes: runtimeMinutes }),
-    };
-  });
+  const rows: WatchedEpisodeRow[] = filtered.map((e) => ({
+    user_id: userId,
+    show_id: showId,
+    season_number: e.season_number,
+    episode_number: e.episode_number,
+  }));
 
   const BATCH = 100;
   for (let i = 0; i < rows.length; i += BATCH) {
@@ -346,7 +318,6 @@ type WatchedEpisodeRow = {
   show_id: string;
   season_number: number;
   episode_number: number;
-  runtime_minutes?: number | null;
 };
 
 async function backfillEpisodesForSeasons(
@@ -368,15 +339,11 @@ async function backfillEpisodesForSeasons(
     for (const ep of episodes) {
       const en = Number(ep.episode_number);
       if (en >= 1) {
-        const rt = ep?.runtime;
-        const runtimeMinutes =
-          typeof rt === "number" && rt > 0 ? Math.round(rt) : null;
         rows.push({
           user_id: userId,
           show_id: showId,
           season_number: sn,
           episode_number: en,
-          ...(runtimeMinutes != null && { runtime_minutes: runtimeMinutes }),
         });
       }
     }

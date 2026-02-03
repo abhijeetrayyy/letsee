@@ -23,14 +23,15 @@ import ProfileTvProgress from "@components/profile/ProfileTvProgress";
 import ProfileReviewsRatingsDiaryRows from "@components/profile/ProfileReviewsRatingsDiaryRows";
 import VisibilityGate from "@components/profile/VisibilityGate";
 
-// Fetch user data and statistics in a single function
+export const dynamic = "force-dynamic";
+
+// Fetch user data and statistics. Uses only the viewer's Supabase client; RLS (profile_visible_to_viewer) allows reading when profile is public or followers+follow.
 const fetchProfileData = async (
   username: string | null,
   currentUserId: string | null
 ) => {
   const supabase = await createClient();
 
-  // Get authenticated user if no username provided
   let profileId: string;
   let user: any;
 
@@ -59,7 +60,7 @@ const fetchProfileData = async (
       .eq("username", username)
       .single();
 
-    if (error || !data) return null; // Return null for notFound handling
+    if (error || !data) return null;
     user = data;
     profileId = user.id;
   }
@@ -77,7 +78,6 @@ const fetchProfileData = async (
 
   const isOwner = currentUserId === profileId;
 
-  // Fetch stats and follow data in parallel
   const [
     { count: watchedCount },
     { count: favoriteCount },
@@ -86,36 +86,21 @@ const fetchProfileData = async (
     { count: followingCount },
     { data: connection },
   ] = await Promise.all([
-    supabase
-      .from("watched_items")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", profileId)
-      .eq("is_watched", true),
-    supabase
-      .from("favorite_items")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", profileId),
-    supabase
-      .from("user_watchlist")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", profileId),
-    supabase
-      .from("user_connections")
-      .select("*", { count: "exact" })
-      .eq("followed_id", profileId),
-    supabase
-      .from("user_connections")
-      .select("*", { count: "exact" })
-      .eq("follower_id", profileId),
+    supabase.from("watched_items").select("*", { count: "exact", head: true }).eq("user_id", profileId).eq("is_watched", true),
+    supabase.from("favorite_items").select("*", { count: "exact", head: true }).eq("user_id", profileId),
+    supabase.from("user_watchlist").select("*", { count: "exact", head: true }).eq("user_id", profileId),
+    supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("followed_id", profileId),
+    supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("follower_id", profileId),
     isOwner || !currentUserId
       ? { data: null }
-      : supabase
-          .from("user_connections")
-          .select("*")
-          .eq("follower_id", currentUserId)
-          .eq("followed_id", profileId)
-          .single(),
+      : supabase.from("user_connections").select("*").eq("follower_id", currentUserId!).eq("followed_id", profileId).single(),
   ]);
+
+  const followData = {
+    followersCount: followersCount ?? 0,
+    followingCount: followingCount ?? 0,
+    isFollowing: !!connection?.id,
+  };
 
   let favoriteDisplay: { position: number; item_id: string; item_type: string; image_url: string | null; item_name: string }[] = [];
   try {
@@ -142,76 +127,26 @@ const fetchProfileData = async (
     { count: watchedThisYear },
     { count: movieCount },
     { count: tvCount },
-    { data: movieRuntimeRows },
-    { data: episodeRuntimeRows },
   ] = await Promise.all([
-    supabase
-      .from("watched_items")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", profileId)
-      .eq("is_watched", true)
-      .gte("watched_at", yearStart),
-    supabase
-      .from("watched_items")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", profileId)
-      .eq("is_watched", true)
-      .eq("item_type", "movie"),
-    supabase
-      .from("watched_items")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", profileId)
-      .eq("is_watched", true)
-      .eq("item_type", "tv"),
-    supabase
-      .from("watched_items")
-      .select("runtime_minutes")
-      .eq("user_id", profileId)
-      .eq("is_watched", true)
-      .not("runtime_minutes", "is", null),
-    supabase
-      .from("watched_episodes")
-      .select("runtime_minutes")
-      .eq("user_id", profileId)
-      .not("runtime_minutes", "is", null),
+    supabase.from("watched_items").select("*", { count: "exact", head: true }).eq("user_id", profileId).eq("is_watched", true).gte("watched_at", yearStart),
+    supabase.from("watched_items").select("*", { count: "exact", head: true }).eq("user_id", profileId).eq("is_watched", true).eq("item_type", "movie"),
+    supabase.from("watched_items").select("*", { count: "exact", head: true }).eq("user_id", profileId).eq("is_watched", true).eq("item_type", "tv"),
   ]);
 
   const totalWatched = watchedCount ?? 0;
   const movies = movieCount ?? 0;
   const tv = tvCount ?? 0;
-  const movieMinutes = (movieRuntimeRows ?? []).reduce(
-    (sum, row) => sum + (Number((row as { runtime_minutes?: number | null }).runtime_minutes) || 0),
-    0
-  );
-  const episodeMinutes = (episodeRuntimeRows ?? []).reduce(
-    (sum, row) => sum + (Number((row as { runtime_minutes?: number | null }).runtime_minutes) || 0),
-    0
-  );
-  const totalMinutes = movieMinutes + episodeMinutes;
-  const hoursWatched =
-    totalMinutes > 0
-      ? Math.round(totalMinutes / 60)
-      : Math.round(movies * 2 + tv * 1.5); // fallback when runtime_minutes not yet backfilled
+  const hoursWatched = Math.round((movies ?? 0) * 2 + (tv ?? 0) * 1.5);
 
   let featuredList: { id: number; name: string } | null = null;
   let pinnedReview: { id: number; item_id: string; item_type: string; item_name: string; review_text: string | null; watched_at: string } | null = null;
   const uid = user as { featured_list_id?: number | null; pinned_review_id?: number | null };
   if (uid.featured_list_id) {
-    const { data: fl } = await supabase
-      .from("user_lists")
-      .select("id, name")
-      .eq("id", uid.featured_list_id)
-      .eq("user_id", profileId)
-      .maybeSingle();
+    const { data: fl } = await supabase.from("user_lists").select("id, name").eq("id", uid.featured_list_id).eq("user_id", profileId).maybeSingle();
     if (fl) featuredList = fl;
   }
   if (uid.pinned_review_id) {
-    const { data: pr } = await supabase
-      .from("watched_items")
-      .select("id, item_id, item_type, item_name, review_text, watched_at")
-      .eq("id", uid.pinned_review_id)
-      .eq("user_id", profileId)
-      .maybeSingle();
+    const { data: pr } = await supabase.from("watched_items").select("id, item_id, item_type, item_name, review_text, watched_at").eq("id", uid.pinned_review_id).eq("user_id", profileId).maybeSingle();
     if (pr) pinnedReview = pr;
   }
 
@@ -221,19 +156,15 @@ const fetchProfileData = async (
     featuredList,
     pinnedReview,
     stats: {
-      watchedCount,
-      favoriteCount,
-      watchlistCount,
+      watchedCount: totalWatched,
+      favoriteCount: favoriteCount ?? 0,
+      watchlistCount: watchlistCount ?? 0,
       watchedThisYear: watchedThisYear ?? 0,
       hoursWatched,
       movieCount: movies,
       tvCount: tv,
     },
-    followData: {
-      followersCount,
-      followingCount,
-      isFollowing: !!connection?.id,
-    },
+    followData,
     favoriteDisplay,
     recentActivity: recentWatched ?? [],
   };
@@ -262,8 +193,8 @@ export default async function ProfilePage({ params }: PageProps) {
     redirect(`/app/profile/${user.username}`);
   }
 
-  // Determine content visibility (normalize visibility: DB enum may be lowercase)
-  const visibility = String(user?.visibility ?? "").toLowerCase();
+  // Determine content visibility (normalize: DB enum is lowercase; default to public so "Public" profile is visible)
+  const visibility = String(user?.visibility ?? "public").toLowerCase();
   const canViewContent =
     isOwner ||
     visibility === "public" ||

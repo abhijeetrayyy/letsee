@@ -52,6 +52,10 @@ A **social movie & TV discovery app**: track what you watch, share with friends,
    NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
+   # Service role key (required for visitors to see other users' profiles: watched, favorites, watchlist, lists)
+   # Get it from Supabase Dashboard → Settings → API → service_role (never expose to the client)
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
    # TMDB (required for discovery and watch providers)
    TMDB_API_KEY=your-tmdb-api-key
 

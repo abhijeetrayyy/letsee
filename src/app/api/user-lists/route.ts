@@ -2,23 +2,24 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 
-/** GET /api/user-lists — current user's lists. GET /api/user-lists?userId=xxx — lists for profile (respects visibility) */
+/** GET /api/user-lists — current user's lists. GET /api/user-lists?userId=xxx — lists for profile (respects visibility). Anon can view public lists only. */
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: authUser, error: authError } = await supabase.auth.getUser();
-  if (authError || !authUser?.user) {
-    return jsonError("User isn't logged in", 401);
-  }
+  const viewerId = authError || !authUser?.user ? null : authUser.user.id;
 
   const { searchParams } = new URL(request.url);
   const targetUserId = searchParams.get("userId");
 
   if (!targetUserId) {
-    // My lists only
+    // My lists only — require login
+    if (!viewerId) {
+      return jsonError("User isn't logged in", 401);
+    }
     const { data: lists, error } = await supabase
       .from("user_lists")
       .select("id, name, description, visibility, created_at, updated_at")
-      .eq("user_id", authUser.user.id)
+      .eq("user_id", viewerId)
       .order("updated_at", { ascending: false });
 
     if (error) return jsonError("Failed to fetch lists", 500);
@@ -35,8 +36,8 @@ export async function GET(request: NextRequest) {
     return jsonSuccess({ lists: withCounts }, { maxAge: 0 });
   }
 
-  // Another user's profile: only lists we're allowed to see (public, or followers if we follow)
-  if (targetUserId === authUser.user.id) {
+  // Another user's profile: only lists we're allowed to see (public, or followers if we follow). Anon sees public only.
+  if (viewerId && targetUserId === viewerId) {
     const { data: lists, error } = await supabase
       .from("user_lists")
       .select("id, name, description, visibility, created_at, updated_at")
@@ -55,6 +56,27 @@ export async function GET(request: NextRequest) {
     return jsonSuccess({ lists: withCounts }, { maxAge: 0 });
   }
 
+  // Check profile visibility: don't expose lists if profile is private (unless owner or allowed follower)
+  const { data: profileRow } = await supabase
+    .from("users")
+    .select("visibility")
+    .eq("id", targetUserId)
+    .maybeSingle();
+  const profileVisibility = profileRow?.visibility ?? "public";
+  let canViewProfile = profileVisibility === "public" || viewerId === targetUserId;
+  if (!canViewProfile && viewerId && profileVisibility === "followers") {
+    const { data: conn } = await supabase
+      .from("user_connections")
+      .select("id")
+      .eq("follower_id", viewerId)
+      .eq("followed_id", targetUserId)
+      .maybeSingle();
+    canViewProfile = !!conn?.id;
+  }
+  if (!canViewProfile) {
+    return jsonSuccess({ lists: [] }, { maxAge: 0 });
+  }
+
   const { data: lists, error } = await supabase
     .from("user_lists")
     .select("id, name, description, visibility, created_at, updated_at")
@@ -64,14 +86,16 @@ export async function GET(request: NextRequest) {
 
   if (error) return jsonError("Failed to fetch lists", 500);
 
-  const { data: follows } = await supabase
-    .from("user_connections")
-    .select("followed_id")
-    .eq("follower_id", authUser.user.id)
-    .eq("followed_id", targetUserId)
-    .maybeSingle();
-
-  const canSeeFollowers = !!follows?.followed_id;
+  let canSeeFollowers = false;
+  if (viewerId) {
+    const { data: follows } = await supabase
+      .from("user_connections")
+      .select("followed_id")
+      .eq("follower_id", viewerId)
+      .eq("followed_id", targetUserId)
+      .maybeSingle();
+    canSeeFollowers = !!follows?.followed_id;
+  }
   const filtered =
     canSeeFollowers
       ? lists ?? []

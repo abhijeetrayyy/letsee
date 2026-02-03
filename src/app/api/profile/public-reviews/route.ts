@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     });
   }
 
-  const visibility = profile.visibility ?? "public";
+  const visibility = String(profile.visibility ?? "public").toLowerCase().trim();
   let canView = visibility === "public" || (viewerId && viewerId === userId);
 
   if (!canView && viewerId && visibility === "followers") {
