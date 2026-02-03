@@ -86,7 +86,7 @@ export default function MediaCard({
   const detailHref = href(mediaType, id, title);
 
   const cardClass =
-    "group relative flex flex-col shrink-0 overflow-hidden rounded-2xl bg-neutral-900/90 transition-all duration-300 ease-out hover:bg-neutral-800/95 hover:shadow-2xl hover:shadow-black/30 hover:-translate-y-0.5";
+    "group relative flex flex-col shrink-0 overflow-hidden rounded-2xl bg-neutral-900/90 border border-neutral-700/50 shadow-lg shadow-black/20 transition-all duration-300 ease-out hover:bg-neutral-800/95 hover:shadow-2xl hover:shadow-black/30 hover:border-neutral-600/50 hover:-translate-y-0.5";
 
   return (
     <div
@@ -174,8 +174,8 @@ export default function MediaCard({
         </div>
       )}
 
-      {/* Title + subtitle – clean footer, no heavy border */}
-      <div className="min-h-14 flex flex-col justify-center px-3 py-3 bg-neutral-900/95">
+      {/* Title + subtitle – border and opaque bg so it doesn’t blend with section background */}
+      <div className="min-h-14 flex flex-col justify-center px-3 py-3 bg-neutral-900 border-t border-neutral-700/60 rounded-b-2xl shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
         <Link
           href={detailHref}
           className="text-neutral-100 text-sm font-semibold line-clamp-2 hover:text-white transition-colors leading-snug"
