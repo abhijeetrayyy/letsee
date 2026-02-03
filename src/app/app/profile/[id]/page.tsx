@@ -262,11 +262,12 @@ export default async function ProfilePage({ params }: PageProps) {
     redirect(`/app/profile/${user.username}`);
   }
 
-  // Determine content visibility
+  // Determine content visibility (normalize visibility: DB enum may be lowercase)
+  const visibility = String(user?.visibility ?? "").toLowerCase();
   const canViewContent =
-    user.visibility === "public" ||
-    (followData.isFollowing && user.visibility === "followers") ||
-    isOwner;
+    isOwner ||
+    visibility === "public" ||
+    (visibility === "followers" && followData.isFollowing);
 
   const avatarSrc = user.avatar_url || "/avatar.svg";
   const SECTION_TITLE = "text-xl sm:text-2xl font-bold text-white tracking-tight mb-4";

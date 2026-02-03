@@ -428,16 +428,49 @@ create policy "user_cout_stats_select_public" on public.user_cout_stats
 create policy "user_cout_stats_modify_self" on public.user_cout_stats
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+-- Helper: true when the profile owner allows the current viewer to see their content (public or followers + follow)
+create or replace function public.profile_visible_to_viewer(owner_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.users u
+    where u.id = owner_user_id
+    and (
+      u.visibility = 'public'
+      or (
+        auth.uid() is not null
+        and u.visibility = 'followers'
+        and exists (
+          select 1 from public.user_connections c
+          where c.followed_id = u.id and c.follower_id = auth.uid()
+        )
+      )
+    )
+  );
+$$;
+grant execute on function public.profile_visible_to_viewer(uuid) to anon;
+grant execute on function public.profile_visible_to_viewer(uuid) to authenticated;
+
 -- Media tables
 create policy "watched_items_self" on public.watched_items
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 -- Public reviews: anyone can read rows that have public_review_text set (diary = review_text is private)
 create policy "watched_items_select_public_reviews" on public.watched_items
   for select using (public_review_text is not null);
+create policy "watched_items_select_profile_visible" on public.watched_items
+  for select using (auth.uid() = user_id or public.profile_visible_to_viewer(user_id));
 create policy "favorite_items_self" on public.favorite_items
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "favorite_items_select_profile_visible" on public.favorite_items
+  for select using (auth.uid() = user_id or public.profile_visible_to_viewer(user_id));
 create policy "user_watchlist_self" on public.user_watchlist
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "user_watchlist_select_profile_visible" on public.user_watchlist
+  for select using (auth.uid() = user_id or public.profile_visible_to_viewer(user_id));
 
 -- Messages
 create policy "messages_select_participants" on public.messages
@@ -470,10 +503,14 @@ create policy "user_follow_requests_delete_participants" on public.user_follow_r
 -- Recommendations
 create policy "recommendation_self" on public.recommendation
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "recommendation_select_profile_visible" on public.recommendation
+  for select using (auth.uid() = user_id or public.profile_visible_to_viewer(user_id));
 
 -- User ratings
 create policy "user_ratings_self" on public.user_ratings
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "user_ratings_select_profile_visible" on public.user_ratings
+  for select using (auth.uid() = user_id or public.profile_visible_to_viewer(user_id));
 
 -- Custom lists: full access for owner; select for others based on list visibility
 create policy "user_lists_select_own" on public.user_lists
