@@ -1,3 +1,5 @@
+import ProfileAvatar from "@components/profile/ProfileAvatar";
+
 type VisibilityGateProps = {
   username: string;
   avatarSrc: string;
@@ -14,10 +16,12 @@ export default function VisibilityGate({
   return (
     <section className="flex flex-col items-center justify-center py-16 px-6 rounded-2xl border-2 border-dashed border-neutral-700 bg-neutral-800/30 text-center max-w-md mx-auto">
       <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-neutral-600 mb-6 shadow-xl">
-        <img
+        <ProfileAvatar
           src={avatarSrc}
-          alt=""
+          alt={`@${username}`}
           className="w-full h-full object-cover"
+          width={96}
+          height={96}
         />
       </div>
       <h2 className="text-xl font-bold text-white tracking-tight mb-2">

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { FaEdit } from "react-icons/fa";
+import ProfileAvatar from "@components/profile/ProfileAvatar";
+import ProfileBanner from "@components/profile/ProfileBanner";
 
 type ProfileHeroProps = {
   username: string;
@@ -42,20 +44,16 @@ export default function ProfileHero({
   followingCount,
   followersCount,
 }: ProfileHeroProps) {
-  const hasBanner = !!bannerUrl;
+  const hasBanner = !!bannerUrl?.trim();
 
   return (
     <section className="relative w-full overflow-visible rounded-2xl isolate">
-      {/* Full-bleed cover */}
+      {/* Full-bleed cover — banner or gradient; fallback to gradient on image error */}
       <div
         className={`relative w-full overflow-hidden rounded-t-2xl ${hasBanner ? "h-52 sm:h-64 md:h-72" : "h-44 sm:h-52 md:h-60"}`}
       >
         {hasBanner ? (
-          <img
-            src={bannerUrl!}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+          <ProfileBanner src={bannerUrl!} />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-b from-neutral-800 via-neutral-800 to-neutral-900" />
         )}
@@ -65,14 +63,12 @@ export default function ProfileHero({
       {/* Profile content — overlapping the cover only; bottom is padded so it never overlaps next section */}
       <div className="relative px-4 sm:px-6 md:px-8 -mt-24 sm:-mt-28 md:-mt-32 pt-0">
         <div className="max-w-4xl flex flex-col sm:flex-row sm:items-end gap-6">
-          {/* Avatar */}
+          {/* Avatar — fallback to default on load error */}
           <div className="shrink-0 w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-2xl overflow-hidden border-4 border-neutral-900 shadow-2xl bg-neutral-800 ring-2 ring-white/10">
-            <img
-              width={144}
-              height={144}
-              className="w-full h-full object-cover"
+            <ProfileAvatar
               src={avatarSrc}
               alt={`@${username}`}
+              className="w-full h-full object-cover"
             />
           </div>
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useMemo } from "react";
 import { FaSearch } from "react-icons/fa";
 import { PiFilmSlateBold, PiHeartBold, PiListChecksBold } from "react-icons/pi";
+import ProfileAvatar from "@components/profile/ProfileAvatar";
 
 type SortKey = "recent" | "watched" | "favorites" | "watchlist";
 
@@ -136,10 +137,12 @@ export default function SearchAndFilters({ users }: { users: ProfileUser[] }) {
             >
               <div className="p-5">
                 <div className="flex items-start gap-4">
-                  <img
-                    className="w-14 h-14 rounded-xl object-cover border border-neutral-700 shrink-0 bg-neutral-700 group-hover:border-neutral-600 transition-colors"
+                  <ProfileAvatar
                     src={item.avatar_url || "/avatar.svg"}
-                    alt=""
+                    alt={`@${item.username}`}
+                    className="w-14 h-14 rounded-xl object-cover border border-neutral-700 shrink-0 bg-neutral-700 group-hover:border-neutral-600 transition-colors"
+                    width={56}
+                    height={56}
                   />
                   <div className="min-w-0 flex-1">
                     <h2 className="text-lg font-semibold text-white truncate group-hover:text-amber-300 transition-colors">
@@ -150,24 +153,27 @@ export default function SearchAndFilters({ users }: { users: ProfileUser[] }) {
                     )}
                   </div>
                 </div>
-                <div className="mt-4 flex items-center gap-4 text-sm">
+                <div className="mt-4 pt-4 border-t border-neutral-700/60 flex items-center gap-4 text-sm">
                   <span className="flex items-center gap-1.5 text-neutral-400" title="Watched">
-                    <PiFilmSlateBold className="w-4 h-4 text-neutral-500" />
-                    <span className="font-medium text-neutral-300">
+                    <PiFilmSlateBold className="w-4 h-4 text-neutral-500 shrink-0" aria-hidden />
+                    <span className="font-medium text-neutral-300 tabular-nums">
                       {item.user_cout_stats?.watched_count ?? 0}
                     </span>
+                    <span className="sr-only">Watched</span>
                   </span>
                   <span className="flex items-center gap-1.5 text-neutral-400" title="Favorites">
-                    <PiHeartBold className="w-4 h-4 text-neutral-500" />
-                    <span className="font-medium text-neutral-300">
+                    <PiHeartBold className="w-4 h-4 text-neutral-500 shrink-0" aria-hidden />
+                    <span className="font-medium text-neutral-300 tabular-nums">
                       {item.user_cout_stats?.favorites_count ?? 0}
                     </span>
+                    <span className="sr-only">Favorites</span>
                   </span>
                   <span className="flex items-center gap-1.5 text-neutral-400" title="Watchlist">
-                    <PiListChecksBold className="w-4 h-4 text-neutral-500" />
-                    <span className="font-medium text-neutral-300">
+                    <PiListChecksBold className="w-4 h-4 text-neutral-500 shrink-0" aria-hidden />
+                    <span className="font-medium text-neutral-300 tabular-nums">
                       {item.user_cout_stats?.watchlist_count ?? 0}
                     </span>
+                    <span className="sr-only">Watchlist</span>
                   </span>
                 </div>
               </div>

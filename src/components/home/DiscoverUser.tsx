@@ -6,6 +6,7 @@ import { FaChevronLeft, FaChevronRight, FaHeart, FaBookmark, FaEye } from "react
 import { HiArrowRight } from "react-icons/hi2";
 import { useApiFetch } from "@/hooks/useApiFetch";
 import { FetchError } from "@/components/ui/FetchError";
+import ProfileAvatar from "@components/profile/ProfileAvatar";
 
 interface User {
   username: string;
@@ -131,10 +132,12 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
                   className="discover-user-card group shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-neutral-800/80 border border-neutral-700/50 hover:border-neutral-600 hover:bg-neutral-800 transition-all duration-200 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
                 >
                   <div className="p-5 flex flex-col items-center text-center">
-                    <img
+                    <ProfileAvatar
                       src={item.avatar_url || "/avatar.svg"}
                       alt={`${item.username} avatar`}
                       className="w-20 h-20 rounded-full object-cover border-2 border-neutral-600 group-hover:border-neutral-500 transition-colors ring-2 ring-neutral-800"
+                      width={80}
+                      height={80}
                     />
                     <h3 className="mt-3 text-base font-semibold text-white group-hover:text-indigo-200 transition-colors truncate w-full">
                       @{formatUsername(item.username)}
