@@ -1,92 +1,176 @@
+"use client";
+
 import Link from "next/link";
 import React, { useState } from "react";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
-type LoginFormProps = {
+const MIN_PASSWORD_LENGTH = 6;
+
+type SignupFormProps = {
   onSignup: (email: string, password: string) => Promise<void>;
   loading: boolean;
   error: string;
   info?: string;
 };
 
-const LoginForm: React.FC<LoginFormProps> = ({
+export default function SignupForm({
   onSignup,
   loading,
   error,
   info,
-}) => {
+}: SignupFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [localError, setLocalError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = async (event?: React.FormEvent<HTMLFormElement>) => {
-    event?.preventDefault();
-    await onSignup(email, password);
+  const passwordValid = password.length >= MIN_PASSWORD_LENGTH;
+  const passwordsMatch = password === confirmPassword;
+  const canSubmit =
+    email.trim() &&
+    passwordValid &&
+    passwordsMatch &&
+    !loading;
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLocalError("");
+    if (!canSubmit) {
+      if (!passwordValid) setLocalError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      else if (!passwordsMatch) setLocalError("Passwords do not match.");
+      return;
+    }
+    await onSignup(email.trim(), password);
   };
 
-  return (
-    <div className="w-full min-h-screen flex flex-col p-2 justify-center items-center bg-neutral-900">
-      <div className="w-full z-10">
-        <div
-          className={
-            loading
-              ? "animate-bounce m-auto w-fit text-neutral-100 mb-5"
-              : "m-auto w-fit text-neutral-100 mb-5"
-          }
-        >
-          <h1 className="text-7xl font-extrabold text-neutral-100">
-            Let&apos;s See
-          </h1>
-          <p>Social media for cinema.</p>
-        </div>
-        <form
-          className={"flex flex-col max-w-sm w-full m-auto gap-2"}
-          onSubmit={handleSubmit}
-        >
-          <label className="text-neutral-100 pl-2" htmlFor="email">
-            Email
-          </label>
-          <input
-            className="text-neutral-700 ring-0 outline-0 px-3 focus:ring-2 rounded-sm focus:ring-indigo-600 py-2"
-            id="email"
-            name="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <label className="text-neutral-100 pl-2" htmlFor="password">
-            New Password
-          </label>
-          <input
-            className="text-neutral-700 ring-0 outline-0 px-3 focus:ring-2 rounded-sm focus:ring-indigo-600 py-2"
-            id="password"
-            name="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          {info && <p className="text-emerald-400">{info}</p>}
-          {error && <p className="text-red-500">{error}</p>}
-          <div className="flex flex-col gap-3 mt-3">
-            <button
-              className="text-neutral-100 bg-indigo-700 py-2 rounded-md w-full hover:bg-indigo-600"
-              type="submit"
-              disabled={loading}
-            >
-              Sign up
-            </button>
+  const displayError = localError || error;
 
-            <p className="m-auto text-white">
-              already have an account,
-              <Link className="pl-2 text-blue-500 underline" href={"/login"}>
-                Login
-              </Link>
-            </p>
-          </div>
-        </form>
+  return (
+    <div className="min-h-screen flex flex-col justify-center items-center bg-neutral-950 px-4 py-10">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <Link
+            href="/app"
+            className="text-2xl font-bold text-white hover:text-neutral-300 transition-colors"
+          >
+            Let&apos;s See
+          </Link>
+          <p className="text-neutral-400 mt-1 text-sm">Social media for cinema.</p>
+        </div>
+
+        <div className="rounded-2xl border border-neutral-700/60 bg-neutral-900/80 p-6 sm:p-8 shadow-xl">
+          <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">
+            Create an account
+          </h1>
+          <p className="text-neutral-400 text-sm mb-6">
+            Sign up with your email to get started.
+          </p>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div>
+              <label htmlFor="signup-email" className="block text-sm font-medium text-neutral-300 mb-1.5">
+                Email
+              </label>
+              <input
+                id="signup-email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="you@example.com"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="signup-password" className="block text-sm font-medium text-neutral-300 mb-1.5">
+                Password
+              </label>
+              <input
+                id="signup-password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={MIN_PASSWORD_LENGTH}
+                className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="••••••••"
+              />
+              <p className="mt-1 text-xs text-neutral-500">
+                At least {MIN_PASSWORD_LENGTH} characters.
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="signup-confirm" className="block text-sm font-medium text-neutral-300 mb-1.5">
+                Confirm password
+              </label>
+              <input
+                id="signup-confirm"
+                name="confirmPassword"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="••••••••"
+              />
+              {confirmPassword && !passwordsMatch && (
+                <p className="mt-1 text-xs text-amber-400">Passwords do not match.</p>
+              )}
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-neutral-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showPassword}
+                onChange={(e) => setShowPassword(e.target.checked)}
+                className="rounded border-neutral-600 bg-neutral-800 text-indigo-600 focus:ring-indigo-500"
+              />
+              Show passwords
+            </label>
+
+            {info && (
+              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 text-sm text-emerald-200">
+                {info}
+              </div>
+            )}
+            {displayError && (
+              <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-200">
+                {displayError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <LoadingSpinner size="sm" className="border-t-white" />
+                  Creating account…
+                </>
+              ) : (
+                "Sign up"
+              )}
+            </button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-neutral-400">
+            Already have an account?{" "}
+            <Link href="/login" className="font-medium text-indigo-400 hover:text-indigo-300">
+              Log in
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
-};
-
-export default LoginForm;
+}

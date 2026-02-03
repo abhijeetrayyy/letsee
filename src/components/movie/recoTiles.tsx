@@ -1,17 +1,15 @@
 "use client";
-import Link from "next/link";
 import React, { useState, useEffect, useRef } from "react";
-import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import SendMessageModal from "@components/message/sendCard";
-import { LuSend } from "react-icons/lu";
-import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight } from "react-icons/fa6";
 import { GenreList } from "@/staticData/genreList";
+import MediaCard from "@components/cards/MediaCard";
 
 interface MovieRecoTileProps {
   data: {
     results?: Array<{
       id: number;
-      media_type: string;
+      media_type?: string;
       name?: string;
       title?: string;
       poster_path: string;
@@ -21,12 +19,15 @@ interface MovieRecoTileProps {
   };
   title: string;
   type: string;
+  /** Section heading (e.g. "More like this" or "Similar to this"). Default: "More like this" */
+  sectionTitle?: string;
 }
 
 export default function MovieRecoTile({
   data,
   title,
   type,
+  sectionTitle = "More like this",
 }: MovieRecoTileProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -114,121 +115,86 @@ export default function MovieRecoTile({
   const results = data?.results || [];
 
   return (
-    <div className="w-full md:px-4 mb-5">
+    <section className="max-w-6xl w-full mx-auto px-4 py-6">
       <SendMessageModal
         media_type={cardData?.media_type}
         data={cardData}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
+      <h2 className="text-2xl font-bold text-white mb-4">{sectionTitle}</h2>
       <div className="relative">
-        <h1 className="text-lg font-bold mb-4">Similar: {title}</h1>
         <div
           ref={scrollRef}
-          className="flex flex-row gap-4 py-3 overflow-x-auto no-scrollbar"
+          className="flex flex-row gap-4 py-2 overflow-x-auto no-scrollbar pb-1"
         >
           {results.length > 0 ? (
-            results.map((item: any) => (
-              <div
-                key={item.id}
-                className="card-item bg-neutral-700 h-auto rounded-md overflow-hidden flex-shrink-0 flex flex-col justify-between  group relative"
-                style={{ width: `${itemWidth}px` }} // Dynamically set width
-              >
-                <div className="absolute top-0 left-0">
-                  <p className="px-1 py-1 bg-neutral-950 text-white rounded-br-md text-xs sm:text-sm">
-                    {type}
-                  </p>
-                </div>
-                <Link
-                  className="w-full h-full"
-                  href={`/app/${type}/${item.id}-${(item?.name || item?.title)
-                    .trim()
-                    .replace(/[^a-zA-Z0-9]/g, "-")
-                    .replace(/-+/g, "-")}`}
-                >
-                  <img
-                    className="w-full h-full object-cover"
-                    src={
-                      item.poster_path
-                        ? `https://image.tmdb.org/t/p/w342${item.poster_path}`
-                        : "/no-photo.webp"
-                    }
-                    alt={item.name || item.title}
-                  />
-                </Link>
-                <div className="lg:absolute lg:bottom-0 w-full lg:opacity-0 lg:group-hover:opacity-100 bg-neutral-900 transition-opacity duration-300">
-                  <ThreePrefrenceBtn
-                    genres={item.genre_ids
-                      .map((id: number) => {
-                        const genre = GenreList.genres.find(
-                          (g: any) => g.id === id
-                        );
-                        return genre ? genre.name : null;
-                      })
-                      .filter(Boolean)}
-                    cardId={item.id}
-                    cardType={item.media_type}
-                    cardName={item.name || item.title}
-                    cardAdult={item.adult}
-                    cardImg={item.poster_path}
-                  />
-                  <div className="py-2 border-t border-neutral-950 bg-neutral-800 hover:bg-neutral-700">
-                    <button
-                      className="w-full flex justify-center text-lg text-center text-neutral-100"
-                      onClick={() => handleCardTransfer(item)}
-                    >
-                      <LuSend />
-                    </button>
-                  </div>
-                  <div className="min-h-14 flex flex-col justify-center px-3 pb-1 w-full bg-indigo-700 text-gray-100 text-sm sm:text-base">
-                    <p className="line-clamp-2">
-                      {(item.name || item.title).length > 40
-                        ? `${(item.name || item.title).slice(0, 40)}...`
-                        : item.name || item.title}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))
+            results.map((item: any) => {
+              const genreIds = item.genre_ids ?? [];
+              const genres = genreIds
+                .map((id: number) => GenreList.genres.find((g: any) => g.id === id)?.name)
+                .filter(Boolean);
+              return (
+                <MediaCard
+                  key={item.id}
+                  id={item.id}
+                  title={item.name || item.title}
+                  mediaType={item.media_type ?? type}
+                  posterPath={item.poster_path}
+                  adult={item.adult}
+                  genres={genres}
+                  showActions
+                  onShare={(e) => {
+                    e.preventDefault();
+                    handleCardTransfer(item);
+                  }}
+                  typeLabel={type}
+                  className="card-item image-item"
+                  style={{ width: `${itemWidth}px` }}
+                />
+              );
+            })
           ) : (
-            <p className="text-neutral-400 text-center w-full">
-              No trending movies available
+            <p className="text-neutral-400 text-sm py-8 w-full text-center">
+              No similar titles found
             </p>
           )}
         </div>
 
-        {/* Left Fade Overlay */}
         <div
-          className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-20 bg-gradient-to-r from-black to-transparent pointer-events-none transition-opacity duration-300 ${
+          className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-20 bg-gradient-to-r from-neutral-950 to-transparent pointer-events-none transition-opacity duration-300 ${
             canScrollLeft ? "opacity-100" : "opacity-0"
           }`}
+          aria-hidden
         />
-
-        {/* Right Fade Overlay */}
         <div
-          className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-20 bg-gradient-to-l from-black to-transparent pointer-events-none transition-opacity duration-300 ${
+          className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-20 bg-gradient-to-l from-neutral-950 to-transparent pointer-events-none transition-opacity duration-300 ${
             canScrollRight ? "opacity-100" : "opacity-0"
           }`}
+          aria-hidden
         />
 
-        {/* Scroll Buttons */}
         {canScrollLeft && (
           <button
+            type="button"
             onClick={scrollLeft}
-            className="hidden md:block absolute left-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+            className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2.5 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-lg items-center justify-center"
+            aria-label="Scroll left"
           >
-            <FaChevronLeft size={20} />
+            <FaChevronLeft size={18} />
           </button>
         )}
         {canScrollRight && (
           <button
+            type="button"
             onClick={scrollRight}
-            className="hidden md:block absolute right-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+            className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2.5 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-lg items-center justify-center"
+            aria-label="Scroll right"
           >
-            <FaChevronRight size={20} />
+            <FaChevronRight size={18} />
           </button>
         )}
       </div>
-    </div>
+    </section>
   );
 }

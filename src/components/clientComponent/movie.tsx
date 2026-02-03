@@ -1,5 +1,7 @@
 "use client";
-import React, { useState } from "react";
+
+import React, { useContext, useState } from "react";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import ThreeUserPrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import { LiaImdb } from "react-icons/lia";
 import Link from "next/link";
@@ -8,8 +10,28 @@ import Video from "@components/movie/Video";
 import { LuSend } from "react-icons/lu";
 import SendMessageModal from "@components/message/sendCard";
 import ImdbRating from "@components/movie/imdbRating";
+import UserRating from "@components/movie/UserRating";
+import WatchedReview from "@components/movie/WatchedReview";
+import PublicReviews from "@components/movie/PublicReviews";
 import ImageViewer from "@components/clientComponent/ImaeViewer";
-// import WatchOptionsViewer from "./watchOptionView";
+import WatchOptionsViewer from "./watchOptionView";
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  de: "German",
+  ja: "Japanese",
+  ko: "Korean",
+  hi: "Hindi",
+  pt: "Portuguese",
+  zh: "Chinese",
+  it: "Italian",
+};
+
+function langLabel(iso: string): string {
+  return LANGUAGE_NAMES[iso] ?? iso?.toUpperCase() ?? "";
+}
 
 export default function Movie({
   CountryName,
@@ -20,10 +42,23 @@ export default function Movie({
   videos,
   id,
 }: any) {
+  const { hasWatched } = useContext(UserPrefrenceContext);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cardData, setCardData] = useState([]) as any;
   const [showFullOverview, setShowFullOverview] = useState(false);
   const movieGenres = Array.isArray(movie?.genres) ? movie.genres : [];
+  const directors = credits?.crew?.filter((c: any) => c.job === "Director") ?? [];
+  const tagline = movie?.tagline?.trim();
+  const voteAvg = movie?.vote_average != null ? Number(movie.vote_average).toFixed(1) : null;
+  const voteCount = movie?.vote_count;
+  const status = movie?.status;
+  const origLang = movie?.original_language ? langLabel(movie.original_language) : null;
+  const spoken = movie?.spoken_languages?.length
+    ? movie.spoken_languages.map((s: any) => s.english_name || s.name).slice(0, 3).join(", ")
+    : null;
+  const budget = movie?.budget ? Number(movie.budget) : 0;
+  const revenue = movie?.revenue ? Number(movie.revenue) : 0;
+  const hasMoney = budget > 0 || revenue > 0;
 
   const handleCardTransfer = (data: any) => {
     setCardData(data);
@@ -34,225 +69,248 @@ export default function Movie({
     setShowFullOverview(!showFullOverview);
   };
 
+  const backdropUrl =
+    movie?.backdrop_path && !movie?.adult
+      ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}`
+      : null;
+  const posterUrl =
+    movie?.poster_path && !movie?.adult
+      ? `https://image.tmdb.org/t/p/w342${movie.poster_path}`
+      : movie?.adult
+        ? "/pixeled.webp"
+        : "/no-photo.webp";
+
   return (
     <div>
       <SendMessageModal
-        media_type={"movie"}
+        media_type="movie"
         data={cardData}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
-      <div className="text-white relative w-full bg-neutral-900">
-        {/* Background Image */}
-        <div className="relative flex flex-col items-center justify-center w-full min-h-[550px] h-full">
-          <div className="md:absolute w-full h-full overflow-hidden">
-            <div
-              className="absolute inset-0 z-10 bg-linear-to-r from-neutral-900 via-transparent to-neutral-900"
-              style={{
-                background:
-                  "linear-gradient(to left,  #171717, transparent 60%, #171717, #171717)",
-              }}
-            ></div>
-            <div
-              className="absolute inset-0 z-10 bg-linear-to-l from-neutral-900 via-transparent to-neutral-900"
-              style={{
-                background:
-                  "linear-gradient(to right,  #171717, transparent 60%, #171717, #171717)",
-              }}
-            ></div>
-            <img
-              className="hidden md:flex object-cover w-full h-full opacity-20"
-              src={`${
-                movie.backdrop_path && !movie.adult
-                  ? `https://image.tmdb.org/t/p/w300${movie.backdrop_path}`
-                  : "/backgroundjpeg.webp"
-              }`}
-              width={300}
-              height={300}
-              alt=""
-            />
-          </div>
-
-          {/* Movie Content */}
-          <div className="max-w-[1520px] w-full relative z-10 flex flex-col md:flex-row gap-8 my-4 px-4">
-            {/* Poster */}
-            <div className="flex-1 ">
+      <div className="text-white relative w-full bg-neutral-900 min-h-screen">
+        {/* Hero: backdrop + title + tagline */}
+        <section className="relative w-full min-h-[320px] md:min-h-[420px] flex flex-col justify-end">
+          {backdropUrl && (
+            <>
               <img
-                className="rounded-md w-fit h-full max-h-[600px] shadow-lg md:float-right"
-                src={`${
-                  movie.poster_path && !movie.adult
-                    ? `https://image.tmdb.org/t/p/w342${movie.poster_path}`
-                    : movie.adult
-                    ? "/pixeled.webp"
-                    : "/no-photo.webp"
-                }`}
-                width={500}
-                height={500}
-                alt={movie.title}
+                src={backdropUrl}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover opacity-40"
+              />
+              <div
+                className="absolute inset-0 bg-linear-to-t from-neutral-900 via-neutral-900/60 to-transparent"
+                aria-hidden
+              />
+            </>
+          )}
+          <div className="relative z-10 max-w-6xl w-full mx-auto px-4 pb-6 md:pb-8">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className="px-2.5 py-0.5 rounded bg-amber-500/90 text-neutral-900 text-xs font-semibold uppercase tracking-wide">
+                Movie
+              </span>
+              {movie?.adult && (
+                <span className="px-2.5 py-0.5 rounded bg-red-600 text-white text-xs font-semibold">
+                  Adult
+                </span>
+              )}
+              {status && (
+                <span className="text-neutral-400 text-sm">{status}</span>
+              )}
+            </div>
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white drop-shadow-md">
+              {movie?.title}
+            </h1>
+            {tagline && (
+              <p className="mt-2 text-lg md:text-xl text-neutral-300 italic max-w-2xl">
+                {tagline}
+              </p>
+            )}
+            {/* Key facts: TMDB score, votes, date, runtime, language */}
+            <div className="mt-4 flex flex-wrap gap-2 md:gap-3 text-sm">
+              {voteAvg != null && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-neutral-700/80 text-white">
+                  <span className="text-amber-400 font-semibold">★ {voteAvg}</span>
+                  {voteCount != null && voteCount > 0 && (
+                    <span className="text-neutral-400">({voteCount.toLocaleString()} votes)</span>
+                  )}
+                </span>
+              )}
+              {movie?.release_date && (
+                <span className="px-2.5 py-1 rounded-md bg-neutral-700/80 text-neutral-200">
+                  {movie.release_date}
+                </span>
+              )}
+              {movie?.runtime != null && movie.runtime > 0 && (
+                <span className="px-2.5 py-1 rounded-md bg-neutral-700/80 text-neutral-200">
+                  {movie.runtime} min
+                </span>
+              )}
+              {origLang && (
+                <span className="px-2.5 py-1 rounded-md bg-neutral-700/80 text-neutral-200">
+                  {origLang}
+                </span>
+              )}
+              {spoken && spoken !== origLang && (
+                <span className="px-2.5 py-1 rounded-md bg-neutral-700/80 text-neutral-200">
+                  {spoken}
+                </span>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Main content: poster + details */}
+        <section className="max-w-6xl w-full mx-auto px-4 py-8">
+          <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
+            {/* Poster - left */}
+            <div className="shrink-0 w-full lg:w-72 xl:w-80">
+              <img
+                src={posterUrl}
+                alt={movie?.title ?? "Poster"}
+                className="w-full rounded-xl shadow-xl object-cover aspect-2/3 max-h-[480px]"
               />
             </div>
 
-            {/* Movie Details */}
-            <div className="flex-2 w-full">
-              <h1 className="text-4xl font-bold mb-4">
-                {movie?.adult && (
-                  <span className="text-sm px-3 py-1 rounded-md m-2 bg-red-600 text-white z-20">
-                    Adult
-                  </span>
-                )}
-                {movie.title}
-                <span className="text-sm ml-1">-movie</span>
-              </h1>
-
-              {/* Country */}
-              <div className="flex flex-row gap-2 my-2 text-sm text-neutral-300">
-                <div>Country: </div>
-                <div>
-                  {CountryName.slice(0, 2).map((item: any, index: number) => (
-                    <p key={index} className="">
-                      {item[0].english_name}
-                    </p>
-                  ))}
-                </div>
-              </div>
-
-              {/* Buttons */}
-              <ThreeUserPrefrenceBtn
-                genres={movieGenres.map((genre: any) => genre.name)}
-                cardId={movie.id}
-                cardType={"movie"}
-                cardName={movie.name || movie.title}
-                cardAdult={movie.adult}
-                cardImg={movie.poster_path || movie.backdrop_path}
-              />
-
-              {/* Send Message Button */}
-              <div className="py-2 border-t border-neutral-700 bg-neutral-700 hover:bg-neutral-600 transition-colors rounded-b-md">
+            {/* Right: actions, rating, reviews, then overview & details */}
+            <div className="flex-1 min-w-0 space-y-6">
+              {/* Actions: Watched / Favorites / Watchlist / Share */}
+              <div className="flex flex-wrap gap-2">
+                <ThreeUserPrefrenceBtn
+                  variant="detail"
+                  genres={movieGenres.map((g: any) => g.name)}
+                  cardId={movie?.id}
+                  cardType="movie"
+                  cardName={movie?.name || movie?.title}
+                  cardAdult={movie?.adult}
+                  cardImg={movie?.poster_path || movie?.backdrop_path}
+                />
                 <button
-                  className="w-full flex justify-center text-lg text-center hover:text-neutral-400 transition-colors"
+                  type="button"
                   onClick={() => handleCardTransfer(movie)}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-base font-medium bg-neutral-700/80 text-neutral-200 hover:bg-neutral-600 border border-neutral-600 hover:border-neutral-500 transition-colors shrink-0"
+                  aria-label="Share"
                 >
-                  <LuSend />
+                  <LuSend className="text-lg shrink-0" aria-hidden /> Share
                 </button>
               </div>
 
-              {/* Popularity */}
-              {movie?.popularity && (
-                <div className="my-4 text-neutral-300">
-                  Popularity:{" "}
-                  <span className="text-green-600 font-bold">
-                    {movie.popularity}
-                  </span>
+              {/* Country */}
+              {Array.isArray(CountryName) && CountryName.length > 0 && (
+                <div className="text-sm text-neutral-400">
+                  <span className="font-medium text-neutral-300">Country: </span>
+                  {CountryName.slice(0, 3).map((item: any, i: number) => (
+                    <span key={i}>{item?.[0]?.english_name ?? ""}{i < CountryName.length - 1 ? ", " : ""}</span>
+                  ))}
                 </div>
               )}
 
-              {/* IMDb Link */}
+              {/* IMDb */}
               {movie?.imdb_id && (
-                <div className="flex flex-row items-center gap-2 my-4 text-neutral-300">
-                  <LiaImdb className="text-4xl" />
+                <div className="flex items-center gap-2">
+                  <LiaImdb className="text-4xl text-amber-400" />
                   <Link
                     target="_blank"
+                    rel="noopener noreferrer"
                     href={`https://imdb.com/title/${movie.imdb_id}`}
-                    className="hover:underline"
+                    className="text-neutral-200 hover:text-amber-400 transition"
                   >
                     <ImdbRating id={movie.imdb_id} />
                   </Link>
                 </div>
               )}
 
-              {/* Runtime and Release Date */}
-              <div className="flex flex-row gap-4 my-4 text-neutral-300">
-                <p>{movie.runtime} min.</p>
-                <p>{movie.release_date}</p>
+              {/* Your rating & reviews */}
+              <div className="space-y-4 pt-2 border-t border-neutral-700">
+                <UserRating
+                  itemId={id}
+                  itemType="movie"
+                  itemName={movie?.title}
+                  imageUrl={movie?.poster_path ? `https://image.tmdb.org/t/p/w92${movie.poster_path}` : undefined}
+                  isWatched={hasWatched(id)}
+                />
+                <WatchedReview itemId={id} itemType="movie" isWatched={hasWatched(id)} />
+                <PublicReviews itemId={id} itemType="movie" />
               </div>
 
-              {/* Director */}
-
-              {credits?.crew
-                ?.filter((credit: any) => credit.job === "Director")
-                .map((item: any, index: number) => (
-                  <div key={index} className="flex gap-2 my-4 text-neutral-300">
-                    <span>Director: </span>
-                    <Link
-                      className="hover:underline"
-                      href={`/app/person/${item.id}-${item.name
-                        .trim()
-                        .replace(/[^a-zA-Z0-9]/g, "-")
-                        .replace(/-+/g, "-")}`}
+              {/* Overview */}
+              {movie?.overview && (
+                <div className="pt-4 border-t border-neutral-700">
+                  <h2 className="text-lg font-semibold text-white mb-2">Overview</h2>
+                  <p className="text-neutral-300 text-sm leading-relaxed">
+                    {showFullOverview ? movie.overview : movie.overview.slice(0, 320)}
+                    {movie.overview.length > 320 && !showFullOverview && "…"}
+                  </p>
+                  {movie.overview.length > 320 && (
+                    <button
+                      type="button"
+                      onClick={toggleOverview}
+                      className="mt-2 text-indigo-400 hover:text-indigo-300 text-sm font-medium"
                     >
-                      {item.name}
-                    </Link>
-                  </div>
-                ))}
-
-              {/* Genres */}
-              {
-                <div className="my-4 flex flex-row gap-2">
-                  <div className="text-neutral-300 mb-2">Genre:</div>
-                  <div className="flex flex-wrap gap-1">
-                    {movie?.genres?.map((item: any, index: number) => (
-                      <Link
-                        href={`/app/moviebygenre/list/${item.id}-${item.name
-                          .trim()
-                          .replace(/[^a-zA-Z0-9]/g, "-")
-                          .replace(/-+/g, "-")}`}
-                        key={index}
-                        className="px-3 py-1 bg-blue-800 hover:bg-neutral-700 rounded-full text-sm transition-colors"
-                      >
-                        {item.name}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              }
-
-              {/* Production Companies */}
-              {movie?.production_companies.length !== 0 && (
-                <div className="my-4 text-neutral-300">
-                  <span>Production: </span>
-                  <div className="flex flex-wrap gap-1">
-                    {movie?.production_companies
-                      ?.slice(0, 5)
-                      .map((item: any, index: number) => (
-                        <div
-                          key={index}
-                          className="inline-block hover:underline"
-                        >
-                          {item.name}
-                          {index < movie.production_companies.length - 1 && ","}
-                        </div>
-                      ))}
-                  </div>
+                      {showFullOverview ? "Read less" : "Read more"}
+                    </button>
+                  )}
                 </div>
               )}
 
-              {/* Overview */}
-              <div className="my-4 text-neutral-300">
-                <p>
-                  {showFullOverview
-                    ? movie.overview
-                    : movie.overview.slice(0, 300)}
-                  {movie.overview.length > 300 && !showFullOverview && "..."}
-                </p>
-                {movie.overview.length > 300 && (
-                  <button
-                    onClick={toggleOverview}
-                    className="text-blue-500 hover:text-blue-400 mt-2"
-                  >
-                    {showFullOverview ? "Read Less" : "Read More"}
-                  </button>
+              {/* Details: Director, Genres, Production, Budget/Revenue */}
+              <div className="pt-4 border-t border-neutral-700 space-y-3">
+                <h2 className="text-lg font-semibold text-white mb-3">Details</h2>
+                {directors.length > 0 && (
+                  <div className="text-sm">
+                    <span className="text-neutral-500">Director: </span>
+                    {directors.map((d: any, i: number) => (
+                      <Link
+                        key={d.id}
+                        href={`/app/person/${d.id}-${String(d.name).trim().replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-")}`}
+                        className="text-neutral-200 hover:text-indigo-400 hover:underline"
+                      >
+                        {d.name}{i < directors.length - 1 ? ", " : ""}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                {movie?.genres?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-neutral-500 text-sm">Genres: </span>
+                    {movie.genres.map((g: any) => (
+                      <Link
+                        key={g.id}
+                        href={`/app/moviebygenre/list/${g.id}-${String(g.name).trim().replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-")}`}
+                        className="px-2.5 py-0.5 rounded-full bg-neutral-700 text-neutral-200 text-sm hover:bg-neutral-600 transition"
+                      >
+                        {g.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                {movie?.production_companies?.length > 0 && (
+                  <div className="text-sm text-neutral-400">
+                    <span className="text-neutral-500">Production: </span>
+                    {movie.production_companies.slice(0, 5).map((c: any, i: number) => (
+                      <span key={c.id}>{c.name}{i < Math.min(5, movie.production_companies.length) - 1 ? ", " : ""}</span>
+                    ))}
+                  </div>
+                )}
+                {hasMoney && (
+                  <div className="text-sm text-neutral-400 flex flex-wrap gap-4">
+                    {budget > 0 && (
+                      <span>Budget: ${(budget / 1_000_000).toFixed(1)}M</span>
+                    )}
+                    {revenue > 0 && (
+                      <span>Revenue: ${(revenue / 1_000_000).toFixed(1)}M</span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
           </div>
-        </div>
-        {/* <WatchOptionsViewer mediaId={id} mediaType="movie" country="US" /> */}
-        {/* Movie Cast */}
-        <MovieCast credits={credits?.cast} id={id} type={"movie"} />
+        </section>
 
-        {/* Videos */}
+        {/* Full-width sections */}
+        <WatchOptionsViewer mediaId={id} mediaType="movie" country="US" />
+        <MovieCast credits={credits?.cast} id={id} type="movie" />
         <Video videos={videos} movie={movie} />
-
         <ImageViewer movie={movie} Bimages={Bimages} Pimages={Pimages} />
       </div>
     </div>

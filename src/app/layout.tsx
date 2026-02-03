@@ -5,6 +5,8 @@ import "./globals.css";
 import { SearchProvider } from "./contextAPI/searchContext";
 import AuthProvider from "./contextAPI/AuthProvider";
 import { LogedNavbar } from "@components/header/navbar";
+import { ScrollToTop } from "@components/ui/ScrollToTop";
+import RegisterServiceWorker from "@/components/pwa/RegisterServiceWorker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,6 +21,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Let's see",
   description: "A social media platform for movie lovers",
+  manifest: "/manifest.json",
+};
+
+export const viewport = {
+  themeColor: "#1a1a1a",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -31,11 +40,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <RegisterServiceWorker />
         <AuthProvider>
           <SearchProvider>
-            <header className="sticky top-0 w-full m-auto z-50 bg-neutral-900">
-              <LogedNavbar />
-            </header>
+            <ScrollToTop />
+            <LogedNavbar />
             {children}
           </SearchProvider>
         </AuthProvider>

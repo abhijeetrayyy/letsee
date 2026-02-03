@@ -15,37 +15,14 @@ const getNumericId = (value: string) => {
   return match ? match[0] : null;
 };
 
-// import { likedButton as LikedButton } from "@/components/buttons/intrectionButton";
-async function getMovieDetails(id: any) {
-  return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}`,
-    "Movie details"
-  );
-}
+const MOVIE_REVALIDATE_SEC = 3600; // 1 hour
 
-async function getCredit(id: any) {
+/** Single TMDB call for movie page: details + credits, videos, images, recommendations, similar (deduped by Next.js with generateMetadata). */
+async function getMovieFull(id: string) {
   return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/movie/${id}/credits?api_key=${process.env.TMDB_API_KEY}`,
-    "Movie credits"
-  );
-}
-async function getVideos(id: any) {
-  return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/movie/${id}/videos?api_key=${process.env.TMDB_API_KEY}`,
-    "Movie videos"
-  );
-}
-async function getImages(id: any) {
-  return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/movie/${id}/images?api_key=${process.env.TMDB_API_KEY}`,
-    "Movie images"
-  );
-}
-
-async function Reco(id: any) {
-  return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/movie/${id}/similar?api_key=${process.env.TMDB_API_KEY}`,
-    "Movie recommendations"
+    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar`,
+    "Movie full",
+    { revalidate: MOVIE_REVALIDATE_SEC }
   );
 }
 
@@ -60,7 +37,7 @@ export async function generateMetadata({
       description: "Invalid movie id.",
     };
   }
-  const movieResult = await getMovieDetails(numericId);
+  const movieResult = await getMovieFull(numericId);
   const movie = movieResult.data;
 
   return {
@@ -98,34 +75,16 @@ const MovieDetails = async ({ params }: PageProps) => {
   if (!numericId) {
     return notFound();
   }
-  const [movieResult, creditsResult, videosResult, imagesResult, recoResult] =
-    await Promise.all([
-      getMovieDetails(numericId),
-      getCredit(numericId),
-      getVideos(numericId),
-      getImages(numericId),
-      Reco(numericId),
-    ]);
+  const movieResult = await getMovieFull(numericId);
+  const movie = movieResult.data;
 
-  const errors = [
-    movieResult.error,
-    creditsResult.error,
-    videosResult.error,
-    imagesResult.error,
-    recoResult.error,
-  ].filter(Boolean) as string[];
-
-  if (!movieResult.data) {
+  if (!movie) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-900 text-neutral-200 p-4">
         <div className="max-w-xl text-center">
           <p className="text-lg font-semibold">Movie data unavailable.</p>
-          {errors.length > 0 && (
-            <ul className="mt-3 text-sm text-amber-200 list-disc list-inside">
-              {errors.map((message) => (
-                <li key={message}>{message}</li>
-              ))}
-            </ul>
+          {movieResult.error && (
+            <p className="mt-3 text-sm text-amber-200">{movieResult.error}</p>
           )}
           <p className="mt-3 text-sm text-neutral-400">
             Try refreshing in a moment.
@@ -135,11 +94,10 @@ const MovieDetails = async ({ params }: PageProps) => {
     );
   }
 
-  const movie = movieResult.data;
-  const credits = creditsResult.data ?? { cast: [], crew: [] };
-  const videos = videosResult.data?.results ?? [];
-  const Pimages = imagesResult.data?.posters ?? [];
-  const Bimages = imagesResult.data?.backdrops ?? [];
+  const credits = movie.credits ?? { cast: [], crew: [] };
+  const videos = (movie.videos?.results ?? []) as any[];
+  const Pimages = movie.images?.posters ?? [];
+  const Bimages = movie.images?.backdrops ?? [];
 
   const originCountries = Array.isArray(movie.origin_country)
     ? movie.origin_country
@@ -148,7 +106,8 @@ const MovieDetails = async ({ params }: PageProps) => {
     Countrydata.filter((item: any) => item.iso_3166_1 == name)
   );
 
-  const RecoData = recoResult.data ?? { total_results: 0, results: [] };
+  const recoData = movie.recommendations ?? { total_results: 0, results: [] };
+  const similarData = movie.similar ?? { total_results: 0, results: [] };
 
   return (
     <div>
@@ -161,8 +120,11 @@ const MovieDetails = async ({ params }: PageProps) => {
         credits={credits}
         id={numericId}
       />
-      {RecoData.total_results > 0 && (
-        <MovieRecoTile type={"movie"} title={movie.title} data={RecoData} />
+      {recoData.total_results > 0 && (
+        <MovieRecoTile type="movie" title={movie.title} data={recoData} sectionTitle="More like this" />
+      )}
+      {similarData.total_results > 0 && (
+        <MovieRecoTile type="movie" title={movie.title} data={similarData} sectionTitle="Similar to this" />
       )}
     </div>
   );

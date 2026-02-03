@@ -72,7 +72,7 @@ All run on the **server**. Again, if the server is in India, TMDB calls from the
 
 | Route | TMDB usage |
 |-------|------------|
-| `src/app/api/AiRecommendation/route.ts` | Search movie by title (Gemini + TMDB search) |
+| `src/app/api/personalRecommendations/route.ts` | TMDB discover by user's top genres (from favorites/watched) |
 | `src/app/api/homeVideo/route.ts` | Now playing, movie videos |
 | `src/app/api/homeSearch/route.ts` | Search movie/TV/person |
 | `src/app/api/movieReel/route.ts` | Keyword search, discover movie, movie details |
@@ -109,7 +109,7 @@ All client `fetch` calls target your own **internal** `/api/*` routes. **No clie
 | `search/[query]/page.tsx` | `/api/searchPage` |
 | `recomendation.tsx` | `/api/recommendations`, `/api/recommendations/search`, add, remove |
 | `profileWatched.tsx` | `/api/UserWatchedPagination` |
-| `openaiReco.tsx` | `/api/AiRecommendation` |
+| `openaiReco.tsx` | `/api/personalRecommendations` |
 | `tvbygenre/list/[id]/page.tsx` | `/api/genreSearchtv` |
 
 ---

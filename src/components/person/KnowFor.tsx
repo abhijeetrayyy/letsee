@@ -1,238 +1,145 @@
 "use client";
+
 import React, { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import ThreePrefrenceBtn from "@/components/buttons/threePrefrencebtn";
+import MediaCard from "@/components/cards/MediaCard";
 import SendMessageModal from "@components/message/sendCard";
-import { LuSend } from "react-icons/lu";
 import { GenreList } from "@/staticData/genreList";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa6";
 
-interface CastData {
-  id: string;
-  adult: boolean;
-  media_type: string;
+/** TMDB combined_credits cast item (pre-sorted as "Known For" on person page). */
+interface CastItem {
+  id: number | string;
+  adult?: boolean;
+  media_type?: string;
   title?: string;
   name?: string;
-  poster_path?: string;
-  backdrop_path?: string;
+  poster_path?: string | null;
+  backdrop_path?: string | null;
   release_date?: string;
   first_air_date?: string;
-  genre_ids?: any;
+  genre_ids?: number[];
 }
 
-interface ScrollableCastListProps {
-  castData: CastData[] | undefined;
+interface KnowForProps {
+  castData: CastItem[] | undefined;
 }
 
-const ScrollableCastList: React.FC<ScrollableCastListProps> = ({
-  castData,
-}) => {
+export default function KnowFor({ castData }: KnowForProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [cardData, setCardData] = useState<any>(null);
+  const [cardData, setCardData] = useState<unknown>(null);
 
   const handleScroll = () => {
-    const element = scrollRef.current;
-    if (element) {
-      const { scrollLeft, scrollWidth, clientWidth } = element;
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 10); // Small buffer
+    const el = scrollRef.current;
+    if (el) {
+      const { scrollLeft, scrollWidth, clientWidth } = el;
+      setCanScrollLeft(scrollLeft > 8);
+      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 8);
     }
   };
 
-  const scrollLeft = () => {
-    const element = scrollRef.current;
-    if (element) {
-      const itemWidth = element.querySelector(".cast-item")?.clientWidth || 128;
-      element.scrollBy({ left: -itemWidth * 2, behavior: "smooth" });
-    }
-  };
-
-  const scrollRight = () => {
-    const element = scrollRef.current;
-    if (element) {
-      const itemWidth = element.querySelector(".cast-item")?.clientWidth || 128;
-      element.scrollBy({ left: itemWidth * 2, behavior: "smooth" });
-    }
+  const scroll = (dir: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const itemWidth = el.querySelector(".known-for-item")?.clientWidth ?? 160;
+    el.scrollBy({ left: dir === "left" ? -itemWidth * 2 : itemWidth * 2, behavior: "smooth" });
   };
 
   useEffect(() => {
-    handleScroll(); // Initialize scroll state
-    const element = scrollRef.current;
-    if (element) {
-      element.addEventListener("scroll", handleScroll);
-      const timer = setTimeout(() => handleScroll(), 100); // Delay for render
-      return () => {
-        element.removeEventListener("scroll", handleScroll);
-        clearTimeout(timer);
-      };
-    }
+    handleScroll();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", handleScroll);
+    const t = setTimeout(handleScroll, 150);
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      clearTimeout(t);
+    };
   }, [castData]);
 
-  const handleCardTransfer = (data: any) => {
-    setCardData(data);
-    setIsModalOpen(true);
-  };
+  const list = (castData ?? []).filter((item) => item && !item.adult);
+  if (list.length === 0) {
+    return (
+      <p className="text-neutral-500 text-sm py-6">No notable credits to show.</p>
+    );
+  }
 
   return (
-    <div className="relative w-full mb-12">
+    <div className="relative w-full">
       <SendMessageModal
         media_type={cardData?.media_type}
         data={cardData}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
-      <div className="relative">
+      <div className="relative -mx-2 sm:mx-0">
         <div
           ref={scrollRef}
-          className="w-full flex flex-row gap-4 overflow-x-scroll no-scrollbar snap-x snap-mandatory"
+          className="flex gap-4 overflow-x-auto overflow-y-hidden pb-2 snap-x snap-mandatory scroll-smooth"
+          style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
         >
-          {castData
-            ?.filter((data) => data && !data.adult)
-            .slice(0, 17)
-            .map((data) => {
-              if (!data) return null;
-              const {
-                id,
-                adult,
-                media_type,
-                title,
-                name,
-                poster_path,
-                backdrop_path,
-                release_date,
-                first_air_date,
-                genre_ids,
-              } = data;
+          {list.map((item) => {
+            const displayTitle = item.title ?? item.name ?? "";
+            const year =
+              item.release_date || item.first_air_date
+                ? String(new Date((item.release_date ?? item.first_air_date) as string).getFullYear())
+                : null;
+            const genres = (item.genre_ids ?? [])
+              .map((gid) => GenreList.genres.find((g: { id: number }) => g.id === gid)?.name)
+              .filter(Boolean) as string[];
 
-              const displayTitle = title ?? name ?? "";
-              const displayImage = poster_path ?? backdrop_path;
-              const year = new Date(
-                release_date ?? first_air_date ?? ""
-              ).getFullYear();
-
-              return (
-                <div
-                  key={id}
-                  className="cast-item relative group flex-shrink-0 w-32 sm:w-40 md:w-52 flex flex-col bg-black text-gray-300" // Responsive width
-                >
-                  <div className="absolute top-0 left-0 z-10 lg:opacity-0 lg:group-hover:opacity-100">
-                    <p
-                      className={`p-1 text-white rounded-br-md text-xs sm:text-sm ${
-                        adult ? "bg-red-600" : "bg-black"
-                      }`}
-                    >
-                      {adult ? "Adult" : media_type}
-                    </p>
-                  </div>
-                  <div className="absolute top-0 right-0 z-10">
-                    {year > 0 && (
-                      <p className="p-1 bg-indigo-600 text-white rounded-tr-sm rounded-bl-md text-xs sm:text-sm">
-                        {year}
-                      </p>
-                    )}
-                  </div>
-                  <Link
-                    href={`/app/${media_type}/${id}-${displayTitle
-                      .trim()
-                      .replace(/[^a-zA-Z0-9]/g, "-")
-                      .replace(/-+/g, "-")}`}
-                    className="flex"
-                  >
-                    <img
-                      className="w-full h-48 sm:h-60 md:h-72 object-cover" // Responsive height
-                      src={
-                        displayImage
-                          ? `https://image.tmdb.org/t/p/w342${displayImage}`
-                          : adult
-                          ? "/pixeled.webp"
-                          : "/no-photo.webp"
-                      }
-                      alt={displayTitle}
-                      loading="lazy"
-                    />
-                  </Link>
-                  <div className="lg:absolute bottom-0 w-full bg-neutral-800 lg:opacity-0 lg:group-hover:opacity-100 z-10">
-                    <ThreePrefrenceBtn
-                      genres={genre_ids
-                        ?.map((id: number) => {
-                          const genre = GenreList.genres.find(
-                            (g: any) => g.id === id
-                          );
-                          return genre ? genre.name : null;
-                        })
-                        .filter(Boolean)}
-                      cardId={id}
-                      cardType={media_type}
-                      cardName={displayTitle}
-                      cardAdult={adult}
-                      cardImg={displayImage}
-                    />
-                    <div className="py-2 border-t border-neutral-950 hover:bg-neutral-700">
-                      <button
-                        className="w-full flex justify-center text-lg text-gray-300 hover:text-white"
-                        onClick={() => handleCardTransfer(data)}
-                      >
-                        <LuSend />
-                      </button>
-                    </div>
-                    <div
-                      title={displayTitle}
-                      className="w-full flex flex-col gap-2 px-4 py-2 bg-indigo-700 text-gray-200"
-                    >
-                      <Link
-                        href={`/app/${media_type}/${id}-${displayTitle
-                          .trim()
-                          .replace(/[^a-zA-Z0-9]/g, "-")
-                          .replace(/-+/g, "-")}`}
-                        className="hover:underline truncate text-sm sm:text-base"
-                      >
-                        {displayTitle}
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            return (
+              <div key={`${item.media_type}-${item.id}`} className="known-for-item shrink-0 w-36 sm:w-40 md:w-44 snap-start">
+                <MediaCard
+                  id={Number(item.id)}
+                  title={displayTitle}
+                  mediaType={item.media_type === "tv" ? "tv" : "movie"}
+                  posterPath={item.poster_path ?? item.backdrop_path}
+                  adult={!!item.adult}
+                  genres={genres}
+                  showActions
+                  onShare={() => { setCardData(item); setIsModalOpen(true); }}
+                  year={year}
+                />
+              </div>
+            );
+          })}
         </div>
 
-        {/* Left Fade Overlay */}
         <div
-          className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-16 bg-gradient-to-r from-black to-transparent pointer-events-none transition-opacity duration-300 ${
-            canScrollLeft ? "opacity-80" : "opacity-0"
+          className={`hidden md:block absolute top-0 left-0 bottom-2 w-12 bg-gradient-to-r from-neutral-950 to-transparent pointer-events-none transition-opacity ${
+            canScrollLeft ? "opacity-100" : "opacity-0"
+          }`}
+        />
+        <div
+          className={`hidden md:block absolute top-0 right-0 bottom-2 w-12 bg-gradient-to-l from-neutral-950 to-transparent pointer-events-none transition-opacity ${
+            canScrollRight ? "opacity-100" : "opacity-0"
           }`}
         />
 
-        {/* Right Fade Overlay */}
-        <div
-          className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-16 bg-gradient-to-l from-black to-transparent pointer-events-none transition-opacity duration-300 ${
-            canScrollRight ? "opacity-80" : "opacity-0"
-          }`}
-        />
-
-        {/* Scroll Buttons */}
         {canScrollLeft && (
           <button
-            onClick={scrollLeft}
-            className="hidden md:block absolute left-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+            type="button"
+            onClick={() => scroll("left")}
+            className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-neutral-800/95 text-white hover:bg-neutral-700 border border-neutral-600 shadow-lg"
+            aria-label="Scroll left"
           >
-            <FaChevronLeft size={20} />
+            <FaChevronLeft className="w-5 h-5" />
           </button>
         )}
         {canScrollRight && (
           <button
-            onClick={scrollRight}
-            className="hidden md:block absolute right-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+            type="button"
+            onClick={() => scroll("right")}
+            className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-neutral-800/95 text-white hover:bg-neutral-700 border border-neutral-600 shadow-lg"
+            aria-label="Scroll right"
           >
-            <FaChevronRight size={20} />
+            <FaChevronRight className="w-5 h-5" />
           </button>
         )}
       </div>
     </div>
   );
-};
-
-export default ScrollableCastList;
+}

@@ -1,78 +1,53 @@
 "use client";
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import {
-  FaChevronLeft,
-  FaChevronRight,
-  FaVolumeMute,
-  FaVolumeUp,
-} from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { FetchError } from "@/components/ui/FetchError";
 
-// Extend Window interface for YouTube IFrame API
-declare global {
-  interface Window {
-    YT: any;
-    onYouTubeIframeAPIReady: (() => void) | undefined;
-  }
-}
+const IMAGE_BASE = "https://image.tmdb.org/t/p";
+const FALLBACK_IMAGE = "/backgroundjpeg.webp";
+const HERO_AUTO_ROTATE_MS = 6000;
 
-interface Movie {
+interface HeroItem {
   id: number;
   title: string;
-  trailer?: string;
-  poster_path?: string;
+  poster_path?: string | null;
+  backdrop_path?: string | null;
+  release_date?: string | null;
+  vote_average?: number | null;
 }
 
-const FALLBACK_IMAGE = "/backgroundjpeg.webp";
-
-const HomeReelViewer: React.FC = () => {
-  const [movies, setMovies] = useState<Movie[]>([]);
+function HomeHeroBanner() {
+  const [items, setItems] = useState<HeroItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [isMuted, setIsMuted] = useState(true);
-  const [isVideoReady, setIsVideoReady] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [useFallback, setUseFallback] = useState(false);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
-  const playerRef = useRef<HTMLDivElement>(null);
-  const playerInstance = useRef<YT.Player | null>(null);
-  const videoSectionRef = useRef<HTMLDivElement>(null);
-  const isMounted = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+  const autoRotateRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchTopMovies = useCallback(async () => {
-    setFetchError(null);
+  const fetchHero = useCallback(async () => {
+    setError(null);
     setLoading(true);
     try {
-      const response = await fetch("/api/homeVideo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!response.ok) {
-        const json = await response.json().catch(() => ({}));
-        throw new Error(json?.error ?? "Failed to load trailers");
+      const res = await fetch("/api/homeHero", { cache: "no-store" });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json?.error ?? "Failed to load hero");
       }
-      const data = await response.json();
-      const validMovies = (Array.isArray(data) ? data : [])
-        .slice(0, 5)
-        .filter((movie: Movie) => movie.id && movie.title);
-      setMovies(
-        validMovies.length > 0
-          ? validMovies
-          : [
-              {
-                id: 0,
-                title: "No Video Available",
-                poster_path: FALLBACK_IMAGE,
-              },
-            ]
+      const data = await res.json();
+      const valid = (Array.isArray(data) ? data : [])
+        .filter((m: HeroItem) => m.id && m.title)
+        .slice(0, 10);
+      setItems(
+        valid.length > 0
+          ? valid
+          : [{ id: 0, title: "No content available", poster_path: null, backdrop_path: null }]
       );
     } catch (err) {
-      setFetchError((err as Error).message ?? "Couldn't load trailers");
-      setMovies([
-        { id: 0, title: "No Video Available", poster_path: FALLBACK_IMAGE },
+      setError((err as Error).message ?? "Couldn't load hero");
+      setItems([
+        { id: 0, title: "No content available", poster_path: null, backdrop_path: null },
       ]);
     } finally {
       setLoading(false);
@@ -80,334 +55,233 @@ const HomeReelViewer: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchTopMovies();
-  }, [fetchTopMovies]);
+    fetchHero();
+  }, [fetchHero]);
 
-  // Load YouTube script with error handling
-  useEffect(() => {
-    const loadYouTubeScript = () => {
-      if (window.YT && window.YT.Player) {
-        setScriptLoaded(true);
-        return;
-      }
+  const next = useCallback(() => {
+    if (items.length <= 1) return;
+    setCurrentIndex((prev) => (prev + 1) % items.length);
+  }, [items.length]);
 
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      tag.async = true;
-      tag.onload = () => {
-        if (isMounted.current) setScriptLoaded(true);
-      };
-      tag.onerror = () => {
-        console.error("Failed to load YouTube IFrame API script");
-        if (isMounted.current) setUseFallback(true);
-      };
-      const firstScriptTag = document.getElementsByTagName("script")[0];
-      firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
-    };
+  const prev = useCallback(() => {
+    if (items.length <= 1) return;
+    setCurrentIndex((prev) => (prev - 1 + items.length) % items.length);
+  }, [items.length]);
 
-    isMounted.current = true;
-    loadYouTubeScript();
-
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  // Initialize and update YouTube player with safe cleanup
-  useEffect(() => {
-    if (
-      !isMounted.current ||
-      !movies[currentIndex]?.trailer ||
-      useFallback ||
-      !scriptLoaded
-    ) {
-      setIsVideoReady(false); // Ensure video state is reset when using fallback
-      return;
-    }
-
-    const videoId = movies[currentIndex].trailer?.split("embed/")[1];
-
-    const initializePlayer = () => {
-      if (!playerRef.current || !window.YT?.Player) return;
-
-      // Cleanup existing player safely
-      if (playerInstance.current) {
-        try {
-          if (typeof playerInstance.current.stopVideo === "function") {
-            playerInstance.current.stopVideo();
-          }
-          playerInstance.current.destroy();
-        } catch (err) {
-          console.error("Error during player cleanup:", err);
-        } finally {
-          playerInstance.current = null;
-        }
-      }
-
-      setIsVideoReady(false);
-      setIsPlaying(false);
-      setIsMuted(true);
-
-      try {
-        playerInstance.current = new window.YT.Player(playerRef.current, {
-          width: "1280",
-          height: "720",
-          videoId,
-          playerVars: {
-            autoplay: 1,
-            mute: 1,
-            controls: 0,
-            modestbranding: 0,
-            showinfo: 0,
-            rel: 0,
-          },
-          events: {
-            onReady: (event: YT.PlayerEvent) => {
-              if (isMounted.current) {
-                event.target.playVideo();
-                setIsVideoReady(true);
-                setIsPlaying(true);
-              }
-            },
-            // onStateChange: (event: YT.OnStateChangeEvent) => {
-            //   if (!isMounted.current) return;
-            //   if (event.data === window.YT.PlayerState.ENDED) {
-            //     nextMovie();
-            //   } else if (event.data === window.YT.PlayerState.PAUSED) {
-            //     setIsPlaying(false);
-            //   } else if (event.data === window.YT.PlayerState.PLAYING) {
-            //     setIsPlaying(true);
-            //   }
-            // },
-            // onError: (event: YT.OnErrorEvent) => {
-            //   console.error("YouTube Player Error:", event.data);
-            //   if (isMounted.current) {
-            //     setUseFallback(true); // Switch to fallback on any error
-            //     setIsVideoReady(false); // Reset video state
-            // }
-            //   },
-          },
-        });
-      } catch (err) {
-        console.error("Player Initialization Error:", err);
-        // if (isMounted.current) {
-        //   setUseFallback(true);
-        //   setIsVideoReady(false);
-        // }
-      }
-    };
-
-    if (window.YT && window.YT.Player) {
-      initializePlayer();
-    } else {
-      window.onYouTubeIframeAPIReady = initializePlayer;
-    }
-
-    return () => {
-      if (playerInstance.current) {
-        try {
-          if (typeof playerInstance.current.stopVideo === "function") {
-            playerInstance.current.stopVideo();
-          }
-          playerInstance.current.destroy();
-        } catch (err) {
-          console.error("Cleanup Error:", err);
-        } finally {
-          playerInstance.current = null;
-        }
-      }
-    };
-  }, [currentIndex, movies, useFallback, scriptLoaded]);
-
-  // Navigation handlers
-  const nextMovie = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % movies.length);
-    setIsVideoReady(false);
-    setUseFallback(false);
-  }, [movies.length]);
-
-  const prevMovie = useCallback(() => {
-    setCurrentIndex((prev) => (prev - 1 + movies.length) % movies.length);
-    setIsVideoReady(false);
-    setUseFallback(false);
-  }, [movies.length]);
-
-  const goToMovie = useCallback((index: number) => {
+  const goTo = useCallback((index: number) => {
     setCurrentIndex(index);
-    setIsVideoReady(false);
-    setUseFallback(false);
   }, []);
 
-  const toggleMute = useCallback(() => {
-    if (
-      playerInstance.current &&
-      !useFallback &&
-      typeof playerInstance.current.mute === "function"
-    ) {
-      setIsMuted((prev) => {
-        if (prev) {
-          playerInstance.current?.unMute();
-        } else {
-          playerInstance.current?.mute();
-        }
-        return !prev;
-      });
-    }
-  }, [useFallback]);
+  useEffect(() => {
+    if (items.length <= 1) return;
+    autoRotateRef.current = setInterval(next, HERO_AUTO_ROTATE_MS);
+    return () => {
+      if (autoRotateRef.current) clearInterval(autoRotateRef.current);
+    };
+  }, [items.length, next]);
 
-  // Swipe-to-scroll logic
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchMove, setTouchMove] = useState<number | null>(null);
 
-  const handleTouchStart = useCallback(
-    (e: React.TouchEvent | React.MouseEvent) => {
-      const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-      setTouchStart(clientX);
-    },
-    []
-  );
+  const onTouchStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    const x = "touches" in e ? e.touches[0].clientX : e.clientX;
+    setTouchStart(x);
+  }, []);
 
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent | React.MouseEvent) => {
-      const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-      setTouchMove(clientX);
-    },
-    []
-  );
+  const onTouchMove = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    const x = "touches" in e ? e.touches[0].clientX : e.clientX;
+    setTouchMove(x);
+  }, []);
 
-  const handleTouchEnd = useCallback(() => {
-    if (touchStart !== null && touchMove !== null) {
-      const deltaX = touchMove - touchStart;
-      if (Math.abs(deltaX) > 50) {
-        if (deltaX > 0) {
-          prevMovie();
-        } else {
-          nextMovie();
-        }
-      }
+  const onTouchEnd = useCallback(() => {
+    if (touchStart != null && touchMove != null) {
+      const delta = touchMove - touchStart;
+      if (Math.abs(delta) > 50) delta > 0 ? prev() : next();
     }
     setTouchStart(null);
     setTouchMove(null);
-  }, [touchStart, touchMove, prevMovie, nextMovie]);
+  }, [touchStart, touchMove, prev, next]);
 
-  if (fetchError) {
+  if (error) {
     return (
-      <div className="relative max-w-[1920px] mx-auto w-full rounded-md overflow-hidden">
-        <FetchError message={fetchError} onRetry={fetchTopMovies} />
+      <div className="relative max-w-[1920px] mx-auto w-full rounded-xl overflow-hidden">
+        <FetchError message={error} onRetry={fetchHero} />
       </div>
     );
   }
 
+  const current = items[currentIndex];
+  const hasBackdrop = current?.backdrop_path;
+  const hasPoster = current?.poster_path;
+  const imagePath = hasBackdrop || hasPoster;
+  const year = current?.release_date
+    ? new Date(current.release_date).getFullYear()
+    : null;
+  const rating =
+    current?.vote_average != null ? current.vote_average.toFixed(1) : null;
+
+  const desktopSrc = imagePath
+    ? hasBackdrop
+      ? `${IMAGE_BASE}/w1280${current!.backdrop_path}`
+      : `${IMAGE_BASE}/w780${current!.poster_path}`
+    : FALLBACK_IMAGE;
+
+  const mobileSrc = imagePath
+    ? hasPoster
+      ? `${IMAGE_BASE}/w500${current!.poster_path}`
+      : `${IMAGE_BASE}/w780${current!.backdrop_path}`
+    : FALLBACK_IMAGE;
+
   return (
-    <div className="relative max-w-[1920px] mx-auto w-full h-[40rem] bg-black flex flex-col md:flex-row rounded-md overflow-hidden">
-      {/* Video Section (3/4 width) */}
-      <div ref={videoSectionRef} className="relative w-full md:w-3/4 h-full">
+    <div className="relative max-w-[1920px] mx-auto w-full rounded-xl overflow-hidden shadow-2xl">
+      <section
+        className="relative w-full min-h-[70vw] sm:min-h-[50vw] md:min-h-[42vw] lg:min-h-[32rem] max-h-[85vh] bg-neutral-950"
+        aria-label="Romance and emotion"
+        onMouseDown={onTouchStart}
+        onMouseMove={onTouchMove}
+        onMouseUp={onTouchEnd}
+        onMouseLeave={onTouchEnd}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
         {loading ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 overflow-hidden">
-            <img
-              src={FALLBACK_IMAGE}
-              alt="Loading background"
-              className="w-full h-full object-cover animate-pulse"
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-neutral-900">
+            <div
+              className="absolute inset-0 bg-cover bg-center opacity-30"
+              style={{ backgroundImage: `url(${FALLBACK_IMAGE})` }}
             />
-            <AiOutlineLoading3Quarters className="absolute size-12 text-white animate-spin" />
-          </div>
-        ) : useFallback || !movies[currentIndex]?.trailer ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <img
-              src={movies[currentIndex]?.poster_path || FALLBACK_IMAGE}
-              alt={movies[currentIndex]?.title || "No Video"}
-              className="w-full h-full object-cover"
-            />
+            <AiOutlineLoading3Quarters className="relative size-14 text-white/80 animate-spin" />
+            <p className="relative text-sm text-white/60">Loading…</p>
           </div>
         ) : (
           <>
-            <div className="absolute inset-0 aspect-[16/9] w-full h-full">
-              <div
-                ref={playerRef}
-                onMouseDown={handleTouchStart}
-                onMouseMove={handleTouchMove}
-                onMouseUp={handleTouchEnd}
-                onMouseLeave={handleTouchEnd}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                className="w-full h-full"
-                suppressHydrationWarning
+            {/* Desktop: landscape backdrop (or poster as fallback) */}
+            <picture className="absolute inset-0 block">
+              <source
+                media="(max-width: 767px)"
+                srcSet={mobileSrc}
               />
+              <img
+                src={desktopSrc}
+                alt={current?.title ?? ""}
+                className="absolute inset-0 w-full h-full object-cover object-center"
+                sizes="(max-width: 768px) 100vw, 1280px"
+                fetchPriority="high"
+              />
+            </picture>
+
+            {/* Gradient overlay for readability */}
+            <div
+              className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none"
+              aria-hidden
+            />
+
+            {/* Pill label */}
+            <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-10">
+              <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium text-white/95 backdrop-blur-md border border-white/20">
+                Romance & emotion
+              </span>
             </div>
 
-            {/* Title Overlay */}
-            <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 z-10">
-              <Link
-                href={`/app/movie/${movies[currentIndex].id}`}
-                target="_blank"
-                className="text-white text-base sm:text-xl md:text-2xl font-bold drop-shadow-lg hover:underline"
-              >
-                {movies[currentIndex].title}
-              </Link>
+            {/* Details overlay — bottom left */}
+            <div className="absolute bottom-0 left-0 right-0 z-10 p-4 sm:p-6 md:p-8 flex flex-col gap-2 sm:gap-3">
+              <div className="flex flex-wrap items-center gap-2 text-white/90 text-sm">
+                {year != null && (
+                  <span className="font-medium">{year}</span>
+                )}
+                {rating != null && (
+                  <>
+                    {year != null && <span className="text-white/50">·</span>}
+                    <span className="flex items-center gap-1">
+                      <span className="text-amber-400">★</span> {rating}
+                    </span>
+                  </>
+                )}
+              </div>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white drop-shadow-lg max-w-3xl leading-tight">
+                {current?.id ? (
+                  <Link
+                    href={`/app/movie/${current.id}`}
+                    className="hover:underline focus:outline-none focus:underline"
+                  >
+                    {current.title}
+                  </Link>
+                ) : (
+                  <span>{current?.title ?? "—"}</span>
+                )}
+              </h2>
+              <p className="text-white/80 text-sm sm:text-base max-w-xl">
+                Love stories and feel-good picks — discover more below.
+              </p>
+              {current?.id && (
+                <Link
+                  href={`/app/movie/${current.id}`}
+                  className="mt-2 inline-flex w-fit items-center rounded-lg bg-white/20 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/30 transition-colors"
+                >
+                  View movie
+                </Link>
+              )}
             </div>
 
-            {/* Mute/Unmute Button */}
-            <button
-              onClick={toggleMute}
-              className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 p-2 bg-neutral-800 bg-opacity-70 text-white rounded-full hover:bg-opacity-90 transition-all duration-200"
-            >
-              {isMuted ? <FaVolumeMute size={20} /> : <FaVolumeUp size={20} />}
-            </button>
+            {/* Navigation — dots */}
+            {items.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 gap-2">
+                {items.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => goTo(i)}
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      i === currentIndex
+                        ? "w-8 bg-white"
+                        : "w-2 bg-white/50 hover:bg-white/70"
+                    }`}
+                    aria-label={`Slide ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
 
-            {/* Navigation Dots */}
-            <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 z-10 flex gap-2">
-              {movies.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => goToMovie(index)}
-                  className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-300 ${
-                    currentIndex === index
-                      ? "bg-white scale-125"
-                      : "bg-neutral-500 hover:bg-neutral-300"
-                  }`}
-                />
-              ))}
-            </div>
-
-            {/* Scroll Buttons */}
-            {movies.length > 1 && (
+            {/* Arrows — desktop */}
+            {items.length > 1 && (
               <>
                 <button
-                  onClick={prevMovie}
-                  className="md:block hidden absolute left-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+                  type="button"
+                  onClick={prev}
+                  className="absolute left-2 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-black/40 p-3 text-white backdrop-blur-sm hover:bg-black/60 md:block"
+                  aria-label="Previous"
                 >
-                  <FaChevronLeft size={16} />
+                  <FaChevronLeft size={20} />
                 </button>
                 <button
-                  onClick={nextMovie}
-                  className="md:block hidden absolute right-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+                  type="button"
+                  onClick={next}
+                  className="absolute right-2 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-black/40 p-3 text-white backdrop-blur-sm hover:bg-black/60 md:block"
+                  aria-label="Next"
                 >
-                  <FaChevronRight size={16} />
+                  <FaChevronRight size={20} />
                 </button>
               </>
             )}
           </>
         )}
-      </div>
+      </section>
 
-      {/* Promo Section (1/4 width) */}
-      <div className="w-full md:w-1/4 h-full bg-neutral-800 flex flex-col items-center justify-center p-4 sm:p-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-neutral-100 mb-4 text-center">
-          Explore More Reels
-        </h2>
-        <p className="text-sm sm:text-base text-neutral-400 mb-6 text-center">
-          Dive into personalized movie recommendations with our reels feature.
+      {/* Reels CTA strip — compact */}
+      <div className="flex items-center justify-between gap-4 bg-neutral-800/95 px-4 py-3 sm:px-6 sm:py-4 border-t border-neutral-700/50">
+        <p className="text-sm text-neutral-300">
+          Short clips by mood and your watchlist.
         </p>
         <Link
           href="/app/reel"
-          className="bg-blue-600 text-white py-2 px-4 sm:py-3 sm:px-6 rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors duration-300"
+          className="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors"
         >
           Watch Reels
         </Link>
       </div>
     </div>
   );
-};
+}
 
-export default HomeReelViewer;
+export default HomeHeroBanner;

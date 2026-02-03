@@ -1,5 +1,5 @@
-import axios from "axios";
 import { NextResponse } from "next/server";
+import { fetchTmdb } from "@/utils/tmdbClient";
 
 export async function GET() {
   const apiKey = process.env.TMDB_API_KEY;
@@ -11,24 +11,25 @@ export async function GET() {
   }
 
   try {
-    const response = await axios.get(
-      "https://api.themoviedb.org/3/genre/tv/list",
-      { params: { api_key: apiKey } }
+    const response = await fetchTmdb(
+      `https://api.themoviedb.org/3/genre/tv/list?api_key=${apiKey}`,
+      { revalidate: 86400 }
     );
-    return NextResponse.json(response.data.genres, { status: 200 });
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (!response.ok) {
       return NextResponse.json(
         {
           error: "TMDB request failed.",
-          upstream_status: error.response?.status,
-          upstream_message: error.response?.statusText,
+          upstream_status: response.status,
+          upstream_message: response.statusText,
         },
         { status: 502 }
       );
     }
+    const data = await response.json();
+    return NextResponse.json(data.genres ?? [], { status: 200 });
+  } catch (error) {
     return NextResponse.json(
-      { error: "Error fetching genres" },
+      { error: "Error fetching genres", details: (error as Error).message },
       { status: 500 }
     );
   }

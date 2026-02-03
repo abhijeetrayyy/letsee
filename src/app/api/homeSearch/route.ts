@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchTmdb } from "@/utils/tmdbClient";
 
 export async function POST(request: Request) {
   try {
@@ -18,12 +19,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch data from TMDB API
     const url = `https://api.themoviedb.org/3/search/${media_type}?api_key=${
       process.env.TMDB_API_KEY
     }&query=${encodeURIComponent(query)}&page=${page || 1}`;
 
-    const response = await fetch(url);
+    const response = await fetchTmdb(url);
 
     if (!response.ok) {
       return NextResponse.json(

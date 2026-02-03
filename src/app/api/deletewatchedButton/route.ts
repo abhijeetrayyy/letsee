@@ -4,7 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest) {
   const requestClone = req.clone();
   const body = await requestClone.json();
-  const { itemId } = body;
+  const itemId = body?.itemId != null ? String(body.itemId) : undefined;
+  const keepData = body?.keepData === true;
+  const keepRatingDiaryReview = keepData;
 
   const supabase = await createClient();
 
@@ -20,6 +22,13 @@ export async function POST(req: NextRequest) {
 
   const userId = data.user.id;
 
+  if (!itemId) {
+    return NextResponse.json(
+      { error: "itemId is required" },
+      { status: 400 }
+    );
+  }
+
   try {
     let removedFromWatched = false;
     let removedFromFavorites = false;
@@ -27,9 +36,9 @@ export async function POST(req: NextRequest) {
     // Check if the item exists in watched_items
     const { data: watchedItem, error: watchedError } = await supabase
       .from("watched_items")
-      .select("id")
+      .select("id, item_type")
       .eq("user_id", userId)
-      .eq("item_id", itemId)
+      .eq("item_id", String(itemId))
       .maybeSingle();
 
     if (watchedError) {
@@ -40,7 +49,34 @@ export async function POST(req: NextRequest) {
     }
 
     if (watchedItem) {
-      await removeFromWatched(userId, itemId);
+      if (keepRatingDiaryReview) {
+        await softRemoveFromWatched(userId, itemId);
+        if (watchedItem.item_type === "tv") {
+          const { error: epError } = await supabase
+            .from("watched_episodes")
+            .delete()
+            .eq("user_id", userId)
+            .eq("show_id", String(itemId));
+          if (epError) console.error("deletewatchedButton clear episodes:", epError);
+        }
+        // Keep user_ratings, diary and public review (row kept with is_watched = false)
+      } else {
+        await removeFromWatched(userId, itemId);
+        if (watchedItem.item_type === "tv") {
+          const { error: epError } = await supabase
+            .from("watched_episodes")
+            .delete()
+            .eq("user_id", userId)
+            .eq("show_id", String(itemId));
+          if (epError) console.error("deletewatchedButton clear episodes:", epError);
+        }
+        await supabase
+          .from("user_ratings")
+          .delete()
+          .eq("user_id", userId)
+          .eq("item_id", String(itemId))
+          .eq("item_type", watchedItem.item_type);
+      }
       removedFromWatched = true;
     }
 
@@ -49,7 +85,7 @@ export async function POST(req: NextRequest) {
       .from("favorite_items")
       .select("id")
       .eq("user_id", userId)
-      .eq("item_id", itemId)
+      .eq("item_id", String(itemId))
       .maybeSingle();
 
     if (favoriteError) {
@@ -60,7 +96,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (favoriteItem) {
-      await removeFromFavorites(userId, itemId);
+      await removeFromFavorites(userId, String(itemId));
       removedFromFavorites = true;
     }
 
@@ -85,7 +121,35 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * Removes an item from the watched list and decrements the watched count.
+ * Soft remove: set is_watched = false so item leaves Watched list but row (diary/public review) and rating are kept.
+ */
+async function softRemoveFromWatched(userId: string, itemId: string) {
+  const supabase = await createClient();
+
+  const { error: updateError } = await supabase
+    .from("watched_items")
+    .update({ is_watched: false })
+    .eq("user_id", userId)
+    .eq("item_id", itemId);
+
+  if (updateError) {
+    console.error("Error soft-removing from watched:", updateError);
+    throw updateError;
+  }
+
+  const { error: decrementError } = await supabase.rpc(
+    "decrement_watched_count",
+    { p_user_id: userId }
+  );
+
+  if (decrementError) {
+    console.error("Error decrementing watched count:", decrementError);
+    throw decrementError;
+  }
+}
+
+/**
+ * Removes an item from the watched list (delete row) and decrements the watched count.
  */
 async function removeFromWatched(userId: string, itemId: string) {
   const supabase = await createClient();
@@ -101,7 +165,6 @@ async function removeFromWatched(userId: string, itemId: string) {
     throw deleteError;
   }
 
-  // Decrement watched count
   const { error: decrementError } = await supabase.rpc(
     "decrement_watched_count",
     { p_user_id: userId }

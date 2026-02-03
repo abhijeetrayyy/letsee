@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
   const { data: profile, error: profileError } = await supabase
     .from("users")
-    .select("visibility")
+    .select("visibility, profile_show_diary, profile_show_ratings, profile_show_public_reviews")
     .eq("id", userID)
     .maybeSingle();
 
@@ -49,28 +49,30 @@ export async function POST(request: Request) {
   }
 
   const safePage = Number(page) || 1;
+  const isOwner = viewerId === userID;
+  const profileShowDiary = profile.profile_show_diary ?? true;
+  const profileShowRatings = profile.profile_show_ratings ?? true;
+  const profileShowPublicReviews = profile.profile_show_public_reviews ?? true;
 
-  // Initialize the query
+  // Initialize the query — only items currently in Watched list (is_watched = true)
   let query = supabase
     .from("watched_items")
-    .select("*", { count: "exact" }) // Fetch total count
+    .select("*", { count: "exact" })
     .eq("user_id", userID)
-    .order("watched_at", { ascending: false }); // Sort by newest first
+    .eq("is_watched", true)
+    .order("watched_at", { ascending: false });
 
-  // Apply genre filter if provided
-  if (genre) {
-    query = query.contains("genres", [genre]); // Filter by genre
+  if (genre && typeof genre === "string") {
+    query = query.overlaps("genres", [genre.trim()]);
   }
 
-  // Apply pagination
   const itemsPerPage = 50;
   query = query.range(
     (safePage - 1) * itemsPerPage,
     safePage * itemsPerPage - 1
   );
 
-  // Execute the query
-  const { data, error, count } = await query;
+  const { data: items, error, count } = await query;
 
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), {
@@ -78,9 +80,37 @@ export async function POST(request: Request) {
     });
   }
 
-  // Calculate total items and pages
-  const totalItems = count || 0; // Use the count returned by Supabase
+  const totalItems = count ?? 0;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+  // Fetch ratings for this user; then keep only those for items on this page
+  let ratingsMap: Record<string, number> = {};
+  if (items?.length) {
+    const { data: ratings } = await supabase
+      .from("user_ratings")
+      .select("item_id, item_type, score")
+      .eq("user_id", userID);
+    const itemSet = new Set((items as { item_id: string; item_type: string }[]).map((i) => `${i.item_id}:${i.item_type}`));
+    for (const r of (ratings ?? []) as { item_id: string; item_type: string; score: number }[]) {
+      if (itemSet.has(`${r.item_id}:${r.item_type}`)) {
+        ratingsMap[`${r.item_id}:${r.item_type}`] = r.score;
+      }
+    }
+  }
+
+  // Merge score into each item and apply visibility for visitors
+  type Row = { item_id: string; item_type: string; review_text?: string | null; public_review_text?: string | null; [k: string]: unknown };
+  const data = (items ?? []).map((row: Row) => {
+    const key = `${row.item_id}:${row.item_type}`;
+    const score = ratingsMap[key] ?? null;
+    let out: Row & { score: number | null } = { ...row, score };
+    if (!isOwner) {
+      if (!profileShowDiary) out.review_text = null;
+      if (!profileShowPublicReviews) out.public_review_text = null;
+      if (!profileShowRatings) out.score = null;
+    }
+    return out;
+  });
 
   return new Response(
     JSON.stringify({

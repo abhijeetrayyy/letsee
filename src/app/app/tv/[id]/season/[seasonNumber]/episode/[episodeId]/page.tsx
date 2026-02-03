@@ -1,11 +1,13 @@
 // app/tv/[id]/season/[seasonNumber]/episode/[episodeId]/page.tsx
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
-import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaChevronRight } from "react-icons/fa";
 import ImageViewEpisode from "@components/clientComponent/imageViewEpisode";
 import VideoEpisode from "@components/clientComponent/videoEpisode";
+import MarkEpisodeWatched from "@components/tv/MarkEpisodeWatched";
+import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
+import { fetchTmdb } from "@/utils/tmdbClient";
 
 interface EpisodeDetails {
   id: number;
@@ -40,7 +42,9 @@ const getNumericId = (value: string) => {
   return match ? match[0] : null;
 };
 
-// Fetch episode data from TMDb
+const EPISODE_REVALIDATE_SEC = 300;
+
+// Fetch episode (one TMDB call) and series name from cached getTvShowWithSeasons
 const fetchEpisodeData = async (
   id: string,
   seasonNumber: string,
@@ -52,31 +56,20 @@ const fetchEpisodeData = async (
   }
 
   const url = `https://api.themoviedb.org/3/tv/${id}/season/${seasonNumber}/episode/${episodeId}?api_key=${apiKey}&append_to_response=images,videos`;
-  const response = await fetch(url, { cache: "force-cache" });
+  const response = await fetchTmdb(url, { revalidate: EPISODE_REVALIDATE_SEC });
 
   if (!response.ok) {
-    console.log("API Response:", {
-      status: response.status,
-      text: await response.text(),
-    });
     if (response.status === 404) notFound();
     throw new Error(`Failed to fetch episode data: ${response.status}`);
   }
 
   const data = await response.json();
 
-  // Fetch series name for breadcrumb
-  const seriesResponse = await fetch(
-    `https://api.themoviedb.org/3/tv/${id}?api_key=${apiKey}`,
-    { cache: "force-cache" }
-  );
-  if (!seriesResponse.ok) {
-    throw new Error(`Failed to fetch series data: ${seriesResponse.status}`);
-  }
-  const seriesData = await seriesResponse.json();
+  const seriesData = await getTvShowWithSeasons(id);
+  const seriesName = (seriesData?.name as string) ?? "Series";
 
   return {
-    seriesName: seriesData.name,
+    seriesName,
     seasonNumber: parseInt(seasonNumber, 10),
     episode: {
       id: data.id,
@@ -158,9 +151,14 @@ const EpisodePage = async ({ params }: PageProps) => {
               {episode.air_date || "Air date TBA"} •{" "}
               {episode.runtime ? `${episode.runtime} min` : "Runtime TBD"}
             </p>
-            <p className="text-sm sm:text-base text-neutral-300">
+            <p className="text-sm sm:text-base text-neutral-300 mb-4">
               {episode.overview || "No overview available."}
             </p>
+            <MarkEpisodeWatched
+              showId={id}
+              seasonNumber={seasonNum}
+              episodeNumber={episode.episode_number}
+            />
           </div>
         </header>
 

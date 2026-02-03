@@ -18,7 +18,7 @@ export const GET = async (_req: NextRequest) => {
     { data: userWatchlist, error: userWatchlistError },
   ] = await Promise.all([
     supabase.from("favorite_items").select("item_id").eq("user_id", userId),
-    supabase.from("watched_items").select("item_id").eq("user_id", userId),
+    supabase.from("watched_items").select("item_id").eq("user_id", userId).eq("is_watched", true),
     supabase.from("user_watchlist").select("item_id").eq("user_id", userId),
   ]);
 

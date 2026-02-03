@@ -11,7 +11,8 @@ const getUserData = async (id: any) => {
   const { count: watchedCount, error: countError } = await supabase
     .from("watched_items")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", id);
+    .eq("user_id", id)
+    .eq("is_watched", true);
 
   const { data: watchlist, error: watchlistError } = await supabase
     .from("user_watchlist")
@@ -64,7 +65,7 @@ const getUserData = async (id: any) => {
   };
 };
 
-async function profileContent({ profileId }: any) {
+async function profileContent({ profileId, isOwner = false }: { profileId: string; isOwner?: boolean }) {
   const {
     watchlistCount,
     watchedCount,
@@ -91,7 +92,7 @@ async function profileContent({ profileId }: any) {
               Watched &quot;{watchedCount}&quot;
             </h1>
           </div>
-          <ProfileWatched userId={profileId} />
+          <ProfileWatched userId={profileId} isOwner={isOwner} />
         </div>
       )}
     </div>

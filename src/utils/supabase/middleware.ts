@@ -1,68 +1,58 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "./server";
 
-// Define public routes that authenticated users should not access
 const PUBLIC_AUTH_ROUTES = ["/login", "/signup", "/forgot-password"];
 
+/**
+ * Runs only on page navigations (matcher excludes /api). Refreshes session cookie
+ * and handles redirects. Profile (username) check is done in app layout to avoid
+ * a DB query on every request.
+ */
 export async function updateSession(request: NextRequest) {
-  const { pathname, searchParams } = request.nextUrl;
-  console.log("🔄 Updating session for:", pathname);
-
+  const { pathname } = request.nextUrl;
   const supabase = await createClient();
 
-  // Fetch the authenticated user
   const {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
 
-  if (authError) {
-    if (authError.message !== "Auth session missing!") {
-      console.warn("⚠️ Error fetching session:", authError.message);
+  if (authError && authError.message !== "Auth session missing!") {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Session:", authError.message);
     }
-    // Proceed anyway; client-side will handle auth enforcement if needed
   }
 
-  // Redirect from "/" to "/app" for all users (auth or unauth)
+  // Root → /app
   if (pathname === "/") {
-    console.log("🔄 Redirecting to /app");
     return NextResponse.redirect(new URL("/app", request.url));
   }
 
-  // Handle authenticated users
   if (user) {
-    // Check profile for username
-    const { data: profile, error: profileError } = await supabase
-      .from("users")
-      .select("username")
-      .eq("id", user.id)
-      .limit(1)
-      .maybeSingle();
-
-    if (profileError) {
-      console.warn("⚠️ Error fetching profile:", profileError.message);
-      // Proceed; client-side can handle further validation
-    } else if (
-      !profile?.username &&
-      !pathname.startsWith("/app/profile/setup")
-    ) {
-      console.log("🔄 Redirecting to profile setup");
-      return NextResponse.redirect(new URL("/app/profile/setup", request.url));
-    }
-
-    // Redirect authenticated users away from public auth routes
+    // Send authenticated users away from login/signup/forgot-password
     if (PUBLIC_AUTH_ROUTES.includes(pathname)) {
-      console.log("🔄 Redirecting authenticated user from auth page to /app");
       return NextResponse.redirect(new URL("/app", request.url));
     }
-
-    // Allow /update-password with token for authenticated users
-    if (pathname === "/update-password" && searchParams.has("token")) {
-      console.log("✅ Allowing /update-password with token");
+    if (pathname === "/update-password") {
       return NextResponse.next();
+    }
+    // Redirect to profile setup if no username (only on /app routes; proxy excludes /api so this runs per page, not per fetch)
+    if (pathname.startsWith("/app") && !pathname.startsWith("/app/profile/setup")) {
+      const { data: profile, error: profileError } = await supabase
+        .from("users")
+        .select("username")
+        .eq("id", user.id)
+        .limit(1)
+        .maybeSingle();
+      if (!profileError && !profile?.username) {
+        return NextResponse.redirect(new URL("/app/profile/setup", request.url));
+      }
     }
   }
 
-  // Allow all other requests (unauthenticated users can visit freely)
+  if (pathname === "/update-password") {
+    return NextResponse.next();
+  }
+
   return NextResponse.next();
 }

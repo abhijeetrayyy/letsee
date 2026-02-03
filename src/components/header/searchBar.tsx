@@ -1,7 +1,11 @@
 "use client";
 
 import { useSearch } from "@/app/contextAPI/searchContext";
-import Link from "next/link";
+import {
+  buildSearchUrl,
+  isValidSearchQuery,
+  type SearchMediaType,
+} from "@/utils/searchUrl";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FaSearch, FaTimes } from "react-icons/fa";
@@ -31,7 +35,6 @@ type FlatResult = {
   image?: string;
 };
 
-const MIN_QUERY_LENGTH = 2;
 const MAX_RECENT = 5;
 
 const emptyResults: ResultsState = {
@@ -66,9 +69,7 @@ function getTitle(result: SearchResult) {
 function getHref(result: SearchResult, category: FlatResult["category"]) {
   if (category === "person") return `/app/person/${result.id}`;
   if (category === "keyword") {
-    return `/app/search/${encodeURIComponent(
-      String(result.id)
-    )}?media_type=keyword`;
+    return buildSearchUrl({ query: String(result.id), mediaType: "keyword", page: 1 });
   }
   return `/app/${category}/${result.id}`;
 }
@@ -161,7 +162,7 @@ function SearchBar() {
   useEffect(() => {
     if (!isModalOpen) return;
 
-    if (query.length < MIN_QUERY_LENGTH) {
+    if (!isValidSearchQuery(query)) {
       setResults(emptyResults);
       setError(null);
       setIsLoading(false);
@@ -265,14 +266,12 @@ function SearchBar() {
     setIsModalOpen(true);
   };
 
-  const handleSearch = (value: string, category?: string) => {
+  const handleSearch = (value: string, category?: SearchMediaType) => {
     const term = value.trim();
-    if (term.length < MIN_QUERY_LENGTH) return;
+    if (!isValidSearchQuery(term)) return;
     updateRecentSearches(term);
     setIsSearchLoading(true);
-    const encoded = encodeURIComponent(term);
-    const queryString = category ? `?media_type=${category}` : "";
-    router.push(`/app/search/${encoded}${queryString}`);
+    router.push(buildSearchUrl({ query: term, mediaType: category ?? "multi", page: 1 }));
     closeModal();
   };
 
@@ -358,12 +357,20 @@ function SearchBar() {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-start pt-6"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeModal();
-          }}
+          aria-label="Search"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-start pt-8 sm:pt-12"
         >
-          <div className="w-full max-w-4xl px-4">
+          {/* Backdrop: blurred + dimmed — click to close */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity"
+            aria-hidden
+            onClick={closeModal}
+          />
+          {/* Content: click inside does not close */}
+          <div
+            className="relative w-full max-w-4xl rounded-2xl border border-neutral-700/60 bg-neutral-900/95 px-4 py-5 shadow-xl sm:px-6 sm:py-6"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="relative flex flex-row items-center mb-4">
               <FaSearch className="absolute left-4 text-neutral-400" />
               <input
@@ -401,7 +408,7 @@ function SearchBar() {
             </div>
 
             <div className="w-full max-h-[70vh] overflow-y-auto text-white">
-              {query.length < MIN_QUERY_LENGTH && (
+              {!isValidSearchQuery(query) && (
                 <div className="space-y-4">
                   <div className="text-neutral-300">
                     Start typing to search across movies, TV, people, and
@@ -438,7 +445,7 @@ function SearchBar() {
                 </div>
               )}
 
-              {query.length >= MIN_QUERY_LENGTH && (
+              {isValidSearchQuery(query) && (
                 <>
                   {isLoading && (
                     <div className="flex flex-col items-center gap-3 py-6 text-neutral-300">

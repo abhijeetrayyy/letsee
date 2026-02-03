@@ -5,6 +5,7 @@ export async function proxy(request: NextRequest) {
   return updateSession(request);
 }
 
+// Run only on page navigations, not on /api or static assets (avoids session check on every fetch)
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api/|_next/static|_next/image|favicon.ico).*)"],
 };

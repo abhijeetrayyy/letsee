@@ -1,98 +1,120 @@
 "use client";
+
 import React, { useEffect, useState } from "react";
-import { supabase } from "@/utils/supabase/client";
 
 const Visibility: React.FC = () => {
   const [visibility, setVisibility] = useState<string>("public");
-
-  const handleVisibilityChange = (
-    event: React.ChangeEvent<HTMLSelectElement>
-  ) => {
-    setVisibility(event.target.value);
-  };
+  const [profileShowDiary, setProfileShowDiary] = useState(true);
+  const [profileShowRatings, setProfileShowRatings] = useState(true);
+  const [profileShowPublicReviews, setProfileShowPublicReviews] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchVisibility = async () => {
-      const { data: user, error }: any = await supabase.auth.getUser();
-
-      if (error) {
-        console.error("Error fetching user:", error.message);
-        return;
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch("/api/profile/settings");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.visibility) setVisibility(data.visibility);
+          if (typeof data.profile_show_diary === "boolean") setProfileShowDiary(data.profile_show_diary);
+          if (typeof data.profile_show_ratings === "boolean") setProfileShowRatings(data.profile_show_ratings);
+          if (typeof data.profile_show_public_reviews === "boolean") setProfileShowPublicReviews(data.profile_show_public_reviews);
+        }
+      } finally {
+        setLoading(false);
       }
-      const { data, error: visibilityError } = await supabase
-        .from("users")
-        .select("visibility")
-        .eq("id", user?.user?.id)
-        .maybeSingle();
-      if (visibilityError) {
-        console.error("Error fetching visibility:", visibilityError.message);
-        return;
-      }
-
-      setVisibility(data?.visibility || "public");
     };
-    fetchVisibility();
-  }, [supabase]);
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+    fetchSettings();
+  }, []);
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        throw new Error("User not authenticated");
+      const res = await fetch("/api/profile/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          visibility,
+          profile_show_diary: profileShowDiary,
+          profile_show_ratings: profileShowRatings,
+          profile_show_public_reviews: profileShowPublicReviews,
+        }),
+      });
+      if (res.ok) {
+        alert("Settings saved.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data?.error ?? "Failed to save settings.");
       }
-
-      const { error } = await supabase
-        .from("users")
-        .update({ visibility: visibility })
-        .eq("id", user.id);
-
-      if (error) {
-        throw error;
-      }
-
-      alert("Visibility settings updated successfully!");
-    } catch (error) {
-      console.error("Error updating visibility:", error);
-      alert("Failed to update visibility settings");
+    } catch {
+      alert("Failed to save settings.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  return (
-    <div className="w-fit ">
-      <form onSubmit={handleSubmit} className="space-y-1">
-        <div>
-          <label
-            htmlFor="visibility"
-            className="block text-sm font-medium text-gray-200"
-          >
-            Profile Visibility
-          </label>
-          <div className="flex flex-row  gap-2">
-            <select
-              id="visibility"
-              value={visibility}
-              onChange={handleVisibilityChange}
-              className="mt-1 block w-full rounded-md bg-neutral-700 text-white border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            >
-              <option value="public">Public</option>
-              <option value="followers">Friends Only</option>
-              <option value="private">Only Me</option>
-            </select>
+  if (loading) {
+    return (
+      <div className="text-sm text-white/60">Loading settings…</div>
+    );
+  }
 
-            <button
-              type="submit"
-              className="w-full flex justify-center py-2 px-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Save Changes
-            </button>
-          </div>
-        </div>
-      </form>
-    </div>
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <label htmlFor="profile-visibility" className="text-sm font-medium text-white/80 shrink-0">
+          Profile visibility
+        </label>
+        <select
+          id="profile-visibility"
+          value={visibility}
+          onChange={(e) => setVisibility(e.target.value)}
+          className="h-9 min-w-40 max-w-48 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-1.5 text-sm text-white focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/50 shrink-0"
+        >
+          <option value="public">Public</option>
+          <option value="followers">Friends only</option>
+          <option value="private">Only me</option>
+        </select>
+      </div>
+      <div className="space-y-2 text-sm">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={profileShowDiary}
+            onChange={(e) => setProfileShowDiary(e.target.checked)}
+            className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500/50"
+          />
+          <span className="text-white/80">Show diary on profile</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={profileShowRatings}
+            onChange={(e) => setProfileShowRatings(e.target.checked)}
+            className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500/50"
+          />
+          <span className="text-white/80">Show ratings on profile</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={profileShowPublicReviews}
+            onChange={(e) => setProfileShowPublicReviews(e.target.checked)}
+            className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500/50"
+          />
+          <span className="text-white/80">Show public reviews on profile</span>
+        </label>
+      </div>
+      <button
+        type="submit"
+        disabled={saving}
+        className="h-9 shrink-0 rounded-lg bg-amber-500 px-4 text-sm font-medium text-neutral-900 hover:bg-amber-400 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-neutral-900"
+      >
+        {saving ? "Saving…" : "Save"}
+      </button>
+    </form>
   );
 };
 

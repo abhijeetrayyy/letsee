@@ -1,11 +1,9 @@
 "use client";
-import ThreePrefrenceBtn from "@/components/buttons/threePrefrencebtn";
 import { GenreList } from "@/staticData/genreList";
 import SendMessageModal from "@components/message/sendCard";
+import MediaCard from "@components/cards/MediaCard";
 import debounce from "lodash/debounce";
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LuSend } from "react-icons/lu";
 
 interface SearchResult {
   id: number;
@@ -171,129 +169,37 @@ function Page() {
     }
   };
 
-  // Render card based on media type
+  const displayMediaType = (data: SearchResult) =>
+    data.media_type ?? (mediaType === "person" ? "person" : mediaType === "tv" ? "tv" : "movie");
+
   const renderCard = (data: SearchResult) => {
-    const isPerson = data.media_type === "person" || mediaType == "person";
+    const isPerson = data.media_type === "person" || mediaType === "person";
     const title = data.title || data.name || "Unknown";
-    const imageUrl = isPerson
-      ? data.profile_path
-        ? `https://image.tmdb.org/t/p/h632${data.profile_path}`
-        : "/no-photo.webp"
-      : data.poster_path || data.backdrop_path
-      ? `https://image.tmdb.org/t/p/w342${
-          data.poster_path || data.backdrop_path
-        }`
-      : "/no-photo.webp";
+    const typeLabel = displayMediaType(data);
+    const year =
+      !isPerson && (data.release_date || data.first_air_date)
+        ? String(new Date(data.release_date || data.first_air_date || "").getFullYear())
+        : null;
+    const genres =
+      data.genre_ids
+        ?.map((id: number) => GenreList.genres.find((g: any) => g.id === id)?.name)
+        .filter(Boolean) ?? [];
 
     return (
-      <div
+      <MediaCard
         key={data.id}
-        className={`relative group flex flex-col h-auto ${
-          isPerson ? "bg-indigo-700" : "bg-neutral-900"
-        } w-full h-full text-gray-300 rounded-md overflow-hidden hover:z-10`}
-      >
-        <div className="absolute top-0 left-0 flex flex-row justify-between w-full  z-10">
-          <p className="p-1 bg-black text-white rounded-br-md text-sm">
-            {data.media_type
-              ? data.media_type
-              : mediaType == "movie"
-              ? "movie"
-              : mediaType == "tv"
-              ? "tv"
-              : "person"}
-          </p>
-          {!isPerson && (data.release_date || data.first_air_date) && (
-            <p className="p-1 bg-indigo-600 text-white rounded-bl-md text-sm">
-              {new Date(
-                data.release_date || data.first_air_date || ""
-              ).getFullYear() || "N/A"}
-            </p>
-          )}
-        </div>
-        <Link
-          href={`/app/${
-            data.media_type
-              ? data.media_type
-              : mediaType == "movie"
-              ? "movie"
-              : mediaType == "tv"
-              ? "tv"
-              : "person"
-          }/${data.id}-${title
-            .trim()
-            .replace(/[^a-zA-Z0-9]/g, "-")
-            .replace(/-+/g, "-")}`}
-          className="h-full w-full"
-        >
-          <img
-            className="object-cover w-full h-[250px] md:h-[320px]"
-            src={imageUrl}
-            alt={title}
-          />
-        </Link>
-        <div
-          className={`${isPerson ? "bg-indigo-700" : "w-full bg-neutral-900 "}`}
-        >
-          {!isPerson && (
-            <>
-              <ThreePrefrenceBtn
-                genres={
-                  data.genre_ids
-                    ?.map((id: number) => {
-                      const genre = GenreList.genres.find(
-                        (g: any) => g.id === id
-                      );
-                      return genre ? genre.name : null;
-                    })
-                    .filter(Boolean) || []
-                }
-                cardId={data.id}
-                cardType={data.media_type}
-                cardName={title}
-                cardAdult={data.adult}
-                cardImg={data.poster_path || data.backdrop_path}
-              />
-              <div className="py-2 border-t border-neutral-950 bg-neutral-800 hover:bg-neutral-700">
-                <button
-                  className="w-full flex justify-center text-lg text-center text-gray-300 hover:text-white"
-                  onClick={() => handleCardTransfer(data)}
-                >
-                  <LuSend />
-                </button>
-              </div>
-            </>
-          )}
-          <div
-            title={title}
-            className="w-full flex flex-col gap-2 px-4 py-2 bg-indigo-700 text-gray-200"
-          >
-            <Link
-              href={`/app/${
-                data.media_type
-                  ? data.media_type
-                  : mediaType == "movie"
-                  ? "movie"
-                  : mediaType == "tv"
-                  ? "tv"
-                  : "person"
-              }/${data.id}-${title
-                .trim()
-                .replace(/[^a-zA-Z0-9]/g, "-")
-                .replace(/-+/g, "-")}`}
-              className="hover:underline"
-            >
-              <span>
-                {title.length > 20 ? `${title.slice(0, 20)}...` : title}
-              </span>
-            </Link>
-            {isPerson && data.known_for_department && (
-              <div className="text-xs underline">
-                {data.known_for_department}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+        id={data.id}
+        title={title}
+        mediaType={isPerson ? "person" : (typeLabel as "movie" | "tv")}
+        posterPath={isPerson ? data.profile_path : (data.poster_path || data.backdrop_path)}
+        adult={data.adult}
+        genres={genres}
+        showActions={!isPerson}
+        onShare={!isPerson ? (e) => { e.preventDefault(); handleCardTransfer(data); } : undefined}
+        typeLabel={typeLabel}
+        year={year}
+        knownFor={isPerson ? data.known_for_department : undefined}
+      />
     );
   };
 

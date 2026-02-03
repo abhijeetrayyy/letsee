@@ -39,7 +39,6 @@ export async function POST(req: NextRequest) {
         { status: 200 }
       );
     } else {
-      // Remove from favorites and watched before adding to watchlist
       await removeFromFavorites(userId, itemId);
       await removeFromWatched(userId, itemId);
       await addToWatchlist(userId, {

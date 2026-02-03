@@ -111,27 +111,25 @@ const ImagesSection: React.FC<ImagesSectionProps> = ({
   };
 
   return (
-    <div>
-      {/* Images Section */}
+    <>
       {(Bimages.length > 0 || Pimages.length > 0) && (
-        <div className="max-w-7xl w-full mx-auto my-8 md:px-4 mt-20">
-          <h1 className="text-lg font-bold mb-4">
-            {movie.name || movie.title}: Images
-          </h1>
+        <section className="max-w-6xl w-full mx-auto px-4 py-6">
+          <h2 className="text-2xl font-bold text-white mb-4">Images</h2>
           <div className="relative">
             <div
               ref={scrollRef}
-              className="flex flex-row gap-4 overflow-x-auto no-scrollbar py-2"
+              className="flex flex-row gap-4 overflow-x-auto no-scrollbar py-2 pb-1"
             >
               {displayImages.map((item: Image, index: number) => (
-                <div
+                <button
+                  type="button"
                   key={index}
-                  className="card-item image-item  h-auto rounded-lg overflow-hidden flex-shrink-0 group cursor-pointer"
+                  className="card-item image-item shrink-0 rounded-xl border border-neutral-700 bg-neutral-800/80 overflow-hidden group cursor-pointer hover:border-neutral-500 hover:shadow-lg transition-all duration-200 text-left"
                   onClick={() => openModal(item)}
                   style={{ width: `${itemWidth}px` }}
                 >
                   <img
-                    className="w-full h-full aspect-video object-cover transition-opacity duration-300 group-hover:opacity-60"
+                    className="w-full aspect-video object-cover transition-opacity duration-200 group-hover:opacity-80"
                     src={
                       movie.adult
                         ? "/pixeled.webp"
@@ -139,43 +137,45 @@ const ImagesSection: React.FC<ImagesSectionProps> = ({
                     }
                     alt={item.name || `Image ${index + 1}`}
                   />
-                </div>
+                </button>
               ))}
             </div>
 
-            {/* Left Fade Overlay */}
             <div
-              className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-20 bg-gradient-to-r from-black to-transparent pointer-events-none transition-opacity duration-300 ${
-                canScrollLeft ? "opacity-80" : "opacity-0"
+              className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-20 bg-gradient-to-r from-neutral-950 to-transparent pointer-events-none transition-opacity duration-300 ${
+                canScrollLeft ? "opacity-100" : "opacity-0"
               }`}
+              aria-hidden
+            />
+            <div
+              className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-20 bg-gradient-to-l from-neutral-950 to-transparent pointer-events-none transition-opacity duration-300 ${
+                canScrollRight ? "opacity-100" : "opacity-0"
+              }`}
+              aria-hidden
             />
 
-            {/* Right Fade Overlay */}
-            <div
-              className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-20 bg-gradient-to-l from-black to-transparent pointer-events-none transition-opacity duration-300 ${
-                canScrollRight ? "opacity-80" : "opacity-0"
-              }`}
-            />
-
-            {/* Scroll Buttons */}
             {canScrollLeft && (
               <button
+                type="button"
                 onClick={scrollLeft}
-                className="hidden md:block absolute left-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+                className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2.5 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-lg items-center justify-center"
+                aria-label="Scroll images left"
               >
-                <FaChevronLeft size={20} className="" />
+                <FaChevronLeft size={18} />
               </button>
             )}
             {canScrollRight && (
               <button
+                type="button"
                 onClick={scrollRight}
-                className="hidden md:block absolute right-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+                className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2.5 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-lg items-center justify-center"
+                aria-label="Scroll images right"
               >
-                <FaChevronRight size={20} className="" />
+                <FaChevronRight size={18} />
               </button>
             )}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Modal */}
@@ -226,7 +226,7 @@ const ImagesSection: React.FC<ImagesSectionProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

@@ -199,52 +199,53 @@ export function ShowFollowing({ followingCount, userId }: any) {
     getFollowing();
   }, [modal, userId]);
 
+  const countStr = formatCount(followingCount);
   return (
     <>
       <button
-        className=" text-gray-200 bg-neutral-700  w-full rounded-md px-4 py-2 hover:bg-neutral-600"
+        type="button"
+        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-600 bg-neutral-800/80 px-3.5 py-2 text-sm font-medium text-white/90 hover:bg-neutral-700 hover:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2 focus:ring-offset-neutral-900 tabular-nums"
         onClick={() => setModal(true)}
       >
-        {followingCount} Following
+        <span>{countStr}</span>
+        <span>Following</span>
       </button>
 
       {modal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="z-50 bg-white p-4 rounded-md max-w-md w-full max-h-[80vh] overflow-y-auto">
-            <button
-              className="float-right text-gray-600"
-              onClick={() => setModal(false)}
-            >
-              X
-            </button>
-            <h2 className="text-xl font-bold mb-4 text-neutral-700">
-              Following
-            </h2>
-
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setModal(false)}>
+          <div className="w-full max-w-sm rounded-2xl border border-neutral-700 bg-neutral-800 p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">Following</h2>
+              <button type="button" className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-700 hover:text-white" onClick={() => setModal(false)} aria-label="Close">×</button>
+            </div>
             {loading ? (
-              <p>Loading...</p>
+              <p className="text-neutral-400 text-sm py-4">Loading…</p>
             ) : error ? (
-              <p className="text-red-500">{error}</p>
+              <p className="text-red-400 text-sm">{error}</p>
             ) : following.length !== 0 ? (
-              <ul className="text-neutral-700">
+              <ul className="space-y-2 max-h-64 overflow-y-auto">
                 {following.map((user: any, index: number) => (
-                  <Link
-                    key={index}
-                    href={`/app/profile/${user.users.username}`}
-                    className="block mb-2 hover:text-indigo-700"
-                  >
-                    @{user.users.username}
-                  </Link>
+                  <li key={index}>
+                    <Link href={`/app/profile/${user.users?.username ?? ""}`} className="block rounded-lg py-2 px-2 text-white/90 hover:bg-neutral-700 hover:text-white">
+                      @{user.users?.username ?? "—"}
+                    </Link>
+                  </li>
                 ))}
               </ul>
             ) : (
-              <p>No followers found.</p>
+              <p className="text-neutral-500 text-sm py-4">No one yet.</p>
             )}
           </div>
         </div>
       )}
     </>
   );
+}
+
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+  return n.toLocaleString();
 }
 
 export function ShowFollower({ followerCount, userId }: any) {
@@ -286,46 +287,41 @@ export function ShowFollower({ followerCount, userId }: any) {
     getFollowing();
   }, [modal, userId]);
 
+  const countStr = formatCount(followerCount);
   return (
     <>
       <button
-        className=" text-gray-200 bg-neutral-700  w-full rounded-md px-4 py-2 hover:bg-neutral-600"
+        type="button"
+        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-600 bg-neutral-800/80 px-3.5 py-2 text-sm font-medium text-white/90 hover:bg-neutral-700 hover:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2 focus:ring-offset-neutral-900 tabular-nums"
         onClick={() => setModal(true)}
       >
-        {followerCount} Follower
+        <span>{countStr}</span>
+        <span>Followers</span>
       </button>
 
       {modal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="z-50 bg-white p-4 rounded-md max-w-md w-full max-h-[80vh] overflow-y-auto">
-            <button
-              className="float-right text-gray-600"
-              onClick={() => setModal(false)}
-            >
-              X
-            </button>
-            <h2 className="text-xl font-bold mb-4 text-neutral-700">
-              Follower
-            </h2>
-
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setModal(false)}>
+          <div className="w-full max-w-sm rounded-2xl border border-neutral-700 bg-neutral-800 p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">Followers</h2>
+              <button type="button" className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-700 hover:text-white" onClick={() => setModal(false)} aria-label="Close">×</button>
+            </div>
             {loading ? (
-              <p>Loading...</p>
+              <p className="text-neutral-400 text-sm py-4">Loading…</p>
             ) : error ? (
-              <p className="text-red-500">{error}</p>
+              <p className="text-red-400 text-sm">{error}</p>
             ) : following.length > 0 ? (
-              <ul className="text-neutral-700">
+              <ul className="space-y-2 max-h-64 overflow-y-auto">
                 {following.map((user: any, index: number) => (
-                  <Link
-                    key={index}
-                    href={`/app/profile/${user.users.username}`}
-                    className="block mb-2 hover:text-indigo-700"
-                  >
-                    @{user.users.username}
-                  </Link>
+                  <li key={index}>
+                    <Link href={`/app/profile/${user.users?.username ?? ""}`} className="block rounded-lg py-2 px-2 text-white/90 hover:bg-neutral-700 hover:text-white">
+                      @{user.users?.username ?? "—"}
+                    </Link>
+                  </li>
                 ))}
               </ul>
             ) : (
-              <p>No following users found.</p>
+              <p className="text-neutral-500 text-sm py-4">No followers yet.</p>
             )}
           </div>
         </div>

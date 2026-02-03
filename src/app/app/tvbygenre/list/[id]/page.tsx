@@ -1,18 +1,26 @@
 "use client";
-import ThreePrefrenceBtn from "@/components/buttons/threePrefrencebtn";
+import MediaCard from "@/components/cards/MediaCard";
 import { GenreList } from "@/staticData/genreList";
 import SendMessageModal from "@components/message/sendCard";
-import Link from "next/link";
+import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import React from "react";
-import { useEffect, useState } from "react";
-import { LuSend } from "react-icons/lu";
+import React, { useCallback, useContext, useEffect, useState } from "react";
 
 function Page() {
   const [Sresults, setSResults] = useState([]) as any;
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cardData, setCardData] = useState([]) as any;
+  const [tvWatchedModalOpen, setTvWatchedModalOpen] = useState(false);
+  const [tvWatchedModalItem, setTvWatchedModalItem] = useState<{
+    id: number;
+    name: string;
+    posterPath: string | null;
+    adult: boolean;
+    genres: string[];
+  } | null>(null);
+  const { refreshPreferences } = useContext(UserPrefrenceContext);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -59,6 +67,27 @@ function Page() {
     setCardData(data);
     setIsModalOpen(true);
   };
+  const openTvWatchedModal = useCallback((data: any) => {
+    const genres = (data.genre_ids ?? [])
+      .map((id: number) => GenreList.genres.find((g: any) => g.id === id)?.name)
+      .filter(Boolean);
+    setTvWatchedModalItem({
+      id: data.id,
+      name: data.name || data.title || "Unknown",
+      posterPath: data.poster_path || data.backdrop_path || null,
+      adult: !!data.adult,
+      genres,
+    });
+    setTvWatchedModalOpen(true);
+  }, []);
+  const closeTvWatchedModal = useCallback(() => {
+    setTvWatchedModalOpen(false);
+    setTvWatchedModalItem(null);
+  }, []);
+  const onTvWatchedSuccess = useCallback(() => {
+    closeTvWatchedModal();
+    refreshPreferences?.();
+  }, [closeTvWatchedModal, refreshPreferences]);
 
   const changePage = (newPage: number) => {
     setLoading(true);
@@ -79,6 +108,25 @@ function Page() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
+      {tvWatchedModalItem && (
+        <MarkTVWatchedModal
+          showId={String(tvWatchedModalItem.id)}
+          showName={tvWatchedModalItem.name}
+          seasons={[]}
+          isOpen={tvWatchedModalOpen}
+          onClose={closeTvWatchedModal}
+          onSuccess={onTvWatchedSuccess}
+          watchedPayload={{
+            itemId: tvWatchedModalItem.id,
+            name: tvWatchedModalItem.name,
+            imgUrl: tvWatchedModalItem.posterPath
+              ? `https://image.tmdb.org/t/p/w342${tvWatchedModalItem.posterPath}`
+              : "",
+            adult: tvWatchedModalItem.adult,
+            genres: tvWatchedModalItem.genres,
+          }}
+        />
+      )}
       <div>
         <p>
           Search Results: {genreName} &apos;
@@ -93,93 +141,37 @@ function Page() {
         <div>
           <div className="text-white  w-full my-4">
             <div className="w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {Sresults?.results?.map((data: any) => (
-                <div
-                  key={data.id}
-                  className=" overflow-hidden relative group flex flex-col  w-full h-full text-gray-300 bg-indigo-700 rounded-sm   duration-300  hover:z-20"
-                >
-                  <div className="absolute  top-0 left-0 flex flex-row justify-between w-full z-20">
-                    <p className="p-1 bg-black text-white rounded-br-md text-sm">
-                      Tv
-                    </p>
-                    {(data.release_date || data.first_air_date) && (
-                      <p className="p-1 bg-indigo-600 text-white rounded-bl-md text-sm">
-                        {new Date(data.release_date).getFullYear() ||
-                          new Date(data.first_air_date).getFullYear()}
-                      </p>
-                    )}
-                  </div>
-                  <Link
-                    href={`/app/tv/${data.id}-${(data.title || data.name)
-                      .trim()
-                      .replace(/[^a-zA-Z0-9]/g, "-")
-                      .replace(/-+/g, "-")}`}
-                    className=" w-full"
-                  >
-                    <img
-                      className="relative  object-cover max-w-full h-[270px] sm:h-[300px] md:h-[330px] "
-                      src={
-                        data.poster_path || data.backdrop_path
-                          ? `https://image.tmdb.org/t/p/w342${
-                              data.poster_path || data.backdrop_path
-                            }`
-                          : "/no-photo.webp"
-                      }
-                      width={400}
-                      height={400}
-                      alt={data.title}
-                    />
-                  </Link>
-
-                  <div className="lg:absolute bottom-0 w-full bg-indigo-700 lg:opacity-0 lg:group-hover:opacity-100 z-10">
-                    <ThreePrefrenceBtn
-                      genres={data.genre_ids
-                        .map((id: number) => {
-                          const genre = GenreList.genres.find(
-                            (g: any) => g.id === id
-                          );
-                          return genre ? genre.name : null;
-                        })
-                        .filter(Boolean)}
-                      cardId={data.id}
-                      cardType={"tv"}
-                      cardName={data.name || data.title}
-                      cardAdult={data.adult}
-                      cardImg={data.poster_path || data.backdrop_path}
-                    />
-                    <div className="py-2 border-t border-neutral-950 bg-neutral-800 hover:bg-neutral-700">
-                      <button
-                        className="w-full  flex justify-center text-lg text-center "
-                        onClick={() => handleCardTransfer(data)}
-                      >
-                        <LuSend />
-                      </button>
-                    </div>
-                    <div
-                      title={data.name || data.title}
-                      className="w-full flex flex-col gap-2  px-4  bg-indigo-700  text-gray-200 "
-                    >
-                      <Link
-                        href={`/app/tv/${data.id}-${(data.name || data.title)
-                          .trim()
-                          .replace(/[^a-zA-Z0-9]/g, "-")
-                          .replace(/-+/g, "-")}`}
-                        className="mb-1"
-                      >
-                        <span className="">
-                          {data?.title
-                            ? data.title.length > 20
-                              ? data.title?.slice(0, 20) + "..."
-                              : data.title
-                            : data.name.length > 20
-                            ? data.name?.slice(0, 20) + "..."
-                            : data.name}
-                        </span>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
+              {Sresults?.results?.map((data: any) => {
+                const title = data.name || data.title;
+                const year =
+                  data.release_date || data.first_air_date
+                    ? String(
+                        new Date(
+                          data.release_date || data.first_air_date
+                        ).getFullYear()
+                      )
+                    : null;
+                const genres = (data.genre_ids ?? [])
+                  .map((id: number) =>
+                    GenreList.genres.find((g: any) => g.id === id)?.name
+                  )
+                  .filter(Boolean);
+                return (
+                  <MediaCard
+                    key={data.id}
+                    id={data.id}
+                    title={title}
+                    mediaType="tv"
+                    posterPath={data.poster_path || data.backdrop_path}
+                    adult={!!data.adult}
+                    genres={genres}
+                    showActions={true}
+                    onShare={() => handleCardTransfer(data)}
+                    year={year}
+                    onAddWatchedTv={() => openTvWatchedModal(data)}
+                  />
+                );
+              })}
             </div>
           </div>
         </div>

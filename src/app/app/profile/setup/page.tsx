@@ -1,264 +1,432 @@
 "use client";
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/utils/supabase/client";
-import { AiOutlineLoading3Quarters } from "react-icons/ai";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
-function ProfilePage() {
-  const [loading, setLoading] = useState(true);
-  const [alreadyExists, setAlreadyExists] = useState(false);
-  const [btnLoading, setBtnLoading] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [username, setUsername] = useState("");
-  const [about, setAbout] = useState("");
-  const [usernameError, setUsernameError] = useState("");
-  const [usernameAvailable, setUsernameAvailable] = useState<null | boolean>(
-    null
-  );
+const USERNAME_MIN = 2;
+const USERNAME_MAX = 15;
+const USERNAME_DEBOUNCE_MS = 400;
 
+function sanitizeUsername(input: string): string {
+  return input.toLowerCase().replace(/[^a-z0-9_]/g, "");
+}
+
+function validateUsername(sanitized: string): { valid: boolean; error: string } {
+  if (!sanitized) return { valid: false, error: "Enter a username." };
+  if (sanitized.length < USERNAME_MIN)
+    return { valid: false, error: `At least ${USERNAME_MIN} characters.` };
+  if (sanitized.length > USERNAME_MAX)
+    return { valid: false, error: `At most ${USERNAME_MAX} characters.` };
+  if (sanitized === "null" || sanitized === "undefined")
+    return { valid: false, error: "That username isn't allowed." };
+  return { valid: true, error: "" };
+}
+
+export default function ProfileSetupPage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
+  const [alreadyExists, setAlreadyExists] = useState(false);
+  const [username, setUsername] = useState("");
+  const [usernameError, setUsernameError] = useState("");
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [tagline, setTagline] = useState("");
+  const [about, setAbout] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [featuredListId, setFeaturedListId] = useState<string | number>("");
+  const [pinnedReviewId, setPinnedReviewId] = useState<string | number>("");
+  const [lists, setLists] = useState<{ id: number; name: string }[]>([]);
+  const [watchedWithReviews, setWatchedWithReviews] = useState<{ id: number; item_name: string }[]>([]);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    let mounted = true;
+
     async function fetchUser() {
-      setLoading(true);
       const {
-        data: { user },
+        data: { user: authUser },
       } = await supabase.auth.getUser();
 
-      if (user) {
-        setUser(user);
-        const { data } = await supabase
-          .from("users")
-          .select("username, about")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (data) {
-          setAlreadyExists(true);
-          setUsername(data.username || "");
-          setAbout(data.about || "");
-        }
+      if (!mounted) return;
+      if (!authUser) {
+        setLoading(false);
+        return;
       }
+
+      setUser({ id: authUser.id, email: authUser.email ?? "" });
+
+      const { data: profile } = await supabase
+        .from("users")
+        .select("username, about, tagline, avatar_url, banner_url")
+        .eq("id", authUser.id)
+        .maybeSingle();
+
+      if (profile) {
+        setAlreadyExists(true);
+        setUsername((profile.username as string) ?? "");
+        setAbout((profile.about as string) ?? "");
+        setTagline((profile.tagline as string) ?? "");
+        setAvatarUrl((profile.avatar_url as string) ?? "");
+        setBannerUrl((profile.banner_url as string) ?? "");
+      }
+
+      try {
+        const { data: ext } = await supabase
+          .from("users")
+          .select("featured_list_id, pinned_review_id")
+          .eq("id", authUser.id)
+          .maybeSingle();
+        if (ext) {
+          const d = ext as { featured_list_id?: number | null; pinned_review_id?: number | null };
+          setFeaturedListId(d.featured_list_id ?? "");
+          setPinnedReviewId(d.pinned_review_id ?? "");
+        }
+      } catch {
+        // columns may not exist
+      }
+
+      try {
+        const [listsRes, reviewsRes] = await Promise.all([
+          fetch(`/api/user-lists?userId=${encodeURIComponent(authUser.id)}`, { credentials: "include" }),
+          fetch("/api/profile/watched-with-reviews", { credentials: "include" }),
+        ]);
+        if (listsRes.ok) {
+          const listsData = await listsRes.json();
+          setLists(listsData.lists ?? []);
+        }
+        if (reviewsRes.ok) {
+          const reviewsData = await reviewsRes.json();
+          setWatchedWithReviews(reviewsData.items ?? []);
+        }
+      } catch {
+        // ignore
+      }
+
       setLoading(false);
     }
 
     fetchUser();
+    return () => {
+      mounted = false;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, []);
 
-  const sanitizeUsername = (input: string) => {
-    const sanitized = input.toLowerCase().replace(/[^a-z0-9]/g, "");
-    if (!sanitized)
-      return { sanitized, error: "Enter a username.", valid: false };
-    if (sanitized.length === 1)
-      return {
-        sanitized,
-        error: "More than one character needed.",
-        valid: false,
-      };
-    if (sanitized == "null") {
-      return {
-        sanitized,
-        error: "null is null sooo.",
-        valid: false,
-      };
-    }
-    if (sanitized.length > 15)
-      return {
-        sanitized,
-        error: "Username must be 15 characters or less.",
-        valid: false,
-      };
-
-    return { sanitized, valid: true };
-  };
-
-  const checkUsernameAvailability = async (sanitized: string) => {
+  const checkAvailability = useCallback(async (sanitized: string) => {
     if (!sanitized) {
       setUsernameAvailable(null);
       return;
     }
-
-    setBtnLoading(true);
+    setCheckingUsername(true);
     try {
       const { data, error } = await supabase
         .from("users")
         .select("username")
         .eq("username", sanitized)
         .maybeSingle();
-
-      if (error) {
-        console.error("Error checking username:", error);
-        setUsernameAvailable(false);
-      } else {
-        setUsernameAvailable(!data);
-      }
-    } catch (error) {
-      console.error("Error checking username:", error);
+      setUsernameAvailable(error ? false : !data);
+    } catch {
       setUsernameAvailable(false);
     } finally {
-      setBtnLoading(false);
+      setCheckingUsername(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const sanitized = sanitizeUsername(username);
+    const { valid, error } = validateUsername(sanitized);
+    setUsernameError(error);
+    setUsernameAvailable(null);
+
+    if (!valid || !sanitized) return;
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => checkAvailability(sanitized), USERNAME_DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [username, checkAvailability]);
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target.value;
-    const { sanitized, error, valid } = sanitizeUsername(input);
-
-    setUsername(sanitized || ""); // Update username state
-    setUsernameError(error || ""); // Set error message if invalid
-    setUsernameAvailable(null); // Reset availability status
-
-    if (valid && sanitized) checkUsernameAvailability(sanitized);
+    setUsername(sanitizeUsername(e.target.value));
   };
+
+  const canSubmit =
+    user &&
+    username &&
+    !usernameError &&
+    usernameAvailable === true &&
+    !submitting;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user || !canSubmit) return;
 
-    if (!user || !user.email) {
-      alert("Email is required");
-      return;
-    }
+    setSubmitting(true);
+    const toastId = toast.loading(alreadyExists ? "Saving…" : "Creating profile…");
 
-    if (!username || usernameError) {
-      alert(usernameError || "Enter a valid username.");
-      return;
-    }
+    try {
+      const { error } = await supabase.from("users").upsert({
+        id: user.id,
+        email: user.email,
+        username: sanitizeUsername(username),
+        about: about.trim() || null,
+        tagline: tagline.trim() || null,
+        avatar_url: avatarUrl.trim() || null,
+        banner_url: bannerUrl.trim() || null,
+        updated_at: new Date().toISOString(),
+      });
 
-    setLoading(true);
-
-    const { error } = await supabase.from("users").upsert({
-      id: user.id,
-      email: user.email,
-      username,
-      about,
-      updated_at: new Date(),
-    });
-
-    setLoading(false);
-
-    if (error) {
-      console.error("Error updating profile:", error);
-      alert("Error updating profile. Please try again.");
-      return;
-    }
-
-    alert("Profile updated successfully!");
-
-    // Fetch the updated user data
-    const {
-      data: { user: updatedUser },
-    } = await supabase.auth.getUser();
-
-    if (updatedUser) {
-      setUser(updatedUser);
-      const { data } = await supabase
-        .from("users")
-        .select("username")
-        .eq("id", updatedUser?.id)
-        .maybeSingle();
-      setLoading(true);
-
-      if (data?.username) {
-        router.push(`/app/profile/${data.username}`);
-      } else {
-        console.warn("Username not found for user ID:", updatedUser?.id);
+      if (error) {
+        toast.error(error.message ?? "Could not save profile.", { id: toastId });
+        setSubmitting(false);
+        return;
       }
+
+      if (featuredListId || pinnedReviewId) {
+        await supabase
+          .from("users")
+          .update({
+            featured_list_id: featuredListId ? Number(featuredListId) : null,
+            pinned_review_id: pinnedReviewId ? Number(pinnedReviewId) : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", user.id);
+      }
+
+      toast.success(alreadyExists ? "Profile updated." : "Profile created.", { id: toastId });
+      router.push(`/app/profile/${sanitizeUsername(username)}`);
+    } catch (err) {
+      toast.error((err as Error).message ?? "Something went wrong.", { id: toastId });
+      setSubmitting(false);
     }
   };
 
-  if (loading)
+  if (loading) {
     return (
-      <div className=" bg-neutral-700 text-white w-full h-screen flex justify-center items-center flex-col gap-3">
-        <AiOutlineLoading3Quarters className="absolute size-12 text-white animate-spin" />
+      <div className="min-h-screen flex flex-col justify-center items-center bg-neutral-950 px-4">
+        <LoadingSpinner size="lg" className="border-t-white" />
+        <p className="mt-4 text-sm text-neutral-400">Loading…</p>
       </div>
     );
-  if (!user)
+  }
+
+  if (!user) {
     return (
-      <div className="w-screen h-screen flex flex-col items-center justify-center">
-        Please{" "}
+      <div className="min-h-screen flex flex-col justify-center items-center bg-neutral-950 px-4 text-center">
+        <p className="text-neutral-300 mb-4">You need to be logged in to set up your profile.</p>
         <Link
-          className="px-3 py-2 rounded-md text-neutral-200 bg-blue-800 hover:bg-neutral-600"
-          href={"/login"}
+          href="/login"
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-white font-medium hover:bg-indigo-500"
         >
           Log in
         </Link>
       </div>
     );
+  }
 
   return (
-    <div className="w-full min-h-screen flex flex-col p-2 justify-center items-center bg-neutral-900">
-      <div className="w-full max-w-72 flex flex-col gap-4">
-        <div className="m-auto w-fit text-neutral-100 mb-5">
-          <h1 className="text-7xl font-extrabold">Profile</h1>
-          <p>
-            <span className="font-bold text-indigo-500">Complete</span> your
-            profile details below.
+    <div className="min-h-screen bg-neutral-950 text-white px-4 py-10">
+      <div className="mx-auto max-w-xl">
+        <header className="mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold">
+            {alreadyExists ? "Edit profile" : "Create your profile"}
+          </h1>
+          <p className="mt-1 text-neutral-400">
+            {alreadyExists
+              ? "Update your username and details below."
+              : "Choose a username and add a few details to get started."}
           </p>
-        </div>
-        <form
-          className="flex flex-col max-w-sm w-full m-auto gap-2"
-          onSubmit={handleSubmit}
-        >
-          <label className="text-neutral-100 pl-2" htmlFor="username">
-            Username
-          </label>
-          <input
-            className="text-neutral-700 ring-0 outline-0 px-3 focus:ring-2 rounded-sm py-2 focus:ring-indigo-600"
-            id="username"
-            type="text"
-            value={username}
-            onChange={handleUsernameChange}
-          />
-          {usernameError && (
-            <span className="text-red-500">{usernameError}</span>
-          )}
+        </header>
 
-          <div className="h-6">
-            {btnLoading ? (
-              <AiOutlineLoading3Quarters className="w-fit mt-1 ml-1 animate-spin text-neutral-100" />
-            ) : (
-              usernameAvailable !== null && (
-                <span
-                  className={`text-neutral-100 ${
-                    usernameAvailable ? "text-green-500" : "text-red-500"
-                  }`}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+          {/* Required: Username */}
+          <section className="rounded-xl border border-neutral-700/60 bg-neutral-900/50 p-5 sm:p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">
+              Username <span className="text-red-400">*</span>
+            </h2>
+            <div className="space-y-2">
+              <input
+                type="text"
+                id="username"
+                value={username}
+                onChange={handleUsernameChange}
+                placeholder="e.g. movie_fan"
+                maxLength={USERNAME_MAX + 10}
+                className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                aria-invalid={!!usernameError}
+                aria-describedby="username-hint username-status"
+              />
+              <p id="username-hint" className="text-xs text-neutral-500">
+                Letters, numbers, and underscores only. {USERNAME_MIN}–{USERNAME_MAX} characters.
+              </p>
+              {usernameError && (
+                <p id="username-error" className="text-sm text-red-400">
+                  {usernameError}
+                </p>
+              )}
+              <div id="username-status" className="flex items-center gap-2 min-h-6">
+                {checkingUsername && (
+                  <span className="flex items-center gap-2 text-sm text-neutral-400">
+                    <LoadingSpinner size="sm" className="border-t-white" />
+                    Checking…
+                  </span>
+                )}
+                {!checkingUsername && usernameAvailable === true && (
+                  <span className="text-sm text-emerald-400">Username is available.</span>
+                )}
+                {!checkingUsername && usernameAvailable === false && username && !usernameError && (
+                  <span className="text-sm text-red-400">Username is taken.</span>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* About you */}
+          <section className="rounded-xl border border-neutral-700/60 bg-neutral-900/50 p-5 sm:p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">About you</h2>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="tagline" className="block text-sm font-medium text-neutral-300 mb-1.5">
+                  Tagline <span className="text-neutral-500">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  id="tagline"
+                  value={tagline}
+                  onChange={(e) => setTagline(e.target.value)}
+                  placeholder="e.g. Horror by night, rom-coms by day"
+                  className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="about" className="block text-sm font-medium text-neutral-300 mb-1.5">
+                  About <span className="text-neutral-500">(optional)</span>
+                </label>
+                <textarea
+                  id="about"
+                  value={about}
+                  onChange={(e) => setAbout(e.target.value)}
+                  rows={3}
+                  placeholder="A short bio..."
+                  className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Appearance */}
+          <section className="rounded-xl border border-neutral-700/60 bg-neutral-900/50 p-5 sm:p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">Appearance</h2>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="avatar_url" className="block text-sm font-medium text-neutral-300 mb-1.5">
+                  Avatar URL <span className="text-neutral-500">(optional)</span>
+                </label>
+                <input
+                  type="url"
+                  id="avatar_url"
+                  value={avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="banner_url" className="block text-sm font-medium text-neutral-300 mb-1.5">
+                  Banner URL <span className="text-neutral-500">(optional)</span>
+                </label>
+                <input
+                  type="url"
+                  id="banner_url"
+                  value={bannerUrl}
+                  onChange={(e) => setBannerUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Highlights */}
+          <section className="rounded-xl border border-neutral-700/60 bg-neutral-900/50 p-5 sm:p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">Highlights</h2>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="featured_list" className="block text-sm font-medium text-neutral-300 mb-1.5">
+                  Featured list <span className="text-neutral-500">(optional)</span>
+                </label>
+                <select
+                  id="featured_list"
+                  value={String(featuredListId)}
+                  onChange={(e) => setFeaturedListId(e.target.value ? Number(e.target.value) : "")}
+                  className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  {usernameAvailable ? "✅ Available" : "❌ Not available"}
-                </span>
-              )
+                  <option value="">None</option>
+                  {lists.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="pinned_review" className="block text-sm font-medium text-neutral-300 mb-1.5">
+                  Pinned review <span className="text-neutral-500">(optional)</span>
+                </label>
+                <select
+                  id="pinned_review"
+                  value={String(pinnedReviewId)}
+                  onChange={(e) => setPinnedReviewId(e.target.value ? Number(e.target.value) : "")}
+                  className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">None</option>
+                  {watchedWithReviews.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.item_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="flex-1 rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-neutral-950 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {submitting ? (
+                <>
+                  <LoadingSpinner size="sm" className="border-t-white" />
+                  Saving…
+                </>
+              ) : alreadyExists ? (
+                "Save changes"
+              ) : (
+                "Create profile"
+              )}
+            </button>
+            {alreadyExists && (
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="rounded-lg bg-neutral-700 py-3 px-6 font-medium text-white hover:bg-neutral-600 focus:outline-none focus:ring-2 focus:ring-neutral-500"
+              >
+                Cancel
+              </button>
             )}
           </div>
-
-          <label className="text-neutral-100 pl-2" htmlFor="about">
-            About
-          </label>
-          <textarea
-            className="text-neutral-700 ring-0 outline-0 px-3 focus:ring-2 rounded-sm focus:ring-indigo-600 py-2"
-            id="about"
-            value={about}
-            onChange={(e) => setAbout(e.target.value)}
-          />
-          <button
-            className="text-neutral-100 bg-indigo-700 py-2 rounded-md w-full hover:bg-indigo-600 disabled:bg-gray-400"
-            type="submit"
-            disabled={loading || !!usernameError}
-          >
-            {loading ? "Updating..." : "Update Profile"}
-          </button>
         </form>
-        {alreadyExists && (
-          <button
-            type="button"
-            className="text-neutral-100 bg-neutral-700 py-2 rounded-md w-full hover:bg-neutral-600"
-            onClick={() => router.back()}
-          >
-            Cancel
-          </button>
-        )}
       </div>
     </div>
   );
 }
-
-export default ProfilePage;

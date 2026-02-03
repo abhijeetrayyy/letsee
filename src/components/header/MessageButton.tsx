@@ -8,9 +8,10 @@ import { LuSend } from "react-icons/lu";
 
 interface MessageButtonProps {
   userId: string;
+  className?: string;
 }
 
-const MessageButton: React.FC<MessageButtonProps> = ({ userId }) => {
+const MessageButton: React.FC<MessageButtonProps> = ({ userId, className }) => {
   const [unreadCount, setUnreadCount] = useState<number>(0);
 
   useEffect(() => {
@@ -54,7 +55,7 @@ const MessageButton: React.FC<MessageButtonProps> = ({ userId }) => {
   return (
     <Link
       href="/app/messages"
-      className="flex items-center justify-center px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
+      className={`relative flex items-center justify-center rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-700/60 text-neutral-200 transition-colors h-10 w-10 shrink-0 ${className ?? ""}`}
     >
       <LuSend />
       {unreadCount > 0 && (

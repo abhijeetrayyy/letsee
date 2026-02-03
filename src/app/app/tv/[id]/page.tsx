@@ -15,7 +15,7 @@ const getNumericId = (value: string) => {
 
 async function getShowDetails(id: string) {
   return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,external_ids,similar`,
+    `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,external_ids,recommendations,similar`,
     "TV show details",
     { next: { revalidate: 600 } }
   );
@@ -101,7 +101,8 @@ const ShowDetails = async ({ params }: PageProps) => {
     posters: [],
     backdrops: [],
   };
-  const RecoData = show.similar ?? { total_results: 0, results: [] };
+  const recoData = show.recommendations ?? { total_results: 0, results: [] };
+  const similarData = show.similar ?? { total_results: 0, results: [] };
 
   return (
     <div>
@@ -115,8 +116,11 @@ const ShowDetails = async ({ params }: PageProps) => {
         crew={crew}
         id={numericId}
       />
-      {RecoData.total_results > 0 && (
-        <MovieRecoTile type={"tv"} title={show.name} data={RecoData} />
+      {recoData.total_results > 0 && (
+        <MovieRecoTile type="tv" title={show.name} data={recoData} sectionTitle="More like this" />
+      )}
+      {similarData.total_results > 0 && (
+        <MovieRecoTile type="tv" title={show.name} data={similarData} sectionTitle="Similar to this" />
       )}
     </div>
   );

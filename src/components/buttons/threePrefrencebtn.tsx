@@ -20,6 +20,10 @@ export type ThreePreferenceBtnProps = {
   genres: (string | null)[];
   /** Optional extra data (e.g. for AI reco); not used by preference logic. */
   data?: unknown;
+  /** "compact" = icon-only grid (cards); "detail" = pill buttons with labels (detail pages). */
+  variant?: "compact" | "detail";
+  /** When set for TV, clicking "Watched" (add) opens this instead of toggling. Used for Mark TV Watched modal. */
+  onAddWatchedTv?: () => void;
 };
 
 export default function ThreePrefrencebtn({
@@ -30,6 +34,8 @@ export default function ThreePrefrencebtn({
   cardImg,
   genres,
   data: _data,
+  variant = "compact",
+  onAddWatchedTv,
 }: ThreePreferenceBtnProps) {
   const {
     hasWatched,
@@ -47,56 +53,90 @@ export default function ThreePrefrencebtn({
   const favorite = hasFavorite(cardId);
   const watchLater = hasWatchLater(cardId);
 
+  const shared = {
+    genres: genreList,
+    itemId: id,
+    mediaType: cardType,
+    name: cardName,
+    adult,
+    imgUrl,
+  };
+
+  if (variant === "detail") {
+    return (
+      <>
+        <CardMovieButton
+          {...shared}
+          state={watched}
+          funcType="watched"
+          label="Watched"
+          onCustomWatchedAdd={cardType === "tv" ? onAddWatchedTv : undefined}
+          icon={
+            watched ? (
+              <PiEyeBold className="text-green-500 shrink-0" />
+            ) : (
+              <RiEyeCloseLine className="shrink-0" />
+            )
+          }
+        />
+        <CardMovieButton
+          {...shared}
+          state={favorite}
+          funcType="favorite"
+          label="Favorites"
+          icon={favorite ? <FcLike className="shrink-0" /> : <CiHeart className="shrink-0" />}
+        />
+        <CardMovieButton
+          {...shared}
+          state={watchLater}
+          funcType="watchlater"
+          label="Watchlist"
+          icon={
+            watchLater ? (
+              <MdOutlineWatchLater className="font-bold text-green-500 shrink-0" />
+            ) : (
+              <MdOutlineWatchLater className="shrink-0" />
+            )
+          }
+        />
+      </>
+    );
+  }
+
   return (
-    <div>
-      <div className="w-full bg-neutral-900 overflow-hidden">
-        <div className="w-full h-14 grid grid-cols-3">
-          <CardMovieButton
-            genres={genreList}
-            itemId={id}
-            mediaType={cardType}
-            name={cardName}
-            state={watched}
-            funcType="watched"
-            adult={adult}
-            imgUrl={imgUrl}
-            icon={
-              watched ? (
-                <PiEyeBold className="text-green-600" />
-              ) : (
-                <RiEyeCloseLine />
-              )
-            }
-          />
-          <CardMovieButton
-            genres={genreList}
-            itemId={id}
-            mediaType={cardType}
-            name={cardName}
-            state={favorite}
-            funcType="favorite"
-            adult={adult}
-            imgUrl={imgUrl}
-            icon={favorite ? <FcLike /> : <CiHeart />}
-          />
-          <CardMovieButton
-            genres={genreList}
-            itemId={id}
-            mediaType={cardType}
-            name={cardName}
-            state={watchLater}
-            funcType="watchlater"
-            adult={adult}
-            imgUrl={imgUrl}
-            icon={
-              watchLater ? (
-                <MdOutlineWatchLater className="font-bold text-green-500" />
-              ) : (
-                <MdOutlineWatchLater />
-              )
-            }
-          />
-        </div>
+    <div className="w-full">
+      <div className="w-full h-12 grid grid-cols-3 gap-px bg-white/5">
+        <CardMovieButton
+          {...shared}
+          state={watched}
+          funcType="watched"
+          onCustomWatchedAdd={cardType === "tv" ? onAddWatchedTv : undefined}
+          icon={
+            watched ? (
+              <PiEyeBold className="text-emerald-400 size-5" />
+            ) : (
+              <RiEyeCloseLine className="size-5 text-neutral-400" />
+            )
+          }
+        />
+        <CardMovieButton
+          {...shared}
+          state={favorite}
+          funcType="favorite"
+          icon={favorite ? <FcLike className="size-5" /> : <CiHeart className="size-5 text-neutral-400" />}
+        />
+        <CardMovieButton
+          {...shared}
+          state={watchLater}
+          funcType="watchlater"
+          icon={
+            watchLater ? (
+              <MdOutlineWatchLater className="size-5 text-emerald-400 font-bold" />
+            ) : (
+              <MdOutlineWatchLater className="size-5 text-neutral-400" />
+            )
+          }
+        />
       </div>
     </div>
   );

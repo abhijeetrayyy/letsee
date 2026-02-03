@@ -1,13 +1,13 @@
 import Link from "next/link";
 import React from "react";
+import { fetchTmdb } from "@/utils/tmdbClient";
 
-async function getCredit(id: any, type: string) {
-  const response = await fetch(
-    type == "movie"
+async function getCredit(id: string, type: string) {
+  const url =
+    type === "movie"
       ? `https://api.themoviedb.org/3/movie/${id}/credits?api_key=${process.env.TMDB_API_KEY}`
-      : `https://api.themoviedb.org/3/tv/${id}/credits?api_key=${process.env.TMDB_API_KEY}&language=en-US`
-  );
-
+      : `https://api.themoviedb.org/3/tv/${id}/credits?api_key=${process.env.TMDB_API_KEY}&language=en-US`;
+  const response = await fetchTmdb(url, { revalidate: 3600 });
   const data = await response.json();
   return data;
 }

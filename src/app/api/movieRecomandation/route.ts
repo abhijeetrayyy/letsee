@@ -1,5 +1,5 @@
-import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
+import { fetchTmdb } from "@/utils/tmdbClient";
 
 export async function POST(req: NextRequest) {
   const requestClone = req.clone();
@@ -15,27 +15,23 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const response = await axios.get(
-      `https://api.themoviedb.org/3/movie/${id}/recommendations`,
-      {
-        params: { api_key: apiKey, language: "en-US", page: 1 },
-      }
-    );
-
-    return NextResponse.json(response.data.results, { status: 200 });
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
+    const url = `https://api.themoviedb.org/3/movie/${id}/recommendations?api_key=${apiKey}&language=en-US&page=1`;
+    const response = await fetchTmdb(url);
+    if (!response.ok) {
       return NextResponse.json(
         {
           error: "TMDB recommendation request failed.",
-          upstream_status: error.response?.status,
-          upstream_message: error.response?.statusText,
+          upstream_status: response.status,
+          upstream_message: response.statusText,
         },
         { status: 502 }
       );
     }
+    const data = await response.json();
+    return NextResponse.json(data.results ?? [], { status: 200 });
+  } catch (error) {
     return NextResponse.json(
-      { error: "Unexpected server error." },
+      { error: "Unexpected server error.", details: (error as Error).message },
       { status: 500 }
     );
   }

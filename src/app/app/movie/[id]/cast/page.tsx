@@ -2,7 +2,6 @@ import { Metadata } from "next";
 import { tmdbFetchJson } from "@/utils/tmdb";
 import { Suspense } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 
 // Types
@@ -44,18 +43,13 @@ const getNumericId = (value: string) => {
   return match ? match[0] : null;
 };
 
-async function getCredit(id: string) {
-  return tmdbFetchJson<CreditResponse>(
-    `https://api.themoviedb.org/3/movie/${id}/credits?api_key=${process.env.TMDB_API_KEY}`,
-    "Movie credits",
-    { next: { revalidate: 3600 } }
-  );
-}
+type MovieWithCredits = MovieDetails & { credits?: CreditResponse };
 
-async function getMovieDetails(id: string) {
-  return tmdbFetchJson<MovieDetails>(
-    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}`,
-    "Movie details",
+/** Single TMDB call: movie details + credits (2 → 1). */
+async function getMovieWithCredits(id: string) {
+  return tmdbFetchJson<MovieWithCredits>(
+    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits`,
+    "Movie cast",
     { next: { revalidate: 3600 } }
   );
 }
@@ -71,7 +65,7 @@ export async function generateMetadata({
       description: "Cast and crew information",
     };
   }
-  const movieResult = await getMovieDetails(numericId);
+  const movieResult = await getMovieWithCredits(numericId);
   const movie = movieResult.data;
 
   return {
@@ -90,15 +84,10 @@ export default async function Page({ params }: PageProps) {
     return notFound();
   }
 
-  const [movieResult, creditsResult] = await Promise.all([
-    getMovieDetails(numericId),
-    getCredit(numericId),
-  ]);
+  const movieResult = await getMovieWithCredits(numericId);
 
-  if (!movieResult.data || !creditsResult.data) {
-    const errors = [movieResult.error, creditsResult.error].filter(
-      Boolean
-    ) as string[];
+  if (!movieResult.data || !movieResult.data.credits) {
+    const errors = [movieResult.error].filter(Boolean) as string[];
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-900 text-neutral-200 p-4">
         <div className="max-w-xl text-center">
@@ -119,7 +108,7 @@ export default async function Page({ params }: PageProps) {
   }
 
   const movie = movieResult.data;
-  const { cast, crew } = creditsResult.data;
+  const { cast, crew } = movieResult.data.credits!;
 
   return (
     <Suspense fallback={<div>Loading...</div>}>

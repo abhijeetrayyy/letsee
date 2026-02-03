@@ -1,14 +1,24 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import Link from "next/link"; // Assuming you are using Next.js
-import ThreePrefrenceBtn from "../buttons/threePrefrencebtn";
+import MediaCard from "@/components/cards/MediaCard";
+import SendMessageModal from "@components/message/sendCard";
 import { IoIosArrowForward } from "react-icons/io";
 import { IoIosArrowBack } from "react-icons/io";
+
+const INITIAL_SHOW = 8;
 
 function WatchLaterList({ watchlist, watchlistCount }: any) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [cardData, setCardData] = useState<any>(null);
+  const [showAll, setShowAll] = useState(false);
+
+  const list = watchlist ?? [];
+  const displayed = showAll ? list : list.slice(0, INITIAL_SHOW);
+  const hasMore = list.length > INITIAL_SHOW && !showAll;
+  const remaining = list.length - INITIAL_SHOW;
 
   const handleScroll = () => {
     const element = scrollRef.current;
@@ -37,82 +47,64 @@ function WatchLaterList({ watchlist, watchlistCount }: any) {
     const element = scrollRef.current;
     if (element) {
       element.addEventListener("scroll", handleScroll);
-      handleScroll(); // Initialize button states
+      handleScroll();
 
       return () => element.removeEventListener("scroll", handleScroll);
     }
-  }, []);
+  }, [displayed.length]);
+
+  const handleShare = (item: any) => {
+    setCardData({
+      id: item.item_id,
+      media_type: item.item_type,
+      title: item.item_name,
+      name: item.item_name,
+      poster_path: item.image_url,
+    });
+    setIsModalOpen(true);
+  };
 
   return (
     <div className="my-10">
-      <div className="my-3">
-        <h1 className="text-2xl font-bold mb-4">
+      <SendMessageModal
+        data={cardData}
+        media_type={cardData?.media_type ?? null}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
+      <div className="my-3 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">
           WatchLater &quot;{watchlistCount}&quot;
         </h1>
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="text-sm font-medium text-indigo-400 hover:text-indigo-300"
+          >
+            View more ({remaining} more)
+          </button>
+        )}
       </div>
       <div className="relative w-full">
         <div
           ref={scrollRef}
-          className="w-full flex flex-row overflow-x-scroll thin-scroll gap-3  pb-3"
+          className="w-full flex flex-row overflow-x-scroll thin-scroll gap-3 pb-3"
         >
-          {watchlist?.map((item: any) => (
-            <div className="h-auto" key={item.id}>
-              <div className="relative group flex flex-col rounded-md h-full bg-black w-full text-gray-300 overflow-hidden">
-                <div className="absolute top-0 left-0  lg:opacity-0 lg:group-hover:opacity-100">
-                  {item.item_adult ? (
-                    <p className="p-1 bg-red-600 text-white rounded-br-md text-sm">
-                      Adult
-                    </p>
-                  ) : (
-                    <p className="p-1 bg-black text-white rounded-br-md text-sm">
-                      {item.item_type}
-                    </p>
-                  )}
-                </div>
-                <Link
-                  className="h-full md:h-[270px] w-28 md:w-[200px]"
-                  href={`/app/${item.item_type}/${item.item_id}`}
-                >
-                  <img
-                    className="h-full w-full object-cover"
-                    src={
-                      item.item_adult
-                        ? "/pixeled.webp"
-                        : `https://image.tmdb.org/t/p/w185/${item.image_url}`
-                    }
-                    loading="lazy"
-                    alt={item.item_name}
-                  />
-                </Link>
-                <div className="w-full h-full   bg-neutral-800 text-xs md:text-base">
-                  {/* Assuming ThreePrefrenceBtn is a valid component */}
-                  <ThreePrefrenceBtn
-                    genres={item.genres}
-                    cardId={item.item_id}
-                    cardType={item.item_type}
-                    cardName={item.item_name}
-                    cardAdult={item.item_adult}
-                    cardImg={item.image_url}
-                  />
-                  <div
-                    title={item.name || item.title}
-                    className="w-full h-full flex flex-col items-center gap-2 px-1 md:px-4 bg-indigo-700 text-gray-200"
-                  >
-                    <Link
-                      href={`/app/${item.item_type}/${item.item_id}`}
-                      className="mb-1"
-                    >
-                      <span className="">
-                        {item?.item_name &&
-                          (item.item_name.length > 16
-                            ? item.item_name.slice(0, 14) + ".."
-                            : item.item_name)}
-                      </span>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {displayed.map((item: any) => (
+            <MediaCard
+              key={item.id}
+              id={Number(item.item_id)}
+              title={item.item_name}
+              mediaType={item.item_type === "tv" ? "tv" : "movie"}
+              posterPath={item.image_url}
+              adult={!!item.item_adult}
+              genres={item.genres ?? []}
+              showActions={true}
+              onShare={() => handleShare(item)}
+              typeLabel={item.item_type}
+              className="w-28 md:w-[11rem] shrink-0"
+            />
           ))}
         </div>
         {canScrollLeft && (

@@ -52,10 +52,10 @@ const RealtimeUnreadCount: React.FC<RealtimeUnreadCountProps> = ({
           event: "UPDATE",
           schema: "public",
           table: "messages",
-          filter: `recipient_id=eq.${userId},is_read=eq.false`,
+          filter: `recipient_id=eq.${userId}`,
         },
-        (payload: any) => {
-          fetchUnreadCount(); // Re-fetch count when a message is updated
+        () => {
+          fetchUnreadCount();
         }
       )
       .subscribe();

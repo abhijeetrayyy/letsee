@@ -1,10 +1,8 @@
 // components/weeklyTop.tsx
 "use client";
-import Link from "next/link";
 import React, { useState, useEffect, useRef } from "react";
-import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
+import MediaCard from "@/components/cards/MediaCard";
 import SendMessageModal from "@components/message/sendCard";
-import { LuSend } from "react-icons/lu";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { GenreList } from "@/staticData/genreList";
 
@@ -83,65 +81,28 @@ export default function WeeklyTop({ data }: WeeklyTopProps) {
           ref={scrollRef}
           className="flex flex-row gap-4 py-3 overflow-x-auto no-scrollbar"
         >
-          {data?.results.map((item: any) => (
-            <div
-              key={item.id}
-              className="card-item max-w-[10rem] sm:max-w-[15rem] md:max-w-[20rem] bg-neutral-700 rounded-md overflow-hidden flex-shrink-0 flex flex-col justify-between h-full group relative"
-            >
-              <div className="absolute top-0 left-0">
-                <p className="px-1 py-1 bg-neutral-950 text-white rounded-br-md text-xs sm:text-sm">
-                  {item.media_type}
-                </p>
-              </div>
-              <Link
-                className="w-full h-full"
-                href={`/app/${item.media_type}/${item.id}-${(
-                  item?.name || item?.title
-                )
-                  .trim()
-                  .replace(/[^a-zA-Z0-9]/g, "-")
-                  .replace(/-+/g, "-")}`}
-              >
-                <img
-                  className="h-fit w-full object-cover"
-                  src={`https://image.tmdb.org/t/p/w342${item.poster_path}`}
-                  alt={item.name || item.title}
-                />
-              </Link>
-              <div className="lg:absolute lg:bottom-0 w-full lg:opacity-0 lg:group-hover:opacity-100 bg-neutral-900 transition-opacity duration-300">
-                <ThreePrefrenceBtn
-                  genres={item.genre_ids
-                    .map((id: number) => {
-                      const genre = GenreList.genres.find(
-                        (g: any) => g.id === id
-                      );
-                      return genre ? genre.name : null;
-                    })
-                    .filter(Boolean)}
-                  cardId={item.id}
-                  cardType={item.media_type}
-                  cardName={item.name || item.title}
-                  cardAdult={item.adult}
-                  cardImg={item.poster_path}
-                />
-                <div className="py-2 border-t border-neutral-950 bg-neutral-800 hover:bg-neutral-700">
-                  <button
-                    className="w-full flex justify-center text-lg text-center text-neutral-100"
-                    onClick={() => handleCardTransfer(item)}
-                  >
-                    <LuSend />
-                  </button>
-                </div>
-                <div className="min-h-14 flex flex-col justify-center px-3 pb-1 w-full bg-indigo-700 text-gray-100 text-sm sm:text-base">
-                  <p className="line-clamp-2">
-                    {(item.name || item.title).length > 40
-                      ? `${(item.name || item.title).slice(0, 40)}...`
-                      : item.name || item.title}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
+          {data?.results.map((item: any) => {
+            const title = item.name || item.title;
+            const genres = (item.genre_ids ?? [])
+              .map((id: number) =>
+                GenreList.genres.find((g: any) => g.id === id)?.name
+              )
+              .filter(Boolean);
+            return (
+              <MediaCard
+                key={item.id}
+                id={item.id}
+                title={title}
+                mediaType={item.media_type === "tv" ? "tv" : "movie"}
+                posterPath={item.poster_path}
+                adult={!!item.adult}
+                genres={genres}
+                showActions={true}
+                onShare={() => handleCardTransfer(item)}
+                className="card-item max-w-[10rem] sm:max-w-[15rem] md:max-w-[20rem] flex-shrink-0"
+              />
+            );
+          })}
         </div>
 
         {/* Left Fade Overlay */}

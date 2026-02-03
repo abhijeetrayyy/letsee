@@ -1,8 +1,10 @@
 // app/tv/[id]/season/[seasonNumber]/page.tsx
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
+import EpisodeListWithWatched from "@components/tv/EpisodeListWithWatched";
+import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
+import { fetchTmdb } from "@/utils/tmdbClient";
 
 interface Episode {
   id: number;
@@ -31,7 +33,9 @@ const getNumericId = (value: string) => {
   return match ? match[0] : null;
 };
 
-// Fetch series and season data
+const SEASON_REVALIDATE_SEC = 300;
+
+// Fetch series (cached) and season data (one TMDB call for season)
 const fetchSeriesAndSeasonData = async (
   seriesId: string,
   seasonNumber: string
@@ -41,21 +45,18 @@ const fetchSeriesAndSeasonData = async (
     throw new Error("TMDb API key is missing");
   }
 
-  // Fetch series details with seasons
-  const seriesResponse = await fetch(
-    `https://api.themoviedb.org/3/tv/${seriesId}?api_key=${apiKey}&append_to_response=seasons`,
-    { cache: "force-cache" }
-  );
-  if (!seriesResponse.ok) {
-    if (seriesResponse.status === 404) notFound();
-    throw new Error(`Failed to fetch series data: ${seriesResponse.status}`);
+  const seriesData = await getTvShowWithSeasons(seriesId);
+  if (!seriesData) {
+    notFound();
   }
-  const seriesData = await seriesResponse.json();
+  const seasons = (seriesData.seasons as any[]) ?? [];
+  const seriesName = seriesData.name as string;
+  const seriesOverview = (seriesData.overview as string) ?? "";
+  const seriesPoster = (seriesData.poster_path as string) ?? null;
 
-  // Fetch specific season details with episodes
-  const seasonResponse = await fetch(
+  const seasonResponse = await fetchTmdb(
     `https://api.themoviedb.org/3/tv/${seriesId}/season/${seasonNumber}?api_key=${apiKey}`,
-    { cache: "force-cache" }
+    { revalidate: SEASON_REVALIDATE_SEC }
   );
   if (!seasonResponse.ok) {
     if (seasonResponse.status === 404) notFound();
@@ -64,10 +65,10 @@ const fetchSeriesAndSeasonData = async (
   const seasonData = await seasonResponse.json();
 
   return {
-    seriesName: seriesData.name,
-    seriesOverview: seriesData.overview,
-    seriesPoster: seriesData.poster_path,
-    seasons: seriesData.seasons.map((s: any) => ({
+    seriesName,
+    seriesOverview,
+    seriesPoster,
+    seasons: seasons.map((s: any) => ({
       id: s.id,
       season_number: s.season_number,
       name: s.name,
@@ -169,48 +170,12 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
             </div>
           </div>
 
-          {/* Episode List */}
-          <ul className="mt-4 space-y-4">
-            {currentSeason.episodes.length > 0 ? (
-              currentSeason.episodes.map((episode: Episode) => (
-                <Link
-                  href={`/app/tv/${numericId}/season/${seasonNumber}/episode/${episode.episode_number}`}
-                  key={episode.id}
-                  className="flex flex-col sm:flex-row gap-4 bg-neutral-700 hover:bg-neutral-900 p-3 rounded-md"
-                >
-                  {episode.still_path ? (
-                    <img
-                      src={`https://image.tmdb.org/t/p/w185${episode.still_path}`}
-                      alt={episode.name}
-                      width={185}
-                      height={104}
-                      className="rounded-md object-cover"
-                    />
-                  ) : (
-                    <div className="w-[185px] h-[104px] bg-neutral-600 rounded-md flex items-center justify-center">
-                      <span className="text-xs text-neutral-400">No Image</span>
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <h3 className="text-base sm:text-lg font-semibold text-neutral-100">
-                      {episode.episode_number.toString().padStart(2, "0")}.{" "}
-                      {episode.name}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-neutral-400">
-                      {episode.air_date || "Air date TBA"}
-                    </p>
-                    <p className="text-xs sm:text-sm text-neutral-300 mt-2 line-clamp-3">
-                      {episode.overview || "No overview available."}
-                    </p>
-                  </div>
-                </Link>
-              ))
-            ) : (
-              <p className="text-neutral-400 text-center">
-                No episodes found for this season.
-              </p>
-            )}
-          </ul>
+          {/* Episode List with Mark watched */}
+          <EpisodeListWithWatched
+            showId={numericId}
+            seasonNumber={currentSeasonNum}
+            episodes={currentSeason.episodes}
+          />
         </section>
 
         {/* All Seasons List */}

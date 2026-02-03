@@ -1,151 +1,141 @@
-// // components/WatchOptionsViewer.tsx
-// "use client";
-// import React, { useState, useEffect } from "react";
-// import Image from "next/image";
-// import Link from "next/link";
+"use client";
 
-// interface WatchProvider {
-//   provider_id: number;
-//   provider_name: string;
-//   logo_path: string;
-// }
+import React, { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
 
-// interface WatchOptionsProps {
-//   mediaId: number; // Movie or TV show ID
-//   mediaType: "movie" | "tv"; // Type of media
-//   country?: string; // ISO 3166-1 code (e.g., "US")
-// }
+interface WatchProvider {
+  provider_id: number;
+  provider_name: string;
+  logo_path: string;
+}
 
-// const WatchOptionsViewer: React.FC<WatchOptionsProps> = ({
-//   mediaId,
-//   mediaType,
-//   country = "US",
-// }) => {
-//   const [watchLink, setWatchLink] = useState<string>(""); // TMDb watch page link
-//   const [providers, setProviders] = useState<WatchProvider[]>([]);
-//   const [loading, setLoading] = useState(true);
-//   const [error, setError] = useState<string | null>(null);
+interface WatchOptionsProps {
+  mediaId: number;
+  mediaType: "movie" | "tv";
+  country?: string;
+}
 
-//   // Fetch watch providers from TMDb
-//   useEffect(() => {
-//     const fetchWatchProviders = async () => {
-//       setLoading(true);
-//       setError(null);
+const providerFallbackUrls: Record<number, string> = {
+  8: "https://www.netflix.com",
+  9: "https://www.amazon.com/Prime-Video",
+  15: "https://www.hulu.com",
+  337: "https://www.disneyplus.com",
+  350: "https://www.hbomax.com",
+  386: "https://www.paramountplus.com",
+  531: "https://www.mubi.com",
+};
 
-//       const apiKey = process.env.NEXT_PUBLIC_TMDB_API_KEY;
-//       if (!apiKey) {
-//         setError("TMDb API key is missing");
-//         setLoading(false);
-//         return;
-//       }
+export default function WatchOptionsViewer({
+  mediaId,
+  mediaType,
+  country = "US",
+}: WatchOptionsProps) {
+  const [watchLink, setWatchLink] = useState<string>("");
+  const [providers, setProviders] = useState<WatchProvider[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-//       try {
-//         const response = await fetch(
-//           `https://api.themoviedb.org/3/${mediaType}/${mediaId}/watch/providers?api_key=${apiKey}`
-//         );
-//         if (!response.ok) {
-//           throw new Error(`Failed to fetch providers: ${response.status}`);
-//         }
-//         const data = await response.json();
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
 
-//         // Extract providers and link for the specified country
-//         const countryData = data.results[country];
-//         if (!countryData) {
-//           setProviders([]);
-//           setWatchLink("");
-//           setError("No providers available in this country");
-//         } else {
-//           // Use the TMDb watch link
-//           setWatchLink(countryData.link || "");
+    const params = new URLSearchParams({
+      mediaType,
+      mediaId: String(mediaId),
+      country,
+    });
+    fetch(`/api/watch-providers?${params}`)
+      .then((res) => res.json())
+      .then((body) => {
+        if (cancelled) return;
+        if (body.error) {
+          setError(body.error);
+          setProviders([]);
+          setWatchLink("");
+          return;
+        }
+        setWatchLink(body.link ?? "");
+        setProviders(Array.isArray(body.providers) ? body.providers : []);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError((err as Error).message);
+          setProviders([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-//           // Combine flatrate (streaming), rent, and buy providers
-//           const allProviders = [
-//             ...(countryData.flatrate || []),
-//             ...(countryData.rent || []),
-//             ...(countryData.buy || []),
-//           ].reduce((unique, provider) => {
-//             return unique.some(
-//               (p: any) => p.provider_id === provider.provider_id
-//             )
-//               ? unique
-//               : [...unique, provider];
-//           }, [] as WatchProvider[]);
-//           setProviders(allProviders);
-//         }
-//       } catch (err) {
-//         setError((err as Error).message);
-//       } finally {
-//         setLoading(false);
-//       }
-//     };
+    return () => {
+      cancelled = true;
+    };
+  }, [mediaId, mediaType, country]);
 
-//     fetchWatchProviders();
-//   }, [mediaId, mediaType, country]);
+  if (loading) {
+    return (
+      <div className="w-full max-w-3xl mx-auto py-6">
+        <p className="text-neutral-400 text-center">Loading watch options...</p>
+      </div>
+    );
+  }
 
-//   // Fallback URLs for major providers (optional, if deep links are desired)
-//   const providerFallbackUrls: { [key: number]: string } = {
-//     8: "https://www.netflix.com", // Netflix
-//     9: "https://www.amazon.com/Prime-Video", // Amazon Prime Video
-//     15: "https://www.hulu.com", // Hulu
-//     337: "https://www.disneyplus.com", // Disney+
-//     257: "https://www.hbo.com", // HBO Max
-//     // Add more as needed
-//   };
+  if (error) {
+    return (
+      <div className="w-full max-w-3xl mx-auto py-6">
+        <p className="text-amber-200/90 text-center text-sm">{error}</p>
+      </div>
+    );
+  }
 
-//   if (loading) {
-//     return (
-//       <p className="text-neutral-400 text-center">Loading watch options...</p>
-//     );
-//   }
-
-//   if (error) {
-//     return <p className="text-red-400 text-center">Error: {error}</p>;
-//   }
-
-//   return (
-//     <div className="w-full max-w-3xl mx-auto">
-//       <h2 className="text-lg sm:text-xl font-semibold text-neutral-100 mb-4 text-center">
-//         Where to Watch
-//       </h2>
-//       {providers.length > 0 ? (
-//         <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-4">
-//           {providers.map((provider) => {
-//             // Prefer TMDb watch link, fallback to provider homepage
-//             const providerLink =
-//               watchLink || providerFallbackUrls[provider.provider_id] || "#";
-
-//             return (
-//               <Link
-//                 key={provider.provider_id}
-//                 href={providerLink}
-//                 target="_blank"
-//                 rel="noopener noreferrer"
-//                 className="flex flex-col items-center w-20 sm:w-24 hover:opacity-80 transition-opacity duration-200"
-//               >
-//                 <Image
-//                   src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
-//                   alt={provider.provider_name}
-//                   width={64}
-//                   height={64}
-//                   className="rounded-md object-contain"
-//                 />
-//                 <span className="text-xs sm:text-sm text-neutral-200 text-center mt-2">
-//                   {provider.provider_name}
-//                 </span>
-//               </Link>
-//             );
-//           })}
-//         </div>
-//       ) : (
-//         <p className="text-neutral-400 text-center">
-//           No streaming options available in {country}.
-//         </p>
-//       )}
-//       <p className="text-xs text-neutral-500 text-center mt-4">
-//         Data provided by JustWatch via TMDb
-//       </p>
-//     </div>
-//   );
-// };
-
-// export default WatchOptionsViewer;
+  return (
+    <div className="w-full max-w-3xl mx-auto py-6 px-4">
+      <h2 className="text-lg sm:text-xl font-semibold text-neutral-100 mb-4 text-center">
+        Where to Watch
+      </h2>
+      {providers.length > 0 ? (
+        <div className="flex flex-wrap justify-center gap-6">
+          {providers.map((provider) => {
+            const href =
+              watchLink || providerFallbackUrls[provider.provider_id] || "#";
+            return (
+              <Link
+                key={provider.provider_id}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center w-20 sm:w-24 hover:opacity-80 transition-opacity duration-200"
+              >
+                {provider.logo_path ? (
+                  <Image
+                    src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
+                    alt={provider.provider_name}
+                    width={64}
+                    height={64}
+                    className="rounded-md object-contain"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-md bg-neutral-700 flex items-center justify-center text-neutral-400 text-xs text-center px-1">
+                    {provider.provider_name}
+                  </div>
+                )}
+                <span className="text-xs sm:text-sm text-neutral-200 text-center mt-2">
+                  {provider.provider_name}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-neutral-400 text-center">
+          No streaming options available in {country}.
+        </p>
+      )}
+      <p className="text-xs text-neutral-500 text-center mt-4">
+        Data provided by JustWatch via TMDb
+      </p>
+    </div>
+  );
+}

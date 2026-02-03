@@ -1,10 +1,22 @@
 "use client";
+
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
 import Link from "next/link";
 import { FiSend, FiArrowDown } from "react-icons/fi";
-import Image from "next/image";
+
+const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
+const CONTENT_MAX_LENGTH = 2000;
+
+/** Safe TMDB poster URL: accepts path (e.g. /abc or abc) or full URL. */
+function getTmdbImageUrl(path: string | null | undefined, size = "w342"): string {
+  if (!path || typeof path !== "string") return "/no-photo.webp";
+  const trimmed = path.trim();
+  if (trimmed.startsWith("http")) return trimmed;
+  const clean = trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
+  return `${TMDB_IMAGE_BASE}/${size}/${clean}`;
+}
 
 interface Message {
   is_read: boolean;
@@ -14,12 +26,12 @@ interface Message {
   content: string;
   created_at: string;
   message_type: string;
-  metadata: {
-    media_id: string;
-    media_name: string;
-    media_image: string;
-    media_type: string;
-  };
+  metadata?: {
+    media_id?: string;
+    media_name?: string;
+    media_image?: string;
+    media_type?: string;
+  } | null;
 }
 
 const Chat = () => {
@@ -127,14 +139,17 @@ const Chat = () => {
   }, [user, recipient, isValidRecipient, offset, fetchMessages]);
 
   const sendMessage = useCallback(async () => {
-    if (message.trim() !== "" && user && recipient && isValidRecipient) {
+    const trimmed = message.trim();
+    if (trimmed && user && recipient && isValidRecipient) {
       setDisable(true);
+      const content = trimmed.slice(0, CONTENT_MAX_LENGTH);
 
       const { error } = await supabase.from("messages").insert([
         {
           sender_id: user.id,
           recipient_id: recipient,
-          content: message.trim(),
+          content,
+          message_type: "text",
         },
       ]);
 
@@ -285,24 +300,26 @@ const Chat = () => {
             )}
           </div>
 
-          {msg.message_type === "text" ? (
-            <p className="text-sm">{msg.content}</p>
+          {msg.message_type !== "cardmix" || !msg.metadata?.media_id ? (
+            <p className="text-sm whitespace-pre-wrap break-words">{msg.content || "\u00a0"}</p>
           ) : (
             <div className="flex flex-col gap-2">
               <Link
-                href={`/app/${msg.metadata.media_type}/${msg.metadata.media_id}`}
-                className="bg-gray-100 p-3 rounded-lg flex flex-col gap-2"
+                href={`/app/${msg.metadata.media_type === "tv" ? "tv" : "movie"}/${String(msg.metadata.media_id)}`}
+                className="bg-neutral-100 dark:bg-neutral-700 p-3 rounded-lg flex flex-col gap-2 hover:opacity-90 transition-opacity"
               >
                 <img
-                  src={`https://image.tmdb.org/t/p/w342${msg.metadata.media_image}`}
-                  alt={msg.metadata.media_name}
-                  className="w-full h-40 object-cover rounded-lg mb-2"
+                  src={getTmdbImageUrl(msg.metadata.media_image)}
+                  alt={msg.metadata.media_name ?? "Media"}
+                  className="w-full h-40 object-cover rounded-lg"
                 />
-                <h3 className="text-gray-900 font-semibold">
-                  {msg.metadata.media_name}
+                <h3 className="text-neutral-900 dark:text-neutral-100 font-semibold truncate">
+                  {msg.metadata.media_name || "Movie / TV"}
                 </h3>
               </Link>
-              <p className="text-sm ">{msg.content}</p>
+              {msg.content ? (
+                <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+              ) : null}
             </div>
           )}
 
@@ -371,7 +388,7 @@ const Chat = () => {
                 placeholder="Type your message..."
                 value={message}
                 onChange={(e) => {
-                  if (e.target.value.length <= 2000) {
+                  if (e.target.value.length <= CONTENT_MAX_LENGTH) {
                     setMessage(e.target.value);
                   }
                 }}

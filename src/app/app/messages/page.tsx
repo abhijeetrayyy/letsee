@@ -12,6 +12,7 @@ interface UserInfo {
   email: string;
   unreadCount: number;
   lastMessageTime: string | null;
+  lastMessagePreview: string;
 }
 
 async function fetchConversations(userId: string) {
@@ -19,7 +20,7 @@ async function fetchConversations(userId: string) {
 
   const { data: messagesData, error: messagesError } = await supabase
     .from("messages")
-    .select("sender_id, recipient_id, created_at")
+    .select("sender_id, recipient_id, created_at, content, message_type")
     .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
     .order("created_at", { ascending: false });
 
@@ -56,22 +57,26 @@ async function fetchConversations(userId: string) {
     {}
   );
 
-  const lastMessageTimeMap = messagesData.reduce(
-    (acc: { [key: string]: string }, message: any) => {
-      const otherUserId =
-        message.sender_id === userId ? message.recipient_id : message.sender_id;
-      if (!acc[otherUserId]) {
-        acc[otherUserId] = message.created_at;
-      }
-      return acc;
-    },
-    {}
-  );
+  const lastMessageTimeMap: { [key: string]: string } = {};
+  const lastMessagePreviewMap: { [key: string]: string } = {};
+  for (const message of messagesData) {
+    const otherUserId =
+      message.sender_id === userId ? message.recipient_id : message.sender_id;
+    if (!lastMessageTimeMap[otherUserId]) {
+      lastMessageTimeMap[otherUserId] = message.created_at;
+      const content = message.content?.trim() ?? "";
+      const isCard = message.message_type === "cardmix";
+      lastMessagePreviewMap[otherUserId] = isCard
+        ? (content ? `${content.slice(0, 30)}…` : "Shared a movie or TV show")
+        : (content ? content.slice(0, 50) + (content.length > 50 ? "…" : "") : "");
+    }
+  }
 
   return usersData.map((u: any) => ({
     ...u,
     unreadCount: unreadCountMap[u.id] || 0,
     lastMessageTime: lastMessageTimeMap[u.id] || null,
+    lastMessagePreview: lastMessagePreviewMap[u.id] ?? "",
   }));
 }
 
@@ -122,12 +127,17 @@ async function ConversationsList() {
                     <div className="flex-shrink-0">
                       <FiUser className="h-10 w-10 text-neutral-400" />
                     </div>
-                    <div>
-                      <p className="text-lg font-medium text-neutral-100">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-lg font-medium text-neutral-100 truncate">
                         {conversation.username || conversation.email}
                       </p>
+                      {conversation.lastMessagePreview ? (
+                        <p className="text-sm text-neutral-400 truncate">
+                          {conversation.lastMessagePreview}
+                        </p>
+                      ) : null}
                       {conversation.lastMessageTime && (
-                        <p className="text-sm text-neutral-400">
+                        <p className="text-xs text-neutral-500 mt-0.5">
                           {formatDistanceToNow(
                             new Date(conversation.lastMessageTime),
                             { addSuffix: true }

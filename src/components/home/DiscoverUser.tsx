@@ -2,22 +2,31 @@
 
 import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
-import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaHeart, FaBookmark, FaEye } from "react-icons/fa";
+import { HiArrowRight } from "react-icons/hi2";
 import { useApiFetch } from "@/hooks/useApiFetch";
 import { FetchError } from "@/components/ui/FetchError";
 
 interface User {
   username: string;
   about?: string;
+  avatar_url?: string | null;
   watched_count: number;
   favorites_count: number;
   watchlist_count: number;
 }
 
-function DiscoverUsers() {
+type DiscoverUsersProps = { hideTitleLink?: boolean };
+
+function formatUsername(username: string, maxLen = 14) {
+  if (username.length <= maxLen) return username;
+  return `${username.slice(0, maxLen - 1)}…`;
+}
+
+function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState<boolean>(false);
-  const [canScrollRight, setCanScrollRight] = useState<boolean>(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   const {
     data,
@@ -32,46 +41,41 @@ function DiscoverUsers() {
   const users = data?.users ?? [];
 
   const handleScroll = () => {
-    const element = scrollRef.current;
-    if (element) {
-      const { scrollLeft, scrollWidth, clientWidth } = element;
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 10);
-    }
+    const el = scrollRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 8);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 8);
   };
 
-  const scrollLeft = () => {
-    const element = scrollRef.current;
-    if (element) {
-      const itemWidth = element.querySelector(".user-card")?.clientWidth || 300;
-      const shift = window.innerWidth < 640 ? itemWidth * 2 : itemWidth * 4;
-      element.scrollBy({ left: -shift, behavior: "smooth" });
-    }
-  };
-
-  const scrollRight = () => {
-    const element = scrollRef.current;
-    if (element) {
-      const itemWidth = element.querySelector(".user-card")?.clientWidth || 300;
-      const shift = window.innerWidth < 640 ? itemWidth * 2 : itemWidth * 4;
-      element.scrollBy({ left: shift, behavior: "smooth" });
-    }
+  const scroll = (dir: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const card = el.querySelector(".discover-user-card") as HTMLElement | null;
+    const step = (card?.offsetWidth ?? 280) + 16;
+    el.scrollBy({ left: dir === "left" ? -step : step, behavior: "smooth" });
   };
 
   useEffect(() => {
-    const element = scrollRef.current;
-    if (element) {
-      element.addEventListener("scroll", handleScroll);
-      setTimeout(handleScroll, 100); // Initial check
-      return () => element.removeEventListener("scroll", handleScroll);
-    }
-  }, [users, loading]);
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", handleScroll);
+    const t = setTimeout(handleScroll, 150);
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      clearTimeout(t);
+    };
+  }, [users.length, loading]);
 
   if (fetchError) {
     return (
       <div className="w-full mx-auto mb-5 md:px-4">
         <FetchError
-          message={fetchError === "Request failed (401)" ? "Log in to discover users." : fetchError}
+          message={
+            fetchError === "Request failed (401)"
+              ? "Log in to discover users."
+              : fetchError
+          }
           onRetry={refetch}
         />
       </div>
@@ -79,123 +83,130 @@ function DiscoverUsers() {
   }
 
   return (
-    <div className="w-full mx-auto mb-5 md:px-4">
-      <div className="mt-7">
+    <div className="w-full">
+      {!hideTitleLink && (
         <Link
           href="/app/profile"
-          className="text-lg font-semibold mb-2 underline text-neutral-100"
+          className="text-lg font-semibold mb-3 inline-block underline text-neutral-100 hover:text-indigo-300 transition-colors"
         >
-          Discover People
+          Discover people
         </Link>
-        <div className="relative">
-          <div
-            ref={scrollRef}
-            className="flex flex-row gap-4 py-3 overflow-x-auto no-scrollbar"
-          >
-            {loading
-              ? [...Array(5)].map((_, index) => (
-                <div
-                  key={index}
-                  className="w-48 sm:w-56 md:w-72 h-64 bg-neutral-800 rounded-xl shadow-lg animate-pulse shrink-0"
-                />
-                ))
-              : users.map((item) => (
-                  <Link
-                    key={item.username}
-                    href={`/app/profile/${item.username}`}
-                    className="user-card min-w-48 sm:min-w-56 md:min-w-[18rem] bg-neutral-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 hover:bg-[#1d1d1d] overflow-hidden shrink-0 flex flex-col h-full"
-                  >
-                    <div className="p-4 sm:p-6 flex flex-col h-full">
-                      <div className="flex items-center gap-3 sm:gap-4">
-                        <img
-                          className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-neutral-700 group-hover:border-neutral-500 transition-colors duration-300"
-                          src="/avatar.svg"
-                          alt="User Avatar"
-                        />
-                        <div>
-                          <h2 className="text-base sm:text-lg md:text-xl font-semibold text-neutral-100 group-hover:text-neutral-400 transition-colors duration-300">
-                            @{item.username.slice(0, 10)}...
-                          </h2>
-                          <p className="text-xs sm:text-sm text-neutral-400 line-clamp-2">
-                            {item.about}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Stats */}
-                      <div className="mt-4 sm:mt-6 space-y-2 sm:space-y-3 grow">
-                        <div className="flex justify-between items-center p-2 sm:p-3 bg-neutral-700 rounded-lg group-hover:bg-neutral-900 transition-colors duration-300">
-                          <p className="text-xs sm:text-sm text-neutral-200 group-hover:text-neutral-100">
-                            Watched
-                          </p>
-                          <span className="text-xs sm:text-sm font-semibold text-neutral-200 group-hover:text-neutral-100">
-                            {item.watched_count}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center p-2 sm:p-3 bg-neutral-700 rounded-lg group-hover:bg-neutral-900 transition-colors duration-300">
-                          <p className="text-xs sm:text-sm text-neutral-200 group-hover:text-neutral-100">
-                            Favorites
-                          </p>
-                          <span className="text-xs sm:text-sm font-semibold text-neutral-200 group-hover:text-neutral-100">
-                            {item.favorites_count}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center p-2 sm:p-3 bg-neutral-700 rounded-lg group-hover:bg-neutral-900 transition-colors duration-300">
-                          <p className="text-xs sm:text-sm text-neutral-200 group-hover:text-neutral-100">
-                            Watchlist
-                          </p>
-                          <span className="text-xs sm:text-sm font-semibold text-neutral-200 group-hover:text-neutral-100">
-                            {item.watchlist_count}
-                          </span>
-                        </div>
-                      </div>
+      )}
+      <div className="relative -mx-1 px-1">
+        <div
+          ref={scrollRef}
+          className="flex gap-4 py-2 overflow-x-auto overflow-y-hidden scroll-smooth no-scrollbar"
+          style={{ scrollPaddingInline: "8px" }}
+        >
+          {loading ? (
+            [...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className="discover-user-card shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-neutral-800/80 border border-neutral-700/50 overflow-hidden"
+              >
+                <div className="p-5 flex flex-col items-center text-center">
+                  <div className="w-20 h-20 rounded-full bg-neutral-700 animate-pulse" />
+                  <div className="mt-3 h-5 w-24 rounded bg-neutral-700 animate-pulse" />
+                  <div className="mt-2 h-4 w-full rounded bg-neutral-700/80 animate-pulse" />
+                  <div className="mt-4 flex gap-3 justify-center">
+                    <div className="h-8 w-14 rounded-lg bg-neutral-700 animate-pulse" />
+                    <div className="h-8 w-14 rounded-lg bg-neutral-700 animate-pulse" />
+                    <div className="h-8 w-14 rounded-lg bg-neutral-700 animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : users.length === 0 ? (
+            <div className="shrink-0 w-full min-h-[200px] rounded-2xl bg-neutral-800/50 border border-neutral-700/50 border-dashed flex items-center justify-center">
+              <p className="text-neutral-500 text-sm text-center px-4">
+                No other users to show yet. Be the first to add a username and start sharing.
+              </p>
+            </div>
+          ) : (
+            <>
+              {users.map((item) => (
+                <Link
+                  key={item.username}
+                  href={`/app/profile/${item.username}`}
+                  className="discover-user-card group shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-neutral-800/80 border border-neutral-700/50 hover:border-neutral-600 hover:bg-neutral-800 transition-all duration-200 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
+                >
+                  <div className="p-5 flex flex-col items-center text-center">
+                    <img
+                      src={item.avatar_url || "/avatar.svg"}
+                      alt={`${item.username} avatar`}
+                      className="w-20 h-20 rounded-full object-cover border-2 border-neutral-600 group-hover:border-neutral-500 transition-colors ring-2 ring-neutral-800"
+                    />
+                    <h3 className="mt-3 text-base font-semibold text-white group-hover:text-indigo-200 transition-colors truncate w-full">
+                      @{formatUsername(item.username)}
+                    </h3>
+                    <p className="mt-1 text-xs text-neutral-400 line-clamp-2 min-h-8">
+                      {item.about || "Movie & TV enthusiast"}
+                    </p>
+                    <div className="mt-4 flex items-center gap-2 flex-wrap justify-center">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-700/80 text-neutral-300 text-xs">
+                        <FaEye className="text-neutral-500 size-3" aria-hidden />
+                        {item.watched_count}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-700/80 text-neutral-300 text-xs">
+                        <FaHeart className="text-neutral-500 size-3" aria-hidden />
+                        {item.favorites_count}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-700/80 text-neutral-300 text-xs">
+                        <FaBookmark className="text-neutral-500 size-3" aria-hidden />
+                        {item.watchlist_count}
+                      </span>
                     </div>
-                  </Link>
-                ))}
-            {!loading && (
+                  </div>
+                </Link>
+              ))}
               <Link
                 href="/app/profile"
-                className="min-w-48 sm:min-w-56 md:min-w-[18rem] h-auto bg-neutral-800 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-neutral-700 hover:border-neutral-500 overflow-hidden flex items-center justify-center shrink-0"
+                className="discover-user-card shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-neutral-800/50 border border-neutral-700/50 border-dashed hover:border-neutral-600 hover:bg-neutral-800/80 transition-all duration-200 flex items-center justify-center min-h-[220px] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
               >
-                <div className="text-neutral-100 font-semibold text-sm sm:text-base">
-                  More
-                </div>
+                <span className="inline-flex items-center gap-2 text-sm font-medium text-neutral-400 hover:text-indigo-300 transition-colors">
+                  View all
+                  <HiArrowRight className="size-4" aria-hidden />
+                </span>
               </Link>
-            )}
-          </div>
-
-          {/* Left Fade Overlay */}
-          <div
-            className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-16 bg-linear-to-r from-black to-transparent pointer-events-none transition-opacity duration-300 ${
-              canScrollLeft ? "opacity-80" : "opacity-0"
-            }`}
-          />
-
-          {/* Right Fade Overlay */}
-          <div
-            className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-16 bg-linear-to-l from-black to-transparent pointer-events-none transition-opacity duration-300 ${
-              canScrollRight ? "opacity-80" : "opacity-0"
-            }`}
-          />
-
-          {/* Scroll Buttons */}
-          {canScrollLeft && (
-            <button
-              onClick={scrollLeft}
-              className="hidden md:block absolute left-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
-            >
-              <FaChevronLeft size={16} />
-            </button>
-          )}
-          {canScrollRight && (
-            <button
-              onClick={scrollRight}
-              className="hidden md:block absolute right-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
-            >
-              <FaChevronRight size={16} />
-            </button>
+            </>
           )}
         </div>
+
+        {/* Fade edges */}
+        <div
+          className={`pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-linear-to-r from-neutral-900 to-transparent transition-opacity duration-200 hidden sm:block ${
+            canScrollLeft ? "opacity-100" : "opacity-0"
+          }`}
+          aria-hidden
+        />
+        <div
+          className={`pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-linear-to-l from-neutral-900 to-transparent transition-opacity duration-200 hidden sm:block ${
+            canScrollRight ? "opacity-100" : "opacity-0"
+          }`}
+          aria-hidden
+        />
+
+        {/* Scroll buttons */}
+        {canScrollLeft && (
+          <button
+            type="button"
+            onClick={() => scroll("left")}
+            className="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 z-10 size-9 items-center justify-center rounded-full bg-neutral-800 border border-neutral-600 text-neutral-200 shadow-lg hover:bg-neutral-700 hover:text-white transition-colors"
+            aria-label="Scroll left"
+          >
+            <FaChevronLeft className="size-4" />
+          </button>
+        )}
+        {canScrollRight && (
+          <button
+            type="button"
+            onClick={() => scroll("right")}
+            className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 z-10 size-9 items-center justify-center rounded-full bg-neutral-800 border border-neutral-600 text-neutral-200 shadow-lg hover:bg-neutral-700 hover:text-white transition-colors"
+            aria-label="Scroll right"
+          >
+            <FaChevronRight className="size-4" />
+          </button>
+        )}
       </div>
     </div>
   );

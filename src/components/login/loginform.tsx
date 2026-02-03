@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import React, { useState } from "react";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 type LoginFormProps = {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -10,92 +11,142 @@ type LoginFormProps = {
   info?: string;
 };
 
-const LoginForm: React.FC<LoginFormProps> = ({
+export default function LoginForm({
   onLogin,
   loading,
   error,
   info,
-}) => {
+}: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = async (event?: React.FormEvent<HTMLFormElement>) => {
-    event?.preventDefault();
-    await onLogin(email, password);
+  const canSubmit = Boolean(email.trim() && password && !loading);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    await onLogin(email.trim(), password);
   };
 
   return (
-    <div className="w-full min-h-screen flex flex-col p-2 justify-center items-center bg-neutral-900">
-      <div className="w-full z-10">
-        <div
-          className={
-            loading
-              ? "animate-bounce m-auto w-fit text-neutral-100 mb-5"
-              : "m-auto w-fit text-neutral-100 mb-5"
-          }
-        >
-          <h1 className="text-7xl font-extrabold text-neutral-100">
+    <div className="min-h-screen flex flex-col justify-center items-center bg-neutral-950 px-4 py-10">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <Link
+            href="/app"
+            className="text-2xl font-bold text-white hover:text-neutral-300 transition-colors"
+          >
             Let&apos;s See
-          </h1>
-          <p>Social media for cinema.</p>
+          </Link>
+          <p className="text-neutral-400 mt-1 text-sm">Social media for cinema.</p>
         </div>
-        <form
-          className={"flex flex-col max-w-sm w-full m-auto gap-2"}
-          onSubmit={handleSubmit}
-        >
-          <label className="text-neutral-100 pl-2" htmlFor="email">
-            Email
-          </label>
-          <input
-            className="text-neutral-700 ring-0 outline-0 px-3 focus:ring-2 rounded-sm focus:ring-indigo-600 py-2"
-            id="email"
-            name="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <label className="text-neutral-100 pl-2" htmlFor="password">
-            Password
-          </label>
-          <input
-            className="text-neutral-700 ring-0 outline-0 px-3 focus:ring-2 rounded-sm focus:ring-indigo-600 py-2"
-            id="password"
-            name="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          {info && <p className="text-emerald-400">{info}</p>}
-          {error && <p className="text-red-500">{error}</p>}
 
-          <p className="mt-3 text-white">
-            Forgot Password,{" "}
-            <Link className="text-blue-500 underline" href={"/forgot-password"}>
-              Click here
+        <div className="rounded-2xl border border-neutral-700/60 bg-neutral-900/80 p-6 sm:p-8 shadow-xl">
+          <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">
+            Welcome back
+          </h1>
+          <p className="text-neutral-400 text-sm mb-6">
+            Sign in with your email to continue.
+          </p>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div>
+              <label
+                htmlFor="login-email"
+                className="block text-sm font-medium text-neutral-300 mb-1.5"
+              >
+                Email
+              </label>
+              <input
+                id="login-email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="you@example.com"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="login-password"
+                className="block text-sm font-medium text-neutral-300 mb-1.5"
+              >
+                Password
+              </label>
+              <input
+                id="login-password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="••••••••"
+              />
+              <p className="mt-1.5 text-xs text-neutral-500">
+                <Link
+                  href="/forgot-password"
+                  className="font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </p>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-neutral-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showPassword}
+                onChange={(e) => setShowPassword(e.target.checked)}
+                className="rounded border-neutral-600 bg-neutral-800 text-indigo-600 focus:ring-indigo-500"
+              />
+              Show password
+            </label>
+
+            {info && (
+              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 text-sm text-emerald-200">
+                {info}
+              </div>
+            )}
+            {error && (
+              <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-200">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <LoadingSpinner size="sm" className="border-t-white" />
+                  Signing in…
+                </>
+              ) : (
+                "Log in"
+              )}
+            </button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-neutral-400">
+            Don&apos;t have an account?{" "}
+            <Link
+              href="/signup"
+              className="font-medium text-indigo-400 hover:text-indigo-300"
+            >
+              Sign up
             </Link>
           </p>
-          <div className="flex flex-col gap-3 mt-1">
-            <button
-              className="text-neutral-100 bg-indigo-700 py-2 rounded-md w-full hover:bg-indigo-600"
-              type="submit"
-              disabled={loading}
-            >
-              Log in
-            </button>
-
-            <p className="m-auto text-white">
-              don&apos;t have an account,{" "}
-              <Link className="text-blue-500 underline" href={"/signup"}>
-                Sign Up
-              </Link>
-            </p>
-          </div>
-        </form>
-      </div>{" "}
+        </div>
+      </div>
     </div>
   );
-};
-
-export default LoginForm;
+}

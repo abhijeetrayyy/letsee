@@ -1,260 +1,174 @@
-// components/BurgerMenu.tsx
 "use client";
+
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
-import { FaBars, FaTimes, FaUser } from "react-icons/fa";
+import { FaBars, FaXmark, FaUser } from "react-icons/fa6";
+import { HiHome } from "react-icons/hi2";
+import { FcFilmReel } from "react-icons/fc";
+import { IoNotificationsOutline } from "react-icons/io5";
+import { LuSend } from "react-icons/lu";
 import SignOut from "../buttons/signOut";
 import Link from "next/link";
-import { IoNotifications } from "react-icons/io5";
 
 interface BurgerMenuProps {
   status: "loading" | "anon" | "needs_profile" | "ok";
   username?: string | null;
 }
 
+const menuItemClass =
+  "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-base font-medium text-neutral-200 transition-colors hover:bg-neutral-800 hover:text-white";
+
 const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, username }) => {
   const [isOpen, setIsOpen] = useState(false);
-
   const router = useRouter();
 
-  const toggleMenu = () => {
-    setIsOpen(!isOpen);
+  const go = (path: string) => {
+    router.push(path);
+    setIsOpen(false);
   };
 
-  function link(link: string) {
-    router.push(link);
-    setIsOpen(false);
-  }
-  if (status === "loading" || status === "anon") {
-    return (
-      <div className="relative">
-        <button
-          className="dropdown-button px-3 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 md:hidden"
-          onClick={toggleMenu}
-        >
-          {isOpen ? <FaTimes /> : <FaBars />}
-        </button>
+  const triggerClass =
+    "flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-700/60 bg-neutral-800 text-neutral-200 transition-colors hover:bg-neutral-700 md:hidden";
 
-        <div
-          className={`z-50 fixed top-0 left-0 w-full h-full bg-neutral-800 transition-transform transform ${
-            isOpen ? "translate-x-0" : "-translate-x-full hidden"
-          } md:hidden`}
-        >
-          <button
-            className="z-50 absolute top-5 right-4 border rounded-md border-neutral-300 p-1 text-white focus:outline-none md:hidden"
-            onClick={toggleMenu}
-          >
-            {isOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
-          </button>
+  const panelClass = `fixed inset-y-0 right-0 z-50 w-full max-w-[min(20rem,85vw)] border-l border-neutral-800 bg-neutral-900 shadow-xl transition-transform duration-300 ease-out md:hidden ${
+    isOpen ? "translate-x-0" : "translate-x-full"
+  }`;
 
-          <div className="absolute top-5 w-full ">
-            <h1 className="text-3xl font-bold w-fit ">Let&apos;s see</h1>
-          </div>
+  const backdropClass = `fixed inset-0 z-40 bg-black/60 transition-opacity duration-300 md:hidden ${
+    isOpen ? "opacity-100" : "pointer-events-none opacity-0"
+  }`;
 
-          <ul className="flex flex-col items-center justify-center h-full space-y-8 text-white">
-            <li>
-              <button
-                onClick={() => link("/app")}
-                className=" flex flex-row gap-2 items-center justify-center w-72 px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-              >
-                Home
-              </button>
-            </li>
-
-            <li>
-              <button
-                onClick={() => link(`/app/tvbygenre/list/35-Comedy`)}
-                className=" flex flex-row gap-2 items-center justify-center w-72 px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-              >
-                Tv Genre
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={() => link(`/app/moviebygenre/list/16-Animation`)}
-                className=" flex flex-row gap-2 items-center justify-center w-72 px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-              >
-                Movie Genre
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={() => link(`/app/profile`)}
-                className=" flex flex-row gap-2 items-center justify-center w-72 px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-              >
-                users
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={() => link(`/app/reel`)}
-                className=" flex flex-row gap-2 items-center justify-center w-72 px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-              >
-                Reels
-              </button>
-            </li>
-
-            <li>
-              <div>
-                <button
-                  onClick={() => link(`/login`)}
-                  className="text-2xl text-gray-100 hover:bg-blue-500 px-3 py-1 rounded-md bg-blue-600 "
-                >
-                  Log in
-                </button>
-              </div>
-            </li>
-            <li>
-              <div>
-                <button
-                  onClick={() => link(`/signup`)}
-                  className="text-2xl text-gray-100 hover:bg-blue-500 px-3 py-1 rounded-md bg-blue-600 "
-                >
-                  Sign up
-                </button>
-              </div>
-            </li>
-          </ul>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === "needs_profile") {
-    return (
-      <div className="relative">
-        <button
-          className="dropdown-button px-3 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 md:hidden"
-          onClick={toggleMenu}
-        >
-          {isOpen ? <FaTimes /> : <FaBars />}
-        </button>
-
-        <div
-          className={`z-50 fixed top-0 left-0 w-full h-full bg-neutral-800 transition-transform transform ${
-            isOpen ? "translate-x-0" : "-translate-x-full hidden"
-          } md:hidden`}
-        >
-          <button
-            className="z-50 absolute top-5 right-4 border rounded-md border-neutral-300 p-1 text-white focus:outline-none md:hidden"
-            onClick={toggleMenu}
-          >
-            {isOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
-          </button>
-
-          <div className="absolute p-5 w-full ">
-            <h1 className="text-3xl font-bold w-fit">Let&apos;s see</h1>
-          </div>
-
-          <ul className="flex flex-col items-center justify-center h-full space-y-8 text-white">
-            <div className="w-full flex  flex-col items-center mr-5 gap-3">
-              <button
-                onClick={() => link("/app")}
-                className=" flex flex-row gap-2 items-center justify-center w-72 px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-              >
-                Home
-              </button>
-
-              <button
-                onClick={() => link(`/app/profile/setup`)}
-                className=" flex flex-row gap-2 items-center justify-center w-72 px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-500 relative"
-              >
-                Complete Profile
-              </button>
-
-              <div className="w-72">
-                <SignOut />
-              </div>
-            </div>
-          </ul>
-        </div>
-      </div>
-    );
-  }
+  if (status === "loading") return null;
 
   return (
-    <div className="relative">
+    <div className="relative md:hidden">
       <button
-        className="dropdown-button px-3 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 md:hidden"
-        onClick={toggleMenu}
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={triggerClass}
+        aria-expanded={isOpen}
+        aria-label="Open menu"
       >
-        {isOpen ? <FaTimes /> : <FaBars />}
+        {isOpen ? <FaXmark className="size-5" /> : <FaBars className="size-5" />}
       </button>
 
       <div
-        className={`z-50 fixed top-0 left-0 w-full h-full bg-neutral-800 transition-transform transform ${
-          isOpen ? "translate-x-0" : "-translate-x-full hidden"
-        } md:hidden`}
-      >
-        <button
-          className="z-50 absolute top-5 right-4 border rounded-md border-neutral-300 p-1 text-white focus:outline-none md:hidden"
-          onClick={toggleMenu}
-        >
-          {isOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
-        </button>
+        className={backdropClass}
+        aria-hidden
+        onClick={() => setIsOpen(false)}
+      />
 
-        <div className="absolute p-5 w-full ">
-          <h1 className="text-3xl font-bold w-fit">Let&apos;s see</h1>
+      <aside className={panelClass} aria-label="Mobile menu">
+        <div className="flex h-16 items-center justify-between border-b border-neutral-800 px-4">
+          <Link
+            href="/app"
+            onClick={() => setIsOpen(false)}
+            className="text-lg font-bold text-white"
+          >
+            Let&apos;s see
+          </Link>
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-neutral-400 hover:bg-neutral-800 hover:text-white"
+            aria-label="Close menu"
+          >
+            <FaXmark className="size-5" />
+          </button>
         </div>
 
-        <ul className="flex flex-col items-center justify-center h-full space-y-8 text-white">
-          <div className="w-full flex  flex-col items-center mr-5 gap-3">
-            <button
-              onClick={() => link("/app")}
-              className=" flex flex-row gap-2 items-center justify-center w-72 px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-            >
-              Home
-            </button>
+        <nav className="flex flex-col gap-1 p-4">
+          <button type="button" onClick={() => go("/app")} className={menuItemClass}>
+            <HiHome className="size-5 shrink-0" /> Home
+          </button>
+          <button type="button" onClick={() => go("/app/reel")} className={menuItemClass}>
+            <FcFilmReel className="size-5 shrink-0" /> Reels
+          </button>
+          <button
+            type="button"
+            onClick={() => go("/app/tvbygenre/list/35-Comedy")}
+            className={menuItemClass}
+          >
+            TV genres
+          </button>
+          <button
+            type="button"
+            onClick={() => go("/app/moviebygenre/list/16-Animation")}
+            className={menuItemClass}
+          >
+            Movie genres
+          </button>
+          <button type="button" onClick={() => go("/app/profile")} className={menuItemClass}>
+            <FaUser className="size-5 shrink-0" /> Discover people
+          </button>
 
-            <button
-              onClick={() => link(`/app/tvbygenre/list/35-Comedy`)}
-              className=" flex flex-row gap-2 items-center justify-center w-72 px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-            >
-              Tv Genre
-            </button>
+          {status === "anon" && (
+            <>
+              <div className="my-2 border-t border-neutral-800" />
+              <button
+                type="button"
+                onClick={() => go("/login")}
+                className="w-full rounded-xl bg-neutral-700 px-4 py-3 text-center font-medium text-white hover:bg-neutral-600"
+              >
+                Log in
+              </button>
+              <button
+                type="button"
+                onClick={() => go("/signup")}
+                className="w-full rounded-xl bg-blue-600 px-4 py-3 text-center font-medium text-white hover:bg-blue-500"
+              >
+                Sign up
+              </button>
+            </>
+          )}
 
-            <button
-              onClick={() => link(`/app/moviebygenre/list/16-Animation`)}
-              className=" flex flex-row gap-2 items-center justify-center w-72 px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-            >
-              Movie Genre
-            </button>
+          {status === "needs_profile" && (
+            <>
+              <div className="my-2 border-t border-neutral-800" />
+              <button
+                type="button"
+                onClick={() => go("/app/profile/setup")}
+                className="w-full rounded-xl bg-amber-600 px-4 py-3 text-center font-medium text-white hover:bg-amber-500"
+              >
+                Complete profile
+              </button>
+              <div className="mt-2">
+                <SignOut />
+              </div>
+            </>
+          )}
 
-            <button
-              onClick={() => link(`/app/profile`)}
-              className=" flex flex-row gap-2 items-center justify-center w-72 px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-            >
-              <FaUser /> <span>User</span>
-            </button>
-
-            <button
-              className=" flex flex-row gap-2 items-center justify-center w-72 px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-              onClick={() => link(`/app/notification`)}
-            >
-              <IoNotifications /> <span>Notifi</span>
-            </button>
-            <button
-              className=" flex flex-row gap-2 items-center justify-center w-72 px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-              onClick={() => link(`/app/messages`)}
-            >
-              <IoNotifications /> <span>Message's</span>
-            </button>
-
-            <button
-              onClick={() =>
-                link(username ? `/app/profile/${username}` : "/app/profile")
-              }
-              className=" flex flex-row gap-2 items-center justify-center w-72 px-4 py-2 rounded-md bg-neutral-600 hover:bg-neutral-500 relative"
-            >
-              My Profile
-            </button>
-
-            <div className="text-xl hover:text-gray-400">
-              <SignOut />
-            </div>
-          </div>
-        </ul>
-      </div>
+          {status === "ok" && (
+            <>
+              <button
+                type="button"
+                onClick={() => go("/app/notification")}
+                className={menuItemClass}
+              >
+                <IoNotificationsOutline className="size-5 shrink-0" /> Notifications
+              </button>
+              <button
+                type="button"
+                onClick={() => go("/app/messages")}
+                className={menuItemClass}
+              >
+                <LuSend className="size-5 shrink-0" /> Messages
+              </button>
+              <button
+                type="button"
+                onClick={() => go(username ? `/app/profile/${username}` : "/app/profile")}
+                className={menuItemClass}
+              >
+                <FaUser className="size-5 shrink-0" /> My profile
+              </button>
+              <div className="my-2 border-t border-neutral-800" />
+              <div className="px-2">
+                <SignOut />
+              </div>
+            </>
+          )}
+        </nav>
+      </aside>
     </div>
   );
 };

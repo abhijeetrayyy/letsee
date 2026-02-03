@@ -56,18 +56,16 @@ export default async function StatisticsGenre({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center  p-1 ">
-      <div className="w-full max-w-6xl">
-        <h2 className="text-xl font-semibold mb-6 text-gray-100">
-          @{username} Top Genres
-        </h2>
-      </div>
+    <div className="flex flex-col w-full">
+      <h2 className="text-lg font-bold text-white tracking-tight mb-4">
+        @{username} top genres
+      </h2>
       {topGenres.length > 0 ? (
-        <div className="w-full max-w-5xl  bg-neutral-800 p-6 rounded-lg shadow-md h-96">
+        <div className="w-full h-80">
           <BarChart data={chartData} />
         </div>
       ) : (
-        <p className="text-gray-500">No genres found.</p>
+        <p className="text-neutral-500 text-sm py-8 text-center">No genres yet. Watch titles to see your top genres.</p>
       )}
     </div>
   );

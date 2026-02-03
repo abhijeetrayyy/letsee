@@ -2,9 +2,8 @@
 
 import LoginForm from "@/components/login/loginform";
 import { supabase } from "@/utils/supabase/client";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function LoginPageClient() {
   const [loading, setLoading] = useState(false);
@@ -52,7 +51,7 @@ export default function LoginPageClient() {
       } else {
         router.push("/app");
       }
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
@@ -60,18 +59,11 @@ export default function LoginPageClient() {
   };
 
   return (
-    <>
-      <div className="w-full bg-neutral-700 flex justify-center p-4">
-        <Link className="max-w-6xl w-full m-auto text-gray-100" href="/app">
-          Let&apos;see
-        </Link>
-      </div>
-      <LoginForm
-        onLogin={login}
-        loading={loading}
-        error={error}
-        info={info}
-      />
-    </>
+    <LoginForm
+      onLogin={login}
+      loading={loading}
+      error={error}
+      info={info}
+    />
   );
 }

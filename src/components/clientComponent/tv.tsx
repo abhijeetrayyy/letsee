@@ -1,5 +1,7 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+
+import React, { useContext, useEffect, useRef, useState } from "react";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import { LiaImdb } from "react-icons/lia";
 import Link from "next/link";
@@ -9,12 +11,33 @@ import SendMessageModal from "@components/message/sendCard";
 import { LuSend } from "react-icons/lu";
 import ImageViewer from "@components/clientComponent/ImaeViewer";
 import ImdbRating from "@components/movie/imdbRating";
-import Image from "next/image";
+import UserRating from "@components/movie/UserRating";
+import WatchedReview from "@components/movie/WatchedReview";
+import PublicReviews from "@components/movie/PublicReviews";
+import TvShowProgress from "@components/tv/TvShowProgress";
+import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
+import WatchOptionsViewer from "@components/clientComponent/watchOptionView";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa6";
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  de: "German",
+  ja: "Japanese",
+  ko: "Korean",
+  hi: "Hindi",
+  pt: "Portuguese",
+  zh: "Chinese",
+  it: "Italian",
+};
+
+function langLabel(iso: string): string {
+  return LANGUAGE_NAMES[iso] ?? iso?.toUpperCase() ?? "";
+}
 
 export default function Tv({
   cast,
-  crew,
   videos,
   ExternalIDs,
   show,
@@ -22,78 +45,31 @@ export default function Tv({
   Pimages,
   Bimages,
 }: any) {
+  const { hasWatched, refreshPreferences } = useContext(UserPrefrenceContext);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cardData, setCardData] = useState<any>([]);
+  const [markTVWatchedModalOpen, setMarkTVWatchedModalOpen] = useState(false);
   const [showFullOverview, setShowFullOverview] = useState(false);
   const showGenres = Array.isArray(show?.genres) ? show.genres : [];
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const [itemWidth, setItemWidth] = useState(200); // Default item width
-  const [visibleItems, setVisibleItems] = useState(4); // Default number of visible items
 
   const handleScroll = () => {
-    const element = scrollRef.current;
-    if (element) {
-      const { scrollLeft, scrollWidth, clientWidth } = element;
+    const el = scrollRef.current;
+    if (el) {
+      const { scrollLeft, scrollWidth, clientWidth } = el;
       setCanScrollLeft(scrollLeft > 0);
       setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 10);
     }
   };
 
-  const scrollLeft = () => {
-    const element = scrollRef.current;
-    if (element) {
-      const itemWidth = element.querySelector(".card-item")?.clientWidth || 300;
-      element.scrollBy({ left: -itemWidth * 2, behavior: "smooth" });
-    }
-  };
-
-  const scrollRight = () => {
-    const element = scrollRef.current;
-    if (element) {
-      const itemWidth = element.querySelector(".card-item")?.clientWidth || 300;
-      element.scrollBy({ left: itemWidth * 2, behavior: "smooth" });
-    }
-  };
   useEffect(() => {
-    const calculateItemWidth = () => {
-      const element = scrollRef.current;
-      if (element) {
-        const containerWidth = element.clientWidth;
-        const baseItemWidth = 200; // Base width for each item
-        const gap = 16; // Gap between items (adjust as needed)
-        const peekWidth = containerWidth * 0.15; // 15% of container width for peek
-
-        // Calculate the number of items that can fit in the container
-        let itemsPerView = Math.floor(
-          (containerWidth - peekWidth) / (baseItemWidth + gap)
-        );
-
-        // Ensure itemsPerView is always greater than 2
-        if (itemsPerView < 2) {
-          itemsPerView = 2; // Set a minimum of 2 items
-        }
-
-        // Adjust the item width to fit the calculated number of items
-        const adjustedItemWidth =
-          (containerWidth - peekWidth - gap * itemsPerView) / itemsPerView;
-
-        setItemWidth(adjustedItemWidth);
-        setVisibleItems(itemsPerView);
-      }
-    };
-    calculateItemWidth();
-    window.addEventListener("resize", calculateItemWidth);
-    return () => window.removeEventListener("resize", calculateItemWidth);
-  }, []);
-
-  useEffect(() => {
-    const element = scrollRef.current;
-    if (element) {
-      element.addEventListener("scroll", handleScroll);
-      setTimeout(handleScroll, 100); // Initial check
-      return () => element.removeEventListener("scroll", handleScroll);
+    const el = scrollRef.current;
+    if (el) {
+      el.addEventListener("scroll", handleScroll);
+      setTimeout(handleScroll, 100);
+      return () => el.removeEventListener("scroll", handleScroll);
     }
   }, [show]);
 
@@ -102,322 +78,380 @@ export default function Tv({
     setIsModalOpen(true);
   };
 
-  const toggleOverview = () => {
-    setShowFullOverview(!showFullOverview);
-  };
+  const toggleOverview = () => setShowFullOverview(!showFullOverview);
 
-  // Filter out "Specials" and get seasons
   const seasons = Array.isArray(show?.seasons)
-    ? show.seasons.filter((item: any) => item.name !== "Specials")
+    ? show.seasons.filter((s: any) => s.name !== "Specials")
     : [];
+  const seasonsForModal = seasons.map((s: any) => ({
+    season_number: Number(s.season_number),
+    name: String(s.name ?? `Season ${s.season_number}`),
+    episode_count: Number(s.episode_count) || 0,
+  }));
   const firstSeason = seasons[0];
   const otherSeasons = seasons.slice(1);
+
+  const tagline = show?.tagline?.trim();
+  const voteAvg = show?.vote_average != null ? Number(show.vote_average).toFixed(1) : null;
+  const voteCount = show?.vote_count;
+  const status = show?.status;
+  const type = show?.type;
+  const origLang = show?.original_language ? langLabel(show.original_language) : null;
+  const networks = show?.networks ?? [];
+  const createdBy = show?.created_by ?? [];
+  const numSeasons = show?.number_of_seasons;
+  const numEpisodes = show?.number_of_episodes;
+  const firstAir = show?.first_air_date;
+  const lastAir = show?.last_air_date;
+
+  const backdropUrl =
+    show?.backdrop_path && !show?.adult
+      ? `https://image.tmdb.org/t/p/w1280${show.backdrop_path}`
+      : null;
+  const posterUrl =
+    show?.adult
+      ? "/pixeled.webp"
+      : show?.poster_path
+        ? `https://image.tmdb.org/t/p/w342${show.poster_path}`
+        : "/no-photo.webp";
 
   return (
     <div>
       <SendMessageModal
-        media_type={"tv"}
+        media_type="tv"
         data={cardData}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
-      <div className="text-white relative w-full bg-neutral-900">
-        {/* Background Image */}
-        <div className="relative flex flex-col items-center justify-center w-full min-h-[550px] h-full">
-          <div className="md:absolute w-full h-full overflow-hidden">
-            <div
-              className="absolute inset-0 z-10 bg-linear-to-r from-neutral-900 via-transparent to-neutral-900"
-              style={{
-                background:
-                  "linear-gradient(to left, #171717, transparent 60%, #171717, #171717)",
-              }}
-            ></div>
-            <div
-              className="absolute inset-0 z-10 bg-linear-to-l from-neutral-900 via-transparent to-neutral-900"
-              style={{
-                background:
-                  "linear-gradient(to right, #171717, transparent 60%, #171717, #171717)",
-              }}
-            ></div>
-            <img
-              className="hidden md:flex object-cover w-full h-full opacity-20"
-              src={`${
-                show.backdrop_path && !show.adult
-                  ? `https://image.tmdb.org/t/p/w300${show.backdrop_path}`
-                  : "/backgroundjpeg.webp"
-              }`}
-              width={300}
-              height={300}
-              alt=""
-            />
-          </div>
-
-          {/* Show Content */}
-          <div className="max-w-[1520px] w-full relative z-10 flex flex-col md:flex-row gap-8 my-4 px-4">
-            {/* Poster */}
-            <div className="flex-1">
+      <MarkTVWatchedModal
+        showId={String(id)}
+        showName={show?.name || show?.title || ""}
+        seasons={seasonsForModal}
+        isOpen={markTVWatchedModalOpen}
+        onClose={() => setMarkTVWatchedModalOpen(false)}
+        onSuccess={() => refreshPreferences()}
+        watchedPayload={{
+          itemId: show?.id ?? id,
+          name: show?.name || show?.title || "",
+          imgUrl: show?.poster_path || show?.backdrop_path ? `https://image.tmdb.org/t/p/w342${show?.poster_path || show?.backdrop_path}` : "",
+          adult: show?.adult ?? false,
+          genres: showGenres.map((g: any) => g.name),
+        }}
+      />
+      <div className="text-white relative w-full bg-neutral-900 min-h-screen">
+        {/* Hero: backdrop + title + tagline */}
+        <section className="relative w-full min-h-[320px] md:min-h-[420px] flex flex-col justify-end">
+          {backdropUrl && (
+            <>
               <img
-                className="rounded-md w-fit h-full max-h-[600px] shadow-lg md:float-right"
-                src={
-                  show.adult
-                    ? "/pixeled.webp"
-                    : `https://image.tmdb.org/t/p/w342${show.poster_path}`
-                }
-                alt={show.name}
+                src={backdropUrl}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover opacity-40"
+              />
+              <div
+                className="absolute inset-0 bg-linear-to-t from-neutral-900 via-neutral-900/60 to-transparent"
+                aria-hidden
+              />
+            </>
+          )}
+          <div className="relative z-10 max-w-6xl w-full mx-auto px-4 pb-6 md:pb-8">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className="px-2.5 py-0.5 rounded bg-indigo-500/90 text-white text-xs font-semibold uppercase tracking-wide">
+                TV Series
+              </span>
+              {show?.adult && (
+                <span className="px-2.5 py-0.5 rounded bg-red-600 text-white text-xs font-semibold">
+                  Adult
+                </span>
+              )}
+              {status && (
+                <span className="text-neutral-400 text-sm">{status}</span>
+              )}
+              {type && (
+                <span className="text-neutral-400 text-sm">{type}</span>
+              )}
+            </div>
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white drop-shadow-md">
+              {show?.name}
+            </h1>
+            {tagline && (
+              <p className="mt-2 text-lg md:text-xl text-neutral-300 italic max-w-2xl">
+                {tagline}
+              </p>
+            )}
+            {/* Key facts */}
+            <div className="mt-4 flex flex-wrap gap-2 md:gap-3 text-sm">
+              {voteAvg != null && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-neutral-700/80 text-white">
+                  <span className="text-amber-400 font-semibold">★ {voteAvg}</span>
+                  {voteCount != null && voteCount > 0 && (
+                    <span className="text-neutral-400">({voteCount.toLocaleString()} votes)</span>
+                  )}
+                </span>
+              )}
+              {firstAir && (
+                <span className="px-2.5 py-1 rounded-md bg-neutral-700/80 text-neutral-200">
+                  {firstAir}
+                  {lastAir && lastAir !== firstAir ? ` – ${lastAir}` : ""}
+                </span>
+              )}
+              {numSeasons != null && numSeasons > 0 && (
+                <span className="px-2.5 py-1 rounded-md bg-neutral-700/80 text-neutral-200">
+                  {numSeasons} season{numSeasons !== 1 ? "s" : ""}
+                </span>
+              )}
+              {numEpisodes != null && numEpisodes > 0 && (
+                <span className="px-2.5 py-1 rounded-md bg-neutral-700/80 text-neutral-200">
+                  {numEpisodes} episodes
+                </span>
+              )}
+              {origLang && (
+                <span className="px-2.5 py-1 rounded-md bg-neutral-700/80 text-neutral-200">
+                  {origLang}
+                </span>
+              )}
+              {networks.length > 0 && (
+                <span className="px-2.5 py-1 rounded-md bg-neutral-700/80 text-neutral-200">
+                  {networks.slice(0, 2).map((n: any) => n.name).join(", ")}
+                </span>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Main content: poster + details */}
+        <section className="max-w-6xl w-full mx-auto px-4 py-8">
+          <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
+            <div className="shrink-0 w-full lg:w-72 xl:w-80">
+              <img
+                src={posterUrl}
+                alt={show?.name ?? "Poster"}
+                className="w-full rounded-xl shadow-xl object-cover aspect-2/3 max-h-[480px]"
               />
             </div>
 
-            {/* Show Details */}
-            <div className="flex-2 w-full">
-              <h1 className="text-4xl font-bold mb-4">
-                {show?.adult && (
-                  <span className="text-sm px-3 py-1 rounded-md m-2 bg-red-600 text-white z-20">
-                    Adult
-                  </span>
-                )}
-                {show.name}
-                <span className="text-sm ml-1">-Tv</span>
-              </h1>
-
-              {/* Buttons */}
-              <div className="w-full bg-neutral-800 overflow-hidden my-4">
+            <div className="flex-1 min-w-0 space-y-6">
+              {/* Actions: Watched / Favorites / Watchlist / Share */}
+              <div className="flex flex-wrap gap-2">
                 <ThreePrefrenceBtn
-                  genres={showGenres.map((genre: any) => genre.name)}
-                  cardId={show.id}
-                  cardType={"tv"}
-                  cardName={show.name || show.title}
-                  cardAdult={show.adult}
-                  cardImg={show.poster_path || show.backdrop_path}
+                  variant="detail"
+                  genres={showGenres.map((g: any) => g.name)}
+                  cardId={show?.id}
+                  cardType="tv"
+                  cardName={show?.name || show?.title}
+                  cardAdult={show?.adult}
+                  cardImg={show?.poster_path || show?.backdrop_path}
+                  onAddWatchedTv={() => setMarkTVWatchedModalOpen(true)}
                 />
-                <div className="py-2 border-t border-neutral-700 bg-neutral-700 hover:bg-neutral-600 transition-colors rounded-b-md">
-                  <button
-                    className="w-full flex justify-center text-lg text-center hover:text-neutral-400 transition-colors"
-                    onClick={() => handleCardTransfer(show)}
-                  >
-                    <LuSend />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCardTransfer(show)}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-base font-medium bg-neutral-700/80 text-neutral-200 hover:bg-neutral-600 border border-neutral-600 hover:border-neutral-500 transition-colors shrink-0"
+                  aria-label="Share"
+                >
+                  <LuSend className="text-lg shrink-0" aria-hidden /> Share
+                </button>
               </div>
 
-              {/* Popularity */}
-              {show?.popularity && (
-                <div className="my-4 text-neutral-300">
-                  Popularity:{" "}
-                  <span className="text-green-600 font-bold">
-                    {show.popularity}
-                  </span>
-                </div>
-              )}
-
-              {/* IMDb Link */}
+              {/* IMDb */}
               {ExternalIDs?.imdb_id && (
-                <div className="flex flex-row items-center gap-2 my-4 text-neutral-300">
-                  <LiaImdb className="text-4xl" />
+                <div className="flex items-center gap-2">
+                  <LiaImdb className="text-4xl text-amber-400" />
                   <Link
                     target="_blank"
+                    rel="noopener noreferrer"
                     href={`https://imdb.com/title/${ExternalIDs.imdb_id}`}
-                    className="hover:underline"
+                    className="text-neutral-200 hover:text-amber-400 transition"
                   >
                     <ImdbRating id={ExternalIDs.imdb_id} />
                   </Link>
                 </div>
               )}
 
+              {/* Your rating & reviews */}
+              <div className="space-y-4 pt-2 border-t border-neutral-700">
+                <TvShowProgress showId={id} />
+                <UserRating
+                  itemId={id}
+                  itemType="tv"
+                  itemName={show?.name}
+                  imageUrl={show?.poster_path ? `https://image.tmdb.org/t/p/w92${show.poster_path}` : undefined}
+                  isWatched={hasWatched(id)}
+                />
+                <WatchedReview itemId={id} itemType="tv" isWatched={hasWatched(id)} />
+                <PublicReviews itemId={id} itemType="tv" />
+              </div>
+
               {/* Overview */}
-              <div className="my-4 text-neutral-300">
-                <p>
-                  {showFullOverview
-                    ? show.overview
-                    : show.overview.slice(0, 300)}
-                  {show.overview.length > 300 && !showFullOverview && "..."}
-                </p>
-                {show.overview.length > 300 && (
-                  <button
-                    onClick={toggleOverview}
-                    className="text-blue-500 hover:text-blue-400 mt-2"
-                  >
-                    {showFullOverview ? "Read Less" : "Read More"}
-                  </button>
-                )}
-              </div>
-
-              {/* Show Details */}
-              <div className="my-2 flex flex-col gap-1 text-neutral-300">
-                <p>First Air Date: {show.first_air_date}</p>
-                <p>Last Air Date: {show.last_air_date}</p>
-                <p>Status: {show.status}</p>
-                <p>Number of Seasons: {show.number_of_seasons}</p>
-                <p>Number of Episodes: {show.number_of_episodes}</p>
-              </div>
-
-              {/* Genres */}
-              <div className="my-4 flex flex-row gap-2">
-                <div className="text-neutral-300 mb-2">Genre:</div>
-                <div className="flex flex-wrap gap-1">
-                  {show.genres.map((genre: any) => (
-                    <Link
-                      href={`/app/tvbygenre/list/${genre.id}-${genre.name}`}
-                      key={genre.id}
-                      className="px-3 py-1 bg-blue-800 hover:bg-neutral-700 rounded-full text-sm transition-colors"
+              {show?.overview && (
+                <div className="pt-4 border-t border-neutral-700">
+                  <h2 className="text-lg font-semibold text-white mb-2">Overview</h2>
+                  <p className="text-neutral-300 text-sm leading-relaxed">
+                    {showFullOverview ? show.overview : show.overview.slice(0, 320)}
+                    {show.overview.length > 320 && !showFullOverview && "…"}
+                  </p>
+                  {show.overview.length > 320 && (
+                    <button
+                      type="button"
+                      onClick={toggleOverview}
+                      className="mt-2 text-indigo-400 hover:text-indigo-300 text-sm font-medium"
                     >
-                      {genre.name}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-
-              {/* Created By */}
-              {show.created_by.length !== 0 && (
-                <div className="my-4 text-neutral-300">
-                  <span>Created by: </span>
-                  {show.created_by.map((creator: any, index: number) => (
-                    <Link
-                      className="hover:underline"
-                      href={`/app/person/${creator.id}-${creator.name
-                        .trim()
-                        .replace(/[^a-zA-Z0-9]/g, "-")
-                        .replace(/-+/g, "-")}`}
-                      key={creator.id}
-                    >
-                      {creator.name}
-                      {index < show.created_by.length - 1 && ", "}
-                    </Link>
-                  ))}
-                </div>
-              )}
-              {/* Production Companies */}
-              {show.production_companies.length !== 0 && (
-                <div className="my-4 text-neutral-300">
-                  <span>Production Companies: </span>
-                  {show.production_companies.map(
-                    (company: any, index: number) => (
-                      <span className="wrap-break-word" key={index}>
-                        {company.name}
-                        {index < show.production_companies.length - 1 && ", "}
-                      </span>
-                    )
+                      {showFullOverview ? "Read less" : "Read more"}
+                    </button>
                   )}
                 </div>
               )}
+
+              {/* Details */}
+              <div className="pt-4 border-t border-neutral-700 space-y-3">
+                <h2 className="text-lg font-semibold text-white mb-3">Details</h2>
+                {firstAir && (
+                  <div className="text-sm text-neutral-400">
+                    First air: {firstAir}
+                    {lastAir && lastAir !== firstAir && ` · Last air: ${lastAir}`}
+                  </div>
+                )}
+                {status && (
+                  <div className="text-sm text-neutral-400">Status: {status}</div>
+                )}
+                {createdBy.length > 0 && (
+                  <div className="text-sm">
+                    <span className="text-neutral-500">Created by: </span>
+                    {createdBy.map((c: any, i: number) => (
+                      <Link
+                        key={c.id}
+                        href={`/app/person/${c.id}-${String(c.name).trim().replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-")}`}
+                        className="text-neutral-200 hover:text-indigo-400 hover:underline"
+                      >
+                        {c.name}{i < createdBy.length - 1 ? ", " : ""}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                {show?.genres?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-neutral-500 text-sm">Genres: </span>
+                    {show.genres.map((g: any) => (
+                      <Link
+                        key={g.id}
+                        href={`/app/tvbygenre/list/${g.id}-${g.name}`}
+                        className="px-2.5 py-0.5 rounded-full bg-neutral-700 text-neutral-200 text-sm hover:bg-neutral-600 transition"
+                      >
+                        {g.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                {show?.production_companies?.length > 0 && (
+                  <div className="text-sm text-neutral-400">
+                    <span className="text-neutral-500">Production: </span>
+                    {show.production_companies.slice(0, 5).map((c: any, i: number) => (
+                      <span key={c.id}>{c.name}{i < Math.min(5, show.production_companies.length) - 1 ? ", " : ""}</span>
+                    ))}
+                  </div>
+                )}
+                {networks.length > 0 && (
+                  <div className="text-sm text-neutral-400">
+                    <span className="text-neutral-500">Networks: </span>
+                    {networks.map((n: any, i: number) => (
+                      <span key={n.id}>{n.name}{i < networks.length - 1 ? ", " : ""}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Show Cast */}
-        <MovieCast credits={cast} id={show.id} type={"tv"} />
+        <WatchOptionsViewer mediaId={Number(id)} mediaType="tv" country="US" />
+        <MovieCast credits={cast} id={show?.id ?? id} type="tv" />
 
         {/* Seasons */}
         {seasons.length > 0 && (
-          <div className="max-w-7xl w-full mx-auto my-8 px-4 ">
-            <h2 className="text-2xl font-bold mb-4">Seasons</h2>
-            {/* First Season */}
+          <section className="max-w-6xl w-full mx-auto px-4 py-8">
+            <h2 className="text-2xl font-bold text-white mb-4">Seasons</h2>
             {firstSeason && (
-              <div className="mb-8 bg-neutral-800 rounded-lg p-4">
+              <div className="mb-6 rounded-xl overflow-hidden border border-neutral-700 bg-neutral-800/80">
                 <Link
                   href={`/app/tv/${id}/season/${firstSeason.season_number}`}
-                  className="flex flex-col sm:flex-row gap-4 hover:opacity-75 transition-opacity duration-200"
+                  className="flex flex-col sm:flex-row gap-4 p-4 hover:bg-neutral-800 transition-colors"
                 >
                   <img
                     src={
-                      firstSeason.poster_path && !show.adult
+                      firstSeason.poster_path && !show?.adult
                         ? `https://image.tmdb.org/t/p/w342${firstSeason.poster_path}`
                         : "/no-photo.webp"
                     }
                     alt={firstSeason.name}
-                    className="rounded-md object-cover w-full max-w-64"
+                    className="rounded-lg object-cover w-full sm:w-40 aspect-video sm:aspect-2/3"
                   />
-                  <div className="flex-1">
-                    <h3 className="text-xl sm:text-2xl font-semibold text-neutral-100">
-                      {firstSeason.name}
-                    </h3>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xl font-semibold text-white">{firstSeason.name}</h3>
                     <p className="text-sm text-neutral-400 mt-1">
-                      {firstSeason.air_date || "TBA"} • Episodes:{" "}
-                      {firstSeason.episode_count}
+                      {firstSeason.air_date || "TBA"} · {firstSeason.episode_count} episodes
                     </p>
-                    <p className="text-sm text-neutral-300 mt-2 line-clamp-3">
-                      {firstSeason.overview || "No overview available."}
-                    </p>
+                    {firstSeason.overview && (
+                      <p className="text-sm text-neutral-300 mt-2 line-clamp-3">{firstSeason.overview}</p>
+                    )}
                   </div>
                 </Link>
               </div>
             )}
-
-            {/* Other Seasons */}
             {otherSeasons.length > 0 && (
               <div className="relative">
                 <div
                   ref={scrollRef}
-                  className=" flex flex-row gap-4 overflow-x-auto no-scrollbar"
+                  className="flex gap-4 overflow-x-auto pb-2 no-scrollbar"
                 >
                   {otherSeasons.map((season: any) => (
                     <Link
                       href={`/app/tv/${id}/season/${season.season_number}`}
                       key={season.id}
-                      className=" flex flex-col gap-2 hover:opacity-75 transition-opacity duration-200"
+                      className="shrink-0 w-36 flex flex-col gap-2 rounded-lg overflow-hidden border border-neutral-700 bg-neutral-800/80 hover:border-neutral-600 transition"
                     >
                       <img
                         src={
-                          season.poster_path && !show.adult
+                          season.poster_path && !show?.adult
                             ? `https://image.tmdb.org/t/p/w185${season.poster_path}`
                             : "/no-photo.webp"
                         }
                         alt={season.name}
-                        className={`min-w-44 max-w-44 h-full object-cover rounded-md ${itemWidth}`}
+                        className="w-full aspect-2/3 object-cover"
                       />
-                      <div>
-                        <h4 className="text-sm md:text-base font-bold">
-                          {season.name}
-                        </h4>
-                        <p className="text-sm text-neutral-400">
-                          {season.air_date || "TBA"}
-                        </p>
-                        <p className="text-sm text-neutral-400">
-                          Episodes: {season.episode_count}
-                        </p>
+                      <div className="p-2">
+                        <h4 className="text-sm font-semibold text-white truncate">{season.name}</h4>
+                        <p className="text-xs text-neutral-400">{season.air_date || "TBA"}</p>
+                        <p className="text-xs text-neutral-400">{season.episode_count} episodes</p>
                       </div>
                     </Link>
                   ))}
                 </div>
-                {/* Left Fade Overlay */}
-                <div
-                className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-20 bg-linear-to-r from-black to-transparent pointer-events-none transition-opacity duration-300 ${
-                    canScrollLeft ? "opacity-80" : "opacity-0"
-                  }`}
-                />
-
-                {/* Right Fade Overlay */}
-                <div
-                className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-20 bg-linear-to-l from-black to-transparent pointer-events-none transition-opacity duration-300 ${
-                    canScrollRight ? "opacity-80" : "opacity-0"
-                  }`}
-                />
-
-                {/* Scroll Buttons */}
                 {canScrollLeft && (
                   <button
-                    onClick={scrollLeft}
-                    className="hidden md:block absolute left-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+                    type="button"
+                    onClick={() => scrollRef.current?.scrollBy({ left: -280, behavior: "smooth" })}
+                    className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-neutral-800 border border-neutral-600 text-white shadow-lg hover:bg-neutral-700"
+                    aria-label="Scroll left"
                   >
-                    <FaChevronLeft size={20} className="" />
+                    <FaChevronLeft size={18} />
                   </button>
                 )}
                 {canScrollRight && (
                   <button
-                    onClick={scrollRight}
-                    className="hidden md:block absolute right-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+                    type="button"
+                    onClick={() => scrollRef.current?.scrollBy({ left: 280, behavior: "smooth" })}
+                    className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-neutral-800 border border-neutral-600 text-white shadow-lg hover:bg-neutral-700"
+                    aria-label="Scroll right"
                   >
-                    <FaChevronRight size={20} className="" />
+                    <FaChevronRight size={18} />
                   </button>
                 )}
               </div>
             )}
-          </div>
+          </section>
         )}
 
-        {/* Videos */}
         <Video videos={videos} movie={show} />
-
-        {/* Images */}
         <ImageViewer movie={show} Bimages={Bimages} Pimages={Pimages} />
       </div>
     </div>

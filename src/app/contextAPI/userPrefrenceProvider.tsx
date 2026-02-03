@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import UserPrefrenceContext, {
   defaultPreferenceState,
-  PendingAction,
+  type PendingAction,
+  type PendingActionItem,
   PreferenceItem,
+  type PreferenceType,
   TogglePreferencePayload,
   TogglePreferenceResult,
   UserPreferenceState,
@@ -13,11 +15,14 @@ import { supabase } from "@/utils/supabase/client";
 
 const normalizeId = (value: string | number): string => String(value);
 
-const API_ENDPOINTS = {
+const API_ENDPOINTS: Record<
+  PreferenceType,
+  { add: string; remove: string }
+> = {
   watched: { add: "/api/watchedButton", remove: "/api/deletewatchedButton" },
   watchlater: { add: "/api/watchlistButton", remove: "/api/deletewatchlistButton" },
   favorite: { add: "/api/favoriteButton", remove: "/api/deletefavoriteButton" },
-} as const;
+};
 
 function applyUpdate(
   prev: UserPreferenceState,
@@ -68,13 +73,24 @@ function applyUpdate(
   return next;
 }
 
+type QueuedItem = {
+  payload: TogglePreferencePayload;
+  resolve: (result: TogglePreferenceResult) => void;
+  reject: (err: unknown) => void;
+};
+
+const RETRY_DELAY_MS = 400;
+
 const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
   const [userPrefrence, setUserPrefrence] = useState<UserPreferenceState>(
     defaultPreferenceState
   );
   const [loading, setLoading] = useState(true);
-  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [pendingActions, setPendingActions] = useState<PendingActionItem[]>([]);
   const [user, setUser] = useState(false);
+
+  const queueRef = useRef<QueuedItem[]>([]);
+  const processingRef = useRef(false);
 
   const refreshPreferences = useCallback(async () => {
     setLoading(true);
@@ -157,64 +173,145 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
     [userPrefrence.watchlater]
   );
 
+  const processQueue = useCallback(() => {
+    if (processingRef.current || queueRef.current.length === 0) return;
+
+    const item = queueRef.current.shift()!;
+    const { payload, resolve } = item;
+    const { itemId, funcType } = payload;
+
+    processingRef.current = true;
+
+    const endpoint = payload.currentState
+      ? API_ENDPOINTS[funcType].remove
+      : API_ENDPOINTS[funcType].add;
+
+    const previousState = userPrefrence;
+    setUserPrefrence((prev) => applyUpdate(prev, payload));
+
+    const body: Record<string, unknown> = {
+      itemId: payload.itemId,
+      name: payload.name,
+      mediaType: payload.mediaType,
+      imgUrl: payload.imgUrl,
+      adult: payload.adult,
+      genres: payload.genres,
+    };
+    if (funcType === "watched" && payload.currentState) {
+      body.keepData = payload.keepData === true;
+    }
+    const doFetch = (): Promise<{ ok: boolean; message?: string }> =>
+      fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then(async (response) => {
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            return { ok: false, message: data?.error ?? "Request failed" };
+          }
+          return { ok: true, message: data?.message };
+        })
+        .catch((err) => ({
+          ok: false,
+          message: (err as Error).message ?? "An error occurred while updating preference.",
+        }));
+
+    const removePending = () =>
+      setPendingActions((prev) =>
+        prev.filter((p) => !(p.itemId === itemId && p.funcType === funcType))
+      );
+
+    const finish = (result: TogglePreferenceResult, rollback: boolean) => {
+      if (rollback) {
+        setUserPrefrence(previousState);
+      }
+      removePending();
+      processingRef.current = false;
+      resolve(result);
+      setTimeout(processQueue, 0);
+    };
+
+    const runOne = (): Promise<TogglePreferenceResult> =>
+      doFetch().then((result) => {
+        if (result.ok) {
+          return refreshPreferences().then(() => result);
+        }
+        return result;
+      });
+
+    runOne()
+      .then((result) => {
+        if (result.ok) {
+          finish(result, false);
+        } else {
+          setTimeout(() => {
+            runOne().then((retryResult) => {
+              if (retryResult.ok) {
+                finish(retryResult, false);
+              } else {
+                finish(retryResult, true);
+              }
+            }).catch(() => {
+              finish(
+                { ok: false, message: "Request failed. Please try again." },
+                true
+              );
+            });
+          }, RETRY_DELAY_MS);
+        }
+      })
+      .catch((err) => {
+        setTimeout(() => {
+          runOne()
+            .then((retryResult) => {
+              if (retryResult.ok) {
+                finish(retryResult, false);
+              } else {
+                finish(
+                  { ok: false, message: (retryResult.message ?? (err as Error).message) ?? "Request failed" },
+                  true
+                );
+              }
+            })
+            .catch(() => {
+              finish(
+                { ok: false, message: (err as Error).message ?? "Request failed" },
+                true
+              );
+            });
+        }, RETRY_DELAY_MS);
+      });
+  }, [userPrefrence, refreshPreferences]);
+
   const togglePreference = useCallback(
-    async (payload: TogglePreferencePayload): Promise<TogglePreferenceResult> => {
+    (payload: TogglePreferencePayload): Promise<TogglePreferenceResult> => {
       if (loading) {
-        return { ok: false, message: "Preferences are still loading." };
+        return Promise.resolve({
+          ok: false,
+          message: "Preferences are still loading.",
+        });
       }
       if (!user) {
-        return { ok: false, message: "Please log in to perform this action." };
-      }
-
-      const { itemId, funcType } = payload;
-      const endpoint = payload.currentState
-        ? API_ENDPOINTS[funcType].remove
-        : API_ENDPOINTS[funcType].add;
-
-      const previousState = userPrefrence;
-      setPendingAction({ itemId, funcType });
-
-      setUserPrefrence((prev) => applyUpdate(prev, payload));
-
-      try {
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            itemId: payload.itemId,
-            name: payload.name,
-            mediaType: payload.mediaType,
-            imgUrl: payload.imgUrl,
-            adult: payload.adult,
-            genres: payload.genres,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          setUserPrefrence(previousState);
-          return {
-            ok: false,
-            message: data?.error ?? "Request failed",
-          };
-        }
-
-        return { ok: true, message: data?.message };
-      } catch (error) {
-        setUserPrefrence(previousState);
-        return {
+        return Promise.resolve({
           ok: false,
-          message:
-            (error as Error).message ??
-            "An error occurred while updating preference.",
-        };
-      } finally {
-        setPendingAction(null);
+          message: "Please log in to perform this action.",
+        });
       }
+
+      return new Promise((resolve, reject) => {
+        const { itemId, funcType } = payload;
+        queueRef.current.push({ payload, resolve, reject });
+        setPendingActions((prev) => [...prev, { itemId, funcType }]);
+        processQueue();
+      });
     },
-    [loading, user, userPrefrence]
+    [loading, user, processQueue]
   );
+
+  const pendingAction: PendingAction =
+    pendingActions.length > 0 ? pendingActions[0]! : null;
 
   const value = useMemo(
     () => ({
@@ -222,6 +319,7 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
       setUserPrefrence,
       loading,
       pendingAction,
+      pendingActions,
       user,
       refreshPreferences,
       togglePreference,
@@ -233,6 +331,7 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
       userPrefrence,
       loading,
       pendingAction,
+      pendingActions,
       user,
       refreshPreferences,
       togglePreference,

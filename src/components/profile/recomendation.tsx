@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import MediaCard from "@/components/cards/MediaCard";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { MdDeleteOutline } from "react-icons/md";
@@ -276,32 +276,25 @@ const RecommendationTile = ({ isOwner, name, id }: RecommendationTileProps) => {
               </button>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                 {searchResults.map((item) => (
-                  <div
+                  <MediaCard
                     key={item.id}
-                    className="bg-neutral-700 rounded-md overflow-hidden flex flex-col justify-between h-auto group relative"
-                  >
-                    <img
-                      className="w-full h-40 object-cover"
-                      src={
-                        item.item_adult
-                          ? "/pixeled.webp"
-                          : item.image_url
-                          ? `https://image.tmdb.org/t/p/w185/${item.image_url}`
-                          : "/no-photo.webp"
-                      }
-                      alt={item.item_name}
-                    />
-                    <div className="p-2 bg-neutral-900">
-                      <p className="text-sm text-neutral-100 line-clamp-2">
-                        {item.item_name}
-                      </p>
+                    id={Number(item.item_id)}
+                    title={item.item_name}
+                    mediaType={item.item_type === "tv" ? "tv" : "movie"}
+                    posterPath={item.image_url}
+                    adult={!!item.item_adult}
+                    genres={[]}
+                    showActions={false}
+                    typeLabel={item.item_type}
+                    subtitle={
                       <button
+                        type="button"
                         onClick={() =>
                           isRecommended(item.item_id)
                             ? handleRemove(item.item_id)
                             : handleAddToRecommendations(item)
                         }
-                        className="mt-2 w-full bg-blue-600 text-white py-1 px-2 rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center disabled:bg-blue-400 disabled:cursor-not-allowed"
+                        className="mt-1 w-full bg-blue-600 text-white py-1.5 px-2 rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center gap-1 disabled:bg-blue-400 disabled:cursor-not-allowed text-sm"
                         disabled={
                           actionLoading[`add-${item.id}`] ||
                           actionLoading[`remove-${item.item_id}`]
@@ -316,8 +309,8 @@ const RecommendationTile = ({ isOwner, name, id }: RecommendationTileProps) => {
                           "Add"
                         )}
                       </button>
-                    </div>
-                  </div>
+                    }
+                  />
                 ))}
               </div>
             </div>
@@ -332,58 +325,42 @@ const RecommendationTile = ({ isOwner, name, id }: RecommendationTileProps) => {
               >
                 {watchedItems.length > 0 ? (
                   watchedItems.map((item) => (
-                    <div
+                    <MediaCard
                       key={item.id}
-                      className="card-item w-32 h-auto rounded-md overflow-hidden flex-shrink-0 flex flex-col justify-between group relative"
-                    >
-                      <div className="absolute top-0 left-0">
-                        <p className="px-1 py-1 bg-neutral-950 text-white rounded-br-md text-xs">
-                          {item.item_type}
-                        </p>
-                      </div>
-                      <Link
-                        className="w-full h-full"
-                        href={`/app/${item.item_type}/${item.item_id}-${(
-                          item.item_name || ""
-                        )
-                          .trim()
-                          .replace(/[^a-zA-Z0-9]/g, "-")
-                          .replace(/-+/g, "-")}`}
-                      >
-                        <img
-                          className="w-full h-full object-cover"
-                          src={
-                            item.item_adult
-                              ? "/pixeled.webp"
-                              : item.image_url
-                              ? `https://image.tmdb.org/t/p/w185/${item.image_url}`
-                              : "/no-photo.webp"
+                      id={Number(item.item_id)}
+                      title={item.item_name}
+                      mediaType={item.item_type === "tv" ? "tv" : "movie"}
+                      posterPath={item.image_url}
+                      adult={!!item.item_adult}
+                      genres={[]}
+                      showActions={false}
+                      typeLabel={item.item_type}
+                      className="card-item w-32 shrink-0"
+                      subtitle={
+                        <button
+                          type="button"
+                          onClick={() =>
+                            isRecommended(item.item_id)
+                              ? handleRemove(item.item_id)
+                              : handleAddToRecommendations(item)
                           }
-                          alt={item.item_name}
-                        />
-                      </Link>
-                      <button
-                        onClick={() =>
-                          isRecommended(item.item_id)
-                            ? handleRemove(item.item_id)
-                            : handleAddToRecommendations(item)
-                        }
-                        className="mt-2 w-full h-10 bg-blue-600 text-white py-1 px-2 rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center disabled:bg-blue-400 disabled:cursor-not-allowed"
-                        disabled={
-                          actionLoading[`add-${item.id}`] ||
-                          actionLoading[`remove-${item.item_id}`]
-                        }
-                      >
-                        {actionLoading[`add-${item.id}`] ||
-                        actionLoading[`remove-${item.item_id}`] ? (
-                          <AiOutlineLoading3Quarters className="animate-spin" />
-                        ) : isRecommended(item.item_id) ? (
-                          <MdDeleteOutline />
-                        ) : (
-                          "Add"
-                        )}
-                      </button>
-                    </div>
+                          className="mt-1 w-full h-10 bg-blue-600 text-white py-1 px-2 rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center gap-1 disabled:bg-blue-400 disabled:cursor-not-allowed text-sm"
+                          disabled={
+                            actionLoading[`add-${item.id}`] ||
+                            actionLoading[`remove-${item.item_id}`]
+                          }
+                        >
+                          {actionLoading[`add-${item.id}`] ||
+                          actionLoading[`remove-${item.item_id}`] ? (
+                            <AiOutlineLoading3Quarters className="animate-spin" />
+                          ) : isRecommended(item.item_id) ? (
+                            <MdDeleteOutline />
+                          ) : (
+                            "Add"
+                          )}
+                        </button>
+                      }
+                    />
                   ))
                 ) : (
                   <p className="text-neutral-400 text-center w-full">
@@ -438,70 +415,34 @@ const RecommendationTile = ({ isOwner, name, id }: RecommendationTileProps) => {
           >
             {recommendations.length > 0 ? (
               recommendations.map((item: any) => (
-                <div
+                <MediaCard
                   key={item.id}
-                  className="card-item w-full max-w-[6rem] md:max-w-[10rem] bg-neutral-700 rounded-md overflow-hidden flex-shrink-0 flex flex-col justify-between h-auto group relative"
-                >
-                  <div className="absolute top-0 left-0">
-                    <p className="px-1 py-1 bg-neutral-950 text-white rounded-br-md text-xs sm:text-sm">
-                      {item.item_type}
-                    </p>
-                  </div>
-                  <Link
-                    className="w-full h-full"
-                    href={`/app/${item.item_type}/${item.item_id}-${(
-                      item.name || ""
-                    )
-                      .trim()
-                      .replace(/[^a-zA-Z0-9]/g, "-")
-                      .replace(/-+/g, "-")}`}
-                  >
-                    <img
-                      className="w-full h-full object-cover"
-                      src={
-                        item.adult
-                          ? "/pixeled.webp"
-                          : item.image
-                          ? `https://image.tmdb.org/t/p/w185/${item.image}`
-                          : "/no-photo.webp"
-                      }
-                      alt={item.name}
-                    />
-                  </Link>
-                  <div className="w-full h-[100px] bg-indigo-700 bottom-0 flex flex-col justify-between">
-                    <div className="w-full flex items-center justify-center bg-neutral-700">
-                      {isOwner && (
-                        <button
-                          onClick={() => handleRemove(item.item_id)}
-                          className="h-full w-full flex items-center justify-center hover:bg-neutral-600 font-bold text-3xl py-1"
-                          disabled={actionLoading[`remove-${item.item_id}`]}
-                        >
-                          {actionLoading[`remove-${item.item_id}`] ? (
-                            <AiOutlineLoading3Quarters className="animate-spin" />
-                          ) : (
-                            <MdDeleteOutline />
-                          )}
-                        </button>
-                      )}
-                    </div>
-                    <Link
-                      className="h-full flex items-center justify-center text-sm md:text-base text-neutral-100 hover:underline"
-                      href={`/app/${item.item_type}/${item.item_id}-${(
-                        item.name || ""
-                      )
-                        .trim()
-                        .replace(/[^a-zA-Z0-9]/g, "-")
-                        .replace(/-+/g, "-")}`}
-                    >
-                      <span>
-                        {item.name &&
-                          (item.name.length > 16
-                            ? item.name.slice(0, 14) + ".."
-                            : item.name)}
-                      </span>
-                    </Link>
-                  </div>
-                </div>
+                  id={Number(item.item_id)}
+                  title={item.name}
+                  mediaType={item.item_type === "tv" ? "tv" : "movie"}
+                  posterPath={item.image}
+                  adult={!!item.adult}
+                  genres={[]}
+                  showActions={false}
+                  typeLabel={item.item_type}
+                  className="card-item max-w-[6rem] md:max-w-40 shrink-0"
+                  subtitle={
+                    isOwner ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRemove(item.item_id)}
+                        className="mt-1 w-full bg-red-600/80 text-white py-1.5 px-2 rounded-md hover:bg-red-600 transition-colors duration-200 flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        disabled={actionLoading[`remove-${item.item_id}`]}
+                      >
+                        {actionLoading[`remove-${item.item_id}`] ? (
+                          <AiOutlineLoading3Quarters className="animate-spin" />
+                        ) : (
+                          <MdDeleteOutline />
+                        )}
+                      </button>
+                    ) : undefined
+                  }
+                />
               ))
             ) : (
               <p className="text-neutral-400 text-center w-full">

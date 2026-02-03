@@ -1,9 +1,9 @@
-// app/users/page.tsx
 import { createClient } from "@/utils/supabase/server";
 import SearchAndFilters from "@components/profile/SearchAndFilters";
 import Link from "next/link";
 
-const getUserData = async () => {
+/** Fetch public profiles with stats. Uses avatar_url if present (migration 011). */
+async function getPublicProfiles() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -11,45 +11,59 @@ const getUserData = async () => {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return { Users: [], isAuthed: false };
+    return { profiles: [], isAuthed: false };
   }
 
-  const { data: Users, error } = await supabase
+  const selectWithAvatar =
+    "username, about, avatar_url, user_cout_stats (watched_count, favorites_count, watchlist_count)";
+  const selectWithoutAvatar =
+    "username, about, user_cout_stats (watched_count, favorites_count, watchlist_count)";
+
+  let result = await supabase
     .from("users")
-    .select(
-      `username,
-      about,
-      user_cout_stats (
-        watched_count,
-        favorites_count,
-        watchlist_count
-      )
-    `
-    )
+    .select(selectWithAvatar)
+    .not("username", "is", null)
+    .eq("visibility", "public")
     .order("updated_at", { ascending: false });
 
-  if (error) {
-    console.error("Error fetching users:", error);
-    return { Users: [], isAuthed: true };
+  if (result.error) {
+    if (result.error.message?.includes("avatar_url") || result.error.code === "42703") {
+      result = await supabase
+        .from("users")
+        .select(selectWithoutAvatar)
+        .not("username", "is", null)
+        .eq("visibility", "public")
+        .order("updated_at", { ascending: false });
+    }
   }
 
-  return { Users, isAuthed: true };
-};
+  if (result.error) {
+    console.error("Error fetching profiles:", result.error);
+    return { profiles: [], isAuthed: true };
+  }
 
-const Page = async () => {
-  const { Users, isAuthed } = await getUserData();
+  const profiles = (result.data ?? []).map((p: Record<string, unknown>) => ({
+    ...p,
+    avatar_url: "avatar_url" in p ? p.avatar_url : null,
+  }));
+
+  return { profiles, isAuthed: true };
+}
+
+export default async function ProfileListPage() {
+  const { profiles, isAuthed } = await getPublicProfiles();
 
   if (!isAuthed) {
     return (
-      <div className="max-w-4xl w-full mx-auto p-6 text-neutral-200">
-        <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-6 text-center">
-          <h1 className="text-2xl font-semibold">Sign in to view users</h1>
+      <div className="min-h-screen bg-neutral-950 text-neutral-200 flex items-center justify-center p-6">
+        <div className="max-w-md w-full rounded-2xl border border-neutral-700 bg-neutral-800/50 p-8 text-center">
+          <h1 className="text-xl font-semibold text-white">Sign in to discover people</h1>
           <p className="mt-2 text-sm text-neutral-400">
-            This section is available to logged-in users.
+            Log in to browse profiles and find your cinema soul.
           </p>
           <Link
             href="/login"
-            className="mt-4 inline-block rounded-md bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-500"
+            className="mt-6 inline-flex items-center justify-center rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-medium text-neutral-900 hover:bg-amber-400 transition-colors"
           >
             Log in
           </Link>
@@ -59,17 +73,19 @@ const Page = async () => {
   }
 
   return (
-    <div className="max-w-6xl w-full mx-auto p-4">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-neutral-300">Users</h1>
-        <p className="text-neutral-500">Find Your Cinema Soul</p>
+    <div className="min-h-screen w-full bg-neutral-950 text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(120,80,40,0.06),transparent)] pointer-events-none" />
+      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+        <header className="mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+            Discover people
+          </h1>
+          <p className="mt-1 text-sm text-neutral-400">
+            Find your cinema soul — browse profiles and connect.
+          </p>
+        </header>
+        <SearchAndFilters users={profiles} />
       </div>
-
-      {/* Pass users data to the Client Component */}
-      <SearchAndFilters users={Users} />
     </div>
   );
-};
-
-export default Page;
+}

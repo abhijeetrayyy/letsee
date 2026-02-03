@@ -1,8 +1,19 @@
 "use client";
 
-import ThreePrefrenceBtn from "@/components/buttons/threePrefrencebtn";
-import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import MediaCard from "@/components/cards/MediaCard";
+import SendMessageModal from "@components/message/sendCard";
+import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+
+function formatWatchedDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  } catch {
+    return "";
+  }
+}
 
 const genreList = [
   "Action",
@@ -26,13 +37,24 @@ const genreList = [
   "War & Politics",
 ];
 
-const WatchedMoviesList = ({ userId }: { userId: string }) => {
+const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwner?: boolean }) => {
+  const { refreshPreferences } = useContext(UserPrefrenceContext);
   const [movies, setMovies] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
   const [genreFilter, setGenreFilter] = useState<string | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareCardData, setShareCardData] = useState<any>(null);
+  const [tvWatchedModalOpen, setTvWatchedModalOpen] = useState(false);
+  const [tvWatchedModalItem, setTvWatchedModalItem] = useState<{
+    item_id: number;
+    item_name: string;
+    image_url: string | null;
+    item_adult: boolean;
+    genres: string[];
+  } | null>(null);
 
   const fetchMovies = useCallback(
     async (page: number, genre: string | null = null) => {
@@ -89,8 +111,71 @@ const WatchedMoviesList = ({ userId }: { userId: string }) => {
     setCurrentPage(1); // Reset to the first page
   }, []);
 
+  const handleShare = useCallback((item: any) => {
+    setShareCardData({
+      id: item.item_id,
+      media_type: item.item_type,
+      title: item.item_name,
+      name: item.item_name,
+      poster_path: item.image_url,
+    });
+    setShareModalOpen(true);
+  }, []);
+
+  const openTvWatchedModal = useCallback((item: any) => {
+    if (item?.item_type !== "tv") return;
+    setTvWatchedModalItem({
+      item_id: item.item_id,
+      item_name: item.item_name,
+      image_url: item.image_url ?? null,
+      item_adult: Boolean(item.item_adult),
+      genres: Array.isArray(item.genres) ? item.genres : [],
+    });
+    setTvWatchedModalOpen(true);
+  }, []);
+
+  const closeTvWatchedModal = useCallback(() => {
+    setTvWatchedModalOpen(false);
+    setTvWatchedModalItem(null);
+  }, []);
+
+  const onTvWatchedSuccess = useCallback(() => {
+    closeTvWatchedModal();
+    refreshPreferences?.();
+    setCurrentPage(1);
+    fetchMovies(1, genreFilter);
+  }, [closeTvWatchedModal, genreFilter, refreshPreferences, fetchMovies]);
+
+  const tvModalItem = tvWatchedModalItem;
+  const imgUrlForPayload = tvModalItem?.image_url
+    ? (tvModalItem.image_url.startsWith("http") ? tvModalItem.image_url : `https://image.tmdb.org/t/p/w342${tvModalItem.image_url}`)
+    : "";
+
   return (
     <div>
+      <SendMessageModal
+        data={shareCardData}
+        media_type={shareCardData?.media_type ?? null}
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+      />
+      {tvModalItem && (
+        <MarkTVWatchedModal
+          showId={String(tvModalItem.item_id)}
+          showName={tvModalItem.item_name}
+          seasons={[]}
+          isOpen={tvWatchedModalOpen}
+          onClose={closeTvWatchedModal}
+          onSuccess={onTvWatchedSuccess}
+          watchedPayload={{
+            itemId: tvModalItem.item_id,
+            name: tvModalItem.item_name,
+            imgUrl: imgUrlForPayload,
+            adult: tvModalItem.item_adult,
+            genres: tvModalItem.genres ?? [],
+          }}
+        />
+      )}
       {/* Genre Filter Buttons */}
       <div className="flex flex-wrap gap-2 mb-4">
         <button
@@ -140,71 +225,52 @@ const WatchedMoviesList = ({ userId }: { userId: string }) => {
         </div>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 ">
-          {memoizedMovies.map((item: any) => (
-            <div
-              className=" relative  group flex flex-col rounded-md bg-black w-full text-gray-300 overflow-hidden "
-              key={item.id}
-            >
-              <Link
-                className="relative h-full"
-                href={`/app/${item.item_type}/${item.item_id}-${item.item_name
-                  .trim()
-                  .replace(/[^a-zA-Z0-9]/g, "-")
-                  .replace(/-+/g, "-")}}`}
-              >
-                <div className="absolute top-0 left-0  lg:opacity-0 lg:group-hover:opacity-100">
-                  {item.item_adult ? (
-                    <p className="p-1 bg-red-600 text-white rounded-br-md text-sm">
-                      Adult
-                    </p>
-                  ) : (
-                    <p className="p-1 bg-black text-white rounded-br-md text-sm">
-                      {item.item_type}
-                    </p>
-                  )}
-                </div>
-                <img
-                  className="relative object-cover h-full w-full"
-                  src={
-                    item.item_adult
-                      ? "/pixeled.webp"
-                      : `https://image.tmdb.org/t/p/w185/${item.image_url}`
-                  }
-                  alt={item.item_name}
-                />
-              </Link>
-              <div className="w-full h-[100px] bg-indigo-700 bottom-0  flex flex-col justify-between text-xs md:text-base">
-                <ThreePrefrenceBtn
-                  genres={item.genres}
-                  cardId={item.item_id}
-                  cardType={item.item_type}
-                  cardName={item.item_name}
-                  cardAdult={item.item_adult}
-                  cardImg={item.image_url}
-                />
-                <div
-                  title={item.name || item.title}
-                  className="w-full flex flex-col gap-2 px-4 text-gray-200 pb-2"
-                >
-                  <Link
-                    href={`/app/${item.item_type}/${
-                      item.item_id
-                    }-${item.item_name
-                      .trim()
-                      .replace(/[^a-zA-Z0-9]/g, "-")
-                      .replace(/-+/g, "-")}}`}
-                  >
-                    <span className="">
-                      {item?.item_name &&
-                        (item.item_name.length > 16
-                          ? item.item_name?.slice(0, 14) + ".."
-                          : item.item_name)}
-                    </span>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ))}
+          {memoizedMovies.map((item: any) => {
+            const subtitle = (
+              <>
+                {item.watched_at && (
+                  <span className="block text-xs text-neutral-500">
+                    Watched {formatWatchedDate(item.watched_at)}
+                  </span>
+                )}
+                {item.score != null && (
+                  <span className="block text-xs text-amber-400/90 font-medium">
+                    {item.score}/10
+                  </span>
+                )}
+                {(isOwner ? item.review_text : item.public_review_text) && (
+                  <span className="block text-xs text-neutral-400 line-clamp-2 mt-0.5">
+                    {(() => {
+                      const text = isOwner ? item.review_text : item.public_review_text;
+                      return text && text.length > 50 ? text.slice(0, 50) + "…" : text;
+                    })()}
+                  </span>
+                )}
+              </>
+            );
+            return (
+              <MediaCard
+                key={item.item_id}
+                id={item.item_id}
+                title={item.item_name}
+                mediaType={item.item_type}
+                imageUrl={
+                  item.item_adult
+                    ? "/pixeled.webp"
+                    : item.image_url
+                      ? `https://image.tmdb.org/t/p/w185/${item.image_url}`
+                      : null
+                }
+                adult={item.item_adult}
+                genres={item.genres ?? []}
+                showActions
+                onShare={() => handleShare(item)}
+                typeLabel={item.item_type}
+                subtitle={subtitle}
+                onAddWatchedTv={item.item_type === "tv" ? () => openTvWatchedModal(item) : undefined}
+              />
+            );
+          })}
 
           {/* Show "More..." button only if there are more items to load */}
           {memoizedMovies.length < totalItems && (

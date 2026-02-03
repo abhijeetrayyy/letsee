@@ -22,6 +22,8 @@ export type TogglePreferencePayload = {
   adult: boolean;
   genres: string[];
   currentState: boolean;
+  /** When removing from watched: if true, keep rating, diary and public review (soft unwatch). */
+  keepData?: boolean;
 };
 
 export type TogglePreferenceResult = {
@@ -29,11 +31,17 @@ export type TogglePreferenceResult = {
   message?: string;
 };
 
-/** Which button is currently pending (loading). */
-export type PendingAction = {
+/** One pending action (in queue or in flight). */
+export type PendingActionItem = {
   itemId: number;
   funcType: PreferenceType;
-} | null;
+};
+
+/** All actions currently in queue or in flight (for per-button loading). */
+export type PendingAction = PendingActionItem | null;
+
+/** @deprecated Use pendingActions array; null for backward compat. */
+export type PendingActionLegacy = PendingActionItem | null;
 
 export type UserPreferenceContextValue = {
   /** Current lists (item_id as string). */
@@ -41,8 +49,10 @@ export type UserPreferenceContextValue = {
   setUserPrefrence: React.Dispatch<React.SetStateAction<UserPreferenceState>>;
   /** Initial load of preferences from API. */
   loading: boolean;
-  /** Which item+type is currently toggling (for per-button loading). */
+  /** Which item+type is currently toggling (for per-button loading). Single for backward compat. */
   pendingAction: PendingAction;
+  /** All item+type in queue or in flight (use this to show loading on multiple buttons). */
+  pendingActions: PendingActionItem[];
   /** User is logged in and preferences are available. */
   user: boolean;
   /** Reload preferences from server. */
@@ -70,6 +80,7 @@ const UserPrefrenceContext = createContext<UserPreferenceContextValue>({
   setUserPrefrence: () => undefined,
   loading: true,
   pendingAction: null,
+  pendingActions: [],
   user: false,
   refreshPreferences: async () => undefined,
   togglePreference: noopAsync,

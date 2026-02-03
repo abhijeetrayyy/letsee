@@ -45,14 +45,14 @@ export default function SignupPageClient() {
     if (error) {
       setError(error.message);
       setLoading(false);
-    } else {
-      if (data.session) {
-        router.push("/app");
-        return;
-      }
-      setInfo("Check your email to confirm your account.");
-      setLoading(false);
+      return;
     }
+    if (data.session) {
+      router.push("/app/profile/setup");
+      return;
+    }
+    setInfo("Check your email to confirm your account.");
+    setLoading(false);
   };
 
   return (

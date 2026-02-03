@@ -1,97 +1,67 @@
 "use client";
-import Link from "next/link";
-import React, { useState, useEffect, useRef } from "react";
-import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
-import SendMessageModal from "@components/message/sendCard";
-import { LuSend } from "react-icons/lu";
-import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
-import { GenreList } from "@/staticData/genreList";
 
-export default function HomeContentTile({ data, type }: any) {
+import React, { useState, useEffect, useRef } from "react";
+import { FaChevronLeft, FaChevronRight } from "react-icons/fa6";
+import { GenreList } from "@/staticData/genreList";
+import MediaCard from "@components/cards/MediaCard";
+import SendMessageModal from "@components/message/sendCard";
+
+export default function HomeContentTile({ data, type }: { data: { results?: any[] }; type: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cardData, setCardData] = useState<any>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const [itemWidth, setItemWidth] = useState(200); // Default item width
-  const [visibleItems, setVisibleItems] = useState(4); // Default number of visible items
+  const [itemWidth, setItemWidth] = useState(160);
 
-  const handleCardTransfer = (data: any) => {
-    setCardData(data);
+  const handleCardTransfer = (item: any) => {
+    setCardData(item);
     setIsModalOpen(true);
   };
 
   const handleScroll = () => {
-    const element = scrollRef.current;
-    if (element) {
-      const { scrollLeft, scrollWidth, clientWidth } = element;
+    const el = scrollRef.current;
+    if (el) {
+      const { scrollLeft, scrollWidth, clientWidth } = el;
       setCanScrollLeft(scrollLeft > 0);
       setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 10);
     }
   };
 
-  const scrollLeft = () => {
-    const element = scrollRef.current;
-    if (element) {
-      const itemWidth =
-        element.querySelector(".image-item")?.clientWidth || 300;
-      element.scrollBy({ left: -itemWidth * 2, behavior: "smooth" });
+  const scroll = (dir: number) => {
+    const el = scrollRef.current;
+    if (el) {
+      const w = el.querySelector(".image-item")?.clientWidth ?? itemWidth + 16;
+      el.scrollBy({ left: w * 2 * dir, behavior: "smooth" });
     }
   };
 
-  const scrollRight = () => {
-    const element = scrollRef.current;
-    if (element) {
-      const itemWidth =
-        element.querySelector(".image-item")?.clientWidth || 300;
-      element.scrollBy({ left: itemWidth * 2, behavior: "smooth" });
-    }
-  };
-
-  // Calculate item width dynamically
   useEffect(() => {
-    const calculateItemWidth = () => {
-      const element = scrollRef.current;
-      if (element) {
-        const containerWidth = element.clientWidth;
-        const baseItemWidth = 160; // Base width for each item
-        const gap = 16; // Gap between items (adjust as needed)
-        const peekWidth = containerWidth * 0.15; // 15% of container width for peek
-
-        // Calculate the number of items that can fit in the container
-        let itemsPerView = Math.floor(
-          (containerWidth - peekWidth) / (baseItemWidth + gap)
-        );
-
-        // Ensure itemsPerView is always greater than 2
-        if (itemsPerView < 2) {
-          itemsPerView = 2; // Set a minimum of 2 items
-        }
-
-        // Adjust the item width to fit the calculated number of items
-        const adjustedItemWidth =
-          (containerWidth - peekWidth - gap * itemsPerView) / itemsPerView;
-
-        setItemWidth(adjustedItemWidth);
-        setVisibleItems(itemsPerView);
-      }
-    };
-
-    calculateItemWidth();
-    window.addEventListener("resize", calculateItemWidth);
-    return () => window.removeEventListener("resize", calculateItemWidth);
-  }, []);
-
-  useEffect(() => {
-    const element = scrollRef.current;
-    if (element) {
-      element.addEventListener("scroll", handleScroll);
-      setTimeout(handleScroll, 100); // Initial check
-      return () => element.removeEventListener("scroll", handleScroll);
-    }
+    const el = scrollRef.current;
+    if (!el) return;
+    const containerWidth = el.clientWidth;
+    const gap = 16;
+    const peek = containerWidth * 0.15;
+    let perView = Math.floor((containerWidth - peek) / (160 + gap));
+    if (perView < 2) perView = 2;
+    const w = (containerWidth - peek - gap * perView) / perView;
+    setItemWidth(w);
   }, [data]);
 
-  const results = data?.results || [];
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", handleScroll);
+    const t = setTimeout(handleScroll, 100);
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      clearTimeout(t);
+    };
+  }, [data]);
+
+  const results = (data?.results ?? []).filter(
+    (item: any) => item.media_type !== "person"
+  );
 
   return (
     <div className="w-full md:px-4 md:mb-5">
@@ -104,123 +74,79 @@ export default function HomeContentTile({ data, type }: any) {
       <div className="relative">
         <div
           ref={scrollRef}
-          className="flex flex-row gap-4 py-3 overflow-x-auto no-scrollbar"
+          className="flex flex-row gap-4 py-3 overflow-x-auto no-scrollbar pb-1"
         >
           {results.length > 0 ? (
             results.map((item: any) => {
-              if (item.media_type !== "person") {
-                return (
-                  <div
-                    key={item.id}
-                    className="card-item bg-neutral-700 rounded-md overflow-hidden h-auto flex-shrink-0 flex flex-col justify-between group relative"
-                    style={{ width: `${itemWidth}px` }} // Dynamically set width
-                  >
-                    <div className="absolute top-0 left-0">
-                      <p className="px-1 py-1 bg-neutral-950 text-white rounded-br-md text-xs sm:text-sm">
-                        {type == "mix" ? item.media_type : type}
-                      </p>
-                    </div>
-                    <Link
-                      className="w-full h-full"
-                      href={`/app/${type == "mix" ? item.media_type : type}/${
-                        item.id
-                      }-${(item?.name || item?.title)
-                        .trim()
-                        .replace(/[^a-zA-Z0-9]/g, "-")
-                        .replace(/-+/g, "-")}`}
-                    >
-                      <img
-                        className="w-full h-full object-cover"
-                        src={
-                          item.poster_path
-                            ? `https://image.tmdb.org/t/p/w342${item.poster_path}`
-                            : "/no-photo.webp"
-                        }
-                        alt={item.name || item.title}
-                      />
-                    </Link>
-                    <div className="lg:absolute lg:bottom-0 w-full lg:opacity-0 lg:group-hover:opacity-100 bg-neutral-900 transition-opacity duration-300">
-                      <ThreePrefrenceBtn
-                        genres={item.genre_ids
-                          .map((id: number) => {
-                            const genre = GenreList.genres.find(
-                              (g: any) => g.id === id
-                            );
-                            return genre ? genre.name : null;
-                          })
-                          .filter(Boolean)}
-                        cardId={item.id}
-                        cardType={type == "mix" ? item.media_type : type}
-                        cardName={item.name || item.title}
-                        cardAdult={item.adult}
-                        cardImg={item.poster_path}
-                      />
-                      <div className="py-2 border-t border-neutral-950 bg-neutral-800 hover:bg-neutral-700">
-                        <button
-                          className="w-full flex justify-center text-lg text-center text-neutral-100"
-                          onClick={() => handleCardTransfer(item)}
-                        >
-                          <LuSend />
-                        </button>
-                      </div>
-                      <Link
-                        href={`/app/${type == "mix" ? item.media_type : type}/${
-                          item.id
-                        }-${(item?.name || item?.title)
-                          .trim()
-                          .replace(/[^a-zA-Z0-9]/g, "-")
-                          .replace(/-+/g, "-")}`}
-                        className="min-h-14 flex flex-col justify-center px-3 pb-1 w-full bg-indigo-700 text-gray-100 text-sm sm:text-base"
-                      >
-                        <p className="line-clamp-2">
-                          {(item.name || item.title).length > 40
-                            ? `${(item.name || item.title).slice(0, 40)}...`
-                            : item.name || item.title}
-                        </p>
-                      </Link>
-                    </div>
-                  </div>
-                );
-              } else {
-                return null;
-              }
+              const mediaType = type === "mix" ? item.media_type : type;
+              const genreIds = item.genre_ids ?? [];
+              const genres = genreIds
+                .map((id: number) => GenreList.genres.find((g: any) => g.id === id)?.name)
+                .filter(Boolean);
+              const year =
+                item.release_date || item.first_air_date
+                  ? String(new Date(item.release_date || item.first_air_date).getFullYear())
+                  : null;
+
+              return (
+                <MediaCard
+                  key={item.id}
+                  id={item.id}
+                  title={item.name || item.title}
+                  mediaType={mediaType}
+                  posterPath={item.poster_path}
+                  adult={item.adult}
+                  genres={genres}
+                  showActions
+                  onShare={(e) => {
+                    e.preventDefault();
+                    handleCardTransfer(item);
+                  }}
+                  typeLabel={type === "mix" ? item.media_type : type}
+                  year={year}
+                  className="card-item image-item"
+                  style={{ width: itemWidth }}
+                />
+              );
             })
           ) : (
-            <p className="text-neutral-400 text-center w-full">
-              No trending movies available
+            <p className="text-neutral-400 text-center w-full py-4">
+              No titles available
             </p>
           )}
         </div>
 
-        {/* Left Fade Overlay */}
         <div
-          className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-20 bg-gradient-to-r from-black to-transparent pointer-events-none transition-opacity duration-300 ${
+          className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-20 bg-gradient-to-r from-neutral-950 to-transparent pointer-events-none transition-opacity duration-300 ${
             canScrollLeft ? "opacity-100" : "opacity-0"
           }`}
+          aria-hidden
         />
-
-        {/* Right Fade Overlay */}
         <div
-          className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-20 bg-gradient-to-l from-black to-transparent pointer-events-none transition-opacity duration-300 ${
+          className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-20 bg-gradient-to-l from-neutral-950 to-transparent pointer-events-none transition-opacity duration-300 ${
             canScrollRight ? "opacity-100" : "opacity-0"
           }`}
+          aria-hidden
         />
 
-        {/* Scroll Buttons */}
         {canScrollLeft && (
           <button
-            onClick={scrollLeft}
-            className="hidden md:block absolute left-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+            type="button"
+            onClick={() => scroll(-1)}
+            className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2.5 rounded-full hover:bg-neutral-700 transition-colors z-10 shadow-lg items-center justify-center"
+            aria-label="Scroll left"
           >
-            <FaChevronLeft size={20} />
+            <FaChevronLeft size={18} />
           </button>
         )}
         {canScrollRight && (
           <button
-            onClick={scrollRight}
-            className="hidden md:block absolute right-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+            type="button"
+            onClick={() => scroll(1)}
+            className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2.5 rounded-full hover:bg-neutral-700 transition-colors z-10 shadow-lg items-center justify-center"
+            aria-label="Scroll right"
           >
-            <FaChevronRight size={20} />
+            <FaChevronRight size={18} />
           </button>
         )}
       </div>

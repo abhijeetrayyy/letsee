@@ -1,12 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
+import { fetchTmdb } from "@/utils/tmdbClient";
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
-const MAX_RETRIES = 3;
-const BASE_DELAY = 1000; // 1 second
-
-// Helper function to delay execution
-const delay = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
 
 interface WatchedItem {
   id: number;
@@ -23,49 +18,10 @@ interface TMDBResponse {
   genres: TMDBGenre[];
 }
 
-async function fetchWithTimeout(
-  url: string,
-  options: RequestInit = {},
-  timeout = 15000
-): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
-  }
-}
-
-// Function to fetch genres with retry logic
-async function fetchGenres(
-  item: WatchedItem,
-  attempt = 1
-): Promise<string[] | null> {
+async function fetchGenres(item: WatchedItem): Promise<string[] | null> {
   try {
     const tmdbUrl = `https://api.themoviedb.org/3/${item.item_type}/${item.item_id}?api_key=${TMDB_API_KEY}&language=en-US`;
-
-    const response = await fetchWithTimeout(tmdbUrl, { method: "GET" });
-
-    if (response.status === 429) {
-      if (attempt < MAX_RETRIES) {
-        console.warn(
-          `Rate limit hit, retrying in ${BASE_DELAY * attempt}ms...`
-        );
-        await delay(BASE_DELAY * attempt);
-        return fetchGenres(item, attempt + 1);
-      } else {
-        console.error(`Max retries reached for item ${item.item_id}`);
-        return null;
-      }
-    }
+    const response = await fetchTmdb(tmdbUrl, { timeoutMs: 15000 });
 
     if (!response.ok) {
       console.error(

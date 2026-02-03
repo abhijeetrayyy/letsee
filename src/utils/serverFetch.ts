@@ -1,8 +1,10 @@
 /**
- * Server-side fetch with timeout and retry for API routes calling external APIs
- * (e.g. TMDB). Use tmdbFetchJson for TMDB in Server Components; use this in
- * API routes when you need a plain fetch with retry/timeout.
+ * Server-side fetch with timeout and retry for API routes.
+ * TMDB URLs are delegated to tmdbClient (throttle + retry) so all TMDB
+ * traffic is rate-limited and robust site-wide.
  */
+
+import { fetchTmdb, isTmdbUrl } from "@/utils/tmdbClient";
 
 const DEFAULT_TIMEOUT_MS = 12000;
 const DEFAULT_RETRIES = 2;
@@ -19,6 +21,15 @@ export async function serverFetch(
   url: string,
   options: ServerFetchOptions = {}
 ): Promise<Response> {
+  // Route all TMDB requests through central client (throttle + retry)
+  if (isTmdbUrl(url)) {
+    return fetchTmdb(url, {
+      timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      maxAttempts: (options.retries ?? DEFAULT_RETRIES) + 1,
+      cache: "no-store",
+    });
+  }
+
   const {
     timeoutMs = DEFAULT_TIMEOUT_MS,
     retries = DEFAULT_RETRIES,

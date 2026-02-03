@@ -18,16 +18,14 @@ interface VideoProps {
   };
 }
 
+const VIDEO_CARD_WIDTH = 320;
+const GAP = 16;
+
 function Video({ videos, movie }: VideoProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
-  const [itemWidth, setItemWidth] = useState(200); // Default item width
-  const [visibleItems, setVisibleItems] = useState(4); // Default number of visible items
 
-  // Memoize filtered trailers
   const trailers = useMemo(
     () => videos.filter((item) => item.type === "Trailer"),
     [videos]
@@ -43,54 +41,18 @@ function Video({ videos, movie }: VideoProps) {
   };
 
   const scrollLeft = () => {
-    const element = scrollRef.current;
-    if (element) {
-      const itemWidth =
-        element.querySelector(".image-item")?.clientWidth || 300;
-      element.scrollBy({ left: -itemWidth * 2, behavior: "smooth" });
-    }
+    scrollRef.current?.scrollBy({
+      left: -(VIDEO_CARD_WIDTH + GAP),
+      behavior: "smooth",
+    });
   };
 
   const scrollRight = () => {
-    const element = scrollRef.current;
-    if (element) {
-      const itemWidth =
-        element.querySelector(".image-item")?.clientWidth || 300;
-      element.scrollBy({ left: itemWidth * 2, behavior: "smooth" });
-    }
+    scrollRef.current?.scrollBy({
+      left: VIDEO_CARD_WIDTH + GAP,
+      behavior: "smooth",
+    });
   };
-
-  useEffect(() => {
-    const calculateItemWidth = () => {
-      const element = scrollRef.current;
-      if (element) {
-        const containerWidth = element.clientWidth;
-        const baseItemWidth = 200; // Base width for each item
-        const gap = 16; // Gap between items (adjust as needed)
-        const peekWidth = containerWidth * 0.15; // 15% of container width for peek
-
-        // Calculate the number of items that can fit in the container
-        let itemsPerView = Math.floor(
-          (containerWidth - peekWidth) / (baseItemWidth + gap)
-        );
-
-        // Ensure itemsPerView is always greater than 2
-        if (itemsPerView < 1) {
-          itemsPerView = 1; // Set a minimum of 2 items
-        }
-
-        // Adjust the item width to fit the calculated number of items
-        const adjustedItemWidth =
-          (containerWidth - peekWidth - gap * itemsPerView) / itemsPerView;
-
-        setItemWidth(adjustedItemWidth);
-        setVisibleItems(itemsPerView);
-      }
-    };
-    calculateItemWidth();
-    window.addEventListener("resize", calculateItemWidth);
-    return () => window.removeEventListener("resize", calculateItemWidth);
-  }, []);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -104,68 +66,68 @@ function Video({ videos, movie }: VideoProps) {
   if (trailers.length === 0) return null;
 
   return (
-    <>
-      <div className="max-w-7xl w-full mx-auto md:px-4 mt-24">
-        <h1 className="text-lg font-bold mb-4">
-          {movie.title || movie.name}: Trailer
-        </h1>
-        <div className="relative overflow-hidden">
-          <div
-            ref={scrollRef}
-            className="flex flex-row gap-4 py-2 overflow-x-auto no-scrollbar"
-          >
-            {trailers.slice(0, 4).map((item) => (
+    <section className="max-w-6xl w-full mx-auto px-4 py-6">
+      <h2 className="text-2xl font-bold text-white mb-4">Videos</h2>
+      <div className="relative overflow-hidden">
+        <div
+          ref={scrollRef}
+          className="flex flex-row gap-4 py-2 overflow-x-auto no-scrollbar pb-1"
+        >
+          {trailers.slice(0, 6).map((item) => (
+            <div
+              key={item.id}
+              className="shrink-0 w-[min(320px,85vw)] rounded-xl border border-neutral-700 bg-neutral-800/80 overflow-hidden"
+            >
               <iframe
-                style={{
-                  width: `${itemWidth + 60} px`,
-                  height: `${itemWidth}px`,
-                }}
-                key={item.id}
-                className=" aspect-video rounded-lg flex-shrink-0 cursor-pointer"
+                className="w-full aspect-video"
                 src={`https://www.youtube.com/embed/${item.key}`}
                 title={item.name}
                 frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
-            ))}
-          </div>
-
-          {/* Scroll Buttons */}
-          {/* Left Fade Overlay */}
-          <div
-            className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-20 bg-gradient-to-r from-black to-transparent pointer-events-none transition-opacity duration-300 ${
-              canScrollLeft ? "opacity-80" : "opacity-0"
-            }`}
-          />
-
-          {/* Right Fade Overlay */}
-          <div
-            className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-20 bg-gradient-to-l from-black to-transparent pointer-events-none transition-opacity duration-300 ${
-              canScrollRight ? "opacity-80" : "opacity-0"
-            }`}
-          />
-
-          {/* Scroll Buttons */}
-          {canScrollLeft && (
-            <button
-              onClick={scrollLeft}
-              className="hidden md:block absolute left-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
-            >
-              <FaChevronLeft size={20} className="" />
-            </button>
-          )}
-          {canScrollRight && (
-            <button
-              onClick={scrollRight}
-              className="hidden md:block absolute right-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
-            >
-              <FaChevronRight size={20} className="" />
-            </button>
-          )}
+              <p className="p-2.5 text-sm font-medium text-neutral-200 line-clamp-2">
+                {item.name}
+              </p>
+            </div>
+          ))}
         </div>
+
+        <div
+          className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-20 bg-gradient-to-r from-neutral-950 to-transparent pointer-events-none transition-opacity duration-300 ${
+            canScrollLeft ? "opacity-100" : "opacity-0"
+          }`}
+          aria-hidden
+        />
+        <div
+          className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-20 bg-gradient-to-l from-neutral-950 to-transparent pointer-events-none transition-opacity duration-300 ${
+            canScrollRight ? "opacity-100" : "opacity-0"
+          }`}
+          aria-hidden
+        />
+
+        {canScrollLeft && (
+          <button
+            type="button"
+            onClick={scrollLeft}
+            className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2.5 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-lg items-center justify-center"
+            aria-label="Scroll videos left"
+          >
+            <FaChevronLeft size={18} />
+          </button>
+        )}
+        {canScrollRight && (
+          <button
+            type="button"
+            onClick={scrollRight}
+            className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2.5 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-lg items-center justify-center"
+            aria-label="Scroll videos right"
+          >
+            <FaChevronRight size={18} />
+          </button>
+        )}
       </div>
-    </>
+    </section>
   );
 }
 

@@ -19,6 +19,11 @@
 # misc
 .DS_Store
 *.pem
+# Windows reserved device names (accidental redirects)
+/nul
+/con
+/prn
+/aux
 
 # debug
 npm-debug.log*

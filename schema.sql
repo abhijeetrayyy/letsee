@@ -35,6 +35,9 @@ create table if not exists public.users (
   username text unique,
   about text,
   visibility public.visibility_level not null default 'public',
+  profile_show_diary boolean not null default true,
+  profile_show_ratings boolean not null default true,
+  profile_show_public_reviews boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -86,8 +89,30 @@ create table if not exists public.watched_items (
   item_adult boolean not null default false,
   genres text[],
   watched_at timestamptz not null default now(),
+  review_text text,
+  is_watched boolean not null default true,
   unique (user_id, item_id)
 );
+
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'watched_items' and column_name = 'review_text'
+  ) then
+    alter table public.watched_items add column review_text text;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'watched_items' and column_name = 'public_review_text'
+  ) then
+    alter table public.watched_items add column public_review_text text;
+  end if;
+end $$;
 
 create table if not exists public.favorite_items (
   id bigserial primary key,
@@ -114,6 +139,25 @@ create table if not exists public.user_watchlist (
   created_at timestamptz not null default now(),
   unique (user_id, item_id)
 );
+
+-- User ratings (1-10 per movie/TV)
+create table if not exists public.user_ratings (
+  id bigserial primary key,
+  user_id uuid not null references public.users(id) on delete cascade,
+  item_id text not null,
+  item_type text not null check (item_type in ('movie', 'tv')),
+  score smallint not null check (score >= 1 and score <= 10),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, item_id)
+);
+
+create trigger set_user_ratings_updated_at
+before update on public.user_ratings
+for each row
+execute function public.set_updated_at();
+
+create index if not exists user_ratings_user_id_idx on public.user_ratings (user_id);
 
 -- Direct messages between users
 create table if not exists public.messages (
@@ -160,8 +204,56 @@ create table if not exists public.recommendation (
   recommended_at timestamptz not null default now()
 );
 
+-- Custom lists (user-created named lists)
+create table if not exists public.user_lists (
+  id bigserial primary key,
+  user_id uuid not null references public.users(id) on delete cascade,
+  name text not null,
+  description text,
+  visibility public.visibility_level not null default 'public',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create trigger set_user_lists_updated_at
+before update on public.user_lists
+for each row
+execute function public.set_updated_at();
+
+create table if not exists public.user_list_items (
+  id bigserial primary key,
+  list_id bigint not null references public.user_lists(id) on delete cascade,
+  item_id text not null,
+  item_type text not null check (item_type in ('movie', 'tv')),
+  item_name text not null,
+  image_url text,
+  item_adult boolean not null default false,
+  genres text[],
+  position integer not null default 0,
+  created_at timestamptz not null default now(),
+  unique (list_id, item_id)
+);
+
+create index if not exists user_lists_user_id_idx on public.user_lists (user_id);
+create index if not exists user_list_items_list_id_idx on public.user_list_items (list_id);
+
+-- Episode-level TV tracking (for "Mark episode watched" and "Continue watching")
+create table if not exists public.watched_episodes (
+  id bigserial primary key,
+  user_id uuid not null references public.users(id) on delete cascade,
+  show_id text not null,
+  season_number smallint not null check (season_number >= 0),
+  episode_number smallint not null check (episode_number >= 1),
+  watched_at timestamptz not null default now(),
+  unique (user_id, show_id, season_number, episode_number)
+);
+
 -- Indexes
+create index if not exists watched_episodes_user_id_idx on public.watched_episodes (user_id);
+create index if not exists watched_episodes_show_id_idx on public.watched_episodes (show_id);
+create index if not exists watched_episodes_user_show_idx on public.watched_episodes (user_id, show_id);
 create index if not exists watched_items_user_id_idx on public.watched_items (user_id);
+create index if not exists watched_items_item_id_item_type_idx on public.watched_items (item_id, item_type);
 create index if not exists favorite_items_user_id_idx on public.favorite_items (user_id);
 create index if not exists user_watchlist_user_id_idx on public.user_watchlist (user_id);
 create index if not exists messages_sender_id_idx on public.messages (sender_id);
@@ -270,6 +362,41 @@ begin
 end;
 $$;
 
+-- Backfill watched_episodes for users who had TV in watched_items before episode tracking
+create or replace function public.backfill_watched_episodes_for_show(
+  p_user_id uuid,
+  p_show_id text,
+  p_episodes jsonb
+)
+returns integer
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  ep jsonb;
+  inserted integer := 0;
+  s smallint;
+  e smallint;
+begin
+  if p_episodes is null or jsonb_array_length(p_episodes) = 0 then
+    return 0;
+  end if;
+  for ep in select * from jsonb_array_elements(p_episodes)
+  loop
+    s := (ep->>'season_number')::smallint;
+    e := (ep->>'episode_number')::smallint;
+    if s is not null and e is not null and s >= 0 and e >= 1 then
+      insert into public.watched_episodes (user_id, show_id, season_number, episode_number)
+      values (p_user_id, p_show_id, s, e)
+      on conflict (user_id, show_id, season_number, episode_number) do nothing;
+      inserted := inserted + 1;
+    end if;
+  end loop;
+  return inserted;
+end;
+$$;
+
 -- RLS policies
 alter table public.users enable row level security;
 alter table public.user_cout_stats enable row level security;
@@ -280,6 +407,10 @@ alter table public.messages enable row level security;
 alter table public.user_connections enable row level security;
 alter table public.user_follow_requests enable row level security;
 alter table public.recommendation enable row level security;
+alter table public.user_ratings enable row level security;
+alter table public.user_lists enable row level security;
+alter table public.user_list_items enable row level security;
+alter table public.watched_episodes enable row level security;
 
 -- Users
 create policy "users_select_public" on public.users
@@ -298,6 +429,9 @@ create policy "user_cout_stats_modify_self" on public.user_cout_stats
 -- Media tables
 create policy "watched_items_self" on public.watched_items
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- Public reviews: anyone can read rows that have public_review_text set (diary = review_text is private)
+create policy "watched_items_select_public_reviews" on public.watched_items
+  for select using (public_review_text is not null);
 create policy "favorite_items_self" on public.favorite_items
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "user_watchlist_self" on public.user_watchlist
@@ -334,5 +468,58 @@ create policy "user_follow_requests_delete_participants" on public.user_follow_r
 -- Recommendations
 create policy "recommendation_self" on public.recommendation
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- User ratings
+create policy "user_ratings_self" on public.user_ratings
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Custom lists: full access for owner; select for others based on list visibility
+create policy "user_lists_select_own" on public.user_lists
+  for select using (auth.uid() = user_id);
+create policy "user_lists_select_public" on public.user_lists
+  for select using (visibility = 'public');
+create policy "user_lists_select_followers" on public.user_lists
+  for select using (
+    visibility = 'followers'
+    and user_id in (select followed_id from public.user_connections where follower_id = auth.uid())
+  );
+create policy "user_lists_insert_self" on public.user_lists
+  for insert with check (auth.uid() = user_id);
+create policy "user_lists_update_self" on public.user_lists
+  for update using (auth.uid() = user_id);
+create policy "user_lists_delete_self" on public.user_lists
+  for delete using (auth.uid() = user_id);
+
+-- List items: access follows list ownership/visibility (select via list; modify only owner)
+create policy "user_list_items_select" on public.user_list_items
+  for select using (
+    exists (
+      select 1 from public.user_lists l
+      where l.id = list_id
+      and (
+        l.user_id = auth.uid()
+        or l.visibility = 'public'
+        or (l.visibility = 'followers' and l.user_id in (select followed_id from public.user_connections where follower_id = auth.uid()))
+      )
+    )
+  );
+create policy "user_list_items_insert_owner" on public.user_list_items
+  for insert with check (
+    exists (select 1 from public.user_lists l where l.id = list_id and l.user_id = auth.uid())
+  );
+create policy "user_list_items_update_owner" on public.user_list_items
+  for update using (
+    exists (select 1 from public.user_lists l where l.id = list_id and l.user_id = auth.uid())
+  );
+create policy "user_list_items_delete_owner" on public.user_list_items
+  for delete using (
+    exists (select 1 from public.user_lists l where l.id = list_id and l.user_id = auth.uid())
+  );
+
+-- Watched episodes (TV): user can modify own rows; anyone can read (for profile progress)
+create policy "watched_episodes_self" on public.watched_episodes
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "watched_episodes_select_public" on public.watched_episodes
+  for select using (true);
 
 commit;
