@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { PiEyeBold } from "react-icons/pi";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa6";
 import toast from "react-hot-toast";
@@ -228,9 +229,12 @@ export default function MarkTVWatchedModal({
 
   const totalSelected = countSelectedEpisodes(selectedEpisodes);
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       aria-modal="true"
@@ -238,10 +242,10 @@ export default function MarkTVWatchedModal({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg rounded-2xl border border-neutral-600 bg-neutral-900 shadow-xl"
+        className="relative w-full max-w-lg rounded-2xl border border-neutral-600 bg-neutral-900 shadow-xl max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-neutral-700 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-neutral-700 px-4 py-3 shrink-0">
           <h2 className="text-lg font-semibold text-white">How much have you watched?</h2>
           <button
             type="button"
@@ -252,7 +256,7 @@ export default function MarkTVWatchedModal({
             ✕
           </button>
         </div>
-        <div className="px-4 py-4">
+        <div className="px-4 py-4 overflow-y-auto min-h-0 flex-1">
           <p className="mb-4 text-sm text-neutral-400">
             <span className="font-medium text-neutral-200">{showName}</span> — choose one option below.
           </p>
@@ -362,4 +366,7 @@ export default function MarkTVWatchedModal({
       </div>
     </div>
   );
+
+  if (!mounted || typeof document === "undefined") return null;
+  return createPortal(modalContent, document.body);
 }
