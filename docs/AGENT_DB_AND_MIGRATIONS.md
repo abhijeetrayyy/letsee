@@ -35,6 +35,7 @@ All migration files live in **`migrations/`**. Run **in numeric order** (007 →
 | **018_profile_visible_to_viewer_robust.sql** | Defines/replaces function `profile_visible_to_viewer(owner_user_id)`: null = public, case-insensitive visibility. | ✅ Yes | ✅ Yes (`create or replace`) | **Required** so RLS allows viewing public/followers profiles. Run before 019. |
 | **019_add_profile_visibility_policies.sql** | Adds RLS SELECT policies (profile_visible_to_viewer) on watched_items, favorite_items, user_watchlist, user_ratings, recommendation. | ✅ Yes | ✅ Yes (drop if exists + create) | **Required** so other users see watched/favorites/watchlist on public profiles. Run after 018. |
 | **020_remove_runtime_minutes.sql** | Drops columns `watched_items.runtime_minutes` and `watched_episodes.runtime_minutes`. Profile stats show Movies, TV, Episodes (count on fetch); Hours removed. | ✅ Yes | ✅ Yes (drop column if exists) | Run when removing Hours from profile; no triggers/functions reference these columns. |
+| **021_tv_list_status.sql** | Adds `users.default_tv_status`. Creates table `user_tv_list` (user_id, show_id, status) and RLS (self + profile_visible_to_viewer for SELECT). | ✅ Yes | ⚠️ Policies CREATE (run once) | **Required** for TV list status (profile TV section, TV detail, default when adding TV). |
 
 ---
 
@@ -61,7 +62,7 @@ All migration files live in **`migrations/`**. Run **in numeric order** (007 →
 ## 4. Quick reference for agents
 
 - **Database:** Supabase, `public` schema.
-- **Apply migrations:** Supabase SQL Editor; run files in `migrations/` in order 007 → 020.
+- **Apply migrations:** Supabase SQL Editor; run files in `migrations/` in order 007 → 021.
 - **What each file does:** See table in section 2.
 - **Reference schema:** `schema.sql` (app expectation). Optional: `schema_from_supabase.sql` (dump from live DB).
 - **Pull live schema:** See `docs/PULL_SCHEMA_FROM_SUPABASE.md`.

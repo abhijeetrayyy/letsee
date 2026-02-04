@@ -122,5 +122,16 @@ async function addShowToWatchedIfAtLeastOneEpisode(
     p_user_id: userId,
   });
   if (incError) console.error("watched-episode increment_watched_count:", incError);
+
+  const { data: userRow } = await supabase.from("users").select("default_tv_status").eq("id", userId).maybeSingle();
+  const defaultStatus = (userRow as { default_tv_status?: string } | null)?.default_tv_status;
+  const status = ["watching", "completed", "on_hold", "dropped", "plan_to_watch"].includes(defaultStatus ?? "")
+    ? defaultStatus!
+    : "watching";
+  const { error: tvListError } = await supabase.from("user_tv_list").upsert(
+    { user_id: userId, show_id: showId, status, updated_at: new Date().toISOString() },
+    { onConflict: "user_id,show_id" }
+  );
+  if (tvListError) console.error("watched-episode user_tv_list upsert:", tvListError);
 }
 

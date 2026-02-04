@@ -50,6 +50,8 @@ export default function Tv({
   const [cardData, setCardData] = useState<any>([]);
   const [markTVWatchedModalOpen, setMarkTVWatchedModalOpen] = useState(false);
   const [showFullOverview, setShowFullOverview] = useState(false);
+  const [tvListStatus, setTvListStatus] = useState<string | null>(null);
+  const [tvListStatusUpdating, setTvListStatusUpdating] = useState(false);
   const showGenres = Array.isArray(show?.genres) ? show.genres : [];
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -72,6 +74,23 @@ export default function Tv({
       return () => el.removeEventListener("scroll", handleScroll);
     }
   }, [show]);
+
+  const watched = hasWatched(id);
+  useEffect(() => {
+    if (!watched) {
+      setTvListStatus(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/tv-list-status?showId=${encodeURIComponent(id)}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data?.status != null) setTvListStatus(data.status);
+        else if (!cancelled) setTvListStatus(null);
+      })
+      .catch(() => { if (!cancelled) setTvListStatus(null); });
+    return () => { cancelled = true; };
+  }, [id, watched]);
 
   const handleCardTransfer = (data: any) => {
     setCardData(data);
@@ -270,6 +289,37 @@ export default function Tv({
 
               {/* Your rating & reviews */}
               <div className="space-y-4 pt-2 border-t border-neutral-700">
+                {hasWatched(id) && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-neutral-400">Your list:</span>
+                    <select
+                      value={tvListStatus ?? "watching"}
+                      onChange={async (e) => {
+                        const v = e.target.value;
+                        if (!v) return;
+                        setTvListStatusUpdating(true);
+                        try {
+                          const res = await fetch("/api/tv-list-status", {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ showId: String(id), status: v }),
+                          });
+                          if (res.ok) setTvListStatus(v);
+                        } finally {
+                          setTvListStatusUpdating(false);
+                        }
+                      }}
+                      disabled={tvListStatusUpdating}
+                      className="rounded-lg border border-neutral-600 bg-neutral-800 text-neutral-200 text-sm py-1.5 px-2 disabled:opacity-50"
+                    >
+                      <option value="watching">Watching</option>
+                      <option value="completed">Completed</option>
+                      <option value="on_hold">On hold</option>
+                      <option value="dropped">Dropped</option>
+                      <option value="plan_to_watch">Plan to watch</option>
+                    </select>
+                  </div>
+                )}
                 <TvShowProgress showId={id} />
                 <UserRating
                   itemId={id}

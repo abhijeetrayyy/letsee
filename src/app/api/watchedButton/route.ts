@@ -124,6 +124,9 @@ export async function POST(req: NextRequest) {
       } else {
         await backfillAllEpisodesForShow(supabase, userId, String(itemId));
       }
+      const isCompleteSeries = !listPayload && !seasonsOnly;
+      const tvStatus = isCompleteSeries ? "completed" : await getDefaultTvStatus(supabase, userId);
+      await setTvListStatus(supabase, userId, String(itemId), tvStatus);
     }
 
     return NextResponse.json(
@@ -226,6 +229,34 @@ async function clearWatchedEpisodesForShow(
     .eq("user_id", userId)
     .eq("show_id", showId);
   if (error) console.error("clearWatchedEpisodesForShow:", error);
+}
+
+const TV_LIST_STATUSES = ["watching", "completed", "on_hold", "dropped", "plan_to_watch"] as const;
+
+async function setTvListStatus(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  showId: string,
+  status: (typeof TV_LIST_STATUSES)[number]
+) {
+  const { error } = await supabase.from("user_tv_list").upsert(
+    { user_id: userId, show_id: showId, status, updated_at: new Date().toISOString() },
+    { onConflict: "user_id,show_id" }
+  );
+  if (error) console.error("setTvListStatus:", error);
+}
+
+async function getDefaultTvStatus(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<(typeof TV_LIST_STATUSES)[number]> {
+  const { data } = await supabase
+    .from("users")
+    .select("default_tv_status")
+    .eq("id", userId)
+    .maybeSingle();
+  const s = (data as { default_tv_status?: string } | null)?.default_tv_status;
+  return TV_LIST_STATUSES.includes(s as (typeof TV_LIST_STATUSES)[number]) ? (s as (typeof TV_LIST_STATUSES)[number]) : "watching";
 }
 
 async function backfillAllEpisodesForShow(

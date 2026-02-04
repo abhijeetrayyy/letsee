@@ -2,25 +2,14 @@
 import MediaCard from "@/components/cards/MediaCard";
 import { GenreList } from "@/staticData/genreList";
 import SendMessageModal from "@components/message/sendCard";
-import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
-import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import React, { useCallback, useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 function Page() {
   const [Sresults, setSResults] = useState([]) as any;
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cardData, setCardData] = useState([]) as any;
-  const [tvWatchedModalOpen, setTvWatchedModalOpen] = useState(false);
-  const [tvWatchedModalItem, setTvWatchedModalItem] = useState<{
-    id: number;
-    name: string;
-    posterPath: string | null;
-    adult: boolean;
-    genres: string[];
-  } | null>(null);
-  const { refreshPreferences } = useContext(UserPrefrenceContext);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -67,28 +56,6 @@ function Page() {
     setCardData(data);
     setIsModalOpen(true);
   };
-  const openTvWatchedModal = useCallback((data: any) => {
-    const genres = (data.genre_ids ?? [])
-      .map((id: number) => GenreList.genres.find((g: any) => g.id === id)?.name)
-      .filter(Boolean);
-    setTvWatchedModalItem({
-      id: data.id,
-      name: data.name || data.title || "Unknown",
-      posterPath: data.poster_path || data.backdrop_path || null,
-      adult: !!data.adult,
-      genres,
-    });
-    setTvWatchedModalOpen(true);
-  }, []);
-  const closeTvWatchedModal = useCallback(() => {
-    setTvWatchedModalOpen(false);
-    setTvWatchedModalItem(null);
-  }, []);
-  const onTvWatchedSuccess = useCallback(() => {
-    closeTvWatchedModal();
-    refreshPreferences?.();
-  }, [closeTvWatchedModal, refreshPreferences]);
-
   const changePage = (newPage: number) => {
     setLoading(true);
     const newSearchParams = new URLSearchParams(searchParams);
@@ -108,25 +75,6 @@ function Page() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
-      {tvWatchedModalItem && (
-        <MarkTVWatchedModal
-          showId={String(tvWatchedModalItem.id)}
-          showName={tvWatchedModalItem.name}
-          seasons={[]}
-          isOpen={tvWatchedModalOpen}
-          onClose={closeTvWatchedModal}
-          onSuccess={onTvWatchedSuccess}
-          watchedPayload={{
-            itemId: tvWatchedModalItem.id,
-            name: tvWatchedModalItem.name,
-            imgUrl: tvWatchedModalItem.posterPath
-              ? `https://image.tmdb.org/t/p/w342${tvWatchedModalItem.posterPath}`
-              : "",
-            adult: tvWatchedModalItem.adult,
-            genres: tvWatchedModalItem.genres,
-          }}
-        />
-      )}
       <div>
         <p>
           Search Results: {genreName} &apos;
@@ -168,7 +116,6 @@ function Page() {
                     showActions={true}
                     onShare={() => handleCardTransfer(data)}
                     year={year}
-                    onAddWatchedTv={() => openTvWatchedModal(data)}
                   />
                 );
               })}

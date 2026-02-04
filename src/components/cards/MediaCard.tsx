@@ -5,11 +5,14 @@
  * All media grids, carousels, and list tiles should use this component (map your
  * data to id, title, mediaType, posterPath/imageUrl, genres, etc.) so one component
  * controls layout, hover actions, and share. Do not duplicate card markup elsewhere.
+ * For TV cards, clicking "Watched" opens MarkTVWatchedModal (season/episode picker) internally.
  */
 
 import Link from "next/link";
-import React from "react";
+import React, { useState, useContext } from "react";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
+import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { LuSend } from "react-icons/lu";
 
 const TMDB_POSTER = "https://image.tmdb.org/t/p/w342";
@@ -51,8 +54,6 @@ export type MediaCardProps = {
   style?: React.CSSProperties;
   /** Person card: show known_for_department. */
   knownFor?: string | null;
-  /** When set for TV, clicking "Watched" (add) opens this instead of toggling. Used for Mark TV Watched modal (e.g. profile watched section). */
-  onAddWatchedTv?: () => void;
 };
 
 export default function MediaCard({
@@ -71,8 +72,9 @@ export default function MediaCard({
   className = "",
   style,
   knownFor,
-  onAddWatchedTv,
 }: MediaCardProps) {
+  const [tvModalOpen, setTvModalOpen] = useState(false);
+  const { refreshPreferences } = useContext(UserPrefrenceContext);
   const isPerson = mediaType === "person";
   const typeBadge = typeLabel ?? mediaType;
   const imageUrl =
@@ -84,6 +86,20 @@ export default function MediaCard({
       : null);
   const imgSrc = adult && !imageUrlProp ? "/pixeled.webp" : imageUrl ?? "/no-photo.webp";
   const detailHref = href(mediaType, id, title);
+  const imgUrlForTvPayload =
+    imageUrl && typeof imageUrl === "string" && imageUrl.startsWith("http")
+      ? imageUrl
+      : posterPath && !adult
+        ? `${TMDB_POSTER}${posterPath}`
+        : "";
+  const tvWatchedPayload = {
+    itemId: id,
+    name: title,
+    imgUrl: imgUrlForTvPayload,
+    adult,
+    genres: Array.isArray(genres) ? genres.filter((g): g is string => typeof g === "string") : [],
+  };
+  const onAddWatchedTv = mediaType === "tv" ? () => setTvModalOpen(true) : undefined;
 
   const cardClass =
     "group relative flex flex-col shrink-0 overflow-hidden rounded-2xl bg-neutral-900/90 border border-neutral-700/50 shadow-lg shadow-black/20 transition-all duration-300 ease-out hover:bg-neutral-800/95 hover:shadow-2xl hover:shadow-black/30 hover:border-neutral-600/50 hover:-translate-y-0.5";
@@ -191,6 +207,21 @@ export default function MediaCard({
           <div className="mt-1 text-xs text-neutral-500">{knownFor}</div>
         )}
       </div>
+
+      {mediaType === "tv" && (
+        <MarkTVWatchedModal
+          showId={String(id)}
+          showName={title}
+          seasons={[]}
+          isOpen={tvModalOpen}
+          onClose={() => setTvModalOpen(false)}
+          onSuccess={() => {
+            setTvModalOpen(false);
+            refreshPreferences?.();
+          }}
+          watchedPayload={tvWatchedPayload}
+        />
+      )}
     </div>
   );
 }

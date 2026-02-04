@@ -235,7 +235,7 @@ export default async function Home() {
         {/* Movie genres */}
         <section aria-labelledby="movie-genres-heading">
           <h2 id="movie-genres-heading" className={SECTION_HEADING}>
-            <Link href="/app/search?media_type=movie" className={headingLinkClass}>
+            <Link href="/app/search/discover?media_type=movie" className={headingLinkClass}>
               Movie genres
             </Link>
           </h2>
@@ -248,7 +248,7 @@ export default async function Home() {
         {/* TV genres */}
         <section aria-labelledby="tv-genres-heading">
           <h2 id="tv-genres-heading" className={SECTION_HEADING}>
-            <Link href="/app/search?media_type=tv" className={headingLinkClass}>
+            <Link href="/app/search/discover?media_type=tv" className={headingLinkClass}>
               TV show genres
             </Link>
           </h2>

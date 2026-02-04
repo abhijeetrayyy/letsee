@@ -16,6 +16,8 @@ export type ProfileTvProgressItem = {
   next_season: number | null;
   next_episode: number | null;
   all_complete: boolean;
+  /** TV list status: watching | completed | on_hold | dropped | plan_to_watch */
+  tv_status: string | null;
 };
 
 export async function GET(req: NextRequest) {
@@ -80,6 +82,16 @@ export async function GET(req: NextRequest) {
     return jsonSuccess({ items: [], total }, { maxAge: 0 });
   }
 
+  const { data: statusRows } = await supabase
+    .from("user_tv_list")
+    .select("show_id, status")
+    .eq("user_id", userId)
+    .in("show_id", slice);
+  const statusByShowId = new Map<string, string>();
+  for (const row of (statusRows ?? []) as { show_id: string; status: string }[]) {
+    statusByShowId.set(row.show_id, row.status);
+  }
+
   const items: ProfileTvProgressItem[] = [];
 
   for (let i = 0; i < slice.length; i += BATCH_SIZE) {
@@ -130,6 +142,7 @@ export async function GET(req: NextRequest) {
           next_season: nextEp?.s ?? null,
           next_episode: nextEp?.e ?? null,
           all_complete: !nextEp,
+          tv_status: statusByShowId.get(showId) ?? null,
         } as ProfileTvProgressItem;
       })
     );

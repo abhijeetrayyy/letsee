@@ -2,9 +2,7 @@
 
 import MediaCard from "@/components/cards/MediaCard";
 import SendMessageModal from "@components/message/sendCard";
-import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
-import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 function formatWatchedDate(iso: string): string {
   try {
@@ -38,7 +36,6 @@ const genreList = [
 ];
 
 const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwner?: boolean }) => {
-  const { refreshPreferences } = useContext(UserPrefrenceContext);
   const [movies, setMovies] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -47,14 +44,6 @@ const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwne
   const [genreFilter, setGenreFilter] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareCardData, setShareCardData] = useState<any>(null);
-  const [tvWatchedModalOpen, setTvWatchedModalOpen] = useState(false);
-  const [tvWatchedModalItem, setTvWatchedModalItem] = useState<{
-    item_id: number;
-    item_name: string;
-    image_url: string | null;
-    item_adult: boolean;
-    genres: string[];
-  } | null>(null);
 
   const fetchMovies = useCallback(
     async (page: number, genre: string | null = null) => {
@@ -122,35 +111,6 @@ const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwne
     setShareModalOpen(true);
   }, []);
 
-  const openTvWatchedModal = useCallback((item: any) => {
-    if (item?.item_type !== "tv") return;
-    setTvWatchedModalItem({
-      item_id: item.item_id,
-      item_name: item.item_name,
-      image_url: item.image_url ?? null,
-      item_adult: Boolean(item.item_adult),
-      genres: Array.isArray(item.genres) ? item.genres : [],
-    });
-    setTvWatchedModalOpen(true);
-  }, []);
-
-  const closeTvWatchedModal = useCallback(() => {
-    setTvWatchedModalOpen(false);
-    setTvWatchedModalItem(null);
-  }, []);
-
-  const onTvWatchedSuccess = useCallback(() => {
-    closeTvWatchedModal();
-    refreshPreferences?.();
-    setCurrentPage(1);
-    fetchMovies(1, genreFilter);
-  }, [closeTvWatchedModal, genreFilter, refreshPreferences, fetchMovies]);
-
-  const tvModalItem = tvWatchedModalItem;
-  const imgUrlForPayload = tvModalItem?.image_url
-    ? (tvModalItem.image_url.startsWith("http") ? tvModalItem.image_url : `https://image.tmdb.org/t/p/w342${tvModalItem.image_url}`)
-    : "";
-
   return (
     <div>
       <SendMessageModal
@@ -159,23 +119,6 @@ const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwne
         isOpen={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
       />
-      {tvModalItem && (
-        <MarkTVWatchedModal
-          showId={String(tvModalItem.item_id)}
-          showName={tvModalItem.item_name}
-          seasons={[]}
-          isOpen={tvWatchedModalOpen}
-          onClose={closeTvWatchedModal}
-          onSuccess={onTvWatchedSuccess}
-          watchedPayload={{
-            itemId: tvModalItem.item_id,
-            name: tvModalItem.item_name,
-            imgUrl: imgUrlForPayload,
-            adult: tvModalItem.item_adult,
-            genres: tvModalItem.genres ?? [],
-          }}
-        />
-      )}
       {/* Genre Filter Buttons */}
       <div className="flex flex-wrap gap-2 mb-4">
         <button
@@ -226,8 +169,16 @@ const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwne
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 ">
           {memoizedMovies.map((item: any) => {
+            const tvStatusLabel = item.item_type === "tv" && item.tv_status
+              ? { watching: "Watching", completed: "Completed", on_hold: "On hold", dropped: "Dropped", plan_to_watch: "Plan to watch" }[item.tv_status] ?? item.tv_status
+              : null;
             const subtitle = (
               <>
+                {tvStatusLabel && (
+                  <span className="block text-xs text-indigo-400/90 font-medium">
+                    {tvStatusLabel}
+                  </span>
+                )}
                 {item.watched_at && (
                   <span className="block text-xs text-neutral-500">
                     Watched {formatWatchedDate(item.watched_at)}
@@ -267,7 +218,6 @@ const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwne
                 onShare={() => handleShare(item)}
                 typeLabel={item.item_type}
                 subtitle={subtitle}
-                onAddWatchedTv={item.item_type === "tv" ? () => openTvWatchedModal(item) : undefined}
               />
             );
           })}

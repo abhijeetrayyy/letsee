@@ -325,7 +325,7 @@ export default async function ProfilePage({ params }: PageProps) {
             <p className="text-sm text-neutral-400 mb-4">
               Episodes and seasons completed per show
             </p>
-            <ProfileTvProgress userId={user.id} />
+            <ProfileTvProgress userId={user.id} isOwner={isOwner} />
           </section>
         )}
 

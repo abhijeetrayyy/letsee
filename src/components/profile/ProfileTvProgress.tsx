@@ -2,9 +2,18 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import EditTvProgressModal from "@components/tv/EditTvProgressModal";
 
 const INITIAL_LIMIT = 5;
 const VIEW_MORE_BATCH = 10;
+
+const TV_STATUS_LABELS: Record<string, string> = {
+  watching: "Watching",
+  completed: "Completed",
+  on_hold: "On hold",
+  dropped: "Dropped",
+  plan_to_watch: "Plan to watch",
+};
 
 export type ProfileTvProgressItem = {
   show_id: string;
@@ -15,18 +24,22 @@ export type ProfileTvProgressItem = {
   next_season: number | null;
   next_episode: number | null;
   all_complete: boolean;
+  tv_status: string | null;
 };
 
 interface ProfileTvProgressProps {
   userId: string;
+  isOwner?: boolean;
 }
 
-export default function ProfileTvProgress({ userId }: ProfileTvProgressProps) {
+export default function ProfileTvProgress({ userId, isOwner = false }: ProfileTvProgressProps) {
   const [items, setItems] = useState<ProfileTvProgressItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
+  const [editModalShowId, setEditModalShowId] = useState<string | null>(null);
+  const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
 
   const fetchSlice = useCallback(
     async (limit: number, offset: number, append: boolean) => {
@@ -88,6 +101,41 @@ export default function ProfileTvProgress({ userId }: ProfileTvProgressProps) {
     }
   }, [items.length, total, fetchSlice]);
 
+  const refreshList = useCallback(() => {
+    setLoading(true);
+    fetch(`/api/profile/tv-progress?userId=${encodeURIComponent(userId)}&limit=${Math.max(items.length, INITIAL_LIMIT)}&offset=0`, {
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.items) setItems(data.items);
+        if (data?.total != null) setTotal(data.total);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [userId, items.length]);
+
+  const handleStatusChange = useCallback(
+    async (showId: string, newStatus: string) => {
+      setStatusUpdating(showId);
+      try {
+        const res = await fetch("/api/tv-list-status", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ showId, status: newStatus }),
+        });
+        if (res.ok) {
+          setItems((prev) =>
+            prev.map((it) => (it.show_id === showId ? { ...it, tv_status: newStatus } : it))
+          );
+        }
+      } finally {
+        setStatusUpdating(null);
+      }
+    },
+    []
+  );
+
   if (loading) {
     return (
       <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/30 p-6">
@@ -117,6 +165,9 @@ export default function ProfileTvProgress({ userId }: ProfileTvProgressProps) {
             <tr className="border-b border-neutral-700/60 bg-neutral-800/50">
               <th className="px-4 py-3 font-semibold text-neutral-200">Series</th>
               <th className="px-4 py-3 font-semibold text-neutral-200 text-center whitespace-nowrap">
+                Status
+              </th>
+              <th className="px-4 py-3 font-semibold text-neutral-200 text-center whitespace-nowrap">
                 Seasons done
               </th>
               <th className="px-4 py-3 font-semibold text-neutral-200 text-center whitespace-nowrap">
@@ -125,6 +176,11 @@ export default function ProfileTvProgress({ userId }: ProfileTvProgressProps) {
               <th className="px-4 py-3 font-semibold text-neutral-200 whitespace-nowrap">
                 Next / status
               </th>
+              {isOwner && (
+                <th className="px-4 py-3 font-semibold text-neutral-200 whitespace-nowrap">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -139,6 +195,7 @@ export default function ProfileTvProgress({ userId }: ProfileTvProgressProps) {
                 !item.all_complete && item.next_season != null && item.next_episode != null
                   ? `/app/tv/${item.show_id}/season/${item.next_season}/episode/${item.next_episode}`
                   : `/app/tv/${item.show_id}`;
+              const statusLabel = item.tv_status ? TV_STATUS_LABELS[item.tv_status] ?? item.tv_status : "—";
               return (
                 <tr
                   key={item.show_id}
@@ -163,6 +220,26 @@ export default function ProfileTvProgress({ userId }: ProfileTvProgressProps) {
                       <span className="line-clamp-2">{item.show_name}</span>
                     </Link>
                   </td>
+                  <td className="px-4 py-3 text-center">
+                    {isOwner ? (
+                      <select
+                        value={item.tv_status ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v) handleStatusChange(item.show_id, v);
+                        }}
+                        disabled={statusUpdating === item.show_id}
+                        className="rounded-lg border border-neutral-600 bg-neutral-800 text-neutral-200 text-xs py-1.5 px-2 disabled:opacity-50"
+                      >
+                        <option value="">—</option>
+                        {(["watching", "completed", "on_hold", "dropped", "plan_to_watch"] as const).map((s) => (
+                          <option key={s} value={s}>{TV_STATUS_LABELS[s]}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-neutral-400 text-xs">{statusLabel}</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-neutral-300 text-center">
                     {item.seasons_completed}
                   </td>
@@ -177,6 +254,17 @@ export default function ProfileTvProgress({ userId }: ProfileTvProgressProps) {
                       {nextLabel}
                     </Link>
                   </td>
+                  {isOwner && (
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setEditModalShowId(item.show_id)}
+                        className="text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:underline"
+                      >
+                        Edit progress
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -219,6 +307,16 @@ export default function ProfileTvProgress({ userId }: ProfileTvProgressProps) {
         <div className="px-4 py-3 border-t border-neutral-700/60 bg-neutral-800/50 text-center">
           <p className="text-sm text-amber-200/90">Loading all series… This may take a while.</p>
         </div>
+      )}
+
+      {editModalShowId && (
+        <EditTvProgressModal
+          showId={editModalShowId}
+          showName={items.find((i) => i.show_id === editModalShowId)?.show_name ?? ""}
+          isOpen={!!editModalShowId}
+          onClose={() => setEditModalShowId(null)}
+          onSuccess={refreshList}
+        />
       )}
     </div>
   );

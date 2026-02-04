@@ -1,9 +1,7 @@
 "use client";
-import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import MediaCard from "@/components/cards/MediaCard";
 import SendMessageModal from "@components/message/sendCard";
-import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
-import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { GenreList } from "@/staticData/genreList";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa6";
 
@@ -11,15 +9,6 @@ export default function tvTop({ TrendingTv }: any) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cardData, setCardData] = useState([]) as any;
-  const [tvWatchedModalOpen, setTvWatchedModalOpen] = useState(false);
-  const [tvWatchedModalItem, setTvWatchedModalItem] = useState<{
-    id: number;
-    name: string;
-    posterPath: string | null;
-    adult: boolean;
-    genres: string[];
-  } | null>(null);
-  const { refreshPreferences } = useContext(UserPrefrenceContext);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
@@ -27,27 +16,6 @@ export default function tvTop({ TrendingTv }: any) {
     setCardData(data);
     setIsModalOpen(true);
   };
-  const openTvWatchedModal = useCallback((item: any) => {
-    const genres = (item.genre_ids ?? [])
-      .map((id: number) => GenreList.genres.find((g: any) => g.id === id)?.name)
-      .filter(Boolean);
-    setTvWatchedModalItem({
-      id: item.id,
-      name: item.name || item.title || "Unknown",
-      posterPath: item.poster_path || item.backdrop_path || null,
-      adult: !!item.adult,
-      genres,
-    });
-    setTvWatchedModalOpen(true);
-  }, []);
-  const closeTvWatchedModal = useCallback(() => {
-    setTvWatchedModalOpen(false);
-    setTvWatchedModalItem(null);
-  }, []);
-  const onTvWatchedSuccess = useCallback(() => {
-    closeTvWatchedModal();
-    refreshPreferences?.();
-  }, [closeTvWatchedModal, refreshPreferences]);
   const handleScroll = () => {
     const element = scrollRef.current;
     if (element) {
@@ -91,25 +59,6 @@ export default function tvTop({ TrendingTv }: any) {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
-      {tvWatchedModalItem && (
-        <MarkTVWatchedModal
-          showId={String(tvWatchedModalItem.id)}
-          showName={tvWatchedModalItem.name}
-          seasons={[]}
-          isOpen={tvWatchedModalOpen}
-          onClose={closeTvWatchedModal}
-          onSuccess={onTvWatchedSuccess}
-          watchedPayload={{
-            itemId: tvWatchedModalItem.id,
-            name: tvWatchedModalItem.name,
-            imgUrl: tvWatchedModalItem.posterPath
-              ? `https://image.tmdb.org/t/p/w342${tvWatchedModalItem.posterPath}`
-              : "",
-            adult: tvWatchedModalItem.adult,
-            genres: tvWatchedModalItem.genres,
-          }}
-        />
-      )}{" "}
       <div className="relative">
         <div
           ref={scrollRef}
@@ -133,7 +82,6 @@ export default function tvTop({ TrendingTv }: any) {
                 genres={genres}
                 showActions={true}
                 onShare={() => handleCardTransfer(item)}
-                onAddWatchedTv={() => openTvWatchedModal(item)}
                 className="card-item max-w-[10rem] sm:max-w-[15rem] md:max-w-[20rem] flex-shrink-0"
               />
             );

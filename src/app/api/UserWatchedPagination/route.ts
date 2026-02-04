@@ -98,12 +98,27 @@ export async function POST(request: Request) {
     }
   }
 
-  // Merge score into each item and apply visibility for visitors
+  // TV list status for TV items (profile owner or visible)
+  let tvStatusMap: Record<string, string> = {};
+  const tvItemIds = (items ?? []).filter((i: { item_type: string }) => i.item_type === "tv").map((i: { item_id: string }) => i.item_id);
+  if (tvItemIds.length > 0) {
+    const { data: tvRows } = await supabase
+      .from("user_tv_list")
+      .select("show_id, status")
+      .eq("user_id", userID)
+      .in("show_id", tvItemIds);
+    for (const r of (tvRows ?? []) as { show_id: string; status: string }[]) {
+      tvStatusMap[r.show_id] = r.status;
+    }
+  }
+
+  // Merge score and tv_status into each item and apply visibility for visitors
   type Row = { item_id: string; item_type: string; review_text?: string | null; public_review_text?: string | null; [k: string]: unknown };
   const data = (items ?? []).map((row: Row) => {
     const key = `${row.item_id}:${row.item_type}`;
     const score = ratingsMap[key] ?? null;
-    let out: Row & { score: number | null } = { ...row, score };
+    const tv_status = row.item_type === "tv" ? (tvStatusMap[row.item_id] ?? null) : null;
+    let out: Row & { score: number | null; tv_status?: string | null } = { ...row, score, tv_status };
     if (!isOwner) {
       if (!profileShowDiary) out.review_text = null;
       if (!profileShowPublicReviews) out.public_review_text = null;

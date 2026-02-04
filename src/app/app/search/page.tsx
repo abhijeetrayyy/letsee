@@ -10,7 +10,7 @@ import {
   isValidSearchQuery,
   type SearchMediaType,
 } from "@/utils/searchUrl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FaFilter, FaSearch } from "react-icons/fa";
 
@@ -72,6 +72,7 @@ function getHref(item: SearchResult, mediaType: SearchMediaType) {
 
 export default function SearchLandingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [draft, setDraft] = useState("");
   const [recent, setRecent] = useState<string[]>([]);
   const [results, setResults] = useState<ResultsState>(emptyResults);
@@ -82,6 +83,14 @@ export default function SearchLandingPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const cacheRef = useRef<Record<string, ResultsState>>({});
+
+  // If user lands on /app/search with media_type=movie or media_type=tv, send them to discover results
+  useEffect(() => {
+    const mediaType = searchParams.get("media_type");
+    if (mediaType === "movie" || mediaType === "tv") {
+      router.replace(buildSearchUrl({ query: "discover", mediaType: mediaType as SearchMediaType, page: 1 }));
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     setRecent(getRecentSearches());

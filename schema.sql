@@ -284,6 +284,28 @@ create table if not exists public.watched_episodes (
 create index if not exists watched_episodes_user_id_idx on public.watched_episodes (user_id);
 create index if not exists watched_episodes_show_id_idx on public.watched_episodes (show_id);
 create index if not exists watched_episodes_user_show_idx on public.watched_episodes (user_id, show_id);
+
+-- TV list status (migration 021): users.default_tv_status + user_tv_list (Watching / Completed / On hold / Dropped / Plan to watch)
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'users' and column_name = 'default_tv_status') then
+    alter table public.users add column default_tv_status text not null default 'watching'
+      check (default_tv_status in ('watching', 'completed', 'on_hold', 'dropped', 'plan_to_watch'));
+  end if;
+end $$;
+create table if not exists public.user_tv_list (
+  user_id uuid not null references public.users(id) on delete cascade,
+  show_id text not null,
+  status text not null check (status in ('watching', 'completed', 'on_hold', 'dropped', 'plan_to_watch')),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, show_id)
+);
+create index if not exists user_tv_list_user_id_idx on public.user_tv_list (user_id);
+create index if not exists user_tv_list_show_id_idx on public.user_tv_list (show_id);
+alter table public.user_tv_list enable row level security;
+create policy "user_tv_list_self" on public.user_tv_list for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "user_tv_list_select_profile_visible" on public.user_tv_list for select using (public.profile_visible_to_viewer(user_id));
+
 create index if not exists watched_items_user_id_idx on public.watched_items (user_id);
 create index if not exists watched_items_item_id_item_type_idx on public.watched_items (item_id, item_type);
 create index if not exists favorite_items_user_id_idx on public.favorite_items (user_id);

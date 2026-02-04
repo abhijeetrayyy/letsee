@@ -1,10 +1,8 @@
 "use client";
 
 import { useSearch } from "@/app/contextAPI/searchContext";
-import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import SendMessageModal from "@components/message/sendCard";
 import MediaCard from "@components/cards/MediaCard";
-import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import {
   buildSearchUrl,
@@ -17,7 +15,7 @@ import {
 import { GenreList } from "@/staticData/genreList";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 interface SearchResult {
   id: number;
@@ -92,16 +90,7 @@ export default function SearchResultsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cardData, setCardData] = useState<SearchResult | null>(null);
   const [watchProvidersList, setWatchProvidersList] = useState<{ id: number; name: string }[]>([]);
-  const [tvWatchedModalOpen, setTvWatchedModalOpen] = useState(false);
-  const [tvWatchedModalItem, setTvWatchedModalItem] = useState<{
-    id: number;
-    name: string;
-    posterPath: string | null;
-    adult: boolean;
-    genres: string[];
-  } | null>(null);
   const { setIsSearchLoading } = useSearch();
-  const { refreshPreferences } = useContext(UserPrefrenceContext);
 
   const showMediaFilters = mediaType === "movie" || mediaType === "tv" || mediaType === "multi";
 
@@ -275,30 +264,6 @@ export default function SearchResultsPage() {
     setIsModalOpen(true);
   };
 
-  const openTvWatchedModal = useCallback((data: SearchResult) => {
-    if (data.media_type !== "tv") return;
-    const genres: string[] =
-      data.genre_ids
-        ?.map((id) => GenreList.genres.find((g: { id: number }) => g.id === id)?.name)
-        .filter((n): n is string => Boolean(n)) ?? [];
-    setTvWatchedModalItem({
-      id: data.id,
-      name: data.title || data.name || "Unknown",
-      posterPath: data.poster_path || data.backdrop_path || null,
-      adult: Boolean(data.adult),
-      genres,
-    });
-    setTvWatchedModalOpen(true);
-  }, []);
-  const closeTvWatchedModal = useCallback(() => {
-    setTvWatchedModalOpen(false);
-    setTvWatchedModalItem(null);
-  }, []);
-  const onTvWatchedSuccess = useCallback(() => {
-    closeTvWatchedModal();
-    refreshPreferences?.();
-  }, [closeTvWatchedModal, refreshPreferences]);
-
   const typeLabel = (t: string) => (t === "multi" ? "All" : t === "tv" ? "TV Shows" : t);
 
   if (!canShowResults) {
@@ -461,26 +426,6 @@ export default function SearchResultsPage() {
         />
       )}
 
-      {tvWatchedModalItem && (
-        <MarkTVWatchedModal
-          showId={String(tvWatchedModalItem.id)}
-          showName={tvWatchedModalItem.name}
-          seasons={[]}
-          isOpen={tvWatchedModalOpen}
-          onClose={closeTvWatchedModal}
-          onSuccess={onTvWatchedSuccess}
-          watchedPayload={{
-            itemId: tvWatchedModalItem.id,
-            name: tvWatchedModalItem.name,
-            imgUrl: tvWatchedModalItem.posterPath
-              ? `https://image.tmdb.org/t/p/w342${tvWatchedModalItem.posterPath}`
-              : "",
-            adult: tvWatchedModalItem.adult,
-            genres: tvWatchedModalItem.genres,
-          }}
-        />
-      )}
-
       {error && (
         <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-red-200 flex flex-col gap-2">
           <p>{error}</p>
@@ -592,7 +537,6 @@ export default function SearchResultsPage() {
                       }}
                       typeLabel={displayType}
                       year={year}
-                      onAddWatchedTv={displayType === "tv" ? () => openTvWatchedModal(data) : undefined}
                     />
                   );
                 }

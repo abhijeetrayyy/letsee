@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
             .eq("user_id", userId)
             .eq("show_id", String(itemId));
           if (epError) console.error("deletewatchedButton clear episodes:", epError);
+          await supabase.from("user_tv_list").delete().eq("user_id", userId).eq("show_id", String(itemId));
         }
         // Keep user_ratings, diary and public review (row kept with is_watched = false)
       } else {
@@ -69,6 +70,7 @@ export async function POST(req: NextRequest) {
             .eq("user_id", userId)
             .eq("show_id", String(itemId));
           if (epError) console.error("deletewatchedButton clear episodes:", epError);
+          await supabase.from("user_tv_list").delete().eq("user_id", userId).eq("show_id", String(itemId));
         }
         await supabase
           .from("user_ratings")
