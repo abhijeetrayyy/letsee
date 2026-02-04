@@ -80,6 +80,28 @@ type QueuedItem = {
 };
 
 const RETRY_DELAY_MS = 400;
+const REQUEST_TIMEOUT_MS = 20000;
+
+function getErrorMessage(
+  response: Response | null,
+  data: { error?: string } | null,
+  networkError?: unknown
+): string {
+  if (networkError instanceof Error) {
+    if (networkError.name === "AbortError") return "Request timed out. Please try again.";
+    if (networkError.message?.includes("fetch") || networkError.message === "Failed to fetch") {
+      return "Connection problem. Please check your network and try again.";
+    }
+    return networkError.message;
+  }
+  if (response) {
+    if (response.status === 401) return "Session expired. Please log in again.";
+    if (response.status >= 500) return "Server error. Please try again in a moment.";
+    if (data?.error) return data.error;
+    if (response.status === 400) return "Invalid request. Please try again.";
+  }
+  return "Request failed. Please try again.";
+}
 
 const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
   const [userPrefrence, setUserPrefrence] = useState<UserPreferenceState>(
@@ -95,7 +117,10 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
   const refreshPreferences = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/userPrefrence", { cache: "no-store" });
+      const response = await fetch("/api/userPrefrence", {
+        cache: "no-store",
+        credentials: "include",
+      });
       if (!response.ok) {
         setUserPrefrence(defaultPreferenceState);
         setUser(false);
@@ -200,23 +225,35 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
     if (funcType === "watched" && payload.currentState) {
       body.keepData = payload.keepData === true;
     }
-    const doFetch = (): Promise<{ ok: boolean; message?: string }> =>
-      fetch(endpoint, {
+    const doFetch = (): Promise<{ ok: boolean; message?: string }> => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      return fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        credentials: "include",
+        signal: controller.signal,
       })
         .then(async (response) => {
-          const data = await response.json().catch(() => ({}));
+          clearTimeout(timeoutId);
+          const data = await response.json().catch(() => ({})) as { error?: string; message?: string } | null;
           if (!response.ok) {
-            return { ok: false, message: data?.error ?? "Request failed" };
+            return {
+              ok: false,
+              message: getErrorMessage(response, data, null),
+            };
           }
           return { ok: true, message: data?.message };
         })
-        .catch((err) => ({
-          ok: false,
-          message: (err as Error).message ?? "An error occurred while updating preference.",
-        }));
+        .catch((err) => {
+          clearTimeout(timeoutId);
+          return {
+            ok: false,
+            message: getErrorMessage(null, null, err),
+          };
+        });
+    };
 
     const removePending = () =>
       setPendingActions((prev) =>
@@ -253,9 +290,9 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
               } else {
                 finish(retryResult, true);
               }
-            }).catch(() => {
+            }).catch((retryErr) => {
               finish(
-                { ok: false, message: "Request failed. Please try again." },
+                { ok: false, message: getErrorMessage(null, null, retryErr) },
                 true
               );
             });
@@ -270,14 +307,14 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
                 finish(retryResult, false);
               } else {
                 finish(
-                  { ok: false, message: (retryResult.message ?? (err as Error).message) ?? "Request failed" },
+                  { ok: false, message: retryResult.message ?? getErrorMessage(null, null, err) },
                   true
                 );
               }
             })
-            .catch(() => {
+            .catch((retryErr) => {
               finish(
-                { ok: false, message: (err as Error).message ?? "Request failed" },
+                { ok: false, message: getErrorMessage(null, null, retryErr) },
                 true
               );
             });
