@@ -169,9 +169,17 @@ const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwne
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 ">
           {memoizedMovies.map((item: any) => {
-            const tvStatusLabel = item.item_type === "tv" && item.tv_status
-              ? { watching: "Watching", completed: "Completed", on_hold: "On hold", dropped: "Dropped", plan_to_watch: "Plan to watch" }[item.tv_status] ?? item.tv_status
-              : null;
+            const tvStatusLabels: Record<string, string> = {
+              watching: "Watching",
+              completed: "Completed",
+              on_hold: "On hold",
+              dropped: "Dropped",
+              plan_to_watch: "Plan to watch",
+            };
+            const tvStatusLabel =
+              item.item_type === "tv" && typeof item.tv_status === "string"
+                ? tvStatusLabels[item.tv_status] ?? item.tv_status
+                : null;
             const subtitle = (
               <>
                 {tvStatusLabel && (
