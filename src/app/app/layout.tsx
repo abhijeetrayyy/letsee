@@ -14,8 +14,8 @@ export default async function AppLayout({
         position="top-right"
         toastOptions={{
           duration: 4000,
-          success: { iconTheme: { primary: "#22c55e" }, duration: 3500 },
-          error: { iconTheme: { primary: "#ef4444" }, duration: 5000 },
+          success: { iconTheme: { primary: "#22c55e", secondary: "#ffffff" }, duration: 3500 },
+          error: { iconTheme: { primary: "#ef4444", secondary: "#ffffff" }, duration: 5000 },
           loading: { duration: Infinity },
         }}
       />
