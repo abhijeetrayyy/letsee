@@ -2,6 +2,7 @@
 import { useState } from "react";
 import MediaCard from "@components/cards/MediaCard";
 import SendMessageModal from "@components/message/sendCard";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 interface MovieRecommendation {
   name: string;
@@ -61,9 +62,17 @@ export default function Recommendations() {
         <button
           onClick={fetchRecommendations}
           disabled={isLoading}
-          className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          aria-busy={isLoading}
+          className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[180px] transition-all duration-200 active:scale-[0.98]"
         >
-          {isLoading ? "Loading..." : "Get recommendations"}
+          {isLoading ? (
+            <>
+              <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+              <span>Loading…</span>
+            </>
+          ) : (
+            "Get recommendations"
+          )}
         </button>
       </div>
 

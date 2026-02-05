@@ -3,6 +3,7 @@ import { tmdbFetchJson } from "@/utils/tmdb";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 // Types
 type PageProps = {
@@ -111,7 +112,14 @@ export default async function Page({ params }: PageProps) {
   const { cast, crew } = movieResult.data.credits!;
 
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center gap-3 min-h-[200px] p-8">
+          <LoadingSpinner size="lg" className="border-t-white" />
+          <p className="text-neutral-400 text-sm animate-pulse">Loading cast…</p>
+        </div>
+      }
+    >
       <div>
         <div className="relative flex flex-col items-center justify-center w-full min-h-[550px] h-full">
           <div className="absolute w-full h-full overflow-hidden">

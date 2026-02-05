@@ -5,6 +5,7 @@ import { Span } from "next/dist/trace";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { CiSearch } from "react-icons/ci";
 import { useRouter } from "next/navigation";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 function Page() {
   const [loading, setLoading] = useState(true);
@@ -122,8 +123,15 @@ function Page() {
     router.refresh();
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (!user) return <div>Please sign in</div>;
+  if (loading) {
+    return (
+      <div className="w-full min-h-[200px] flex flex-col items-center justify-center gap-3 p-8">
+        <LoadingSpinner size="lg" className="border-t-white shrink-0" />
+        <p className="text-neutral-400 text-sm animate-pulse">Loading…</p>
+      </div>
+    );
+  }
+  if (!user) return <div className="text-neutral-400 p-4">Please sign in</div>;
 
   return (
     <div className="w-full min-h-screen flex flex-col p-2 justify-center items-center bg-neutral-900">

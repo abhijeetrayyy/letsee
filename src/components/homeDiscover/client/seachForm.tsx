@@ -1,4 +1,5 @@
 "use client";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { GenreList } from "@/staticData/genreList";
 import SendMessageModal from "@components/message/sendCard";
 import MediaCard from "@components/cards/MediaCard";
@@ -233,16 +234,26 @@ function Page() {
         </select>
         <button
           type="submit"
-          className="px-4 py-2 bg-blue-600 rounded-md hover:bg-blue-700"
+          disabled={loading}
+          aria-busy={loading}
+          className="px-4 py-2 bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2 min-w-[100px]"
         >
-          Search
+          {loading ? (
+            <>
+              <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+              <span>Searching…</span>
+            </>
+          ) : (
+            "Search"
+          )}
         </button>
       </form>
 
       {/* Loading State */}
       {loading && (
-        <div className="min-h-52 w-full flex justify-center items-center">
-          Loading...
+        <div className="min-h-52 w-full flex flex-col justify-center items-center gap-4">
+          <LoadingSpinner size="lg" className="border-t-white" />
+          <p className="text-neutral-400 text-sm animate-pulse">Searching…</p>
         </div>
       )}
 

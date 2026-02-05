@@ -87,7 +87,7 @@ export default function SearchAndFilters({ users }: { users: ProfileUser[] }) {
               key={key}
               type="button"
               onClick={() => setSort(key)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2 focus:ring-offset-neutral-900 ${
                 sort === key
                   ? "bg-amber-500 text-neutral-900"
                   : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white border border-neutral-700"
@@ -118,7 +118,7 @@ export default function SearchAndFilters({ users }: { users: ProfileUser[] }) {
             <button
               type="button"
               onClick={() => setSearchQuery("")}
-              className="mt-4 px-4 py-2 rounded-xl bg-neutral-700 text-neutral-200 text-sm font-medium hover:bg-neutral-600 transition-colors"
+              className="mt-4 px-4 py-2 rounded-xl bg-neutral-700 text-neutral-200 text-sm font-medium hover:bg-neutral-600 transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2 focus:ring-offset-neutral-900"
             >
               Clear search
             </button>
@@ -133,7 +133,7 @@ export default function SearchAndFilters({ users }: { users: ProfileUser[] }) {
             <Link
               key={item.username}
               href={`/app/profile/${item.username}`}
-              className="group block rounded-2xl border border-neutral-700/60 bg-neutral-800/50 hover:bg-neutral-800 hover:border-neutral-600 transition-all duration-200 overflow-hidden"
+              className="group block rounded-2xl border border-neutral-700/60 bg-neutral-800/50 hover:bg-neutral-800 hover:border-neutral-600 transition-all duration-200 overflow-hidden active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2 focus:ring-offset-neutral-900 focus:rounded-2xl"
             >
               <div className="p-5">
                 <div className="flex items-start gap-4">

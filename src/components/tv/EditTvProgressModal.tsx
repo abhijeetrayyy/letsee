@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa6";
 import toast from "react-hot-toast";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 export type SeasonOption = {
   season_number: number;
@@ -214,7 +215,10 @@ export default function EditTvProgressModal({
         </div>
         <div className="px-4 py-4">
           {loading ? (
-            <p className="text-sm text-neutral-400">Loading seasons…</p>
+            <div className="flex items-center gap-3 text-sm text-neutral-400 py-2">
+              <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+              <span className="animate-pulse">Loading seasons…</span>
+            </div>
           ) : seasons.length === 0 ? (
             <p className="text-sm text-neutral-500">No seasons data</p>
           ) : (
@@ -284,9 +288,17 @@ export default function EditTvProgressModal({
               type="button"
               onClick={handleSave}
               disabled={saving || loading}
-              className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+              aria-busy={saving}
+              className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 flex items-center justify-center gap-2 min-w-[88px] transition-all duration-200 active:scale-[0.99]"
             >
-              {saving ? "Saving…" : "Save"}
+              {saving ? (
+                <>
+                  <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+                  <span>Saving…</span>
+                </>
+              ) : (
+                "Save"
+              )}
             </button>
           </div>
         </div>

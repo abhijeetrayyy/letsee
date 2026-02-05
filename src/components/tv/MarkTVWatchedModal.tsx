@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { PiEyeBold } from "react-icons/pi";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa6";
 import toast from "react-hot-toast";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 export type SeasonOption = {
   season_number: number;
@@ -261,18 +262,26 @@ export default function MarkTVWatchedModal({
             <span className="font-medium text-neutral-200">{showName}</span> — choose one option below.
           </p>
           {seasonsLoading && (
-            <p className="mb-4 text-sm text-neutral-400">Loading seasons…</p>
+            <div className="mb-4 flex items-center gap-3 text-sm text-neutral-400">
+              <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+              <span className="animate-pulse">Loading seasons…</span>
+            </div>
           )}
 
           <button
             type="button"
             onClick={handleCompleteSeries}
             disabled={saving}
-            className="mb-6 flex w-full items-center gap-3 rounded-xl border border-neutral-600 bg-neutral-800/80 px-4 py-3 text-left text-white transition-colors hover:border-neutral-500 hover:bg-neutral-800 disabled:opacity-60"
+            aria-busy={saving}
+            className="mb-6 flex w-full items-center gap-3 rounded-xl border border-neutral-600 bg-neutral-800/80 px-4 py-3 text-left text-white transition-colors hover:border-neutral-500 hover:bg-neutral-800 disabled:opacity-60 active:scale-[0.99]"
           >
-            <PiEyeBold className="text-xl text-emerald-500 shrink-0" />
+            {saving ? (
+              <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+            ) : (
+              <PiEyeBold className="text-xl text-emerald-500 shrink-0" />
+            )}
             <div>
-              <span className="font-medium">I&apos;ve watched the complete series</span>
+              <span className="font-medium">{saving ? "Saving…" : "I've watched the complete series"}</span>
               <p className="text-xs text-neutral-400 mt-0.5">Mark all seasons and episodes as watched</p>
             </div>
           </button>
@@ -357,9 +366,17 @@ export default function MarkTVWatchedModal({
               type="button"
               onClick={handleSaveEpisodes}
               disabled={saving || totalSelected === 0}
-              className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-busy={saving}
+              className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.99]"
             >
-              {saving ? "Saving…" : `Save (${totalSelected} episode${totalSelected !== 1 ? "s" : ""} selected)`}
+              {saving ? (
+                <>
+                  <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+                  <span>Saving…</span>
+                </>
+              ) : (
+                `Save (${totalSelected} episode${totalSelected !== 1 ? "s" : ""} selected)`
+              )}
             </button>
           </div>
         </div>

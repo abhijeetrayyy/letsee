@@ -1,6 +1,7 @@
 "use client";
 
 import MediaCard, { mediaCardHref } from "@/components/cards/MediaCard";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -79,7 +80,12 @@ export default function ProfilePublicReviews({
           ? "Titles you’ve written a public review for. Edit or remove reviews on each title’s page."
           : "Public reviews by this user."}
       </p>
-      {items.length === 0 && !loading ? (
+      {loading && items.length === 0 ? (
+        <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/30 p-8 flex flex-col items-center justify-center gap-3 min-h-[160px]">
+          <LoadingSpinner size="md" className="border-t-white shrink-0" />
+          <p className="text-neutral-500 text-sm animate-pulse">Loading reviews…</p>
+        </div>
+      ) : items.length === 0 ? (
         <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/30 p-6 text-center">
           <p className="text-neutral-400 text-sm">
             {isOwner
@@ -149,9 +155,17 @@ export default function ProfilePublicReviews({
             type="button"
             onClick={loadMore}
             disabled={loading}
-            className="px-6 py-2.5 rounded-lg bg-neutral-700 hover:bg-neutral-600 text-white text-sm font-medium disabled:opacity-50"
+            aria-busy={loading}
+            className="px-6 py-2.5 rounded-lg bg-neutral-700 hover:bg-neutral-600 text-white text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2 min-w-[140px] transition-all duration-200 active:scale-[0.98]"
           >
-            {loading ? "Loading…" : "Load more reviews"}
+            {loading ? (
+              <>
+                <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+                <span>Loading…</span>
+              </>
+            ) : (
+              "Load more reviews"
+            )}
           </button>
         </div>
       )}

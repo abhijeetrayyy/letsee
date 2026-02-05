@@ -2,6 +2,7 @@
 
 import MediaCard from "@/components/cards/MediaCard";
 import SendMessageModal from "@components/message/sendCard";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 function formatWatchedDate(iso: string): string {
@@ -157,14 +158,15 @@ const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwne
       </div>
 
       {/* Movie Grid */}
-      {loading && (
-        <div className="w-full   p-10">
-          <h1 className="m-auto w-fit">Loading..</h1>
+      {loading && memoizedMovies.length === 0 && (
+        <div className="w-full p-12 flex flex-col items-center justify-center gap-4 min-h-[200px]">
+          <LoadingSpinner size="lg" className="border-t-white" />
+          <p className="text-neutral-400 text-sm animate-pulse">Loading your watched list…</p>
         </div>
       )}
       {!loading && memoizedMovies.length === 0 ? (
-        <div className="w-full   p-10">
-          <h1 className="m-auto w-fit">no result found.</h1>
+        <div className="w-full p-10">
+          <p className="m-auto w-fit text-neutral-400">No items yet.</p>
         </div>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 ">
@@ -234,11 +236,19 @@ const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwne
           {memoizedMovies.length < totalItems && (
             <div>
               <button
-                className="w-full h-full text-gray-300 border min-h-[330px] bg-neutral-700 rounded-md hover:bg-neutral-800"
+                className="w-full h-full min-h-[330px] flex flex-col items-center justify-center gap-2 text-neutral-300 border border-neutral-600 bg-neutral-700/80 rounded-xl hover:bg-neutral-700 hover:border-neutral-500 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
                 onClick={handlePageChange}
                 disabled={loading}
+                aria-busy={loading}
               >
-                {loading ? "Loading..." : "More..."}
+                {loading ? (
+                  <>
+                    <LoadingSpinner size="md" className="border-t-white shrink-0" />
+                    <span className="text-sm">Loading more…</span>
+                  </>
+                ) : (
+                  <span className="text-sm font-medium">Load more</span>
+                )}
               </button>
             </div>
           )}

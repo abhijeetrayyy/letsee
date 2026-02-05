@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabase/client";
 import { sendFollowRequest } from "@/utils/followerAction";
 import Link from "next/link";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 interface FollowerBtnClientProps {
   profileId: string;
@@ -138,7 +139,7 @@ export function FollowerBtnClient({
         </div>
       )}
       <button
-        className={`px-4 py-2 rounded ${
+        className={`flex items-center justify-center gap-2 px-4 py-2 rounded transition-all duration-200 active:scale-[0.98] disabled:opacity-70 ${
           status === "following"
             ? "bg-gray-500"
             : status === "pending"
@@ -147,10 +148,14 @@ export function FollowerBtnClient({
         } text-white`}
         onClick={handleFollowClick}
         disabled={isLoading}
+        aria-busy={isLoading}
       >
-        {isLoading
-          ? "Loading..."
-          : status === "following"
+        {isLoading ? (
+          <>
+            <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+            <span>Loading…</span>
+          </>
+        ) : status === "following"
           ? "Unfollow"
           : status === "pending"
           ? "Requested"
@@ -219,7 +224,10 @@ export function ShowFollowing({ followingCount, userId }: any) {
               <button type="button" className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-700 hover:text-white" onClick={() => setModal(false)} aria-label="Close">×</button>
             </div>
             {loading ? (
-              <p className="text-neutral-400 text-sm py-4">Loading…</p>
+              <div className="py-6 flex flex-col items-center justify-center gap-3">
+                <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+                <p className="text-neutral-400 text-sm animate-pulse">Loading…</p>
+              </div>
             ) : error ? (
               <p className="text-red-400 text-sm">{error}</p>
             ) : following.length !== 0 ? (
@@ -307,7 +315,10 @@ export function ShowFollower({ followerCount, userId }: any) {
               <button type="button" className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-700 hover:text-white" onClick={() => setModal(false)} aria-label="Close">×</button>
             </div>
             {loading ? (
-              <p className="text-neutral-400 text-sm py-4">Loading…</p>
+              <div className="py-6 flex flex-col items-center justify-center gap-3">
+                <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+                <p className="text-neutral-400 text-sm animate-pulse">Loading…</p>
+              </div>
             ) : error ? (
               <p className="text-red-400 text-sm">{error}</p>
             ) : following.length > 0 ? (

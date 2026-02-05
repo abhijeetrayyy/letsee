@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import MediaCard from "@/components/cards/MediaCard";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { MdDeleteOutline } from "react-icons/md";
@@ -407,7 +408,10 @@ const RecommendationTile = ({ isOwner, name, id }: RecommendationTileProps) => {
       </div>
       <div className="min-h-64 h-full relative">
         {loading ? (
-          <p className="text-neutral-400 text-center">Loading...</p>
+          <div className="flex flex-col items-center justify-center gap-3 py-12">
+            <LoadingSpinner size="md" className="border-t-white shrink-0" />
+            <p className="text-neutral-400 text-sm animate-pulse">Loading…</p>
+          </div>
         ) : (
           <div
             ref={scrollRef}

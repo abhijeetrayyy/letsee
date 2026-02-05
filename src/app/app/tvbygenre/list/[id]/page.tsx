@@ -1,5 +1,6 @@
 "use client";
 import MediaCard from "@/components/cards/MediaCard";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { GenreList } from "@/staticData/genreList";
 import SendMessageModal from "@components/message/sendCard";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -82,8 +83,9 @@ function Page() {
         </p>
       </div>
       {loading ? (
-        <div className="min-h-screen w-full flex justify-center items-center">
-          Loading..
+        <div className="min-h-[50vh] w-full flex flex-col justify-center items-center gap-4">
+          <LoadingSpinner size="lg" className="border-t-white" />
+          <p className="text-neutral-400 text-sm animate-pulse">Loading…</p>
         </div>
       ) : (
         <div>

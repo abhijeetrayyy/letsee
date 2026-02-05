@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 type DisplayItem = {
   position: number;
@@ -267,7 +268,10 @@ export default function EditTasteInFour({
                 </div>
                 <div className="rounded-xl border border-neutral-700 bg-neutral-800/50 p-4">
                   {!loaded ? (
-                    <p className="text-neutral-500 text-sm py-12 text-center">Loading…</p>
+                    <div className="py-12 flex flex-col items-center justify-center gap-3">
+                      <LoadingSpinner size="md" className="border-t-white shrink-0" />
+                      <p className="text-neutral-500 text-sm animate-pulse">Loading…</p>
+                    </div>
                   ) : pickerList.length === 0 ? (
                     <p className="text-neutral-500 text-sm py-12 text-center">
                       {pickerTab === "watched" ? "No watched titles yet." : "No favorites yet."}
@@ -312,9 +316,17 @@ export default function EditTasteInFour({
                 type="button"
                 onClick={save}
                 disabled={saving}
-                className="px-5 py-2.5 rounded-xl text-sm font-medium bg-amber-500 text-neutral-900 hover:bg-amber-400 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                aria-busy={saving}
+                className="px-5 py-2.5 rounded-xl text-sm font-medium bg-amber-500 text-neutral-900 hover:bg-amber-400 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-amber-400 flex items-center justify-center gap-2 min-w-[88px] transition-all duration-200 active:scale-[0.98]"
               >
-                {saving ? "Saving…" : "Save"}
+                {saving ? (
+                  <>
+                    <LoadingSpinner size="sm" className="border-t-amber-900 shrink-0" />
+                    <span>Saving…</span>
+                  </>
+                ) : (
+                  "Save"
+                )}
               </button>
             </div>
           </div>

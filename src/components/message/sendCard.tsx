@@ -6,6 +6,7 @@ import { MdContentCopy } from "react-icons/md";
 import { FaTwitter, FaWhatsapp } from "react-icons/fa6";
 import { IoIosCopy } from "react-icons/io";
 import Link from "next/link";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 const CONTENT_MAX_LENGTH = 2000;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -565,7 +566,10 @@ const SendMessageModal: React.FC<Props> = ({
 
           <div className=" max-h-40 overflow-y-auto mb-4">
             {loading ? (
-              <p className="text-gray-100">Loading users...</p>
+              <div className="flex items-center justify-center gap-2 py-6 text-neutral-300">
+                <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+                <span className="text-sm animate-pulse">Loading users…</span>
+              </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-5  gap-3">
                 {users.map((user) => (
@@ -625,11 +629,19 @@ const SendMessageModal: React.FC<Props> = ({
           {success && <p className="text-green-500 text-sm mb-4">{success}</p>}
 
           <button
-            className="w-full bg-blue-500 text-white p-2 rounded-lg"
+            className="w-full bg-blue-500 text-white p-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-70 transition-all duration-200 active:scale-[0.99]"
             onClick={sendMessage}
             disabled={loading}
+            aria-busy={loading}
           >
-            {loading ? "Sending..." : "Send Message"}
+            {loading ? (
+              <>
+                <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+                <span>Sending…</span>
+              </>
+            ) : (
+              "Send Message"
+            )}
           </button>
         </div>
       </div>

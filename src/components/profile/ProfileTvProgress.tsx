@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import EditTvProgressModal from "@components/tv/EditTvProgressModal";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 const INITIAL_LIMIT = 5;
 const VIEW_MORE_BATCH = 10;
@@ -138,8 +139,9 @@ export default function ProfileTvProgress({ userId, isOwner = false }: ProfileTv
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/30 p-6">
-        <p className="text-neutral-500 text-sm">Loading series progress…</p>
+      <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/30 p-6 flex flex-col items-center justify-center gap-3 min-h-[120px]">
+        <LoadingSpinner size="md" className="border-t-white shrink-0" />
+        <p className="text-neutral-500 text-sm animate-pulse">Loading series progress…</p>
       </div>
     );
   }
@@ -284,19 +286,35 @@ export default function ProfileTvProgress({ userId, isOwner = false }: ProfileTv
               type="button"
               onClick={handleViewMore}
               disabled={loadingMore || loadingAll}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-neutral-700 text-neutral-200 hover:bg-neutral-600 disabled:opacity-50 transition-colors"
+              aria-busy={loadingMore}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-neutral-700 text-neutral-200 hover:bg-neutral-600 disabled:opacity-50 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              {loadingMore ? "Loading…" : `View more (${remaining} left)`}
+              {loadingMore ? (
+                <>
+                  <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+                  <span>Loading…</span>
+                </>
+              ) : (
+                `View more (${remaining} left)`
+              )}
             </button>
             {remaining > VIEW_MORE_BATCH && (
               <button
                 type="button"
                 onClick={handleLoadAll}
                 disabled={loadingMore || loadingAll}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-900/60 text-amber-200 hover:bg-amber-900/80 disabled:opacity-50 transition-colors"
+                aria-busy={loadingAll}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-900/60 text-amber-200 hover:bg-amber-900/80 disabled:opacity-50 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
                 title="Load all series. This may take a while."
               >
-                {loadingAll ? "Loading all…" : "Load all (may take a while)"}
+                {loadingAll ? (
+                  <>
+                    <LoadingSpinner size="sm" className="border-t-amber-400 shrink-0" />
+                    <span>Loading all…</span>
+                  </>
+                ) : (
+                  "Load all (may take a while)"
+                )}
               </button>
             )}
           </div>

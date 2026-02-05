@@ -42,8 +42,9 @@ export default function ProfileLists({
 
   if (loading) {
     return (
-      <div className="my-6 flex justify-center py-4">
-        <LoadingSpinner />
+      <div className="my-6 flex flex-col items-center justify-center gap-3 py-8 min-h-[120px]">
+        <LoadingSpinner size="md" className="border-t-white shrink-0" />
+        <p className="text-neutral-500 text-sm animate-pulse">Loading lists…</p>
       </div>
     );
   }
@@ -58,23 +59,28 @@ export default function ProfileLists({
           <button
             type="button"
             onClick={() => setModalOpen(true)}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition"
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
           >
             Create list
           </button>
         )}
       </div>
       {lists.length === 0 ? (
-        <p className="text-neutral-400 text-sm py-2">
-          {isOwner ? "You have no custom lists yet. Create one to organize movies and TV." : "No lists yet."}
-        </p>
+        <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/30 p-6 text-center">
+          <p className="text-neutral-400 text-sm">
+            {isOwner ? "No custom lists yet." : "No lists yet."}
+          </p>
+          {isOwner && (
+            <p className="text-neutral-500 text-sm mt-1">Create one to organize movies and TV.</p>
+          )}
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {lists.map((list) => (
             <Link
               key={list.id}
               href={`/app/lists/${list.id}`}
-              className="block p-4 rounded-lg bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 transition"
+              className="block p-4 rounded-lg bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 transition-all duration-200 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-2 focus:ring-offset-neutral-900 focus:rounded-lg"
             >
               <h3 className="font-semibold text-neutral-100 truncate">{list.name}</h3>
               {list.description && (

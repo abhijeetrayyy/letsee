@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
 import Link from "next/link";
 import { FiSend, FiArrowDown } from "react-icons/fi";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 const CONTENT_MAX_LENGTH = 2000;
@@ -354,11 +355,19 @@ const Chat = () => {
               <>
                 {hasMoreMessages && (
                   <button
-                    className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-full text-sm w-full max-w-xs mx-auto mb-4 transition duration-150 ease-in-out"
+                    className="bg-neutral-200 hover:bg-neutral-300 text-neutral-800 font-medium py-2 px-4 rounded-full text-sm w-full max-w-xs mx-auto mb-4 flex items-center justify-center gap-2 disabled:opacity-60 transition-all duration-200 active:scale-[0.98]"
                     onClick={loadMoreMessages}
                     disabled={loadingMore}
+                    aria-busy={loadingMore}
                   >
-                    {loadingMore ? "Loading..." : "Load More Messages"}
+                    {loadingMore ? (
+                      <>
+                        <LoadingSpinner size="sm" className="border-t-neutral-600 shrink-0" />
+                        <span>Loading…</span>
+                      </>
+                    ) : (
+                      "Load more messages"
+                    )}
                   </button>
                 )}
                 {renderMessages}
@@ -423,8 +432,9 @@ const Chat = () => {
           </div>
         </div>
       ) : (
-        <div className="grow flex items-center justify-center">
-          <p className="">Loading...</p>
+        <div className="grow flex flex-col items-center justify-center gap-3">
+          <LoadingSpinner size="lg" className="border-t-white shrink-0" />
+          <p className="text-neutral-400 text-sm animate-pulse">Loading conversation…</p>
         </div>
       )}
     </div>

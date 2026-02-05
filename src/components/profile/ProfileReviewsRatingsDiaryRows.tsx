@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 function slug(title: string): string {
   return title
@@ -70,7 +71,10 @@ export default function ProfileReviewsRatingsDiaryRows({
 
   if (loading) {
     return (
-      <div className="text-sm text-neutral-400 py-6">Loading…</div>
+      <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/30 p-6 flex flex-col items-center justify-center gap-3 min-h-[100px]">
+        <LoadingSpinner size="md" className="border-t-white shrink-0" />
+        <p className="text-sm text-neutral-500 animate-pulse">Loading…</p>
+      </div>
     );
   }
 
