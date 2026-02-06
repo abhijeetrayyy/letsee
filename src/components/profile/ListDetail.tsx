@@ -147,7 +147,7 @@ export default function ListDetail({ listId }: { listId: number }) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto p-3 sm:p-6 w-full min-w-0">
       <SendMessageModal
         data={shareCardData}
         media_type={shareCardData?.media_type ?? null}
@@ -178,7 +178,7 @@ export default function ListDetail({ listId }: { listId: number }) {
           <p className="text-neutral-500 text-sm mt-1">Add movies or TV shows using the button above.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
           {items.map((item) => (
             <div key={item.id} className="relative">
               <MediaCard
@@ -209,17 +209,17 @@ export default function ListDetail({ listId }: { listId: number }) {
       )}
 
       {addModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/70 overflow-y-auto">
-          <div className="bg-neutral-800 rounded-xl border border-neutral-600 w-full max-w-lg p-6 mt-8">
-            <h3 className="text-xl font-semibold text-neutral-100 mb-4">Add to list</h3>
-            <div className="flex gap-2 mb-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-4 bg-black/70 overflow-y-auto overscroll-contain">
+          <div className="bg-neutral-800 rounded-xl border border-neutral-600 w-full max-w-lg p-4 sm:p-6 mt-4 sm:mt-8 mb-8 min-h-0 flex flex-col max-h-[calc(100vh-2rem)]">
+            <h3 className="text-lg sm:text-xl font-semibold text-neutral-100 mb-4 shrink-0">Add to list</h3>
+            <div className="flex flex-col sm:flex-row gap-2 mb-4 shrink-0">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 placeholder="Search movie or TV show..."
-                className="flex-1 px-3 py-2 rounded-lg bg-neutral-700 border border-neutral-600 text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="flex-1 min-h-[44px] px-3 py-2.5 rounded-lg bg-neutral-700 border border-neutral-600 text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base"
               />
               <button
                 type="button"
@@ -238,7 +238,7 @@ export default function ListDetail({ listId }: { listId: number }) {
                 )}
               </button>
             </div>
-            <div className="max-h-64 overflow-y-auto space-y-2">
+            <div className="max-h-[min(16rem,50vh)] sm:max-h-64 overflow-y-auto space-y-2 min-h-0 flex-1 overscroll-contain">
               {searching && searchResults.length === 0 && searchQuery.trim() ? (
                 <div className="py-6 flex flex-col items-center justify-center gap-2 text-neutral-500 text-sm">
                   <LoadingSpinner size="sm" className="border-t-white shrink-0" />

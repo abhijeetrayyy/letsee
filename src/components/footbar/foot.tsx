@@ -3,8 +3,8 @@ import React from "react";
 
 function foot() {
   return (
-    <div className=" w-full flex justify-center my-10">
-      <div className="max-w-7xl flex gap-5 text-center">
+    <div className="w-full flex justify-center my-8 sm:my-10 px-3 sm:px-4">
+      <div className="max-w-7xl w-full flex flex-wrap justify-center items-center gap-3 sm:gap-5 text-center text-sm sm:text-base">
         <h1>Let&apos;s see</h1>
         <span>
           <span>Developer: </span>

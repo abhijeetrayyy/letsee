@@ -233,8 +233,8 @@ export default function ProfileSetupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white px-4 py-10">
-      <div className="mx-auto max-w-xl">
+    <div className="min-h-screen bg-neutral-950 text-white px-3 sm:px-4 py-6 sm:py-10">
+      <div className="mx-auto max-w-xl w-full min-w-0">
         <header className="mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold">
             {alreadyExists ? "Edit profile" : "Create your profile"}
@@ -260,7 +260,7 @@ export default function ProfileSetupPage() {
                 onChange={handleUsernameChange}
                 placeholder="e.g. movie_fan"
                 maxLength={USERNAME_MAX + 10}
-                className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full min-h-[44px] rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-base"
                 aria-invalid={!!usernameError}
                 aria-describedby="username-hint username-status"
               />

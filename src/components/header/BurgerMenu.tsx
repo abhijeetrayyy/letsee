@@ -17,7 +17,7 @@ interface BurgerMenuProps {
 }
 
 const menuItemClass =
-  "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-base font-medium text-neutral-200 transition-colors active:bg-neutral-700 hover:bg-neutral-800 hover:text-white touch-manipulation";
+  "flex w-full items-center gap-3 rounded-xl px-4 min-h-[44px] py-3 text-left text-base font-medium text-neutral-200 transition-colors active:bg-neutral-700 hover:bg-neutral-800 hover:text-white touch-manipulation";
 
 const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, username }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -73,7 +73,7 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, username }) => {
   }, [mounted, isOpen]);
 
   const triggerClass =
-    "flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-700/60 bg-neutral-800 text-neutral-200 transition-colors hover:bg-neutral-700 active:bg-neutral-600 md:hidden touch-manipulation";
+    "flex min-h-[44px] min-w-[44px] h-10 w-10 items-center justify-center rounded-xl border border-neutral-700/60 bg-neutral-800 text-neutral-200 transition-colors hover:bg-neutral-700 active:bg-neutral-600 md:hidden touch-manipulation shrink-0";
 
   if (status === "loading") return null;
 
@@ -90,13 +90,14 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, username }) => {
         onClick={close}
       />
 
-      {/* Panel: full height from top, slides in from right */}
+      {/* Panel: full height from top, slides in from right; safe area and touch-friendly */}
       <aside
-        className="fixed inset-y-0 right-0 z-[110] w-full max-w-[min(20rem,88vw)] border-l border-neutral-800 bg-neutral-900 shadow-2xl transition-[transform] duration-300 ease-out md:hidden"
+        className="fixed inset-y-0 right-0 z-[110] w-full max-w-[min(20rem,92vw)] border-l border-neutral-800 bg-neutral-900 shadow-2xl transition-[transform] duration-300 ease-out md:hidden flex flex-col"
         style={{
           transform: isOpen ? "translateX(0)" : "translateX(100%)",
           paddingRight: "env(safe-area-inset-right, 0px)",
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          paddingLeft: "env(safe-area-inset-left, 0px)",
         }}
         id="mobile-menu-panel"
         aria-label="Mobile menu"
@@ -104,11 +105,11 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, username }) => {
         role="dialog"
         hidden={!isOpen}
       >
-        <div className="flex h-14 min-h-14 items-center justify-between border-b border-neutral-800 px-4 pr-[max(1rem,env(safe-area-inset-right))]">
+        <div className="flex h-14 min-h-14 items-center justify-between border-b border-neutral-800 px-4 pr-[max(1rem,env(safe-area-inset-right))] shrink-0">
           <Link
             href="/app"
             onClick={close}
-            className="text-lg font-bold text-white"
+            className="text-lg font-bold text-white min-h-[44px] flex items-center"
           >
             Let&apos;s see
           </Link>
@@ -116,14 +117,14 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, username }) => {
             ref={closeButtonRef}
             type="button"
             onClick={close}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutral-400 hover:bg-neutral-800 hover:text-white active:bg-neutral-700 touch-manipulation"
+            className="flex min-h-[44px] min-w-[44px] h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutral-400 hover:bg-neutral-800 hover:text-white active:bg-neutral-700 touch-manipulation"
             aria-label="Close menu"
           >
             <FaXmark className="size-5" />
           </button>
         </div>
 
-        <nav className="flex flex-col gap-0.5 overflow-y-auto p-4" style={{ maxHeight: "calc(100vh - 3.5rem)" }}>
+        <nav className="flex flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-4 min-h-0 flex-1 overscroll-contain" style={{ maxHeight: "calc(100vh - 3.5rem - env(safe-area-inset-bottom, 0px))" }}>
           <button type="button" onClick={() => go("/app")} className={menuItemClass}>
             <HiHome className="size-5 shrink-0" aria-hidden /> Home
           </button>

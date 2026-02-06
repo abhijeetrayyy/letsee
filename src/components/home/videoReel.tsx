@@ -117,8 +117,9 @@ function HomeHeroBanner() {
   const year = current?.release_date
     ? new Date(current.release_date).getFullYear()
     : null;
+  const hideVoting = process.env.NEXT_PUBLIC_HIDE_VOTING === "true";
   const rating =
-    current?.vote_average != null ? current.vote_average.toFixed(1) : null;
+    hideVoting ? null : (current?.vote_average != null ? current.vote_average.toFixed(1) : null);
 
   const desktopSrc = imagePath
     ? hasBackdrop

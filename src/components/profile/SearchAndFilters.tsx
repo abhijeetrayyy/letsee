@@ -70,7 +70,7 @@ export default function SearchAndFilters({ users }: { users: ProfileUser[] }) {
             placeholder="Search by username or bio…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-800/80 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-colors"
+            className="w-full min-h-[44px] pl-10 pr-4 py-3 rounded-xl bg-neutral-800/80 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-colors text-base"
             aria-label="Search profiles"
           />
         </div>
@@ -128,7 +128,7 @@ export default function SearchAndFilters({ users }: { users: ProfileUser[] }) {
 
       {/* User grid */}
       {filteredAndSorted.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
           {filteredAndSorted.map((item) => (
             <Link
               key={item.username}
