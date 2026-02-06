@@ -111,9 +111,8 @@ export default function Tv({
   const otherSeasons = seasons.slice(1);
 
   const tagline = show?.tagline?.trim();
-  const hideVoting = process.env.NEXT_PUBLIC_HIDE_VOTING === "true";
-  const voteAvg = hideVoting ? null : (show?.vote_average != null ? Number(show.vote_average).toFixed(1) : null);
-  const voteCount = hideVoting ? null : show?.vote_count;
+  const voteAvg = show?.vote_average != null ? Number(show.vote_average).toFixed(1) : null;
+  const voteCount = show?.vote_count;
   const status = show?.status;
   const type = show?.type;
   const origLang = show?.original_language ? langLabel(show.original_language) : null;

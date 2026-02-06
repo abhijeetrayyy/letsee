@@ -30,8 +30,8 @@ export default function LoginForm({
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-neutral-950 px-3 sm:px-4 py-6 sm:py-10">
-      <div className="w-full max-w-md min-w-0">
+    <div className="min-h-screen flex flex-col justify-center items-center bg-neutral-950 px-4 py-10">
+      <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link
             href="/app"
@@ -66,7 +66,7 @@ export default function LoginForm({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full min-h-[44px] rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-base"
+                className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 placeholder="you@example.com"
               />
             </div>
@@ -86,7 +86,7 @@ export default function LoginForm({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full min-h-[44px] rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-base"
+                className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 placeholder="••••••••"
               />
               <p className="mt-1.5 text-xs text-neutral-500">
@@ -123,7 +123,7 @@ export default function LoginForm({
             <button
               type="submit"
               disabled={!canSubmit}
-              className="w-full min-h-[48px] rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 touch-manipulation"
+              className="w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

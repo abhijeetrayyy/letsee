@@ -22,7 +22,7 @@ interface User {
 type NavbarStatus = "loading" | "anon" | "needs_profile" | "ok";
 
 const navIconClass =
-  "min-h-[44px] min-w-[44px] h-10 w-10 flex items-center justify-center rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-700/60 text-neutral-200 transition-colors shrink-0 touch-manipulation";
+  "h-10 w-10 flex items-center justify-center rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-700/60 text-neutral-200 transition-colors shrink-0";
 
 export function LogedNavbar() {
   const [user, setUser] = useState<User | null>(null);
@@ -76,12 +76,12 @@ export function LogedNavbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-neutral-800 bg-neutral-900/95 shadow-sm backdrop-blur-sm">
-      <nav className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6" aria-label="Main">
+      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6" aria-label="Main">
         {/* Left: logo + nav links */}
-        <div className="flex min-w-0 items-center gap-2 sm:gap-6">
+        <div className="flex min-w-0 items-center gap-6">
           <Link
             href="/app"
-            className="shrink-0 text-lg sm:text-xl font-bold tracking-tight text-white transition-colors hover:text-neutral-200 min-h-[44px] flex items-center"
+            className="shrink-0 text-xl font-bold tracking-tight text-white transition-colors hover:text-neutral-200"
           >
             Let&apos;s see
           </Link>
@@ -105,8 +105,8 @@ export function LogedNavbar() {
           </div>
         </div>
 
-        {/* Right: actions — shrink-0 on burger so it's always visible on mobile */}
-        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-shrink-0">
+        {/* Right: actions */}
+        <div className="flex items-center gap-2 sm:gap-3">
           {isAuthed && (
             <Link
               href="/app/reel"

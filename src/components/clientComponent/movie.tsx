@@ -49,9 +49,8 @@ export default function Movie({
   const movieGenres = Array.isArray(movie?.genres) ? movie.genres : [];
   const directors = credits?.crew?.filter((c: any) => c.job === "Director") ?? [];
   const tagline = movie?.tagline?.trim();
-  const hideVoting = (typeof window !== "undefined" ? (process.env.NEXT_PUBLIC_HIDE_VOTING === "true") : process.env.NEXT_PUBLIC_HIDE_VOTING === "true");
-  const voteAvg = hideVoting ? null : (movie?.vote_average != null ? Number(movie.vote_average).toFixed(1) : null);
-  const voteCount = hideVoting ? null : movie?.vote_count;
+  const voteAvg = movie?.vote_average != null ? Number(movie.vote_average).toFixed(1) : null;
+  const voteCount = movie?.vote_count;
   const status = movie?.status;
   const origLang = movie?.original_language ? langLabel(movie.original_language) : null;
   const spoken = movie?.spoken_languages?.length
