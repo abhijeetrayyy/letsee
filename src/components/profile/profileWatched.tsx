@@ -8,7 +8,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 function formatWatchedDate(iso: string): string {
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    return d.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   } catch {
     return "";
   }
@@ -54,7 +58,9 @@ const WatchedMoviesList = ({
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [genreFilter, setGenreFilter] = useState<string | null>(initialGenre ?? null);
+  const [genreFilter, setGenreFilter] = useState<string | null>(
+    initialGenre ?? null,
+  );
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareCardData, setShareCardData] = useState<any>(null);
 
@@ -78,7 +84,7 @@ const WatchedMoviesList = ({
         const data = await response.json();
 
         setMovies((prevMovies) =>
-          page === 1 ? data.data : [...prevMovies, ...data.data]
+          page === 1 ? data.data : [...prevMovies, ...data.data],
         );
         setTotalItems(data.totalItems);
         setTotalPages(data.totalPages);
@@ -88,7 +94,7 @@ const WatchedMoviesList = ({
         setLoading(false);
       }
     },
-    [userId, itemType]
+    [userId, itemType],
   );
 
   useEffect(() => {
@@ -134,48 +140,50 @@ const WatchedMoviesList = ({
       />
       {/* Genre Filter Buttons */}
       {!hideGenreFilter && (
-      <div className="flex flex-wrap gap-2 mb-4">
-        <button
-          onClick={handleClearFilter}
-          className={`text-sm md:text-base px-4 py-2 rounded-md ${
-            !genreFilter
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          All
-        </button>
-        <button
-          onClick={() => handleGenreFilter("Animation")}
-          className={`text-sm md:text-base px-4 py-2 rounded-md ${
-            genreFilter === "Animation"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          Anime/Animation
-        </button>
-        {genreList.map((genre, index) => (
+        <div className="flex flex-wrap gap-2 mb-4">
           <button
-            key={index}
-            onClick={() => handleGenreFilter(genre)}
-            className={`px-4 py-2 rounded-md text-sm md:text-base ${
-              genreFilter === genre
+            onClick={handleClearFilter}
+            className={`text-sm md:text-base px-4 py-2 rounded-md ${
+              !genreFilter
                 ? "bg-blue-500 text-white"
                 : "bg-gray-200 text-gray-700 hover:bg-gray-300"
             }`}
           >
-            {genre}
+            All
           </button>
-        ))}
-      </div>
+          <button
+            onClick={() => handleGenreFilter("Animation")}
+            className={`text-sm md:text-base px-4 py-2 rounded-md ${
+              genreFilter === "Animation"
+                ? "bg-blue-500 text-white"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+            }`}
+          >
+            Anime/Animation
+          </button>
+          {genreList.map((genre, index) => (
+            <button
+              key={index}
+              onClick={() => handleGenreFilter(genre)}
+              className={`px-4 py-2 rounded-md text-sm md:text-base ${
+                genreFilter === genre
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+            >
+              {genre}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Movie Grid */}
       {loading && memoizedMovies.length === 0 && (
         <div className="w-full p-12 flex flex-col items-center justify-center gap-4 min-h-[200px]">
           <LoadingSpinner size="lg" className="border-t-white" />
-          <p className="text-neutral-400 text-sm animate-pulse">Loading your watched list…</p>
+          <p className="text-neutral-400 text-sm animate-pulse">
+            Loading your watched list…
+          </p>
         </div>
       )}
       {!loading && memoizedMovies.length === 0 ? (
@@ -191,10 +199,11 @@ const WatchedMoviesList = ({
               on_hold: "On hold",
               dropped: "Dropped",
               plan_to_watch: "Plan to watch",
+              rewatching: "Rewatching",
             };
             const tvStatusLabel =
               item.item_type === "tv" && typeof item.tv_status === "string"
-                ? tvStatusLabels[item.tv_status] ?? item.tv_status
+                ? (tvStatusLabels[item.tv_status] ?? item.tv_status)
                 : null;
             const subtitle = (
               <>
@@ -216,8 +225,12 @@ const WatchedMoviesList = ({
                 {(isOwner ? item.review_text : item.public_review_text) && (
                   <span className="block text-xs text-neutral-400 line-clamp-2 mt-0.5">
                     {(() => {
-                      const text = isOwner ? item.review_text : item.public_review_text;
-                      return text && text.length > 50 ? text.slice(0, 50) + "…" : text;
+                      const text = isOwner
+                        ? item.review_text
+                        : item.public_review_text;
+                      return text && text.length > 50
+                        ? text.slice(0, 50) + "…"
+                        : text;
                     })()}
                   </span>
                 )}
@@ -257,7 +270,10 @@ const WatchedMoviesList = ({
               >
                 {loading ? (
                   <>
-                    <LoadingSpinner size="md" className="border-t-white shrink-0" />
+                    <LoadingSpinner
+                      size="md"
+                      className="border-t-white shrink-0"
+                    />
                     <span className="text-sm">Loading more…</span>
                   </>
                 ) : (

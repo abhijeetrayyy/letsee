@@ -3,7 +3,6 @@ import Link from "next/link";
 import DiscoverUsers from "@components/home/DiscoverUser";
 import CalendarSection from "@components/home/CalendarSection";
 import ContinueWatchingSection from "@components/home/ContinueWatchingSection";
-import CurrentlyWatchingSection from "@components/home/CurrentlyWatchingSection";
 import OpenAiReco from "@components/ai/openaiReco";
 import HomeVideo from "@components/home/videoReel";
 import MovieGenre from "@components/scroll/movieGenre";
@@ -60,9 +59,6 @@ export default async function Home() {
 
         {/* Continue watching (TV episode progress) — client, only shows when user has episode progress */}
         <ContinueWatchingSection />
-
-        {/* Currently watching — movies & TV shows marked as "watching" */}
-        <CurrentlyWatchingSection />
 
         {/* Personal recommendations (TMDB genre-based) */}
         <section
@@ -128,10 +124,7 @@ export default async function Home() {
         {/* Browse by tag — genres, keywords, categories */}
         <section aria-labelledby="browse-tags-heading">
           <h2 id="browse-tags-heading" className={SECTION_HEADING}>
-            <Link
-              href="/app/search"
-              className={headingLinkClass}
-            >
+            <Link href="/app/search" className={headingLinkClass}>
               Browse by tag
             </Link>
           </h2>
@@ -172,7 +165,8 @@ export default async function Home() {
             </Link>
           </h2>
           <p className={SECTION_SUB}>
-            Popular anime TV shows — Jujutsu Kaisen, SPY×FAMILY, One Piece & more
+            Popular anime TV shows — Jujutsu Kaisen, SPY×FAMILY, One Piece &
+            more
           </p>
           <HomeContentTile type="tv" data={{ results: animeSeries }} />
         </section>

@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import EpisodeListWithWatched from "@components/tv/EpisodeListWithWatched";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { fetchTmdb } from "@/utils/tmdbClient";
+import { createClient } from "@/utils/supabase/server";
+import TvStatusSelector from "@/components/tv/TvStatusSelector";
 
 interface Episode {
   id: number;
@@ -22,6 +24,7 @@ interface Season {
   overview: string;
   poster_path: string | null;
   air_date: string | null;
+  episode_count: number;
 }
 
 type SeasonPageProps = {
@@ -38,7 +41,7 @@ const SEASON_REVALIDATE_SEC = 300;
 // Fetch series (cached) and season data (one TMDB call for season)
 const fetchSeriesAndSeasonData = async (
   seriesId: string,
-  seasonNumber: string
+  seasonNumber: string,
 ) => {
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) {
@@ -56,7 +59,7 @@ const fetchSeriesAndSeasonData = async (
 
   const seasonResponse = await fetchTmdb(
     `https://api.themoviedb.org/3/tv/${seriesId}/season/${seasonNumber}?api_key=${apiKey}`,
-    { revalidate: SEASON_REVALIDATE_SEC }
+    { revalidate: SEASON_REVALIDATE_SEC },
   );
   if (!seasonResponse.ok) {
     if (seasonResponse.status === 404) notFound();
@@ -75,6 +78,7 @@ const fetchSeriesAndSeasonData = async (
       overview: s.overview,
       poster_path: s.poster_path,
       air_date: s.air_date,
+      episode_count: s.episode_count,
     })),
     currentSeason: {
       id: seasonData.id,
@@ -112,8 +116,23 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
     data;
   const currentSeasonNum = parseInt(seasonNumber, 10);
   const nextSeason = seasons.find(
-    (s: any) => s.season_number === currentSeasonNum + 1
+    (s: any) => s.season_number === currentSeasonNum + 1,
   );
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let initialTVStatus = null;
+  if (user) {
+    const { data } = await supabase
+      .from("user_tv_list")
+      .select("status")
+      .eq("user_id", user.id)
+      .eq("show_id", numericId)
+      .maybeSingle();
+    initialTVStatus = data?.status ?? null;
+  }
 
   return (
     <div className="min-h-screen bg-neutral-900 text-neutral-200 p-4">
@@ -142,6 +161,12 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
             <p className="text-sm text-neutral-400">
               Showing Season {currentSeasonNum} of {seasons.length}
             </p>
+            <div className="mt-4">
+              <TvStatusSelector
+                showId={numericId}
+                initialStatus={initialTVStatus}
+              />
+            </div>
           </div>
         </header>
 
@@ -175,6 +200,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
             showId={numericId}
             seasonNumber={currentSeasonNum}
             episodes={currentSeason.episodes}
+            allSeasons={seasons}
           />
         </section>
 

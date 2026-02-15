@@ -6,7 +6,8 @@ const Visibility: React.FC = () => {
   const [visibility, setVisibility] = useState<string>("public");
   const [profileShowDiary, setProfileShowDiary] = useState(true);
   const [profileShowRatings, setProfileShowRatings] = useState(true);
-  const [profileShowPublicReviews, setProfileShowPublicReviews] = useState(true);
+  const [profileShowPublicReviews, setProfileShowPublicReviews] =
+    useState(true);
   const [defaultTvStatus, setDefaultTvStatus] = useState<string>("watching");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -18,10 +19,22 @@ const Visibility: React.FC = () => {
         if (res.ok) {
           const data = await res.json();
           if (data.visibility) setVisibility(data.visibility);
-          if (typeof data.profile_show_diary === "boolean") setProfileShowDiary(data.profile_show_diary);
-          if (typeof data.profile_show_ratings === "boolean") setProfileShowRatings(data.profile_show_ratings);
-          if (typeof data.profile_show_public_reviews === "boolean") setProfileShowPublicReviews(data.profile_show_public_reviews);
-          if (["watching", "completed", "on_hold", "dropped", "plan_to_watch"].includes(data.default_tv_status ?? "")) {
+          if (typeof data.profile_show_diary === "boolean")
+            setProfileShowDiary(data.profile_show_diary);
+          if (typeof data.profile_show_ratings === "boolean")
+            setProfileShowRatings(data.profile_show_ratings);
+          if (typeof data.profile_show_public_reviews === "boolean")
+            setProfileShowPublicReviews(data.profile_show_public_reviews);
+          if (
+            [
+              "watching",
+              "completed",
+              "on_hold",
+              "dropped",
+              "plan_to_watch",
+              "rewatching",
+            ].includes(data.default_tv_status ?? "")
+          ) {
             setDefaultTvStatus(data.default_tv_status);
           }
         }
@@ -61,15 +74,16 @@ const Visibility: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="text-sm text-white/60">Loading settings…</div>
-    );
+    return <div className="text-sm text-white/60">Loading settings…</div>;
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <label htmlFor="profile-visibility" className="text-sm font-medium text-white/80 shrink-0">
+        <label
+          htmlFor="profile-visibility"
+          className="text-sm font-medium text-white/80 shrink-0"
+        >
           Profile visibility
         </label>
         <select
@@ -84,7 +98,10 @@ const Visibility: React.FC = () => {
         </select>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <label htmlFor="default-tv-status" className="text-sm font-medium text-white/80 shrink-0">
+        <label
+          htmlFor="default-tv-status"
+          className="text-sm font-medium text-white/80 shrink-0"
+        >
           When I add a TV show to Watched, set status to
         </label>
         <select
@@ -98,11 +115,14 @@ const Visibility: React.FC = () => {
           <option value="completed">Completed</option>
           <option value="on_hold">On hold</option>
           <option value="dropped">Dropped</option>
+          <option value="rewatching">Rewatching</option>
         </select>
       </div>
       <div className="space-y-4 text-sm">
         <p className="text-neutral-400 text-xs max-w-md">
-          These control what appears in the &quot;Reviews, ratings &amp; diary&quot; section. Diary is only ever visible to you; ratings and public reviews can be shown or hidden from visitors.
+          These control what appears in the &quot;Reviews, ratings &amp;
+          diary&quot; section. Diary is only ever visible to you; ratings and
+          public reviews can be shown or hidden from visitors.
         </p>
         <div className="space-y-3">
           <label className="flex items-start gap-2 cursor-pointer group">
@@ -117,7 +137,9 @@ const Visibility: React.FC = () => {
             </span>
           </label>
           <p className="text-neutral-500 text-xs pl-6 -mt-1.5">
-            Diary = your private notes per title (only you see them). On = you see them on your profile. Off = they stay hidden on your profile; you can still add or edit diary on each title page.
+            Diary = your private notes per title (only you see them). On = you
+            see them on your profile. Off = they stay hidden on your profile;
+            you can still add or edit diary on each title page.
           </p>
 
           <label className="flex items-start gap-2 cursor-pointer group">
@@ -132,7 +154,9 @@ const Visibility: React.FC = () => {
             </span>
           </label>
           <p className="text-neutral-500 text-xs pl-6 -mt-1.5">
-            Ratings = your 1–10 score per title. On = visitors see your scores. Off = visitors don’t see them (you still see yours on your own profile).
+            Ratings = your 1–10 score per title. On = visitors see your scores.
+            Off = visitors don’t see them (you still see yours on your own
+            profile).
           </p>
 
           <label className="flex items-start gap-2 cursor-pointer group">
@@ -147,7 +171,9 @@ const Visibility: React.FC = () => {
             </span>
           </label>
           <p className="text-neutral-500 text-xs pl-6 -mt-1.5">
-            Public review = the review you choose to share per title (separate from private diary). On = visitors see these. Off = visitors don’t (you still see yours on your own profile).
+            Public review = the review you choose to share per title (separate
+            from private diary). On = visitors see these. Off = visitors don’t
+            (you still see yours on your own profile).
           </p>
         </div>
       </div>

@@ -82,14 +82,20 @@ export default function Tv({
       return;
     }
     let cancelled = false;
-    fetch(`/api/tv-list-status?showId=${encodeURIComponent(id)}`, { cache: "no-store" })
+    fetch(`/api/tv-list-status?showId=${encodeURIComponent(id)}`, {
+      cache: "no-store",
+    })
       .then((r) => r.json())
       .then((data) => {
         if (!cancelled && data?.status != null) setTvListStatus(data.status);
         else if (!cancelled) setTvListStatus(null);
       })
-      .catch(() => { if (!cancelled) setTvListStatus(null); });
-    return () => { cancelled = true; };
+      .catch(() => {
+        if (!cancelled) setTvListStatus(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id, watched]);
 
   const handleCardTransfer = (data: any) => {
@@ -111,11 +117,14 @@ export default function Tv({
   const otherSeasons = seasons.slice(1);
 
   const tagline = show?.tagline?.trim();
-  const voteAvg = show?.vote_average != null ? Number(show.vote_average).toFixed(1) : null;
+  const voteAvg =
+    show?.vote_average != null ? Number(show.vote_average).toFixed(1) : null;
   const voteCount = show?.vote_count;
   const status = show?.status;
   const type = show?.type;
-  const origLang = show?.original_language ? langLabel(show.original_language) : null;
+  const origLang = show?.original_language
+    ? langLabel(show.original_language)
+    : null;
   const networks = show?.networks ?? [];
   const createdBy = show?.created_by ?? [];
   const numSeasons = show?.number_of_seasons;
@@ -127,12 +136,11 @@ export default function Tv({
     show?.backdrop_path && !show?.adult
       ? `https://image.tmdb.org/t/p/w1280${show.backdrop_path}`
       : null;
-  const posterUrl =
-    show?.adult
-      ? "/pixeled.webp"
-      : show?.poster_path
-        ? `https://image.tmdb.org/t/p/w342${show.poster_path}`
-        : "/no-photo.webp";
+  const posterUrl = show?.adult
+    ? "/pixeled.webp"
+    : show?.poster_path
+      ? `https://image.tmdb.org/t/p/w342${show.poster_path}`
+      : "/no-photo.webp";
 
   return (
     <div>
@@ -152,7 +160,10 @@ export default function Tv({
         watchedPayload={{
           itemId: show?.id ?? id,
           name: show?.name || show?.title || "",
-          imgUrl: show?.poster_path || show?.backdrop_path ? `https://image.tmdb.org/t/p/w342${show?.poster_path || show?.backdrop_path}` : "",
+          imgUrl:
+            show?.poster_path || show?.backdrop_path
+              ? `https://image.tmdb.org/t/p/w342${show?.poster_path || show?.backdrop_path}`
+              : "",
           adult: show?.adult ?? false,
           genres: showGenres.map((g: any) => g.name),
         }}
@@ -186,9 +197,7 @@ export default function Tv({
               {status && (
                 <span className="text-neutral-400 text-sm">{status}</span>
               )}
-              {type && (
-                <span className="text-neutral-400 text-sm">{type}</span>
-              )}
+              {type && <span className="text-neutral-400 text-sm">{type}</span>}
             </div>
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white drop-shadow-md">
               {show?.name}
@@ -202,9 +211,13 @@ export default function Tv({
             <div className="mt-4 flex flex-wrap gap-2 md:gap-3 text-sm">
               {voteAvg != null && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-neutral-700/80 text-white">
-                  <span className="text-amber-400 font-semibold">★ {voteAvg}</span>
+                  <span className="text-amber-400 font-semibold">
+                    ★ {voteAvg}
+                  </span>
                   {voteCount != null && voteCount > 0 && (
-                    <span className="text-neutral-400">({voteCount.toLocaleString()} votes)</span>
+                    <span className="text-neutral-400">
+                      ({voteCount.toLocaleString()} votes)
+                    </span>
                   )}
                 </span>
               )}
@@ -231,7 +244,19 @@ export default function Tv({
               )}
               {networks.length > 0 && (
                 <span className="px-2.5 py-1 rounded-md bg-neutral-700/80 text-neutral-200">
-                  {networks.slice(0, 2).map((n: any) => n.name).join(", ")}
+                  {networks
+                    .slice(0, 2)
+                    .map((n: any) => n.name)
+                    .join(", ")}
+                </span>
+              )}
+              {show?.next_episode_to_air && (
+                <span className="px-2.5 py-1 rounded-md bg-blue-900/60 text-blue-200 border border-blue-700/50">
+                  Next: {show.next_episode_to_air.name} (
+                  {new Date(
+                    show.next_episode_to_air.air_date,
+                  ).toLocaleDateString()}
+                  )
                 </span>
               )}
             </div>
@@ -302,7 +327,10 @@ export default function Tv({
                           const res = await fetch("/api/tv-list-status", {
                             method: "PATCH",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ showId: String(id), status: v }),
+                            body: JSON.stringify({
+                              showId: String(id),
+                              status: v,
+                            }),
                           });
                           if (res.ok) setTvListStatus(v);
                         } finally {
@@ -317,6 +345,7 @@ export default function Tv({
                       <option value="on_hold">On hold</option>
                       <option value="dropped">Dropped</option>
                       <option value="plan_to_watch">Plan to watch</option>
+                      <option value="rewatching">Rewatching</option>
                     </select>
                   </div>
                 )}
@@ -325,19 +354,31 @@ export default function Tv({
                   itemId={id}
                   itemType="tv"
                   itemName={show?.name}
-                  imageUrl={show?.poster_path ? `https://image.tmdb.org/t/p/w92${show.poster_path}` : undefined}
+                  imageUrl={
+                    show?.poster_path
+                      ? `https://image.tmdb.org/t/p/w92${show.poster_path}`
+                      : undefined
+                  }
                   isWatched={hasWatched(id)}
                 />
-                <WatchedReview itemId={id} itemType="tv" isWatched={hasWatched(id)} />
+                <WatchedReview
+                  itemId={id}
+                  itemType="tv"
+                  isWatched={hasWatched(id)}
+                />
                 <PublicReviews itemId={id} itemType="tv" />
               </div>
 
               {/* Overview */}
               {show?.overview && (
                 <div className="pt-4 border-t border-neutral-700">
-                  <h2 className="text-lg font-semibold text-white mb-2">Overview</h2>
+                  <h2 className="text-lg font-semibold text-white mb-2">
+                    Overview
+                  </h2>
                   <p className="text-neutral-300 text-sm leading-relaxed">
-                    {showFullOverview ? show.overview : show.overview.slice(0, 320)}
+                    {showFullOverview
+                      ? show.overview
+                      : show.overview.slice(0, 320)}
                     {show.overview.length > 320 && !showFullOverview && "…"}
                   </p>
                   {show.overview.length > 320 && (
@@ -354,15 +395,21 @@ export default function Tv({
 
               {/* Details */}
               <div className="pt-4 border-t border-neutral-700 space-y-3">
-                <h2 className="text-lg font-semibold text-white mb-3">Details</h2>
+                <h2 className="text-lg font-semibold text-white mb-3">
+                  Details
+                </h2>
                 {firstAir && (
                   <div className="text-sm text-neutral-400">
                     First air: {firstAir}
-                    {lastAir && lastAir !== firstAir && ` · Last air: ${lastAir}`}
+                    {lastAir &&
+                      lastAir !== firstAir &&
+                      ` · Last air: ${lastAir}`}
                   </div>
                 )}
                 {status && (
-                  <div className="text-sm text-neutral-400">Status: {status}</div>
+                  <div className="text-sm text-neutral-400">
+                    Status: {status}
+                  </div>
                 )}
                 {createdBy.length > 0 && (
                   <div className="text-sm">
@@ -370,10 +417,14 @@ export default function Tv({
                     {createdBy.map((c: any, i: number) => (
                       <Link
                         key={c.id}
-                        href={`/app/person/${c.id}-${String(c.name).trim().replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-")}`}
+                        href={`/app/person/${c.id}-${String(c.name)
+                          .trim()
+                          .replace(/[^a-zA-Z0-9]/g, "-")
+                          .replace(/-+/g, "-")}`}
                         className="text-neutral-200 hover:text-indigo-400 hover:underline"
                       >
-                        {c.name}{i < createdBy.length - 1 ? ", " : ""}
+                        {c.name}
+                        {i < createdBy.length - 1 ? ", " : ""}
                       </Link>
                     ))}
                   </div>
@@ -395,16 +446,26 @@ export default function Tv({
                 {show?.production_companies?.length > 0 && (
                   <div className="text-sm text-neutral-400">
                     <span className="text-neutral-500">Production: </span>
-                    {show.production_companies.slice(0, 5).map((c: any, i: number) => (
-                      <span key={c.id}>{c.name}{i < Math.min(5, show.production_companies.length) - 1 ? ", " : ""}</span>
-                    ))}
+                    {show.production_companies
+                      .slice(0, 5)
+                      .map((c: any, i: number) => (
+                        <span key={c.id}>
+                          {c.name}
+                          {i < Math.min(5, show.production_companies.length) - 1
+                            ? ", "
+                            : ""}
+                        </span>
+                      ))}
                   </div>
                 )}
                 {networks.length > 0 && (
                   <div className="text-sm text-neutral-400">
                     <span className="text-neutral-500">Networks: </span>
                     {networks.map((n: any, i: number) => (
-                      <span key={n.id}>{n.name}{i < networks.length - 1 ? ", " : ""}</span>
+                      <span key={n.id}>
+                        {n.name}
+                        {i < networks.length - 1 ? ", " : ""}
+                      </span>
                     ))}
                   </div>
                 )}
@@ -436,12 +497,17 @@ export default function Tv({
                     className="rounded-lg object-cover w-full sm:w-40 aspect-video sm:aspect-2/3"
                   />
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-xl font-semibold text-white">{firstSeason.name}</h3>
+                    <h3 className="text-xl font-semibold text-white">
+                      {firstSeason.name}
+                    </h3>
                     <p className="text-sm text-neutral-400 mt-1">
-                      {firstSeason.air_date || "TBA"} · {firstSeason.episode_count} episodes
+                      {firstSeason.air_date || "TBA"} ·{" "}
+                      {firstSeason.episode_count} episodes
                     </p>
                     {firstSeason.overview && (
-                      <p className="text-sm text-neutral-300 mt-2 line-clamp-3">{firstSeason.overview}</p>
+                      <p className="text-sm text-neutral-300 mt-2 line-clamp-3">
+                        {firstSeason.overview}
+                      </p>
                     )}
                   </div>
                 </Link>
@@ -469,9 +535,15 @@ export default function Tv({
                         className="w-full aspect-2/3 object-cover"
                       />
                       <div className="p-2">
-                        <h4 className="text-sm font-semibold text-white truncate">{season.name}</h4>
-                        <p className="text-xs text-neutral-400">{season.air_date || "TBA"}</p>
-                        <p className="text-xs text-neutral-400">{season.episode_count} episodes</p>
+                        <h4 className="text-sm font-semibold text-white truncate">
+                          {season.name}
+                        </h4>
+                        <p className="text-xs text-neutral-400">
+                          {season.air_date || "TBA"}
+                        </p>
+                        <p className="text-xs text-neutral-400">
+                          {season.episode_count} episodes
+                        </p>
                       </div>
                     </Link>
                   ))}
@@ -479,7 +551,12 @@ export default function Tv({
                 {canScrollLeft && (
                   <button
                     type="button"
-                    onClick={() => scrollRef.current?.scrollBy({ left: -280, behavior: "smooth" })}
+                    onClick={() =>
+                      scrollRef.current?.scrollBy({
+                        left: -280,
+                        behavior: "smooth",
+                      })
+                    }
                     className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-neutral-800 border border-neutral-600 text-white shadow-lg hover:bg-neutral-700"
                     aria-label="Scroll left"
                   >
@@ -489,7 +566,12 @@ export default function Tv({
                 {canScrollRight && (
                   <button
                     type="button"
-                    onClick={() => scrollRef.current?.scrollBy({ left: 280, behavior: "smooth" })}
+                    onClick={() =>
+                      scrollRef.current?.scrollBy({
+                        left: 280,
+                        behavior: "smooth",
+                      })
+                    }
                     className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-neutral-800 border border-neutral-600 text-white shadow-lg hover:bg-neutral-700"
                     aria-label="Scroll right"
                   >

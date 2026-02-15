@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
   const { data: rows, error } = await supabase
     .from("watched_episodes")
-    .select("season_number, episode_number")
+    .select("season_number, episode_number, watched_at")
     .eq("user_id", userId)
     .eq("show_id", showId)
     .order("season_number", { ascending: true })
@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
   const episodes = (rows ?? []).map((r) => ({
     season_number: r.season_number,
     episode_number: r.episode_number,
+    watched_at: r.watched_at,
   }));
   return jsonSuccess({ episodes }, { maxAge: 0 });
 }

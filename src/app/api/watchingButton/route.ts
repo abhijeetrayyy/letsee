@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = data.user.id;
+    const itemIdStr = String(itemId);
 
     // Remove from watchlist if present (you're now watching it)
     const { data: existingWatchlistItem, error: watchlistFindError } =
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
         .from("user_watchlist")
         .select("item_id")
         .eq("user_id", userId)
-        .eq("item_id", itemId)
+        .eq("item_id", itemIdStr)
         .maybeSingle();
 
     if (watchlistFindError && watchlistFindError.code !== "PGRST116") {
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
         .from("user_watchlist")
         .delete()
         .eq("user_id", userId)
-        .eq("item_id", itemId);
+        .eq("item_id", itemIdStr);
 
       if (deleteWatchlistError) {
         console.error(
@@ -51,13 +52,80 @@ export async function POST(req: NextRequest) {
       await supabase.rpc("decrement_watchlist_count", { p_user_id: userId });
     }
 
-    // Insert into currently_watching
+    // ----- TV SHOWS: use user_tv_list (unified tracking) -----
+    if (mediaType === "tv") {
+      // Upsert into user_tv_list with 'watching' status
+      const { error: tvListError } = await supabase.from("user_tv_list").upsert(
+        {
+          user_id: userId,
+          show_id: itemIdStr,
+          status: "watching",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,show_id" },
+      );
+
+      if (tvListError) {
+        if (tvListError.code === "23505") {
+          return NextResponse.json(
+            { error: "Already in watching list" },
+            { status: 409 },
+          );
+        }
+        console.error("Error upserting user_tv_list:", tvListError);
+        return NextResponse.json(
+          { error: "Error adding to watching" },
+          { status: 500 },
+        );
+      }
+
+      // Ensure the show is also in watched_items (for metadata: name, image, genres)
+      const { data: existingWatched } = await supabase
+        .from("watched_items")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("item_id", itemIdStr)
+        .maybeSingle();
+
+      if (!existingWatched) {
+        const { error: insertWatchedError } = await supabase
+          .from("watched_items")
+          .insert({
+            user_id: userId,
+            item_id: itemIdStr,
+            item_name: name,
+            item_type: "tv",
+            image_url: imgUrl || null,
+            item_adult: adult ?? false,
+            genres: genres ?? [],
+            is_watched: false, // not fully watched yet, just tracking
+          });
+
+        if (insertWatchedError && insertWatchedError.code !== "23505") {
+          console.error(
+            "Error inserting watched_items for TV:",
+            insertWatchedError,
+          );
+        }
+      }
+
+      return NextResponse.json(
+        {
+          message:
+            "Added to watching" +
+            (existingWatchlistItem ? " and removed from watchlist" : ""),
+        },
+        { status: 200 },
+      );
+    }
+
+    // ----- MOVIES: use currently_watching (unchanged) -----
     const { error: insertError } = await supabase
       .from("currently_watching")
       .insert({
         user_id: userId,
         item_name: name,
-        item_id: String(itemId),
+        item_id: itemIdStr,
         item_type: mediaType,
         image_url: imgUrl || null,
         item_adult: adult ?? false,

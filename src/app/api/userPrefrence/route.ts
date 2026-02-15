@@ -16,7 +16,8 @@ export const GET = async (_req: NextRequest) => {
     { data: userFavorites, error: userFavoritesError },
     { data: userWatched, error: userWatchedError },
     { data: userWatchlist, error: userWatchlistError },
-    { data: userWatching, error: userWatchingError },
+    { data: movieWatching, error: movieWatchingError },
+    { data: tvWatching, error: tvWatchingError },
   ] = await Promise.all([
     supabase.from("favorite_items").select("item_id").eq("user_id", userId),
     supabase
@@ -25,24 +26,38 @@ export const GET = async (_req: NextRequest) => {
       .eq("user_id", userId)
       .eq("is_watched", true),
     supabase.from("user_watchlist").select("item_id").eq("user_id", userId),
+    // Movies: from currently_watching
     supabase.from("currently_watching").select("item_id").eq("user_id", userId),
+    // TV: from user_tv_list with 'watching' status
+    supabase
+      .from("user_tv_list")
+      .select("show_id")
+      .eq("user_id", userId)
+      .eq("status", "watching"),
   ]);
 
   if (
     userFavoritesError ||
     userWatchedError ||
     userWatchlistError ||
-    userWatchingError
+    movieWatchingError ||
+    tvWatchingError
   ) {
     return jsonError("Failed to fetch user preferences.", 500);
   }
+
+  // Merge movie watching (item_id) + tv watching (show_id as item_id) into one list
+  const watching = [
+    ...(movieWatching ?? []),
+    ...(tvWatching ?? []).map((r) => ({ item_id: r.show_id })),
+  ];
 
   return jsonSuccess(
     {
       favorite: userFavorites ?? [],
       watched: userWatched ?? [],
       watchlater: userWatchlist ?? [],
-      watching: userWatching ?? [],
+      watching,
     },
     { maxAge: 0 },
   );

@@ -2,12 +2,15 @@
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FaChevronRight } from "react-icons/fa";
+import { FaChevronRight, FaChevronLeft, FaStar } from "react-icons/fa";
 import ImageViewEpisode from "@components/clientComponent/imageViewEpisode";
 import VideoEpisode from "@components/clientComponent/videoEpisode";
 import MarkEpisodeWatched from "@components/tv/MarkEpisodeWatched";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { fetchTmdb } from "@/utils/tmdbClient";
+import { createClient } from "@/utils/supabase/server";
+import EpisodeRating from "@/components/tv/EpisodeRating";
+import EpisodeNote from "@/components/tv/EpisodeNote";
 
 interface EpisodeDetails {
   id: number;
@@ -17,6 +20,8 @@ interface EpisodeDetails {
   overview: string;
   still_path: string | null;
   runtime: number | null;
+  vote_average: number;
+  vote_count: number;
   guest_stars: {
     id: number;
     name: string;
@@ -48,7 +53,7 @@ const EPISODE_REVALIDATE_SEC = 300;
 const fetchEpisodeData = async (
   id: string,
   seasonNumber: string,
-  episodeId: string
+  episodeId: string,
 ) => {
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) {
@@ -67,10 +72,16 @@ const fetchEpisodeData = async (
 
   const seriesData = await getTvShowWithSeasons(id);
   const seriesName = (seriesData?.name as string) ?? "Series";
+  const seasons = (seriesData?.seasons as any[]) || [];
+  const currentSeasonData = seasons.find(
+    (s) => s.season_number === parseInt(seasonNumber, 10),
+  );
+  const episodeCount = currentSeasonData?.episode_count || 0;
 
   return {
     seriesName,
     seasonNumber: parseInt(seasonNumber, 10),
+    episodeCount,
     episode: {
       id: data.id,
       episode_number: data.episode_number,
@@ -79,6 +90,8 @@ const fetchEpisodeData = async (
       overview: data.overview,
       still_path: data.still_path,
       runtime: data.runtime,
+      vote_average: data.vote_average,
+      vote_count: data.vote_count,
       guest_stars: data.guest_stars || [],
       crew: data.crew || [],
       images: data.images || { stills: [] },
@@ -97,10 +110,28 @@ const EpisodePage = async ({ params }: PageProps) => {
     return notFound();
   }
 
-  let data;
-  try {
-    data = await fetchEpisodeData(id, seasonNumber, episodeId);
-  } catch (error) {
+  // Parallel fetch: Episode Data + User Data
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const [episodeRes, ratingRes] = await Promise.all([
+    fetchEpisodeData(id, seasonNumber, episodeId).catch((e) => ({ error: e })),
+    user
+      ? supabase
+          .from("episode_ratings")
+          .select("score, note")
+          .eq("user_id", user.id)
+          .eq("show_id", id)
+          .eq("season_number", seasonNumber)
+          .eq("episode_number", episodeId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  if ((episodeRes as any).error) {
+    const error = (episodeRes as any).error; // Cast for now
     console.log("Fetch Error:", error);
     return (
       <div className="min-h-screen bg-neutral-900 text-neutral-200 flex items-center justify-center p-4">
@@ -110,6 +141,9 @@ const EpisodePage = async ({ params }: PageProps) => {
       </div>
     );
   }
+
+  const data = episodeRes as Awaited<ReturnType<typeof fetchEpisodeData>>;
+  const userRating = ratingRes.data;
 
   const { seriesName, seasonNumber: seasonNum, episode } = data;
 
@@ -134,30 +168,90 @@ const EpisodePage = async ({ params }: PageProps) => {
         {/* Episode Header */}
         <header className="mb-8 flex flex-col sm:flex-row gap-6">
           {episode.still_path && (
-            <img
-              src={`https://image.tmdb.org/t/p/w300${episode.still_path}`}
-              alt={episode.name}
-              width={300}
-              height={169}
-              className="rounded-lg object-cover"
-            />
+            <div className="relative shrink-0">
+              <img
+                src={`https://image.tmdb.org/t/p/w300${episode.still_path}`}
+                alt={episode.name}
+                width={300}
+                height={169}
+                className="rounded-lg object-cover"
+              />
+            </div>
           )}
           <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold text-neutral-100 mb-2">
-              {episode.name} (S{seasonNum}E
-              {episode.episode_number.toString().padStart(2, "0")})
-            </h1>
-            <p className="text-sm sm:text-base text-neutral-400 mb-2">
-              {episode.air_date || "Air date TBA"} •{" "}
-              {episode.runtime ? `${episode.runtime} min` : "Runtime TBD"}
-            </p>
-            <p className="text-sm sm:text-base text-neutral-300 mb-4">
+            <div className="flex items-start justify-between">
+              <h1 className="text-2xl sm:text-3xl font-bold text-neutral-100 mb-1">
+                {episode.name}
+              </h1>
+            </div>
+            <div className="flex items-center gap-3 text-sm text-neutral-400 mb-3">
+              <span className="bg-neutral-800 px-2 py-0.5 rounded text-neutral-300">
+                S{seasonNum} E{episode.episode_number}
+              </span>
+              <span>{episode.air_date || "TBA"}</span>
+              <span>{episode.runtime ? `${episode.runtime}m` : ""}</span>
+              {/* TMDB Rating */}
+              {episode.vote_average > 0 && (
+                <span className="flex items-center gap-1 text-amber-500">
+                  <FaStar size={12} />
+                  <span>{episode.vote_average.toFixed(1)}</span>
+                  <span className="text-neutral-600">
+                    ({episode.vote_count})
+                  </span>
+                </span>
+              )}
+            </div>
+
+            <p className="text-sm sm:text-base text-neutral-300 mb-4 leading-relaxed">
               {episode.overview || "No overview available."}
             </p>
-            <MarkEpisodeWatched
+
+            <div className="flex flex-wrap items-center gap-6 mb-6">
+              <MarkEpisodeWatched
+                showId={id}
+                seasonNumber={seasonNum}
+                episodeNumber={episode.episode_number}
+              />
+
+              {/* User Rating Component */}
+              <EpisodeRating
+                showId={id}
+                seasonNumber={seasonNum}
+                episodeNumber={episode.episode_number}
+                initialRating={userRating?.score}
+              />
+            </div>
+
+            {/* Navigation */}
+            <div className="flex items-center gap-4 mb-6">
+              {episode.episode_number > 1 ? (
+                <Link
+                  href={`/app/tv/${id}/season/${seasonNum}/episode/${episode.episode_number - 1}`}
+                  className="flex items-center gap-2 text-sm text-neutral-400 hover:text-white transition-colors border border-neutral-700 hover:border-neutral-500 px-3 py-1.5 rounded-full"
+                >
+                  <FaChevronLeft size={12} /> Previous
+                </Link>
+              ) : (
+                <span className="opacity-0 px-3"></span> // Spacer
+              )}
+
+              {data?.episodeCount &&
+                episode.episode_number < data.episodeCount && (
+                  <Link
+                    href={`/app/tv/${id}/season/${seasonNum}/episode/${episode.episode_number + 1}`}
+                    className="flex items-center gap-2 text-sm text-neutral-400 hover:text-white transition-colors border border-neutral-700 hover:border-neutral-500 px-3 py-1.5 rounded-full"
+                  >
+                    Next <FaChevronRight size={12} />
+                  </Link>
+                )}
+            </div>
+
+            {/* Note Component */}
+            <EpisodeNote
               showId={id}
               seasonNumber={seasonNum}
               episodeNumber={episode.episode_number}
+              initialNote={userRating?.note}
             />
           </div>
         </header>

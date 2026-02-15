@@ -2,7 +2,14 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
-const TV_STATUSES = ["watching", "completed", "on_hold", "dropped", "plan_to_watch"] as const;
+const TV_STATUSES = [
+  "watching",
+  "completed",
+  "on_hold",
+  "dropped",
+  "plan_to_watch",
+  "rewatching",
+] as const;
 export type TvListStatus = (typeof TV_STATUSES)[number];
 
 function isValidStatus(s: unknown): s is TvListStatus {
@@ -30,11 +37,17 @@ export async function GET(req: NextRequest) {
       .eq("show_id", showId)
       .maybeSingle();
     if (error) return jsonError("Failed to fetch status", 500);
-    return jsonSuccess({ status: (data as { status?: string } | null)?.status ?? null }, { maxAge: 0 });
+    return jsonSuccess(
+      { status: (data as { status?: string } | null)?.status ?? null },
+      { maxAge: 0 },
+    );
   }
 
   if (showIdsParam) {
-    const ids = showIdsParam.split(",").map((s) => s.trim()).filter(Boolean);
+    const ids = showIdsParam
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
     if (ids.length === 0) return jsonSuccess({ statuses: {} }, { maxAge: 0 });
     const { data, error } = await supabase
       .from("user_tv_list")
@@ -71,13 +84,19 @@ export async function PATCH(req: NextRequest) {
 
   const showId = body.showId != null ? String(body.showId).trim() : "";
   if (!showId) return jsonError("showId is required", 400);
-  if (!isValidStatus(body.status)) return jsonError("status must be one of: " + TV_STATUSES.join(", "), 400);
+  if (!isValidStatus(body.status))
+    return jsonError("status must be one of: " + TV_STATUSES.join(", "), 400);
 
   const { error } = await supabase
     .from("user_tv_list")
     .upsert(
-      { user_id: user.id, show_id: showId, status: body.status, updated_at: new Date().toISOString() },
-      { onConflict: "user_id,show_id" }
+      {
+        user_id: user.id,
+        show_id: showId,
+        status: body.status,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,show_id" },
     );
 
   if (error) return jsonError("Failed to update status", 500);
