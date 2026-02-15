@@ -65,9 +65,10 @@ export default function ProfileCurrentlyWatching({ userId }: Props) {
   return (
     <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
       {items.map((item) => {
-        const posterUrl = item.image_url
-          ? `https://image.tmdb.org/t/p/w185${item.image_url}`
-          : "/no-photo.webp";
+        const posterUrl =
+          item.image_url && item.image_url.length > 1
+            ? `https://image.tmdb.org/t/p/w185${item.image_url}`
+            : "/no-photo.webp";
         const href =
           item.item_type === "tv"
             ? `/app/tv/${item.item_id}`

@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
         item_name: name,
         item_id: String(itemId),
         item_type: mediaType,
-        image_url: imgUrl,
+        image_url: imgUrl || null,
         item_adult: adult ?? false,
         genres: genres ?? [],
       });
