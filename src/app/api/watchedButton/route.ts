@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
           { status: 200 }
         );
       }
+      await removeFromCurrentlyWatching(supabase, userId, itemId);
       const { error: updateError } = await supabase
         .from("watched_items")
         .update({ is_watched: true })
@@ -99,6 +100,9 @@ export async function POST(req: NextRequest) {
     if (watchlistItem) {
       await removeFromWatchlist(userId, itemId);
     }
+
+    // Remove from currently_watching when marking as watched (DB + decrement count)
+    await removeFromCurrentlyWatching(supabase, userId, itemId);
 
     await addToWatched(supabase, userId, {
       itemId,
@@ -391,6 +395,43 @@ async function backfillEpisodesForSeasons(
       ignoreDuplicates: true,
     });
     if (error) console.error("backfillEpisodesForSeasons chunk:", error);
+  }
+}
+
+/**
+ * Removes an item from currently_watching and decrements watching_count.
+ * No-op if item was not in currently_watching.
+ */
+async function removeFromCurrentlyWatching(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  itemId: string
+) {
+  const { data: existing } = await supabase
+    .from("currently_watching")
+    .select("item_id")
+    .eq("user_id", userId)
+    .eq("item_id", String(itemId))
+    .maybeSingle();
+
+  if (!existing) return;
+
+  const { error: deleteError } = await supabase
+    .from("currently_watching")
+    .delete()
+    .eq("user_id", userId)
+    .eq("item_id", String(itemId));
+
+  if (deleteError) {
+    console.error("removeFromCurrentlyWatching:", deleteError);
+    return;
+  }
+
+  const { error: decrementError } = await supabase.rpc("decrement_watching_count", {
+    p_user_id: userId,
+  });
+  if (decrementError) {
+    console.error("decrement_watching_count:", decrementError);
   }
 }
 
