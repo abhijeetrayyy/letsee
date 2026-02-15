@@ -70,6 +70,7 @@ export default function SearchResultsPage() {
     year,
     language,
     genre,
+    keyword,
     watchRegion,
     watchProviders,
   } = useMemo(
@@ -128,7 +129,7 @@ export default function SearchResultsPage() {
     setPageInput(String(page));
   }, [page]);
 
-  const hasDiscoverFilters = Boolean(year || genre || watchProviders);
+  const hasDiscoverFilters = Boolean(year || genre || keyword || watchProviders);
   const canShowResults =
     isValidSearchQuery(decodedQuery) ||
     (hasDiscoverFilters && (mediaType === "movie" || mediaType === "tv" || mediaType === "multi"));
@@ -166,6 +167,7 @@ export default function SearchResultsPage() {
             language: language || undefined,
             year: year || undefined,
             genre: genre || undefined,
+            keyword: keyword || undefined,
             watch_region: watchRegion || undefined,
             watch_providers: watchProviders || undefined,
           }),
@@ -198,7 +200,7 @@ export default function SearchResultsPage() {
     })();
 
     return () => controller.abort();
-  }, [decodedQuery, mediaType, page, adult, year, language, genre, watchRegion, watchProviders, canShowResults, refreshKey, setIsSearchLoading]);
+  }, [decodedQuery, mediaType, page, adult, year, language, genre, keyword, watchRegion, watchProviders, canShowResults, refreshKey, setIsSearchLoading]);
 
   type NavUpdates = Partial<{
     query: string;
@@ -208,6 +210,7 @@ export default function SearchResultsPage() {
     year: string;
     language: string;
     genre: string;
+    keyword: string;
     watchRegion: string;
     watchProviders: string;
   }>;
@@ -222,6 +225,7 @@ export default function SearchResultsPage() {
         year: updates.year !== undefined ? updates.year : year,
         language: updates.language !== undefined ? updates.language : language,
         genre: updates.genre !== undefined ? updates.genre : genre,
+        keyword: updates.keyword !== undefined ? updates.keyword : keyword,
         watchRegion: updates.watchRegion !== undefined ? updates.watchRegion : watchRegion,
         watchProviders: updates.watchProviders !== undefined ? updates.watchProviders : watchProviders,
       })
@@ -392,7 +396,7 @@ export default function SearchResultsPage() {
                 ))}
               </select>
             </div>
-            {(year || language || genre || watchProviders) && (
+            {(year || language || genre || keyword || watchProviders) && (
               <button
                 type="button"
                 onClick={() =>
@@ -400,6 +404,7 @@ export default function SearchResultsPage() {
                     year: "",
                     language: "",
                     genre: "",
+                    keyword: "",
                     watchProviders: "",
                     page: 1,
                   })

@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
       language,
       year,
       genre,
+      keyword,
       watch_region,
       watch_providers,
     } = await request.json();
@@ -18,6 +19,7 @@ export async function POST(request: NextRequest) {
     const hasDiscoverFilters = Boolean(
       (typeof year === "string" && year.trim()) ||
       (typeof genre === "string" && genre.trim()) ||
+      (typeof keyword === "string" && keyword.trim()) ||
       (typeof watch_providers === "string" && String(watch_providers).trim())
     );
     const mediaIsMovieOrTvOrMulti =
@@ -49,6 +51,7 @@ export async function POST(request: NextRequest) {
     const isKeywordId = /^\d+$/.test(String(query));
     const yearVal = typeof year === "string" ? year.trim() : "";
     const genreVal = typeof genre === "string" ? genre.trim() : "";
+    const keywordVal = typeof keyword === "string" ? keyword.trim() : "";
     const regionVal = typeof watch_region === "string" && watch_region.trim() ? watch_region.trim() : "US";
     const providersVal = typeof watch_providers === "string" ? watch_providers.trim() : "";
 
@@ -56,7 +59,7 @@ export async function POST(request: NextRequest) {
       (normalizedMediaType === "movie" ||
         normalizedMediaType === "tv" ||
         normalizedMediaType === "multi") &&
-      (yearVal !== "" || genreVal !== "" || providersVal !== "");
+      (yearVal !== "" || genreVal !== "" || keywordVal !== "" || providersVal !== "");
 
     const useDiscoverMulti =
       useDiscover && normalizedMediaType === "multi";
@@ -78,6 +81,9 @@ export async function POST(request: NextRequest) {
       }
       if (genreVal) {
         target.searchParams.append("with_genres", genreVal);
+      }
+      if (keywordVal) {
+        target.searchParams.append("with_keywords", keywordVal);
       }
       if (lang && lang !== "en-US") {
         const isoLang = lang.split("-")[0];

@@ -1,7 +1,7 @@
 /**
  * Single source of truth for search URL shape and parsing.
- * Pattern: /app/search/[query]?media_type=...&page=...&adult=0|1&year=...&lang=...&genre=...&region=...&watch=...
- * - query: path segment (search term or keyword ID when media_type=keyword)
+ * Pattern: /app/search/[query]?media_type=...&page=...&adult=0|1&year=...&lang=...&genre=...&keyword=...&region=...&watch=...
+ * - query: path segment (search term, "discover", or empty)
  * - media_type: multi | movie | tv | person | keyword
  * - page: 1-based
  * - adult: 0 or 1
@@ -32,6 +32,7 @@ export interface SearchParams {
   year: string;
   language: string;
   genre: string;
+  keyword: string;
   watchRegion: string;
   watchProviders: string;
 }
@@ -62,6 +63,7 @@ export function parseSearchParams(
   const year = searchParams.get("year") ?? "";
   const language = searchParams.get("lang") ?? "";
   const genre = searchParams.get("genre") ?? "";
+  const keyword = searchParams.get("keyword") ?? "";
   const watchRegion = searchParams.get("region") ?? "US";
   const watchProviders = searchParams.get("watch") ?? "";
 
@@ -73,6 +75,7 @@ export function parseSearchParams(
     year,
     language,
     genre,
+    keyword,
     watchRegion,
     watchProviders,
   };
@@ -86,6 +89,7 @@ export interface BuildSearchUrlParams {
   year?: string;
   language?: string;
   genre?: string;
+  keyword?: string;
   watchRegion?: string;
   watchProviders?: string;
 }
@@ -102,6 +106,7 @@ export function buildSearchUrl(params: BuildSearchUrlParams): string {
     year = "",
     language = "",
     genre = "",
+    keyword = "",
     watchRegion = "",
     watchProviders = "",
   } = params;
@@ -115,6 +120,7 @@ export function buildSearchUrl(params: BuildSearchUrlParams): string {
   if (year) sp.set("year", year);
   if (language) sp.set("lang", language);
   if (genre) sp.set("genre", genre);
+  if (keyword) sp.set("keyword", keyword);
   if (watchRegion) sp.set("region", watchRegion);
   if (watchProviders) sp.set("watch", watchProviders);
   const qs = sp.toString();

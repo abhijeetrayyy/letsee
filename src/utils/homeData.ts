@@ -14,6 +14,8 @@ export type HomeSections = {
   tvGenres: { genres: { id: number; name: string }[] };
   weeklyTop: { results: any[] };
   trendingTv: { results: any[] };
+  animeSeries: { results: any[] };
+  animeFilms: { results: any[] };
   romance: { results: any[] };
   action: { results: any[] };
   bollywood: { results: any[] };
@@ -44,6 +46,8 @@ export async function getHomeSections(): Promise<HomeDataResult> {
     tvGenres,
     weeklyTop,
     trendingTv,
+    animeSeries,
+    animeFilms,
     romance,
     action,
     bollywood,
@@ -70,6 +74,16 @@ export async function getHomeSections(): Promise<HomeDataResult> {
     tmdbFetchJson<{ results: any[] }>(
       `${base}/trending/tv/day?api_key=${KEY}&language=en-US`,
       "Trending TV",
+      opts
+    ),
+    tmdbFetchJson<{ results: any[] }>(
+      `${base}/discover/tv?api_key=${KEY}&language=en-US&with_keywords=210024&sort_by=popularity.desc&vote_count.gte=50&page=1`,
+      "Anime series (TMDB keyword: anime)",
+      opts
+    ),
+    tmdbFetchJson<{ results: any[] }>(
+      `${base}/discover/movie?api_key=${KEY}&language=en-US&with_genres=16&with_original_language=ja&sort_by=popularity.desc&vote_count.gte=50&page=1`,
+      "Anime films (Animation + Japanese)",
       opts
     ),
     tmdbFetchJson<{ results: any[] }>(
@@ -114,6 +128,8 @@ export async function getHomeSections(): Promise<HomeDataResult> {
     tvGenres.error,
     weeklyTop.error,
     trendingTv.error,
+    animeSeries.error,
+    animeFilms.error,
     romance.error,
     action.error,
     bollywood.error,
@@ -128,6 +144,8 @@ export async function getHomeSections(): Promise<HomeDataResult> {
     tvGenres: tvGenres.data ?? emptyGenres,
     weeklyTop: weeklyTop.data ?? emptyResults,
     trendingTv: trendingTv.data ?? emptyResults,
+    animeSeries: animeSeries.data ?? emptyResults,
+    animeFilms: animeFilms.data ?? emptyResults,
     romance: romance.data ?? emptyResults,
     action: action.data ?? emptyResults,
     bollywood: bollywood.data ?? emptyResults,

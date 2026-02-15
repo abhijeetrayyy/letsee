@@ -9,7 +9,10 @@ import HomeVideo from "@components/home/videoReel";
 import MovieGenre from "@components/scroll/movieGenre";
 import TvGenre from "@components/scroll/tvGenre";
 import HomeContentTile from "@components/movie/homeContentTile";
+import BrowseTags from "@components/home/BrowseTags";
+import AnimeTags from "@components/home/AnimeTags";
 import { getHomeSections } from "@/utils/homeData";
+import { buildSearchUrl } from "@/utils/searchUrl";
 
 const SECTION_HEADING =
   "text-2xl sm:text-3xl font-bold text-white tracking-tight mb-5";
@@ -25,6 +28,8 @@ export default async function Home() {
   const tvGenres = sections.tvGenres?.genres ?? [];
   const weeklyTop = sections.weeklyTop?.results ?? [];
   const trendingTv = sections.trendingTv?.results ?? [];
+  const animeSeries = sections.animeSeries?.results ?? [];
+  const animeFilms = sections.animeFilms?.results ?? [];
   const romance = sections.romance?.results ?? [];
   const action = sections.action?.results ?? [];
   const crime = sections.crime?.results ?? [];
@@ -118,6 +123,79 @@ export default async function Home() {
           </h2>
           <p className={SECTION_SUB}>In theaters and on TV this week</p>
           <CalendarSection hideMainHeading />
+        </section>
+
+        {/* Browse by tag — genres, keywords, categories */}
+        <section aria-labelledby="browse-tags-heading">
+          <h2 id="browse-tags-heading" className={SECTION_HEADING}>
+            <Link
+              href="/app/search"
+              className={headingLinkClass}
+            >
+              Browse by tag
+            </Link>
+          </h2>
+          <p className={SECTION_SUB}>
+            Genres, keywords and categories — click to explore results
+          </p>
+          <BrowseTags />
+        </section>
+
+        {/* Browse anime — multiple buttons for anime TV and movies */}
+        <section aria-labelledby="anime-browse-heading">
+          <h2 id="anime-browse-heading" className={SECTION_HEADING}>
+            <Link
+              href={buildSearchUrl({
+                query: "discover",
+                mediaType: "tv",
+                keyword: "210024",
+              })}
+              className={headingLinkClass}
+            >
+              Browse anime
+            </Link>
+          </h2>
+          <p className={SECTION_SUB}>
+            Anime series, films, Isekai and more — click to explore
+          </p>
+          <AnimeTags />
+        </section>
+
+        {/* Anime series — for anime viewers */}
+        <section aria-labelledby="anime-series-heading">
+          <h2 id="anime-series-heading" className={SECTION_HEADING}>
+            <Link
+              href="/app/tvbygenre/list/16-Animation"
+              className={headingLinkClass}
+            >
+              Anime series
+            </Link>
+          </h2>
+          <p className={SECTION_SUB}>
+            Popular anime TV shows — Jujutsu Kaisen, SPY×FAMILY, One Piece & more
+          </p>
+          <HomeContentTile type="tv" data={{ results: animeSeries }} />
+        </section>
+
+        {/* Anime films — Japanese animation */}
+        <section aria-labelledby="anime-films-heading">
+          <h2 id="anime-films-heading" className={SECTION_HEADING}>
+            <Link
+              href={buildSearchUrl({
+                query: "discover",
+                mediaType: "movie",
+                genre: "16",
+                language: "ja",
+              })}
+              className={headingLinkClass}
+            >
+              Anime films
+            </Link>
+          </h2>
+          <p className={SECTION_SUB}>
+            Studio Ghibli, Makoto Shinkai and Japanese animated movies
+          </p>
+          <HomeContentTile type="movie" data={{ results: animeFilms }} />
         </section>
 
         {/* Romance — first content row, matches hero vibe */}
