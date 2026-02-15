@@ -2,7 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { userID, page, genre } = await request.json();
+  const { userID, page, genre, itemType } = await request.json();
 
   if (!userID) {
     return new Response(JSON.stringify({ error: "User ID is required" }), {
@@ -64,6 +64,9 @@ export async function POST(request: Request) {
 
   if (genre && typeof genre === "string") {
     query = query.overlaps("genres", [genre.trim()]);
+  }
+  if (itemType === "tv" || itemType === "movie") {
+    query = query.eq("item_type", itemType);
   }
 
   const itemsPerPage = 50;

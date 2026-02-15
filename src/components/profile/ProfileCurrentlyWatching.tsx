@@ -13,16 +13,27 @@ interface WatchingItem {
 
 interface Props {
   userId: string;
+  /** Filter to anime (Animation genre) only */
+  animeOnly?: boolean;
+  /** Filter to TV or movies only (for anime sections) */
+  itemType?: "tv" | "movie";
 }
 
-export default function ProfileCurrentlyWatching({ userId }: Props) {
+export default function ProfileCurrentlyWatching({
+  userId,
+  animeOnly = false,
+  itemType,
+}: Props) {
   const [items, setItems] = useState<WatchingItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetch(`/api/currently-watching?userId=${encodeURIComponent(userId)}`, {
+    const params = new URLSearchParams({ userId });
+    if (animeOnly) params.set("anime", "1");
+    if (itemType) params.set("itemType", itemType);
+    fetch(`/api/currently-watching?${params.toString()}`, {
       cache: "no-store",
     })
       .then((r) => r.json())
@@ -39,7 +50,7 @@ export default function ProfileCurrentlyWatching({ userId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, animeOnly, itemType]);
 
   if (loading) {
     return (
@@ -57,7 +68,9 @@ export default function ProfileCurrentlyWatching({ userId }: Props) {
   if (items.length === 0) {
     return (
       <p className="text-sm text-neutral-500 py-4">
-        Not watching anything right now.
+        {animeOnly && itemType
+          ? `No anime ${itemType === "tv" ? "series" : "movies"} in progress.`
+          : "Not watching anything right now."}
       </p>
     );
   }

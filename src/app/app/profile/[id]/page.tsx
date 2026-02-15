@@ -22,6 +22,7 @@ import ProfileStatsStrip from "@components/profile/ProfileStatsStrip";
 import ProfileTvProgress from "@components/profile/ProfileTvProgress";
 import ProfileReviewsRatingsDiaryRows from "@components/profile/ProfileReviewsRatingsDiaryRows";
 import ProfileCurrentlyWatching from "@components/profile/ProfileCurrentlyWatching";
+import ProfileAnimeSection from "@components/profile/ProfileAnimeSection";
 import VisibilityGate from "@components/profile/VisibilityGate";
 
 export const dynamic = "force-dynamic";
@@ -374,6 +375,26 @@ export default async function ProfilePage({ params }: PageProps) {
               <ProfileCurrentlyWatching userId={user.id} />
             </div>
           </section>
+        )}
+
+        {/* Anime TV series — watching + watched */}
+        {canViewContent && (
+          <ProfileAnimeSection
+            userId={user.id}
+            isOwner={isOwner}
+            type="tv"
+            sectionTitle="Anime TV series"
+          />
+        )}
+
+        {/* Anime movies — watching + watched */}
+        {canViewContent && (
+          <ProfileAnimeSection
+            userId={user.id}
+            isOwner={isOwner}
+            type="movie"
+            sectionTitle="Anime movies"
+          />
         )}
 
         {/* Stats strip */}

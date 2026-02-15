@@ -36,13 +36,25 @@ const genreList = [
   "War & Politics",
 ];
 
-const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwner?: boolean }) => {
+const WatchedMoviesList = ({
+  userId,
+  isOwner = false,
+  genreFilter: initialGenre,
+  itemType,
+  hideGenreFilter = false,
+}: {
+  userId: string;
+  isOwner?: boolean;
+  genreFilter?: string | null;
+  itemType?: "tv" | "movie";
+  hideGenreFilter?: boolean;
+}) => {
   const [movies, setMovies] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [genreFilter, setGenreFilter] = useState<string | null>(null);
+  const [genreFilter, setGenreFilter] = useState<string | null>(initialGenre ?? null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareCardData, setShareCardData] = useState<any>(null);
 
@@ -58,7 +70,7 @@ const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwne
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ userID: userId, page, genre }),
+          body: JSON.stringify({ userID: userId, page, genre, itemType }),
         });
 
         if (!response.ok) throw new Error("Failed to fetch");
@@ -76,12 +88,12 @@ const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwne
         setLoading(false);
       }
     },
-    [userId]
+    [userId, itemType]
   );
 
   useEffect(() => {
     fetchMovies(currentPage, genreFilter);
-  }, [currentPage, genreFilter]); // Fetch movies when `currentPage` or `genreFilter` changes
+  }, [currentPage, genreFilter, itemType]);
 
   const memoizedMovies = useMemo(() => movies, [movies]);
 
@@ -121,6 +133,7 @@ const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwne
         onClose={() => setShareModalOpen(false)}
       />
       {/* Genre Filter Buttons */}
+      {!hideGenreFilter && (
       <div className="flex flex-wrap gap-2 mb-4">
         <button
           onClick={handleClearFilter}
@@ -156,6 +169,7 @@ const WatchedMoviesList = ({ userId, isOwner = false }: { userId: string; isOwne
           </button>
         ))}
       </div>
+      )}
 
       {/* Movie Grid */}
       {loading && memoizedMovies.length === 0 && (

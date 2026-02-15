@@ -15,12 +15,23 @@ export async function GET(req: NextRequest) {
     // If userId is provided, show that user's watching list (RLS handles visibility)
     const { searchParams } = new URL(req.url);
     const targetUserId = searchParams.get("userId") || authData.user.id;
+    const itemType = searchParams.get("itemType"); // 'tv' | 'movie' for anime sections
+    const animeOnly = searchParams.get("anime") === "1";
 
-    const { data: items, error } = await supabase
+    let query = supabase
       .from("currently_watching")
-      .select("item_id, item_name, item_type, image_url, started_at")
+      .select("item_id, item_name, item_type, image_url, started_at, genres")
       .eq("user_id", targetUserId)
       .order("started_at", { ascending: false });
+
+    if (itemType === "tv" || itemType === "movie") {
+      query = query.eq("item_type", itemType);
+    }
+    if (animeOnly) {
+      query = query.overlaps("genres", ["Animation"]);
+    }
+
+    const { data: items, error } = await query;
 
     if (error) {
       console.error("Error fetching currently watching:", error);
