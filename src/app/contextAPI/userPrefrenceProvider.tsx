@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import UserPrefrenceContext, {
   defaultPreferenceState,
   type PendingAction,
@@ -15,18 +21,19 @@ import { supabase } from "@/utils/supabase/client";
 
 const normalizeId = (value: string | number): string => String(value);
 
-const API_ENDPOINTS: Record<
-  PreferenceType,
-  { add: string; remove: string }
-> = {
+const API_ENDPOINTS: Record<PreferenceType, { add: string; remove: string }> = {
   watched: { add: "/api/watchedButton", remove: "/api/deletewatchedButton" },
-  watchlater: { add: "/api/watchlistButton", remove: "/api/deletewatchlistButton" },
+  watchlater: {
+    add: "/api/watchlistButton",
+    remove: "/api/deletewatchlistButton",
+  },
   favorite: { add: "/api/favoriteButton", remove: "/api/deletefavoriteButton" },
+  watching: { add: "/api/watchingButton", remove: "/api/deletewatchingButton" },
 };
 
 function applyUpdate(
   prev: UserPreferenceState,
-  payload: TogglePreferencePayload
+  payload: TogglePreferencePayload,
 ): UserPreferenceState {
   const { funcType, itemId, currentState } = payload;
   const key = normalizeId(itemId);
@@ -42,6 +49,7 @@ function applyUpdate(
     watched: [...prev.watched],
     favorite: [...prev.favorite],
     watchlater: [...prev.watchlater],
+    watching: [...prev.watching],
   };
 
   if (funcType === "watched") {
@@ -50,6 +58,7 @@ function applyUpdate(
       next.favorite = removeFrom(next.favorite);
     } else {
       next.watchlater = removeFrom(next.watchlater);
+      next.watching = removeFrom(next.watching);
       next.watched = addTo(next.watched);
     }
   } else if (funcType === "favorite") {
@@ -58,6 +67,7 @@ function applyUpdate(
     } else {
       next.watchlater = removeFrom(next.watchlater);
       next.watched = removeFrom(next.watched);
+      next.watching = removeFrom(next.watching);
       next.favorite = addTo(next.favorite);
     }
   } else if (funcType === "watchlater") {
@@ -66,7 +76,15 @@ function applyUpdate(
     } else {
       next.watched = removeFrom(next.watched);
       next.favorite = removeFrom(next.favorite);
+      next.watching = removeFrom(next.watching);
       next.watchlater = addTo(next.watchlater);
+    }
+  } else if (funcType === "watching") {
+    if (currentState) {
+      next.watching = removeFrom(next.watching);
+    } else {
+      next.watchlater = removeFrom(next.watchlater);
+      next.watching = addTo(next.watching);
     }
   }
 
@@ -85,18 +103,23 @@ const REQUEST_TIMEOUT_MS = 20000;
 function getErrorMessage(
   response: Response | null,
   data: { error?: string } | null,
-  networkError?: unknown
+  networkError?: unknown,
 ): string {
   if (networkError instanceof Error) {
-    if (networkError.name === "AbortError") return "Request timed out. Please try again.";
-    if (networkError.message?.includes("fetch") || networkError.message === "Failed to fetch") {
+    if (networkError.name === "AbortError")
+      return "Request timed out. Please try again.";
+    if (
+      networkError.message?.includes("fetch") ||
+      networkError.message === "Failed to fetch"
+    ) {
       return "Connection problem. Please check your network and try again.";
     }
     return networkError.message;
   }
   if (response) {
     if (response.status === 401) return "Session expired. Please log in again.";
-    if (response.status >= 500) return "Server error. Please try again in a moment.";
+    if (response.status >= 500)
+      return "Server error. Please try again in a moment.";
     if (data?.error) return data.error;
     if (response.status === 400) return "Invalid request. Please try again.";
   }
@@ -105,7 +128,7 @@ function getErrorMessage(
 
 const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
   const [userPrefrence, setUserPrefrence] = useState<UserPreferenceState>(
-    defaultPreferenceState
+    defaultPreferenceState,
   );
   const [loading, setLoading] = useState(true);
   const [pendingActions, setPendingActions] = useState<PendingActionItem[]>([]);
@@ -127,7 +150,9 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
       const res = await response.json();
-      const normalize = (items: { item_id?: string | number }[] = []): PreferenceItem[] =>
+      const normalize = (
+        items: { item_id?: string | number }[] = [],
+      ): PreferenceItem[] =>
         (items ?? []).map((item) => ({
           item_id: normalizeId(item.item_id ?? ""),
         }));
@@ -135,6 +160,7 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
         watched: normalize(res?.watched),
         favorite: normalize(res?.favorite),
         watchlater: normalize(res?.watchlater),
+        watching: normalize(res?.watching),
       });
       setUser(true);
     } catch (error) {
@@ -180,22 +206,31 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
 
   const hasWatched = useCallback(
     (itemId: number | string) =>
-      userPrefrence.watched.some((item) => item.item_id === normalizeId(itemId)),
-    [userPrefrence.watched]
+      userPrefrence.watched.some(
+        (item) => item.item_id === normalizeId(itemId),
+      ),
+    [userPrefrence.watched],
   );
   const hasFavorite = useCallback(
     (itemId: number | string) =>
       userPrefrence.favorite.some(
-        (item) => item.item_id === normalizeId(itemId)
+        (item) => item.item_id === normalizeId(itemId),
       ),
-    [userPrefrence.favorite]
+    [userPrefrence.favorite],
   );
   const hasWatchLater = useCallback(
     (itemId: number | string) =>
       userPrefrence.watchlater.some(
-        (item) => item.item_id === normalizeId(itemId)
+        (item) => item.item_id === normalizeId(itemId),
       ),
-    [userPrefrence.watchlater]
+    [userPrefrence.watchlater],
+  );
+  const hasWatching = useCallback(
+    (itemId: number | string) =>
+      userPrefrence.watching.some(
+        (item) => item.item_id === normalizeId(itemId),
+      ),
+    [userPrefrence.watching],
   );
 
   const processQueue = useCallback(() => {
@@ -227,7 +262,10 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
     }
     const doFetch = (): Promise<{ ok: boolean; message?: string }> => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        REQUEST_TIMEOUT_MS,
+      );
       return fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -237,7 +275,10 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
       })
         .then(async (response) => {
           clearTimeout(timeoutId);
-          const data = await response.json().catch(() => ({})) as { error?: string; message?: string } | null;
+          const data = (await response.json().catch(() => ({}))) as {
+            error?: string;
+            message?: string;
+          } | null;
           if (!response.ok) {
             return {
               ok: false,
@@ -257,7 +298,7 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
 
     const removePending = () =>
       setPendingActions((prev) =>
-        prev.filter((p) => !(p.itemId === itemId && p.funcType === funcType))
+        prev.filter((p) => !(p.itemId === itemId && p.funcType === funcType)),
       );
 
     const finish = (result: TogglePreferenceResult, rollback: boolean) => {
@@ -284,18 +325,20 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
           finish(result, false);
         } else {
           setTimeout(() => {
-            runOne().then((retryResult) => {
-              if (retryResult.ok) {
-                finish(retryResult, false);
-              } else {
-                finish(retryResult, true);
-              }
-            }).catch((retryErr) => {
-              finish(
-                { ok: false, message: getErrorMessage(null, null, retryErr) },
-                true
-              );
-            });
+            runOne()
+              .then((retryResult) => {
+                if (retryResult.ok) {
+                  finish(retryResult, false);
+                } else {
+                  finish(retryResult, true);
+                }
+              })
+              .catch((retryErr) => {
+                finish(
+                  { ok: false, message: getErrorMessage(null, null, retryErr) },
+                  true,
+                );
+              });
           }, RETRY_DELAY_MS);
         }
       })
@@ -307,15 +350,19 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
                 finish(retryResult, false);
               } else {
                 finish(
-                  { ok: false, message: retryResult.message ?? getErrorMessage(null, null, err) },
-                  true
+                  {
+                    ok: false,
+                    message:
+                      retryResult.message ?? getErrorMessage(null, null, err),
+                  },
+                  true,
                 );
               }
             })
             .catch((retryErr) => {
               finish(
                 { ok: false, message: getErrorMessage(null, null, retryErr) },
-                true
+                true,
               );
             });
         }, RETRY_DELAY_MS);
@@ -344,7 +391,7 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
         processQueue();
       });
     },
-    [loading, user, processQueue]
+    [loading, user, processQueue],
   );
 
   const pendingAction: PendingAction =
@@ -363,6 +410,7 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
       hasWatched,
       hasFavorite,
       hasWatchLater,
+      hasWatching,
     }),
     [
       userPrefrence,
@@ -375,7 +423,8 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
       hasWatched,
       hasFavorite,
       hasWatchLater,
-    ]
+      hasWatching,
+    ],
   );
 
   return (

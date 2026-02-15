@@ -4,7 +4,7 @@ import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { useContext } from "react";
 import { CiHeart } from "react-icons/ci";
 import { FcLike } from "react-icons/fc";
-import { MdOutlineWatchLater } from "react-icons/md";
+import { MdOutlineWatchLater, MdLiveTv } from "react-icons/md";
 import { PiEyeBold } from "react-icons/pi";
 import { RiEyeCloseLine } from "react-icons/ri";
 import CardMovieButton from "./cardButtons";
@@ -37,21 +37,19 @@ export default function ThreePrefrencebtn({
   variant = "compact",
   onAddWatchedTv,
 }: ThreePreferenceBtnProps) {
-  const {
-    hasWatched,
-    hasFavorite,
-    hasWatchLater,
-  } = useContext(UserPrefrenceContext);
+  const { hasWatched, hasFavorite, hasWatchLater, hasWatching } =
+    useContext(UserPrefrenceContext);
 
   const id = Number(cardId);
   const adult = cardAdult ?? false;
   const imgUrl = cardImg ?? "";
   const genreList = (genres ?? []).filter(
-    (g): g is string => g != null && typeof g === "string"
+    (g): g is string => g != null && typeof g === "string",
   );
   const watched = hasWatched(cardId);
   const favorite = hasFavorite(cardId);
   const watchLater = hasWatchLater(cardId);
+  const watching = hasWatching(cardId);
 
   const shared = {
     genres: genreList,
@@ -65,6 +63,19 @@ export default function ThreePrefrencebtn({
   if (variant === "detail") {
     return (
       <>
+        <CardMovieButton
+          {...shared}
+          state={watching}
+          funcType="watching"
+          label="Watching"
+          icon={
+            watching ? (
+              <MdLiveTv className="text-amber-400 shrink-0" />
+            ) : (
+              <MdLiveTv className="shrink-0" />
+            )
+          }
+        />
         <CardMovieButton
           {...shared}
           state={watched}
@@ -84,7 +95,13 @@ export default function ThreePrefrencebtn({
           state={favorite}
           funcType="favorite"
           label="Favorites"
-          icon={favorite ? <FcLike className="shrink-0" /> : <CiHeart className="shrink-0" />}
+          icon={
+            favorite ? (
+              <FcLike className="shrink-0" />
+            ) : (
+              <CiHeart className="shrink-0" />
+            )
+          }
         />
         <CardMovieButton
           {...shared}
@@ -105,7 +122,19 @@ export default function ThreePrefrencebtn({
 
   return (
     <div className="w-full">
-      <div className="w-full h-12 grid grid-cols-3 gap-px bg-white/5">
+      <div className="w-full h-12 grid grid-cols-4 gap-px bg-white/5">
+        <CardMovieButton
+          {...shared}
+          state={watching}
+          funcType="watching"
+          icon={
+            watching ? (
+              <MdLiveTv className="text-amber-400 size-5" />
+            ) : (
+              <MdLiveTv className="size-5 text-neutral-400" />
+            )
+          }
+        />
         <CardMovieButton
           {...shared}
           state={watched}
@@ -123,7 +152,13 @@ export default function ThreePrefrencebtn({
           {...shared}
           state={favorite}
           funcType="favorite"
-          icon={favorite ? <FcLike className="size-5" /> : <CiHeart className="size-5 text-neutral-400" />}
+          icon={
+            favorite ? (
+              <FcLike className="size-5" />
+            ) : (
+              <CiHeart className="size-5 text-neutral-400" />
+            )
+          }
         />
         <CardMovieButton
           {...shared}

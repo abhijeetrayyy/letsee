@@ -16,13 +16,24 @@ export const GET = async (_req: NextRequest) => {
     { data: userFavorites, error: userFavoritesError },
     { data: userWatched, error: userWatchedError },
     { data: userWatchlist, error: userWatchlistError },
+    { data: userWatching, error: userWatchingError },
   ] = await Promise.all([
     supabase.from("favorite_items").select("item_id").eq("user_id", userId),
-    supabase.from("watched_items").select("item_id").eq("user_id", userId).eq("is_watched", true),
+    supabase
+      .from("watched_items")
+      .select("item_id")
+      .eq("user_id", userId)
+      .eq("is_watched", true),
     supabase.from("user_watchlist").select("item_id").eq("user_id", userId),
+    supabase.from("currently_watching").select("item_id").eq("user_id", userId),
   ]);
 
-  if (userFavoritesError || userWatchedError || userWatchlistError) {
+  if (
+    userFavoritesError ||
+    userWatchedError ||
+    userWatchlistError ||
+    userWatchingError
+  ) {
     return jsonError("Failed to fetch user preferences.", 500);
   }
 
@@ -31,7 +42,8 @@ export const GET = async (_req: NextRequest) => {
       favorite: userFavorites ?? [],
       watched: userWatched ?? [],
       watchlater: userWatchlist ?? [],
+      watching: userWatching ?? [],
     },
-    { maxAge: 0 }
+    { maxAge: 0 },
   );
 };

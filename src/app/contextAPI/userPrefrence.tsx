@@ -9,9 +9,10 @@ export type UserPreferenceState = {
   watched: PreferenceItem[];
   favorite: PreferenceItem[];
   watchlater: PreferenceItem[];
+  watching: PreferenceItem[];
 };
 
-export type PreferenceType = "watched" | "watchlater" | "favorite";
+export type PreferenceType = "watched" | "watchlater" | "favorite" | "watching";
 
 export type TogglePreferencePayload = {
   funcType: PreferenceType;
@@ -58,17 +59,21 @@ export type UserPreferenceContextValue = {
   /** Reload preferences from server. */
   refreshPreferences: () => Promise<void>;
   /** Toggle add/remove; uses optimistic update, reverts on failure. */
-  togglePreference: (payload: TogglePreferencePayload) => Promise<TogglePreferenceResult>;
+  togglePreference: (
+    payload: TogglePreferencePayload,
+  ) => Promise<TogglePreferenceResult>;
   /** Helpers so consumers don't duplicate list checks. */
   hasWatched: (itemId: number | string) => boolean;
   hasFavorite: (itemId: number | string) => boolean;
   hasWatchLater: (itemId: number | string) => boolean;
+  hasWatching: (itemId: number | string) => boolean;
 };
 
 export const defaultPreferenceState: UserPreferenceState = {
   watched: [],
   favorite: [],
   watchlater: [],
+  watching: [],
 };
 
 const noopAsync = async (): Promise<TogglePreferenceResult> => ({ ok: false });
@@ -87,6 +92,7 @@ const UserPrefrenceContext = createContext<UserPreferenceContextValue>({
   hasWatched: noopBool,
   hasFavorite: noopBool,
   hasWatchLater: noopBool,
+  hasWatching: noopBool,
 });
 
 export default UserPrefrenceContext;
