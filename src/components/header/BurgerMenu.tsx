@@ -9,6 +9,7 @@ import { FcFilmReel } from "react-icons/fc";
 import { IoNotificationsOutline } from "react-icons/io5";
 import { LuSend } from "react-icons/lu";
 import SignOut from "../buttons/signOut";
+import CountrySelector from "./CountrySelector";
 import Link from "next/link";
 
 interface BurgerMenuProps {
@@ -124,6 +125,9 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, username }) => {
         </div>
 
         <nav className="flex flex-col gap-0.5 overflow-y-auto p-4" style={{ maxHeight: "calc(100vh - 3.5rem)" }}>
+          <div className="px-4 py-2 sm:hidden">
+            <CountrySelector />
+          </div>
           <button type="button" onClick={() => go("/app")} className={menuItemClass}>
             <HiHome className="size-5 shrink-0" aria-hidden /> Home
           </button>

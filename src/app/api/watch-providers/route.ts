@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { serverFetchJson } from "@/utils/serverFetch";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
+import { Countrydata } from "@/staticData/countryName";
 
 type WatchProvider = {
   provider_id: number;
@@ -8,9 +9,12 @@ type WatchProvider = {
   logo_path: string;
 };
 
+type CountryAvailability = { code: string; name?: string };
+
 type WatchProvidersResponse = {
   link?: string;
   providers: WatchProvider[];
+  availableCountries?: CountryAvailability[];
 };
 
 export async function GET(request: NextRequest) {
@@ -41,11 +45,29 @@ export async function GET(request: NextRequest) {
     return jsonError((err as Error).message ?? "Failed to fetch watch providers.", 502);
   }
 
-  const countryData = data?.results?.[country];
+  const results = data?.results ?? {};
+  const countryData = results[country];
+
+  // Countries where content has at least one provider (flatrate, rent, or buy)
+  const countryCodesWithProviders = Object.entries(results).filter(
+    ([_, d]) =>
+      d &&
+      ((d.flatrate?.length ?? 0) > 0 ||
+        (d.rent?.length ?? 0) > 0 ||
+        (d.buy?.length ?? 0) > 0)
+  );
+  const codeToName = new Map(Countrydata.map((c) => [c.iso_3166_1, c.english_name]));
+  const availableCountries: CountryAvailability[] = countryCodesWithProviders.map(
+    ([code]) => ({ code, name: codeToName.get(code) ?? code })
+  );
 
   if (!countryData) {
     return jsonSuccess<WatchProvidersResponse>(
-      { link: undefined, providers: [] },
+      {
+        link: undefined,
+        providers: [],
+        availableCountries: availableCountries.slice(0, 20),
+      },
       { maxAge: 3600 }
     );
   }
@@ -64,6 +86,7 @@ export async function GET(request: NextRequest) {
     {
       link: countryData.link,
       providers: allProviders,
+      availableCountries: availableCountries.slice(0, 20),
     },
     { maxAge: 3600 }
   );

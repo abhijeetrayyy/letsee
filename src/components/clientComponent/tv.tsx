@@ -474,7 +474,7 @@ export default function Tv({
           </div>
         </section>
 
-        <WatchOptionsViewer mediaId={Number(id)} mediaType="tv" country="US" />
+        <WatchOptionsViewer mediaId={Number(id)} mediaType="tv" />
         <MovieCast credits={cast} id={show?.id ?? id} type="tv" />
 
         {/* Seasons */}

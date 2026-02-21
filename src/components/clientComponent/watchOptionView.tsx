@@ -3,11 +3,17 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useCountry } from "@/app/contextAPI/countryContext";
 
 interface WatchProvider {
   provider_id: number;
   provider_name: string;
   logo_path: string;
+}
+
+interface AvailableCountry {
+  code: string;
+  name?: string;
 }
 
 interface WatchOptionsProps {
@@ -29,10 +35,14 @@ const providerFallbackUrls: Record<number, string> = {
 export default function WatchOptionsViewer({
   mediaId,
   mediaType,
-  country = "US",
+  country: countryProp,
 }: WatchOptionsProps) {
+  const { country: countryFromContext, setCountry } = useCountry();
+  const country = countryProp ?? countryFromContext ?? "US";
+
   const [watchLink, setWatchLink] = useState<string>("");
   const [providers, setProviders] = useState<WatchProvider[]>([]);
+  const [availableCountries, setAvailableCountries] = useState<AvailableCountry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,15 +64,18 @@ export default function WatchOptionsViewer({
           setError(body.error);
           setProviders([]);
           setWatchLink("");
+          setAvailableCountries([]);
           return;
         }
         setWatchLink(body.link ?? "");
         setProviders(Array.isArray(body.providers) ? body.providers : []);
+        setAvailableCountries(Array.isArray(body.availableCountries) ? body.availableCountries : []);
       })
       .catch((err) => {
         if (!cancelled) {
           setError((err as Error).message);
           setProviders([]);
+          setAvailableCountries([]);
         }
       })
       .finally(() => {
@@ -73,6 +86,8 @@ export default function WatchOptionsViewer({
       cancelled = true;
     };
   }, [mediaId, mediaType, country]);
+
+  const otherCountries = availableCountries.filter((c) => c.code !== country);
 
   if (loading) {
     return (
@@ -129,9 +144,33 @@ export default function WatchOptionsViewer({
           })}
         </div>
       ) : (
-        <p className="text-neutral-400 text-center">
-          No streaming options available in {country}.
-        </p>
+        <div className="space-y-3">
+          <p className="text-neutral-400 text-center">
+            No streaming options available in your region ({country}).
+          </p>
+          {otherCountries.length > 0 && (
+            <div className="rounded-lg bg-neutral-800/80 border border-neutral-700 px-4 py-3">
+              <p className="text-sm text-neutral-300 mb-2">
+                Not in your country? Available in:
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {otherCountries.slice(0, 8).map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setCountry(c.code)}
+                    className="text-sm px-3 py-1.5 rounded-lg bg-neutral-700 hover:bg-neutral-600 text-amber-200 hover:text-amber-100 transition-colors"
+                  >
+                    {c.name ?? c.code}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-neutral-500 mt-2 text-center">
+                Click a country to switch and view providers
+              </p>
+            </div>
+          )}
+        </div>
       )}
       <p className="text-xs text-neutral-500 text-center mt-4">
         Data provided by JustWatch via TMDb

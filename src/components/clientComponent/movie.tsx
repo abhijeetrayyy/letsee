@@ -308,7 +308,7 @@ export default function Movie({
         </section>
 
         {/* Full-width sections */}
-        <WatchOptionsViewer mediaId={id} mediaType="movie" country="US" />
+        <WatchOptionsViewer mediaId={id} mediaType="movie" />
         <MovieCast credits={credits?.cast} id={id} type="movie" />
         <Video videos={videos} movie={movie} />
         <ImageViewer movie={movie} Bimages={Bimages} Pimages={Pimages} />

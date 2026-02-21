@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabase/client";
 import SignOut from "../buttons/signOut";
 import BurgerMenu from "./BurgerMenu";
+import CountrySelector from "./CountrySelector";
 import DropdownMenu from "./dropDownMenu";
 import MessageButton from "./MessageButton";
 import SearchBar from "./searchBar";
@@ -107,6 +108,9 @@ export function LogedNavbar() {
 
         {/* Right: actions */}
         <div className="flex items-center gap-2 sm:gap-3">
+          <div className="hidden sm:block">
+            <CountrySelector />
+          </div>
           {isAuthed && (
             <Link
               href="/app/reel"

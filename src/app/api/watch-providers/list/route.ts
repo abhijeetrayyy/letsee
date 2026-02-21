@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   }
 
   const path = mediaType === "movie" ? "watch/providers/movie" : "watch/providers/tv";
-  const url = `https://api.themoviedb.org/3/${path}?api_key=${apiKey}`;
+  const url = `https://api.themoviedb.org/3/${path}?api_key=${apiKey}&watch_region=${encodeURIComponent(region)}`;
 
   try {
     const data = await serverFetchJson<TmdbResponse>(url, { timeoutMs: 8000 });

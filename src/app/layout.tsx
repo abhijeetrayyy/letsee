@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { SearchProvider } from "./contextAPI/searchContext";
+import { CountryProvider } from "./contextAPI/countryContext";
 import AuthProvider from "./contextAPI/AuthProvider";
 import { LogedNavbar } from "@components/header/navbar";
 import { ScrollToTop } from "@components/ui/ScrollToTop";
@@ -43,9 +44,11 @@ export default function RootLayout({
         <RegisterServiceWorker />
         <AuthProvider>
           <SearchProvider>
-            <ScrollToTop />
-            <LogedNavbar />
-            {children}
+            <CountryProvider>
+              <ScrollToTop />
+              <LogedNavbar />
+              {children}
+            </CountryProvider>
           </SearchProvider>
         </AuthProvider>
       </body>
