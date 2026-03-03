@@ -13,6 +13,7 @@ export type ProfileTvProgressItem = {
   poster_path: string | null;
   seasons_completed: number;
   episodes_watched: number;
+  total_episodes: number;
   next_season: number | null;
   next_episode: number | null;
   all_complete: boolean;
@@ -23,8 +24,15 @@ export type ProfileTvProgressItem = {
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const userId = req.nextUrl.searchParams.get("userId")?.trim();
-  const limit = Math.min(Math.max(Number(req.nextUrl.searchParams.get("limit")) || 10, 1), 50);
-  const offset = Math.max(Number(req.nextUrl.searchParams.get("offset")) || 0, 0);
+  const limit = Math.min(
+    Math.max(Number(req.nextUrl.searchParams.get("limit")) || 10, 1),
+    50,
+  );
+  const offset = Math.max(
+    Number(req.nextUrl.searchParams.get("offset")) || 0,
+    0,
+  );
+  const statusFilter = req.nextUrl.searchParams.get("status")?.trim();
 
   if (!userId) {
     return jsonError("userId query parameter is required", 400);
@@ -43,18 +51,22 @@ export async function GET(req: NextRequest) {
     return jsonError("User not found", 404);
   }
 
-  const visibility = String(profile.visibility ?? "public").toLowerCase().trim();
+  const visibility = String(profile.visibility ?? "public")
+    .toLowerCase()
+    .trim();
   const canView =
     viewerId === userId ||
     visibility === "public" ||
     (visibility === "followers" &&
       viewerId &&
-      (await supabase
-        .from("user_connections")
-        .select("id")
-        .eq("follower_id", viewerId)
-        .eq("followed_id", userId)
-        .maybeSingle()).data?.id);
+      (
+        await supabase
+          .from("user_connections")
+          .select("id")
+          .eq("follower_id", viewerId)
+          .eq("followed_id", userId)
+          .maybeSingle()
+      ).data?.id);
 
   if (!canView) {
     return jsonError("Forbidden", 403);
@@ -75,7 +87,22 @@ export async function GET(req: NextRequest) {
     return jsonError("Failed to fetch progress", 500);
   }
 
-  const showIdsByLastWatched = [...new Map((showRows ?? []).map((r) => [r.show_id, r.watched_at])).keys()];
+  let showIdsByLastWatched = [
+    ...new Map((showRows ?? []).map((r) => [r.show_id, r.watched_at])).keys(),
+  ];
+
+  if (statusFilter) {
+    const { data: filteredRows } = await supabase
+      .from("user_tv_list")
+      .select("show_id")
+      .eq("user_id", userId)
+      .eq("status", statusFilter)
+      .in("show_id", showIdsByLastWatched);
+    const filteredSet = new Set((filteredRows ?? []).map((r) => r.show_id));
+    showIdsByLastWatched = showIdsByLastWatched.filter((id) =>
+      filteredSet.has(id),
+    );
+  }
   const total = showIdsByLastWatched.length;
   const slice = showIdsByLastWatched.slice(offset, offset + limit);
   if (slice.length === 0) {
@@ -88,7 +115,10 @@ export async function GET(req: NextRequest) {
     .eq("user_id", userId)
     .in("show_id", slice);
   const statusByShowId = new Map<string, string>();
-  for (const row of (statusRows ?? []) as { show_id: string; status: string }[]) {
+  for (const row of (statusRows ?? []) as {
+    show_id: string;
+    status: string;
+  }[]) {
     statusByShowId.set(row.show_id, row.status);
   }
 
@@ -108,20 +138,28 @@ export async function GET(req: NextRequest) {
         ]);
         if (watchedRes.error || !showData) return null;
         const watchedSet = new Set(
-          (watchedRes.data ?? []).map((r) => `${r.season_number},${r.episode_number}`)
+          (watchedRes.data ?? []).map(
+            (r) => `${r.season_number},${r.episode_number}`,
+          ),
         );
         const episodesWatched = watchedSet.size;
         const name = (showData?.name as string) ?? "";
         const poster = showData?.poster_path ?? null;
-        const seasons = Array.isArray(showData?.seasons) ? showData.seasons : [];
+        const seasons = Array.isArray(showData?.seasons)
+          ? showData.seasons
+          : [];
         const seasonCounts = new Map<number, number>();
         const allEpisodes: { s: number; e: number }[] = [];
         for (const season of seasons) {
-          const sn = Number((season as { season_number?: number }).season_number);
+          const sn = Number(
+            (season as { season_number?: number }).season_number,
+          );
           if (sn < 0 || Number.isNaN(sn)) continue;
-          const count = Number((season as { episode_count?: number }).episode_count) || 0;
+          const count =
+            Number((season as { episode_count?: number }).episode_count) || 0;
           seasonCounts.set(sn, count);
-          for (let ep = 1; ep <= count; ep++) allEpisodes.push({ s: sn, e: ep });
+          for (let ep = 1; ep <= count; ep++)
+            allEpisodes.push({ s: sn, e: ep });
         }
         allEpisodes.sort((a, b) => a.s - b.s || a.e - b.e);
         let seasonsCompleted = 0;
@@ -132,19 +170,22 @@ export async function GET(req: NextRequest) {
           }
           if (totalEp > 0 && w >= totalEp) seasonsCompleted++;
         }
-        const nextEp = allEpisodes.find(({ s, e }) => !watchedSet.has(`${s},${e}`));
+        const nextEp = allEpisodes.find(
+          ({ s, e }) => !watchedSet.has(`${s},${e}`),
+        );
         return {
           show_id: showId,
           show_name: name,
           poster_path: poster,
           seasons_completed: seasonsCompleted,
           episodes_watched: episodesWatched,
+          total_episodes: allEpisodes.length,
           next_season: nextEp?.s ?? null,
           next_episode: nextEp?.e ?? null,
           all_complete: !nextEp,
           tv_status: statusByShowId.get(showId) ?? null,
         } as ProfileTvProgressItem;
-      })
+      }),
     );
     for (const item of batchResults) {
       if (item) items.push(item);

@@ -42,6 +42,7 @@
     overflow: hidden;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--max-line);
+    line-clamp: var(--max-line);
   }
   .hlimitSearch {
     --max-line: 9;
@@ -49,6 +50,7 @@
     overflow: hidden;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--max-line);
+    line-clamp: var(--max-line);
   }
   .moveChildOne > div:first-child:hover {
     translate: 33px 0px;
@@ -78,5 +80,22 @@
   /* Handle on hover */
   .thin-scroll::-webkit-scrollbar-thumb:hover {
     background: #898989;
+  }
+
+  /* Pretty horizontal scrollbar for desktop/mobile */
+  .pretty-scrollbar::-webkit-scrollbar {
+    height: 6px;
+  }
+  .pretty-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+  }
+  .pretty-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    transition: background 0.2s;
+  }
+  .pretty-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
   }
 }

@@ -10,16 +10,12 @@ type DisplayItem = {
 
 const NO_POSTER = "/no-photo.webp";
 
-export default function TasteInFourStrip({
-  items,
-}: {
-  items: DisplayItem[];
-}) {
+export default function TasteInFourStrip({ items }: { items: DisplayItem[] }) {
   if (!items?.length) return null;
 
   return (
     <div className="w-full">
-      <div className="flex justify-center sm:justify-start gap-0">
+      <div className="flex justify-center sm:justify-start gap-0 overflow-x-auto pb-4 pretty-scrollbar">
         {items.map((it, i) => {
           const href = `/app/${it.item_type}/${it.item_id}`;
           const imgSrc = it.image_url?.trim() || NO_POSTER;

@@ -61,11 +61,16 @@ const WatchedMoviesList = ({
   const [genreFilter, setGenreFilter] = useState<string | null>(
     initialGenre ?? null,
   );
+  const [activeType, setActiveType] = useState<string | undefined>(itemType);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareCardData, setShareCardData] = useState<any>(null);
 
   const fetchMovies = useCallback(
-    async (page: number, genre: string | null = null) => {
+    async (
+      page: number,
+      genre: string | null = null,
+      type: string | undefined = activeType,
+    ) => {
       if (loading) return; // Prevent multiple simultaneous fetches
 
       setLoading(true);
@@ -76,7 +81,7 @@ const WatchedMoviesList = ({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ userID: userId, page, genre, itemType }),
+          body: JSON.stringify({ userID: userId, page, genre, itemType: type }),
         });
 
         if (!response.ok) throw new Error("Failed to fetch");
@@ -94,12 +99,12 @@ const WatchedMoviesList = ({
         setLoading(false);
       }
     },
-    [userId, itemType],
+    [userId, activeType],
   );
 
   useEffect(() => {
-    fetchMovies(currentPage, genreFilter);
-  }, [currentPage, genreFilter, itemType]);
+    fetchMovies(currentPage, genreFilter, activeType);
+  }, [currentPage, genreFilter, activeType, fetchMovies]);
 
   const memoizedMovies = useMemo(() => movies, [movies]);
 
@@ -138,6 +143,33 @@ const WatchedMoviesList = ({
         isOpen={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
       />
+
+      {/* Media Type Filter */}
+      {!itemType && (
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-neutral-900 border border-neutral-800 w-fit mb-6">
+          {[
+            { id: undefined, label: "All" },
+            { id: "movie", label: "Movies" },
+            { id: "tv", label: "TV Shows" },
+          ].map((type) => (
+            <button
+              key={type.label}
+              onClick={() => {
+                setActiveType(type.id as any);
+                setCurrentPage(1);
+              }}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                activeType === type.id
+                  ? "bg-neutral-800 text-white shadow-sm"
+                  : "text-neutral-500 hover:text-neutral-300"
+              }`}
+            >
+              {type.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Genre Filter Buttons */}
       {!hideGenreFilter && (
         <div className="flex flex-wrap gap-2 mb-4">

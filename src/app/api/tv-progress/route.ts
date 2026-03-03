@@ -32,7 +32,9 @@ export async function GET(req: NextRequest) {
   }
 
   const watched = watchedRes.data ?? [];
-  const watchedSet = new Set(watched.map((r) => `${r.season_number},${r.episode_number}`));
+  const watchedSet = new Set(
+    watched.map((r) => `${r.season_number},${r.episode_number}`),
+  );
 
   const showData = await getTvShowWithSeasons(showId);
   if (!showData) {
@@ -69,10 +71,11 @@ export async function GET(req: NextRequest) {
       show_name: showName,
       seasons_completed: seasonsCompleted,
       episodes_watched: watched.length,
+      total_episodes: allEpisodes.length,
       next_season: next?.s ?? null,
       next_episode: next?.e ?? null,
       all_complete: !next,
     },
-    { maxAge: 0 }
+    { maxAge: 0 },
   );
 }

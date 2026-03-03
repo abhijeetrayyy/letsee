@@ -28,7 +28,11 @@ function getPosterUrl(imageUrl: string | null | undefined): string {
 function formatDate(iso: string): string {
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    return d.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   } catch {
     return "";
   }
@@ -41,17 +45,22 @@ export default function RecentActivityStrip({
 }) {
   return (
     <div className="w-full">
-      <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-4">Recent activity</h3>
+      <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-4">
+        Recent activity
+      </h3>
       {!items?.length ? (
         <p className="text-neutral-500 text-sm py-8 text-center rounded-xl bg-neutral-800/30 border border-neutral-700/50">
           No recent activity yet. Watched titles and ratings will show here.
         </p>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1">
+        <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1 pretty-scrollbar">
           {items.map((it) => {
             const itemHref = `/app/${it.item_type}/${it.item_id}`;
             const imgSrc = getPosterUrl(it.image_url);
-            const snippet = it.review_text?.trim() ? it.review_text.slice(0, 50) + (it.review_text.length > 50 ? "…" : "") : null;
+            const snippet = it.review_text?.trim()
+              ? it.review_text.slice(0, 50) +
+                (it.review_text.length > 50 ? "…" : "")
+              : null;
             return (
               <ActivityCard
                 key={it.id}
@@ -105,9 +114,14 @@ function ActivityCard({
         <p className="text-white text-sm font-medium truncate" title={itemName}>
           {itemName}
         </p>
-        <p className="text-neutral-500 text-xs mt-0.5">{formatDate(watchedAt)}</p>
+        <p className="text-neutral-500 text-xs mt-0.5">
+          {formatDate(watchedAt)}
+        </p>
         {snippet && (
-          <p className="text-neutral-400 text-xs truncate mt-1" title={reviewText ?? undefined}>
+          <p
+            className="text-neutral-400 text-xs truncate mt-1"
+            title={reviewText ?? undefined}
+          >
             {snippet}
           </p>
         )}
