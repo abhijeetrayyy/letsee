@@ -186,6 +186,31 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
     };
     init();
 
+    // Listen for tab focus/visibility to refresh session
+    const handleVisibilityChange = async () => {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "visible"
+      ) {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          if (!user) {
+            // If we weren't logged in but now are, refresh everything
+            await refreshPreferences();
+          }
+        } else {
+          if (user) {
+            // If we were logged in but now aren't, clear state
+            setUserPrefrence(defaultPreferenceState);
+            setUser(false);
+          }
+        }
+      }
+    };
+
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleVisibilityChange);
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -201,8 +226,10 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       isMounted = false;
       subscription.unsubscribe();
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleVisibilityChange);
     };
-  }, [refreshPreferences]);
+  }, [refreshPreferences, user]);
 
   const hasWatched = useCallback(
     (itemId: number | string) =>
