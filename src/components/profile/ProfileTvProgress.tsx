@@ -239,6 +239,7 @@ export default function ProfileTvProgress({
             <button
               key={s.id}
               onClick={() => {
+                setLoading(true);
                 setStatusFilter(s.id);
                 setItems([]);
               }}
@@ -342,9 +343,13 @@ export default function ProfileTvProgress({
                     (item.episodes_watched / item.total_episodes) * 100,
                   )
                 : 0;
-            const nextLabel = item.all_complete
+            const isCompleted =
+              item.tv_status === "completed" || item.all_complete;
+            const nextLabel = isCompleted
               ? "Completed"
-              : `Next: S${item.next_season} E${item.next_episode}`;
+              : item.tv_status === "dropped"
+                ? "Dropped"
+                : `Next: S${item.next_season} E${item.next_episode}`;
             const posterUrl = item.poster_path
               ? `https://image.tmdb.org/t/p/w342${item.poster_path}`
               : "/no-photo.webp";
@@ -413,32 +418,38 @@ export default function ProfileTvProgress({
                     )}
                   </div>
 
-                  {isOwner && !item.all_complete && (
-                    <button
-                      onClick={() => handleMarkNext(item)}
-                      disabled={!!markingId}
-                      className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-bold text-neutral-200 transition-all flex items-center justify-center gap-2 hover:border-indigo-500/50 hover:text-white disabled:opacity-50 active:scale-[0.98]"
-                    >
-                      {markingId === item.show_id ? (
-                        <LoadingSpinner size="sm" className="border-t-white" />
-                      ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                      )}
-                      Mark S{item.next_season}E{item.next_episode} Watched
-                    </button>
-                  )}
+                  {isOwner &&
+                    !item.all_complete &&
+                    item.tv_status !== "completed" &&
+                    item.tv_status !== "dropped" && (
+                      <button
+                        onClick={() => handleMarkNext(item)}
+                        disabled={!!markingId}
+                        className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-bold text-neutral-200 transition-all flex items-center justify-center gap-2 hover:border-indigo-500/50 hover:text-white disabled:opacity-50 active:scale-[0.98]"
+                      >
+                        {markingId === item.show_id ? (
+                          <LoadingSpinner
+                            size="sm"
+                            className="border-t-white"
+                          />
+                        ) : (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        )}
+                        Mark S{item.next_season}E{item.next_episode} Watched
+                      </button>
+                    )}
                 </div>
               </div>
             );
@@ -480,9 +491,13 @@ export default function ProfileTvProgress({
                           (item.episodes_watched / item.total_episodes) * 100,
                         )
                       : 0;
-                  const nextLabel = item.all_complete
+                  const isCompleted =
+                    item.tv_status === "completed" || item.all_complete;
+                  const nextLabel = isCompleted
                     ? "Caught up"
-                    : `S${item.next_season} E${item.next_episode}`;
+                    : item.tv_status === "dropped"
+                      ? "Dropped"
+                      : `S${item.next_season} E${item.next_episode}`;
                   const nextUrl =
                     !item.all_complete &&
                     item.next_season != null &&

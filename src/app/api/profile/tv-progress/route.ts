@@ -76,49 +76,38 @@ export async function GET(req: NextRequest) {
     return jsonError("TMDB API key is missing", 500);
   }
 
-  const { data: showRows, error: showError } = await supabase
-    .from("watched_episodes")
-    .select("show_id, watched_at")
+  // 1. Fetch from user_tv_list instead of watched_episodes to see ALL shows
+  let query = supabase
+    .from("user_tv_list")
+    .select("show_id, status, updated_at", { count: "exact" })
     .eq("user_id", userId)
-    .order("watched_at", { ascending: false });
-
-  if (showError) {
-    console.error("profile/tv-progress shows:", showError);
-    return jsonError("Failed to fetch progress", 500);
-  }
-
-  let showIdsByLastWatched = [
-    ...new Map((showRows ?? []).map((r) => [r.show_id, r.watched_at])).keys(),
-  ];
+    .order("updated_at", { ascending: false });
 
   if (statusFilter) {
-    const { data: filteredRows } = await supabase
-      .from("user_tv_list")
-      .select("show_id")
-      .eq("user_id", userId)
-      .eq("status", statusFilter)
-      .in("show_id", showIdsByLastWatched);
-    const filteredSet = new Set((filteredRows ?? []).map((r) => r.show_id));
-    showIdsByLastWatched = showIdsByLastWatched.filter((id) =>
-      filteredSet.has(id),
-    );
+    query = query.eq("status", statusFilter);
   }
-  const total = showIdsByLastWatched.length;
-  const slice = showIdsByLastWatched.slice(offset, offset + limit);
+
+  const {
+    data: listRows,
+    error: listError,
+    count: totalCount,
+  } = await query.range(offset, offset + limit - 1);
+
+  if (listError) {
+    console.error("profile/tv-progress list:", listError);
+    return jsonError("Failed to fetch TV list", 500);
+  }
+
+  const total = totalCount ?? 0;
+  const slice = (listRows ?? []).map((r) => r.show_id);
+
   if (slice.length === 0) {
     return jsonSuccess({ items: [], total }, { maxAge: 0 });
   }
 
-  const { data: statusRows } = await supabase
-    .from("user_tv_list")
-    .select("show_id, status")
-    .eq("user_id", userId)
-    .in("show_id", slice);
+  // Pre-populate status mapping from the slice we just fetched
   const statusByShowId = new Map<string, string>();
-  for (const row of (statusRows ?? []) as {
-    show_id: string;
-    status: string;
-  }[]) {
+  for (const row of (listRows ?? []) as { show_id: string; status: string }[]) {
     statusByShowId.set(row.show_id, row.status);
   }
 
