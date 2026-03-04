@@ -56,6 +56,7 @@ export default function Tv({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [refreshProgressKey, setRefreshProgressKey] = useState(0);
 
   const handleScroll = () => {
     const el = scrollRef.current;
@@ -156,7 +157,10 @@ export default function Tv({
         seasons={seasonsForModal}
         isOpen={markTVWatchedModalOpen}
         onClose={() => setMarkTVWatchedModalOpen(false)}
-        onSuccess={() => refreshPreferences()}
+        onSuccess={() => {
+          refreshPreferences();
+          setRefreshProgressKey((p) => p + 1);
+        }}
         watchedPayload={{
           itemId: show?.id ?? id,
           name: show?.name || show?.title || "",
@@ -349,7 +353,7 @@ export default function Tv({
                     </select>
                   </div>
                 )}
-                <TvShowProgress showId={id} />
+                <TvShowProgress showId={id} refreshKey={refreshProgressKey} />
                 <UserRating
                   itemId={id}
                   itemType="tv"
