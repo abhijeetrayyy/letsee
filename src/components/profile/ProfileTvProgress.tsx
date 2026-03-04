@@ -55,6 +55,7 @@ export default function ProfileTvProgress({
   const [sortBy, setSortBy] = useState<"last_watched" | "name" | "progress">(
     "last_watched",
   );
+  const [error, setError] = useState<string | null>(null);
 
   const fetchSlice = useCallback(
     async (
@@ -87,11 +88,18 @@ export default function ProfileTvProgress({
       .then((r) => r.json())
       .then((data) => {
         if (!cancelled) {
-          if (data?.items) setItems(data.items);
-          if (data?.total != null) setTotal(data.total);
+          if (data?.error) {
+            setError(data.error);
+          } else {
+            if (data?.items) setItems(data.items);
+            if (data?.total != null) setTotal(data.total);
+            setError(null);
+          }
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (!cancelled) setError("Failed to load progress details.");
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -134,10 +142,15 @@ export default function ProfileTvProgress({
     )
       .then((r) => r.json())
       .then((data) => {
-        if (data?.items) setItems(data.items);
-        if (data?.total != null) setTotal(data.total);
+        if (data?.error) {
+          setError(data.error);
+        } else {
+          if (data?.items) setItems(data.items);
+          if (data?.total != null) setTotal(data.total);
+          setError(null);
+        }
       })
-      .catch(() => {})
+      .catch(() => setError("Failed to refresh list."))
       .finally(() => setLoading(false));
   }, [userId, items.length, statusFilter]);
 
@@ -196,6 +209,22 @@ export default function ProfileTvProgress({
         <p className="text-neutral-500 text-sm animate-pulse">
           Loading series progress…
         </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-6 flex flex-col items-center gap-3">
+        <p className="text-amber-200 text-sm font-medium text-center">
+          {error}
+        </p>
+        <button
+          onClick={refreshList}
+          className="px-4 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 text-xs transition-colors"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
