@@ -126,7 +126,7 @@ export default function ContinueWatchingSection() {
   };
 
   if (loading) return null; // or loading skeleton
-  if (items.length === 0) return null;
+  // Removed early return for items.length === 0 to keep section visible
 
   const isRecent = (dateStr: string | null) => {
     if (!dateStr) return false;
@@ -158,52 +158,67 @@ export default function ContinueWatchingSection() {
       <p className="text-sm sm:text-base text-neutral-400 mb-6">
         Continue watching your shows and movies
       </p>
-      <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
-        {items.map((item) => {
-          if (item.source === "continue") {
-            const cItem = item as ContinueItem & { source: "continue" };
-            const posterUrl = cItem.poster_path
-              ? `https://image.tmdb.org/t/p/w185${cItem.poster_path}`
-              : "/no-photo.webp";
 
-            const nextUrl = cItem.is_caught_up
-              ? `/app/tv/${cItem.show_id}` // Go to show page if caught up
-              : `/app/tv/${cItem.show_id}/season/${cItem.next_season}/episode/${cItem.next_episode}`;
+      {items.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-10 px-4 rounded-xl bg-neutral-900/30 border border-dashed border-neutral-700">
+          <p className="text-neutral-500 text-sm text-center">
+            You haven't started any shows or movies yet. Explore titles to see
+            them here!
+          </p>
+          <Link
+            href="/app/search/discover"
+            className="mt-4 px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs transition-colors"
+          >
+            Explore Popular
+          </Link>
+        </div>
+      ) : (
+        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+          {items.map((item) => {
+            if (item.source === "continue") {
+              const cItem = item as ContinueItem & { source: "continue" };
+              const posterUrl = cItem.poster_path
+                ? `https://image.tmdb.org/t/p/w185${cItem.poster_path}`
+                : "/no-photo.webp";
 
-            const progress =
-              cItem.total_episodes > 0
-                ? Math.min(
-                    100,
-                    Math.round(
-                      (cItem.episodes_watched / cItem.total_episodes) * 100,
-                    ),
-                  )
-                : 0;
+              const nextUrl = cItem.is_caught_up
+                ? `/app/tv/${cItem.show_id}` // Go to show page if caught up
+                : `/app/tv/${cItem.show_id}/season/${cItem.next_season}/episode/${cItem.next_episode}`;
 
-            const hasNewEpisodes =
-              !cItem.is_caught_up && isRecent(cItem.last_air_date);
+              const progress =
+                cItem.total_episodes > 0
+                  ? Math.min(
+                      100,
+                      Math.round(
+                        (cItem.episodes_watched / cItem.total_episodes) * 100,
+                      ),
+                    )
+                  : 0;
 
-            return (
-              <div
-                key={`continue-${cItem.show_id}`}
-                className="relative group shrink-0 w-36 sm:w-44 flex flex-col"
-              >
-                <Link
-                  href={nextUrl}
-                  className="block rounded-xl overflow-hidden border border-neutral-700 bg-neutral-800/80 hover:border-neutral-600 hover:bg-neutral-800 transition-colors"
+              const hasNewEpisodes =
+                !cItem.is_caught_up && isRecent(cItem.last_air_date);
+
+              return (
+                <div
+                  key={`continue-${cItem.show_id}`}
+                  className="relative group shrink-0 w-36 sm:w-44 flex flex-col"
                 >
-                  <div className="relative aspect-2/3 w-full overflow-hidden">
-                    <img
-                      src={posterUrl}
-                      alt={cItem.show_name}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
+                  <Link
+                    href={nextUrl}
+                    className="block rounded-xl overflow-hidden border border-neutral-700 bg-neutral-800/80 hover:border-neutral-600 hover:bg-neutral-800 transition-colors"
+                  >
+                    <div className="relative aspect-2/3 w-full overflow-hidden">
+                      <img
+                        src={posterUrl}
+                        alt={cItem.show_name}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
 
-                    {/* Status Badge */}
-                    {cItem.tv_status && (
-                      <div className="absolute top-2 right-2 z-10 flex flex-col gap-1 items-end">
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide shadow-sm
+                      {/* Status Badge */}
+                      {cItem.tv_status && (
+                        <div className="absolute top-2 right-2 z-10 flex flex-col gap-1 items-end">
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide shadow-sm
                            ${
                              cItem.tv_status === "watching"
                                ? "bg-green-600/90 text-white"
@@ -211,167 +226,168 @@ export default function ContinueWatchingSection() {
                                  ? "bg-blue-600/90 text-white"
                                  : "bg-gray-600/90 text-white"
                            }`}
-                        >
-                          {cItem.tv_status === "rewatching" ? "Rewatch" : ""}
-                        </span>
-                        {hasNewEpisodes && (
-                          <span className="px-1.5 py-0.5 rounded bg-amber-500/90 text-white text-[10px] font-bold uppercase tracking-wide shadow-sm animate-pulse">
-                            NEW EP
+                          >
+                            {cItem.tv_status === "rewatching" ? "Rewatch" : ""}
                           </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Caught Up / Up Next Badge */}
-                    {cItem.is_caught_up && (
-                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1.5 p-2 text-center">
-                        <span className="bg-neutral-800/90 text-neutral-200 px-3 py-1 rounded-full text-xs font-medium border border-neutral-600 whitespace-nowrap">
-                          Caught Up
-                        </span>
-                        {cItem.next_air_date && (
-                          <span className="text-[10px] uppercase font-bold text-amber-400 bg-black/50 px-2 py-0.5 rounded">
-                            Returns {formatDate(cItem.next_air_date)}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Progress Overlay (Gradient) */}
-                    <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
-
-                    {/* Episode Info */}
-                    {!cItem.is_caught_up && (
-                      <div className="absolute bottom-3 left-3 right-3 z-10">
-                        <span className="text-xs font-semibold text-white/90 block mb-1">
-                          S{cItem.next_season} E{cItem.next_episode}
-                        </span>
-                        {/* Progress Bar */}
-                        <div className="w-full h-1 bg-neutral-700/50 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-amber-500 rounded-full"
-                            style={{ width: `${progress}%` }}
-                          />
+                          {hasNewEpisodes && (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500/90 text-white text-[10px] font-bold uppercase tracking-wide shadow-sm animate-pulse">
+                              NEW EP
+                            </span>
+                          )}
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Hover: Mark Next Button */}
-                    {!cItem.is_caught_up && (
-                      <button
-                        onClick={(e) => handleMarkNext(e, cItem)}
-                        disabled={marking === cItem.show_id}
-                        className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-white/90 text-neutral-900 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white hover:scale-105 focus:opacity-100 disabled:opacity-50 z-20 shadow-lg"
-                        title="Mark next episode as watched"
-                      >
-                        {marking === cItem.show_id ? (
-                          <span className="animate-spin text-xs">⏳</span>
-                        ) : (
-                          <FaCheck size={12} />
-                        )}
-                      </button>
-                    )}
-                  </div>
-                  <div className="p-3 flex-1 min-h-0">
-                    <p className="text-sm font-semibold text-neutral-100 line-clamp-1 group-hover:text-amber-500 transition-colors">
-                      {cItem.show_name}
-                    </p>
-                    <p className="text-xs text-neutral-400 mt-0.5 font-medium">
-                      {cItem.is_caught_up
-                        ? "All caught up"
-                        : `${cItem.episodes_watched} of ${cItem.total_episodes} watched`}
-                    </p>
-                  </div>
-                </Link>
+                      {/* Caught Up / Up Next Badge */}
+                      {cItem.is_caught_up && (
+                        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1.5 p-2 text-center">
+                          <span className="bg-neutral-800/90 text-neutral-200 px-3 py-1 rounded-full text-xs font-medium border border-neutral-600 whitespace-nowrap">
+                            Caught Up
+                          </span>
+                          {cItem.next_air_date && (
+                            <span className="text-[10px] uppercase font-bold text-amber-400 bg-black/50 px-2 py-0.5 rounded">
+                              Returns {formatDate(cItem.next_air_date)}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
-                {/* Preference Buttons */}
-                <div className="border border-neutral-700/60 border-t-0 rounded-b-xl overflow-hidden bg-neutral-900">
-                  <ThreePrefrenceBtn
-                    variant="compact"
-                    cardId={cItem.show_id}
-                    cardType="tv"
-                    cardName={cItem.show_name}
-                    cardImg={cItem.poster_path}
-                    genres={[]}
-                    onAddWatchedTv={() =>
-                      setTvModalOpen({
-                        id: cItem.show_id,
-                        name: cItem.show_name,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            );
-          } else {
-            // "Watching" items (Manual adds or Movies)
-            const wItem = item as WatchingItem & { source: "watching" };
-            const posterUrl =
-              wItem.image_url && wItem.image_url.length > 1
-                ? `https://image.tmdb.org/t/p/w185${wItem.image_url}`
-                : "/no-photo.webp";
-            const href =
-              wItem.item_type === "tv"
-                ? `/app/tv/${wItem.item_id}`
-                : `/app/movie/${wItem.item_id}`;
+                      {/* Progress Overlay (Gradient) */}
+                      <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
 
-            return (
-              <div
-                key={`watching-${wItem.item_id}`}
-                className="shrink-0 w-36 sm:w-44 flex flex-col group"
-              >
-                <Link
-                  href={href}
-                  className="block rounded-xl overflow-hidden border border-neutral-700 bg-neutral-800/80 hover:border-neutral-600 hover:bg-neutral-800 transition-colors"
-                >
-                  <div className="relative aspect-2/3 w-full overflow-hidden">
-                    <img
-                      src={posterUrl}
-                      alt={wItem.item_name ?? ""}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute top-2 left-2">
-                      <span className="px-1.5 py-0.5 rounded bg-blue-600/90 text-white text-[10px] font-bold uppercase tracking-wide shadow-sm">
-                        {wItem.item_type === "tv" ? "TV" : "Movie"}
-                      </span>
+                      {/* Episode Info */}
+                      {!cItem.is_caught_up && (
+                        <div className="absolute bottom-3 left-3 right-3 z-10">
+                          <span className="text-xs font-semibold text-white/90 block mb-1">
+                            S{cItem.next_season} E{cItem.next_episode}
+                          </span>
+                          {/* Progress Bar */}
+                          <div className="w-full h-1 bg-neutral-700/50 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-amber-500 rounded-full"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Hover: Mark Next Button */}
+                      {!cItem.is_caught_up && (
+                        <button
+                          onClick={(e) => handleMarkNext(e, cItem)}
+                          disabled={marking === cItem.show_id}
+                          className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-white/90 text-neutral-900 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white hover:scale-105 focus:opacity-100 disabled:opacity-50 z-20 shadow-lg"
+                          title="Mark next episode as watched"
+                        >
+                          {marking === cItem.show_id ? (
+                            <span className="animate-spin text-xs">⏳</span>
+                          ) : (
+                            <FaCheck size={12} />
+                          )}
+                        </button>
+                      )}
                     </div>
-                  </div>
-                  <div className="p-3 flex-1 min-h-0">
-                    <p className="text-sm font-semibold text-neutral-100 line-clamp-1 group-hover:text-blue-400 transition-colors">
-                      {wItem.item_name}
-                    </p>
-                    {wItem.item_type === "tv" && (
-                      <p className="text-xs text-neutral-400 mt-0.5">
-                        Start watching
+                    <div className="p-3 flex-1 min-h-0">
+                      <p className="text-sm font-semibold text-neutral-100 line-clamp-1 group-hover:text-amber-500 transition-colors">
+                        {cItem.show_name}
                       </p>
-                    )}
-                  </div>
-                </Link>
+                      <p className="text-xs text-neutral-400 mt-0.5 font-medium">
+                        {cItem.is_caught_up
+                          ? "All caught up"
+                          : `${cItem.episodes_watched} of ${cItem.total_episodes} watched`}
+                      </p>
+                    </div>
+                  </Link>
 
-                {/* Preference Buttons */}
-                <div className="border border-neutral-700/60 border-t-0 rounded-b-xl overflow-hidden bg-neutral-900">
-                  <ThreePrefrenceBtn
-                    variant="compact"
-                    cardId={wItem.item_id}
-                    cardType={wItem.item_type}
-                    cardName={wItem.item_name}
-                    cardImg={wItem.image_url}
-                    genres={[]}
-                    onAddWatchedTv={
-                      wItem.item_type === "tv"
-                        ? () =>
-                            setTvModalOpen({
-                              id: wItem.item_id,
-                              name: wItem.item_name,
-                            })
-                        : undefined
-                    }
-                  />
+                  {/* Preference Buttons */}
+                  <div className="border border-neutral-700/60 border-t-0 rounded-b-xl overflow-hidden bg-neutral-900">
+                    <ThreePrefrenceBtn
+                      variant="compact"
+                      cardId={cItem.show_id}
+                      cardType="tv"
+                      cardName={cItem.show_name}
+                      cardImg={cItem.poster_path}
+                      genres={[]}
+                      onAddWatchedTv={() =>
+                        setTvModalOpen({
+                          id: cItem.show_id,
+                          name: cItem.show_name,
+                        })
+                      }
+                    />
+                  </div>
                 </div>
-              </div>
-            );
-          }
-        })}
-      </div>
+              );
+            } else {
+              // "Watching" items (Manual adds or Movies)
+              const wItem = item as WatchingItem & { source: "watching" };
+              const posterUrl =
+                wItem.image_url && wItem.image_url.length > 1
+                  ? `https://image.tmdb.org/t/p/w185${wItem.image_url}`
+                  : "/no-photo.webp";
+              const href =
+                wItem.item_type === "tv"
+                  ? `/app/tv/${wItem.item_id}`
+                  : `/app/movie/${wItem.item_id}`;
+
+              return (
+                <div
+                  key={`watching-${wItem.item_id}`}
+                  className="shrink-0 w-36 sm:w-44 flex flex-col group"
+                >
+                  <Link
+                    href={href}
+                    className="block rounded-xl overflow-hidden border border-neutral-700 bg-neutral-800/80 hover:border-neutral-600 hover:bg-neutral-800 transition-colors"
+                  >
+                    <div className="relative aspect-2/3 w-full overflow-hidden">
+                      <img
+                        src={posterUrl}
+                        alt={wItem.item_name ?? ""}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <div className="absolute top-2 left-2">
+                        <span className="px-1.5 py-0.5 rounded bg-blue-600/90 text-white text-[10px] font-bold uppercase tracking-wide shadow-sm">
+                          {wItem.item_type === "tv" ? "TV" : "Movie"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-3 flex-1 min-h-0">
+                      <p className="text-sm font-semibold text-neutral-100 line-clamp-1 group-hover:text-blue-400 transition-colors">
+                        {wItem.item_name}
+                      </p>
+                      {wItem.item_type === "tv" && (
+                        <p className="text-xs text-neutral-400 mt-0.5">
+                          Start watching
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+
+                  {/* Preference Buttons */}
+                  <div className="border border-neutral-700/60 border-t-0 rounded-b-xl overflow-hidden bg-neutral-900">
+                    <ThreePrefrenceBtn
+                      variant="compact"
+                      cardId={wItem.item_id}
+                      cardType={wItem.item_type}
+                      cardName={wItem.item_name}
+                      cardImg={wItem.image_url}
+                      genres={[]}
+                      onAddWatchedTv={
+                        wItem.item_type === "tv"
+                          ? () =>
+                              setTvModalOpen({
+                                id: wItem.item_id,
+                                name: wItem.item_name,
+                              })
+                          : undefined
+                      }
+                    />
+                  </div>
+                </div>
+              );
+            }
+          })}
+        </div>
+      )}
 
       {tvModalOpen && (
         <MarkTVWatchedModal

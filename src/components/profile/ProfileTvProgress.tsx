@@ -229,16 +229,7 @@ export default function ProfileTvProgress({
     );
   }
 
-  if (total === 0) {
-    return (
-      <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/30 p-6">
-        <p className="text-neutral-500 text-sm text-center py-4">
-          No episode progress yet. Mark episodes as watched on TV show pages to
-          see your progress here.
-        </p>
-      </div>
-    );
-  }
+  // Removed early return for total === 0 to keep filters visible
 
   const sortedItems = [...items].sort((a, b) => {
     if (sortBy === "name") return a.show_name.localeCompare(b.show_name);
@@ -362,10 +353,12 @@ export default function ProfileTvProgress({
         </div>
       </div>
 
-      {!loading && total === 0 && (
-        <div className="rounded-2xl border border-neutral-700/60 bg-neutral-800/10 p-12 text-center">
+      {total === 0 && !loading && (
+        <div className="rounded-2xl border border-neutral-700/60 bg-neutral-800/20 p-12 text-center">
           <p className="text-neutral-500 text-sm">
-            No series found in this category.
+            {statusFilter
+              ? `No series found in the "${TV_STATUS_LABELS[statusFilter]}" category.`
+              : "No episode progress yet. Mark episodes as watched on TV show pages to see your progress here."}
           </p>
         </div>
       )}
