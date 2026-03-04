@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 
 interface WatchingItem {
   item_id: string;
@@ -119,12 +120,14 @@ export default function ProfileCurrentlyWatching({
           item.item_type === "tv" ? progressMap[item.item_id] : null;
 
         return (
-          <Link
+          <div
             key={item.item_id}
-            href={href}
             className="shrink-0 w-32 sm:w-36 flex flex-col rounded-xl overflow-hidden border border-neutral-700 bg-neutral-800/80 hover:border-neutral-600 hover:bg-neutral-800 transition-colors group"
           >
-            <div className="relative aspect-2/3 w-full overflow-hidden">
+            <Link
+              href={href}
+              className="relative aspect-2/3 w-full overflow-hidden block"
+            >
               <img
                 src={posterUrl}
                 alt={item.item_name ?? ""}
@@ -142,13 +145,28 @@ export default function ProfileCurrentlyWatching({
                   </p>
                 </div>
               )}
-            </div>
-            <div className="p-2 min-h-0">
-              <p className="text-sm font-medium text-neutral-100 line-clamp-2">
+            </Link>
+            <div className="p-2 flex-1">
+              <Link
+                href={href}
+                className="text-sm font-medium text-neutral-100 line-clamp-2 hover:text-indigo-400 transition-colors"
+              >
                 {item.item_name}
-              </p>
+              </Link>
             </div>
-          </Link>
+
+            {/* Preference Buttons */}
+            <div className="border-t border-white/5 bg-neutral-900/50">
+              <ThreePrefrenceBtn
+                variant="compact"
+                cardId={item.item_id}
+                cardType={item.item_type}
+                cardName={item.item_name}
+                cardImg={item.image_url}
+                genres={[]}
+              />
+            </div>
+          </div>
         );
       })}
     </div>

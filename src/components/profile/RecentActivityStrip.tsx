@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useContext } from "react";
+import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
+import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 
 type RecentItem = {
   id: number;
@@ -70,6 +73,9 @@ export default function RecentActivityStrip({
                 watchedAt={it.watched_at}
                 snippet={snippet}
                 reviewText={it.review_text ?? undefined}
+                itemId={it.item_id}
+                itemType={it.item_type}
+                imageUrl={it.image_url}
               />
             );
           })}
@@ -86,6 +92,9 @@ function ActivityCard({
   watchedAt,
   snippet,
   reviewText,
+  itemId,
+  itemType,
+  imageUrl,
 }: {
   href: string;
   imgSrc: string;
@@ -93,39 +102,82 @@ function ActivityCard({
   watchedAt: string;
   snippet: string | null;
   reviewText?: string | null;
+  itemId: string;
+  itemType: string;
+  imageUrl: string | null;
 }) {
   const [imgError, setImgError] = useState(false);
+  const [tvModalOpen, setTvModalOpen] = useState(false);
+  const { refreshPreferences } = useContext(UserPrefrenceContext);
   const src = imgError ? NO_POSTER : imgSrc;
 
   return (
-    <Link
-      href={href}
-      className="group shrink-0 w-28 sm:w-32 rounded-xl overflow-hidden border border-neutral-700/60 bg-neutral-800/50 hover:border-amber-500/40 hover:scale-[1.02] transition-all duration-200"
-    >
-      <div className="aspect-2/3 overflow-hidden bg-neutral-800">
-        <img
-          src={src}
-          alt={itemName}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          onError={() => setImgError(true)}
+    <div className="group shrink-0 w-28 sm:w-32 flex flex-col rounded-xl overflow-hidden border border-neutral-700/60 bg-neutral-800/50 hover:border-amber-500/40 transition-all duration-200">
+      <Link href={href} className="block">
+        <div className="aspect-2/3 overflow-hidden bg-neutral-800">
+          <img
+            src={src}
+            alt={itemName}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={() => setImgError(true)}
+          />
+        </div>
+        <div className="p-2.5 flex-1 min-h-0">
+          <p
+            className="text-white text-sm font-medium truncate"
+            title={itemName}
+          >
+            {itemName}
+          </p>
+          <p className="text-neutral-500 text-[10px] mt-0.5">
+            {formatDate(watchedAt)}
+          </p>
+          {snippet && (
+            <p
+              className="text-neutral-400 text-[10px] line-clamp-1 mt-1"
+              title={reviewText ?? undefined}
+            >
+              {snippet}
+            </p>
+          )}
+        </div>
+      </Link>
+
+      {/* Preference Buttons Strip */}
+      <div className="border-t border-white/5 bg-neutral-900">
+        <ThreePrefrenceBtn
+          variant="compact"
+          cardId={itemId}
+          cardType={itemType}
+          cardName={itemName}
+          cardImg={imageUrl}
+          genres={[]}
+          onAddWatchedTv={
+            itemType === "tv" ? () => setTvModalOpen(true) : undefined
+          }
         />
       </div>
-      <div className="p-2.5">
-        <p className="text-white text-sm font-medium truncate" title={itemName}>
-          {itemName}
-        </p>
-        <p className="text-neutral-500 text-xs mt-0.5">
-          {formatDate(watchedAt)}
-        </p>
-        {snippet && (
-          <p
-            className="text-neutral-400 text-xs truncate mt-1"
-            title={reviewText ?? undefined}
-          >
-            {snippet}
-          </p>
-        )}
-      </div>
-    </Link>
+
+      {itemType === "tv" && (
+        <MarkTVWatchedModal
+          showId={itemId}
+          showName={itemName}
+          seasons={[]}
+          isOpen={tvModalOpen}
+          onClose={() => setTvModalOpen(false)}
+          onSuccess={() => {
+            setTvModalOpen(false);
+            refreshPreferences?.();
+          }}
+          watchedPayload={{
+            itemId: Number(itemId),
+            name: itemName,
+            imgUrl: imageUrl ?? "",
+            adult: false,
+            genres: [],
+          }}
+        />
+      )}
+    </div>
   );
 }

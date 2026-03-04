@@ -76,39 +76,74 @@ export async function GET(req: NextRequest) {
     return jsonError("TMDB API key is missing", 500);
   }
 
-  // 1. Fetch from user_tv_list instead of watched_episodes to see ALL shows
-  let query = supabase
-    .from("user_tv_list")
-    .select("show_id, status, updated_at", { count: "exact" })
-    .eq("user_id", userId)
-    .order("updated_at", { ascending: false });
+  // 1. Aggregate show IDs from all 3 sources
+  const [listRes, watchedRes, watchLaterRes] = await Promise.all([
+    supabase
+      .from("user_tv_list")
+      .select("show_id, status, updated_at")
+      .eq("user_id", userId),
+    supabase.from("watched_episodes").select("show_id").eq("user_id", userId),
+    supabase
+      .from("user_watchlist")
+      .select("item_id")
+      .eq("user_id", userId)
+      .eq("item_type", "tv"),
+  ]);
 
-  if (statusFilter) {
-    query = query.eq("status", statusFilter);
+  const taggedItems = listRes.data ?? [];
+  const statusMap = new Map<string, string>();
+  const timeMap = new Map<string, string>();
+  for (const item of taggedItems) {
+    statusMap.set(item.show_id, item.status);
+    timeMap.set(item.show_id, item.updated_at);
   }
 
-  const {
-    data: listRows,
-    error: listError,
-    count: totalCount,
-  } = await query.range(offset, offset + limit - 1);
+  const watchedShowIds = new Set((watchedRes.data ?? []).map((r) => r.show_id));
+  const watchlistShowIds = new Set(
+    (watchLaterRes.data ?? []).map((r) => r.item_id),
+  );
 
-  if (listError) {
-    console.error("profile/tv-progress list:", listError);
-    return jsonError("Failed to fetch TV list", 500);
+  // Build the universal set of unique show IDs
+  const allIds = new Set([
+    ...statusMap.keys(),
+    ...watchedShowIds,
+    ...watchlistShowIds,
+  ]);
+
+  let filteredIds: string[] = [];
+
+  if (statusFilter === "untagged") {
+    // Only items that are NOT in user_tv_list but exist in watched/watchlist
+    filteredIds = Array.from(allIds).filter((id) => !statusMap.has(id));
+  } else if (statusFilter) {
+    // Filter by specific status
+    filteredIds = Array.from(allIds).filter(
+      (id) => statusMap.get(id) === statusFilter,
+    );
+  } else {
+    // All items
+    filteredIds = Array.from(allIds);
   }
 
-  const total = totalCount ?? 0;
-  const slice = (listRows ?? []).map((r) => r.show_id);
+  // Sort: Tagged items by updated_at, untagged items at the end (for now)
+  // In the future we might want to sort by latest watch activity or similar.
+  filteredIds.sort((a, b) => {
+    const timeA = timeMap.get(a) || "0";
+    const timeB = timeMap.get(b) || "0";
+    return timeB.localeCompare(timeA);
+  });
+
+  const total = filteredIds.length;
+  const slice = filteredIds.slice(offset, offset + limit);
 
   if (slice.length === 0) {
     return jsonSuccess({ items: [], total }, { maxAge: 0 });
   }
 
-  // Pre-populate status mapping from the slice we just fetched
-  const statusByShowId = new Map<string, string>();
-  for (const row of (listRows ?? []) as { show_id: string; status: string }[]) {
-    statusByShowId.set(row.show_id, row.status);
+  // Pre-populate status mapping from the final slice
+  const statusByShowId = new Map<string, string | null>();
+  for (const id of slice) {
+    statusByShowId.set(id, statusMap.get(id) || null);
   }
 
   const items: ProfileTvProgressItem[] = [];

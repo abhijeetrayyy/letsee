@@ -84,20 +84,30 @@ export async function PATCH(req: NextRequest) {
 
   const showId = body.showId != null ? String(body.showId).trim() : "";
   if (!showId) return jsonError("showId is required", 400);
+
+  // If status is empty or "untagged", remove it from the status list
+  if (!body.status || body.status === "untagged") {
+    const { error } = await supabase
+      .from("user_tv_list")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("show_id", showId);
+    if (error) return jsonError("Failed to remove status", 500);
+    return jsonSuccess({ status: null }, { maxAge: 0 });
+  }
+
   if (!isValidStatus(body.status))
     return jsonError("status must be one of: " + TV_STATUSES.join(", "), 400);
 
-  const { error } = await supabase
-    .from("user_tv_list")
-    .upsert(
-      {
-        user_id: user.id,
-        show_id: showId,
-        status: body.status,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,show_id" },
-    );
+  const { error } = await supabase.from("user_tv_list").upsert(
+    {
+      user_id: user.id,
+      show_id: showId,
+      status: body.status,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,show_id" },
+  );
 
   if (error) return jsonError("Failed to update status", 500);
   return jsonSuccess({ status: body.status }, { maxAge: 0 });

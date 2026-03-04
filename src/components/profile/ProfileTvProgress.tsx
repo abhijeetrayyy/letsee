@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import EditTvProgressModal from "@components/tv/EditTvProgressModal";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
+import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
 
 const INITIAL_LIMIT = 5;
 const VIEW_MORE_BATCH = 10;
@@ -15,6 +17,7 @@ const TV_STATUS_LABELS: Record<string, string> = {
   dropped: "Dropped",
   plan_to_watch: "Plan to Watch",
   rewatching: "Rewatching",
+  untagged: "Untagged",
 };
 
 export type ProfileTvProgressItem = {
@@ -95,7 +98,7 @@ export default function ProfileTvProgress({
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, statusFilter]);
 
   const handleViewMore = useCallback(async () => {
     const nextOffset = items.length;
@@ -235,13 +238,17 @@ export default function ProfileTvProgress({
             { id: "on_hold", label: "On Hold" },
             { id: "dropped", label: "Dropped" },
             { id: "plan_to_watch", label: "Planned" },
+            { id: "untagged", label: "Untagged" },
           ].map((s) => (
             <button
               key={s.id}
               onClick={() => {
+                // If already on this filter, do nothing
+                if (statusFilter === s.id) return;
+
                 setLoading(true);
-                setStatusFilter(s.id);
                 setItems([]);
+                setStatusFilter(s.id);
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 statusFilter === s.id
@@ -371,7 +378,8 @@ export default function ProfileTvProgress({
                   {/* Status Badge */}
                   <div className="absolute top-3 left-3">
                     <span className="px-2 py-1 rounded-md bg-neutral-950/80 backdrop-blur-md border border-neutral-700 text-[10px] font-bold uppercase tracking-wider text-neutral-300">
-                      {TV_STATUS_LABELS[item.tv_status ?? ""] ?? "Unknown"}
+                      {TV_STATUS_LABELS[item.tv_status ?? "untagged"] ??
+                        "Untagged"}
                     </span>
                   </div>
 
@@ -396,60 +404,75 @@ export default function ProfileTvProgress({
                 </div>
 
                 {/* Actions Section */}
-                <div className="p-4 flex flex-col gap-3 bg-neutral-900/40">
-                  <div className="flex items-center justify-between gap-2">
-                    <Link
-                      href={
-                        item.all_complete
-                          ? `/app/tv/${item.show_id}`
-                          : `/app/tv/${item.show_id}/season/${item.next_season}/episode/${item.next_episode}`
-                      }
-                      className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
-                    >
-                      {nextLabel}
-                    </Link>
-                    {isOwner && (
-                      <button
-                        onClick={() => setEditModalShowId(item.show_id)}
-                        className="text-[10px] font-medium text-neutral-500 hover:text-neutral-300"
+                <div className="flex flex-col bg-neutral-900/40">
+                  <div className="p-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <Link
+                        href={
+                          item.all_complete
+                            ? `/app/tv/${item.show_id}`
+                            : `/app/tv/${item.show_id}/season/${item.next_season}/episode/${item.next_episode}`
+                        }
+                        className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
                       >
-                        Edit
-                      </button>
-                    )}
+                        {nextLabel}
+                      </Link>
+                      {isOwner && (
+                        <button
+                          onClick={() => setEditModalShowId(item.show_id)}
+                          className="text-[10px] font-medium text-neutral-500 hover:text-neutral-300"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+
+                    {isOwner &&
+                      !item.all_complete &&
+                      item.tv_status !== "completed" &&
+                      item.tv_status !== "dropped" && (
+                        <button
+                          onClick={() => handleMarkNext(item)}
+                          disabled={!!markingId}
+                          className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-bold text-neutral-200 transition-all flex items-center justify-center gap-2 hover:border-indigo-500/50 hover:text-white disabled:opacity-50 active:scale-[0.98]"
+                        >
+                          {markingId === item.show_id ? (
+                            <LoadingSpinner
+                              size="sm"
+                              className="border-t-white"
+                            />
+                          ) : (
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                          )}
+                          Mark S{item.next_season}E{item.next_episode} Watched
+                        </button>
+                      )}
                   </div>
 
-                  {isOwner &&
-                    !item.all_complete &&
-                    item.tv_status !== "completed" &&
-                    item.tv_status !== "dropped" && (
-                      <button
-                        onClick={() => handleMarkNext(item)}
-                        disabled={!!markingId}
-                        className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-bold text-neutral-200 transition-all flex items-center justify-center gap-2 hover:border-indigo-500/50 hover:text-white disabled:opacity-50 active:scale-[0.98]"
-                      >
-                        {markingId === item.show_id ? (
-                          <LoadingSpinner
-                            size="sm"
-                            className="border-t-white"
-                          />
-                        ) : (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                          </svg>
-                        )}
-                        Mark S{item.next_season}E{item.next_episode} Watched
-                      </button>
-                    )}
+                  {/* Preference Buttons Strip */}
+                  <div className="border-t border-white/5 bg-neutral-900">
+                    <ThreePrefrenceBtn
+                      variant="compact"
+                      cardId={item.show_id}
+                      cardType="tv"
+                      cardName={item.show_name}
+                      cardImg={item.poster_path ?? undefined}
+                      genres={[]}
+                      onAddWatchedTv={() => setEditModalShowId(item.show_id)}
+                    />
+                  </div>
                 </div>
               </div>
             );
@@ -475,6 +498,9 @@ export default function ProfileTvProgress({
                   </th>
                   <th className="px-4 py-3 font-semibold text-neutral-200 whitespace-nowrap">
                     Next up
+                  </th>
+                  <th className="px-4 py-3 font-semibold text-neutral-200 whitespace-nowrap text-center">
+                    Quick Prefs
                   </th>
                   {isOwner && (
                     <th className="px-4 py-3 font-semibold text-neutral-200 whitespace-nowrap text-center">
@@ -549,7 +575,7 @@ export default function ProfileTvProgress({
                             disabled={statusUpdating === item.show_id}
                             className="bg-neutral-900 border border-neutral-700 text-neutral-200 text-[11px] py-1 px-2 rounded-lg"
                           >
-                            <option value="">Status</option>
+                            <option value="">Untagged</option>
                             {Object.entries(TV_STATUS_LABELS).map(
                               ([val, lab]) => (
                                 <option key={val} value={val}>
@@ -560,9 +586,7 @@ export default function ProfileTvProgress({
                           </select>
                         ) : (
                           <span className="text-[11px] font-medium text-neutral-400">
-                            {item.tv_status
-                              ? TV_STATUS_LABELS[item.tv_status]
-                              : "—"}
+                            {TV_STATUS_LABELS[item.tv_status ?? "untagged"]}
                           </span>
                         )}
                       </td>
@@ -579,6 +603,19 @@ export default function ProfileTvProgress({
                         >
                           {nextLabel}
                         </Link>
+                      </td>
+                      <td className="px-4 py-3 min-w-[140px]">
+                        <ThreePrefrenceBtn
+                          variant="compact"
+                          cardId={item.show_id}
+                          cardType="tv"
+                          cardName={item.show_name}
+                          cardImg={item.poster_path ?? undefined}
+                          genres={[]}
+                          onAddWatchedTv={() =>
+                            setEditModalShowId(item.show_id)
+                          }
+                        />
                       </td>
                       {isOwner && (
                         <td className="px-4 py-3 text-center">

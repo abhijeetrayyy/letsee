@@ -4,6 +4,8 @@ import React, { useEffect, useState, useContext } from "react";
 import Link from "next/link";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { FaPlay, FaCheck } from "react-icons/fa";
+import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
+import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
 
 interface ContinueItem {
   show_id: string;
@@ -40,6 +42,11 @@ export default function ContinueWatchingSection() {
   const [items, setItems] = useState<UnifiedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [marking, setMarking] = useState<string | null>(null);
+  const [tvModalOpen, setTvModalOpen] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const { refreshPreferences } = useContext(UserPrefrenceContext);
 
   const fetchData = async () => {
     if (!user) return;
@@ -264,7 +271,7 @@ export default function ContinueWatchingSection() {
                       </button>
                     )}
                   </div>
-                  <div className="p-3 min-h-0">
+                  <div className="p-3 flex-1 min-h-0">
                     <p className="text-sm font-semibold text-neutral-100 line-clamp-1 group-hover:text-amber-500 transition-colors">
                       {cItem.show_name}
                     </p>
@@ -275,6 +282,24 @@ export default function ContinueWatchingSection() {
                     </p>
                   </div>
                 </Link>
+
+                {/* Preference Buttons */}
+                <div className="border border-neutral-700/60 border-t-0 rounded-b-xl overflow-hidden bg-neutral-900">
+                  <ThreePrefrenceBtn
+                    variant="compact"
+                    cardId={cItem.show_id}
+                    cardType="tv"
+                    cardName={cItem.show_name}
+                    cardImg={cItem.poster_path}
+                    genres={[]}
+                    onAddWatchedTv={() =>
+                      setTvModalOpen({
+                        id: cItem.show_id,
+                        name: cItem.show_name,
+                      })
+                    }
+                  />
+                </div>
               </div>
             );
           } else {
@@ -310,7 +335,7 @@ export default function ContinueWatchingSection() {
                       </span>
                     </div>
                   </div>
-                  <div className="p-3 min-h-0">
+                  <div className="p-3 flex-1 min-h-0">
                     <p className="text-sm font-semibold text-neutral-100 line-clamp-1 group-hover:text-blue-400 transition-colors">
                       {wItem.item_name}
                     </p>
@@ -321,11 +346,54 @@ export default function ContinueWatchingSection() {
                     )}
                   </div>
                 </Link>
+
+                {/* Preference Buttons */}
+                <div className="border border-neutral-700/60 border-t-0 rounded-b-xl overflow-hidden bg-neutral-900">
+                  <ThreePrefrenceBtn
+                    variant="compact"
+                    cardId={wItem.item_id}
+                    cardType={wItem.item_type}
+                    cardName={wItem.item_name}
+                    cardImg={wItem.image_url}
+                    genres={[]}
+                    onAddWatchedTv={
+                      wItem.item_type === "tv"
+                        ? () =>
+                            setTvModalOpen({
+                              id: wItem.item_id,
+                              name: wItem.item_name,
+                            })
+                        : undefined
+                    }
+                  />
+                </div>
               </div>
             );
           }
         })}
       </div>
+
+      {tvModalOpen && (
+        <MarkTVWatchedModal
+          showId={tvModalOpen.id}
+          showName={tvModalOpen.name}
+          seasons={[]}
+          isOpen={!!tvModalOpen}
+          onClose={() => setTvModalOpen(null)}
+          onSuccess={() => {
+            setTvModalOpen(null);
+            refreshPreferences?.();
+            fetchData();
+          }}
+          watchedPayload={{
+            itemId: Number(tvModalOpen.id),
+            name: tvModalOpen.name,
+            imgUrl: "", // Modal will fetch if needed or we can pass it
+            adult: false,
+            genres: [],
+          }}
+        />
+      )}
     </section>
   );
 }
