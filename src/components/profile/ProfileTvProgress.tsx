@@ -1,14 +1,13 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import EditTvProgressModal from "@components/tv/EditTvProgressModal";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
-import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
+import TvShowCard from "@components/profile/TvShowCard";
+import TvCalendarView from "@components/profile/TvCalendarView";
+import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 
-const INITIAL_LIMIT = 5;
-const VIEW_MORE_BATCH = 10;
+const INITIAL_LIMIT = 12;
+const VIEW_MORE_BATCH = 12;
 
 const TV_STATUS_LABELS: Record<string, string> = {
   watching: "Watching",
@@ -46,24 +45,16 @@ export default function ProfileTvProgress({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [loadingAll, setLoadingAll] = useState(false);
-  const [editModalShowId, setEditModalShowId] = useState<string | null>(null);
-  const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [sortBy, setSortBy] = useState<"last_watched" | "name" | "progress">(
-    "last_watched",
-  );
+  const [sortBy, setSortBy] = useState<"last_watched" | "name" | "progress">("last_watched");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "calendar">("grid");
+  const [editModalShowId, setEditModalShowId] = useState<string | null>(null);
+  const [editModalShowName, setEditModalShowName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const fetchSlice = useCallback(
-    async (
-      limit: number,
-      offset: number,
-      append: boolean,
-      status: string = statusFilter,
-    ) => {
+    async (limit: number, offset: number, append: boolean, status: string = statusFilter) => {
       const url = `/api/profile/tv-progress?userId=${encodeURIComponent(userId)}&limit=${limit}&offset=${offset}${status ? `&status=${status}` : ""}`;
       const res = await fetch(url, { cache: "no-store" });
       const data = await res.json().catch(() => ({}));
@@ -81,9 +72,7 @@ export default function ProfileTvProgress({
     setLoading(true);
     fetch(
       `/api/profile/tv-progress?userId=${encodeURIComponent(userId)}&limit=${INITIAL_LIMIT}&offset=0${statusFilter ? `&status=${statusFilter}` : ""}`,
-      {
-        cache: "no-store",
-      },
+      { cache: "no-store" },
     )
       .then((r) => r.json())
       .then((data) => {
@@ -97,15 +86,13 @@ export default function ProfileTvProgress({
           }
         }
       })
-      .catch((err) => {
+      .catch(() => {
         if (!cancelled) setError("Failed to load progress details.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [userId, statusFilter]);
 
   const handleViewMore = useCallback(async () => {
@@ -120,25 +107,11 @@ export default function ProfileTvProgress({
     }
   }, [items.length, total, fetchSlice]);
 
-  const handleLoadAll = useCallback(async () => {
-    const nextOffset = items.length;
-    const remaining = total - nextOffset;
-    if (remaining <= 0) return;
-    setLoadingAll(true);
-    try {
-      await fetchSlice(remaining, nextOffset, true);
-    } finally {
-      setLoadingAll(false);
-    }
-  }, [items.length, total, fetchSlice]);
-
   const refreshList = useCallback(() => {
     setLoading(true);
     fetch(
       `/api/profile/tv-progress?userId=${encodeURIComponent(userId)}&limit=${Math.max(items.length, INITIAL_LIMIT)}&offset=0${statusFilter ? `&status=${statusFilter}` : ""}`,
-      {
-        cache: "no-store",
-      },
+      { cache: "no-store" },
     )
       .then((r) => r.json())
       .then((data) => {
@@ -154,47 +127,21 @@ export default function ProfileTvProgress({
       .finally(() => setLoading(false));
   }, [userId, items.length, statusFilter]);
 
-  const handleStatusChange = useCallback(
-    async (showId: string, newStatus: string) => {
-      setStatusUpdating(showId);
-      try {
-        const res = await fetch("/api/tv-list-status", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ showId, status: newStatus }),
-        });
-        if (res.ok) {
-          setItems((prev) =>
-            prev.map((it) =>
-              it.show_id === showId ? { ...it, tv_status: newStatus } : it,
-            ),
-          );
-        }
-      } finally {
-        setStatusUpdating(null);
-      }
-    },
-    [],
-  );
-
-  const handleMarkNext = async (item: ProfileTvProgressItem) => {
-    if (!item.next_season || !item.next_episode || markingId) return;
-    setMarkingId(item.show_id);
+  const handleMarkNext = async (showId: string) => {
+    const item = items.find((i) => i.show_id === showId);
+    if (!item?.next_season || !item?.next_episode || markingId) return;
+    setMarkingId(showId);
     try {
       const res = await fetch("/api/watched-episode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          showId: item.show_id,
+          showId,
           seasonNumber: item.next_season,
           episodeNumber: item.next_episode,
         }),
       });
-      if (res.ok) {
-        // Optimistically update or just refresh the slice?
-        // Let's just refresh the whole list for simplicity to ensure all stats (seasons completed etc) are right.
-        refreshList();
-      }
+      if (res.ok) refreshList();
     } catch (err) {
       console.error("Failed to mark next episode:", err);
     } finally {
@@ -202,13 +149,24 @@ export default function ProfileTvProgress({
     }
   };
 
+  const sortedItems = [...items].sort((a, b) => {
+    if (sortBy === "name") return a.show_name.localeCompare(b.show_name);
+    if (sortBy === "progress") {
+      const pa = a.total_episodes > 0 ? a.episodes_watched / a.total_episodes : 0;
+      const pb = b.total_episodes > 0 ? b.episodes_watched / b.total_episodes : 0;
+      return pb - pa;
+    }
+    return 0;
+  });
+
+  const remainingCount = total - items.length;
+  const hasMore = remainingCount > 0;
+
   if (loading) {
     return (
       <div className="rounded-xl border border-surface-700/60 bg-surface-900/40 p-6 flex flex-col items-center justify-center gap-3 min-h-[120px]">
         <LoadingSpinner size="md" className="border-t-white shrink-0" />
-        <p className="text-surface-500 text-sm animate-pulse">
-          Loading series progress…
-        </p>
+        <p className="text-surface-500 text-sm animate-pulse">Loading series progress…</p>
       </div>
     );
   }
@@ -216,9 +174,7 @@ export default function ProfileTvProgress({
   if (error) {
     return (
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-6 flex flex-col items-center gap-3">
-        <p className="text-amber-200 text-sm font-medium text-center">
-          {error}
-        </p>
+        <p className="text-amber-200 text-sm font-medium text-center">{error}</p>
         <button
           onClick={refreshList}
           className="px-4 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 text-xs transition-colors"
@@ -229,25 +185,9 @@ export default function ProfileTvProgress({
     );
   }
 
-  // Removed early return for total === 0 to keep filters visible
-
-  const sortedItems = [...items].sort((a, b) => {
-    if (sortBy === "name") return a.show_name.localeCompare(b.show_name);
-    if (sortBy === "progress") {
-      const pa =
-        a.total_episodes > 0 ? a.episodes_watched / a.total_episodes : 0;
-      const pb =
-        b.total_episodes > 0 ? b.episodes_watched / b.total_episodes : 0;
-      return pb - pa;
-    }
-    return 0; // Default is API sort (last watched)
-  });
-
-  const remainingCount = total - items.length;
-  const hasMore = remainingCount > 0;
-
   return (
     <div className="space-y-6">
+      {/* Controls */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Status Tabs */}
         <div className="flex items-center gap-1.5 p-1 bg-surface-900 border border-surface-800 rounded-xl overflow-x-auto no-scrollbar whitespace-nowrap">
@@ -263,9 +203,7 @@ export default function ProfileTvProgress({
             <button
               key={s.id}
               onClick={() => {
-                // If already on this filter, do nothing
                 if (statusFilter === s.id) return;
-
                 setLoading(true);
                 setItems([]);
                 setStatusFilter(s.id);
@@ -304,17 +242,7 @@ export default function ProfileTvProgress({
               }`}
               title="Grid View"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="7" height="7"></rect>
                 <rect x="14" y="3" width="7" height="7"></rect>
                 <rect x="14" y="14" width="7" height="7"></rect>
@@ -330,17 +258,7 @@ export default function ProfileTvProgress({
               }`}
               title="List View"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="8" y1="6" x2="21" y2="6"></line>
                 <line x1="8" y1="12" x2="21" y2="12"></line>
                 <line x1="8" y1="18" x2="21" y2="18"></line>
@@ -349,10 +267,27 @@ export default function ProfileTvProgress({
                 <line x1="3" y1="18" x2="3.01" y2="18"></line>
               </svg>
             </button>
+            <button
+              onClick={() => setViewMode("calendar")}
+              className={`p-2 rounded-lg transition-all ${
+                viewMode === "calendar"
+                  ? "bg-surface-800 text-white shadow-sm"
+                  : "text-surface-500 hover:text-surface-400"
+              }`}
+              title="Calendar View"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
 
+      {/* Empty State */}
       {total === 0 && !loading && (
         <div className="rounded-2xl border border-surface-700/60 bg-surface-900/20 p-12 text-center">
           <p className="text-surface-500 text-sm">
@@ -363,374 +298,209 @@ export default function ProfileTvProgress({
         </div>
       )}
 
-      {viewMode === "grid" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedItems.map((item) => {
-            const percent =
-              item.total_episodes > 0
-                ? Math.round(
-                    (item.episodes_watched / item.total_episodes) * 100,
-                  )
-                : 0;
-            const isCompleted =
-              item.tv_status === "completed" || item.all_complete;
-            const nextLabel = isCompleted
-              ? "Completed"
-              : item.tv_status === "dropped"
-                ? "Dropped"
-                : `Next: S${item.next_season} E${item.next_episode}`;
-            const posterUrl = item.poster_path
-              ? `https://image.tmdb.org/t/p/w342${item.poster_path}`
-              : "/no-photo.webp";
-
-            return (
-              <div
+      {/* Calendar View */}
+      {viewMode === "calendar" ? (
+        <TvCalendarView userId={userId} isOwner={isOwner} />
+      ) : viewMode === "grid" ? (
+        <>
+          {/* Grid View */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {sortedItems.map((item) => (
+              <TvShowCard
                 key={item.show_id}
-                className="group relative flex flex-col rounded-2xl border border-surface-700/60 bg-surface-900/40 overflow-hidden hover:border-surface-500/60 transition-all duration-300"
-              >
-                {/* Poster & Overlay */}
-                <div className="aspect-[16/9] relative overflow-hidden">
-                  <img
-                    src={posterUrl}
-                    alt=""
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60 group-hover:opacity-80"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/40 to-transparent" />
-
-                  {/* Status Badge */}
-                  <div className="absolute top-3 left-3">
-                    <span className="px-2 py-1 rounded-md bg-surface-950/80 backdrop-blur-md border border-surface-700 text-[10px] font-bold uppercase tracking-wider text-surface-300">
-                      {TV_STATUS_LABELS[item.tv_status ?? "untagged"] ??
-                        "Untagged"}
-                    </span>
-                  </div>
-
-                  {/* Progress Info Overlay */}
-                  <div className="absolute bottom-3 left-3 right-3 flex flex-col gap-1.5">
-                    <h3 className="text-base font-bold text-white line-clamp-1 group-hover:text-brand-300 transition-colors">
-                      {item.show_name}
-                    </h3>
-                    <div className="flex items-center justify-between text-[11px] font-medium text-surface-400">
-                      <span>
-                        {item.episodes_watched} / {item.total_episodes} eps
-                      </span>
-                      <span>{percent}%</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-surface-800/80 rounded-full overflow-hidden border border-surface-700/30">
-                      <div
-                        className="h-full bg-brand-500 rounded-full transition-all duration-500 group-hover:bg-brand-400"
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Actions Section */}
-                <div className="flex flex-col bg-surface-900/40">
-                  <div className="p-4 flex flex-col gap-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <Link
-                        href={
-                          item.all_complete
-                            ? `/app/tv/${item.show_id}`
-                            : `/app/tv/${item.show_id}/season/${item.next_season}/episode/${item.next_episode}`
-                        }
-                        className="text-xs font-semibold text-brand-400 hover:text-brand-300 transition-colors"
-                      >
-                        {nextLabel}
-                      </Link>
-                      {isOwner && (
-                        <button
-                          onClick={() => setEditModalShowId(item.show_id)}
-                          className="text-[10px] font-medium text-surface-500 hover:text-surface-300"
-                        >
-                          Edit
-                        </button>
-                      )}
-                    </div>
-
-                    {isOwner &&
-                      !item.all_complete &&
-                      item.tv_status !== "completed" &&
-                      item.tv_status !== "dropped" && (
-                        <button
-                          onClick={() => handleMarkNext(item)}
-                          disabled={!!markingId}
-                          className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-bold text-surface-200 transition-all flex items-center justify-center gap-2 hover:border-brand-500/50 hover:text-white disabled:opacity-50 active:scale-[0.98]"
-                        >
-                          {markingId === item.show_id ? (
-                            <LoadingSpinner
-                              size="sm"
-                              className="border-t-white"
-                            />
-                          ) : (
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                          )}
-                          Mark S{item.next_season}E{item.next_episode} Watched
-                        </button>
-                      )}
-                  </div>
-
-                  {/* Preference Buttons Strip */}
-                  <div className="border-t border-white/5 bg-surface-900">
-                    <ThreePrefrenceBtn
-                      variant="compact"
-                      cardId={item.show_id}
-                      cardType="tv"
-                      cardName={item.show_name}
-                      cardImg={item.poster_path ?? undefined}
-                      genres={[]}
-                      onAddWatchedTv={() => setEditModalShowId(item.show_id)}
-                    />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="rounded-xl border border-surface-700/60 bg-surface-900/40 overflow-hidden">
-          <div className="overflow-x-auto pretty-scrollbar pb-1">
-            <table className="w-full min-w-[480px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-surface-700/60 bg-surface-800/50">
-                  <th className="px-4 py-3 font-semibold text-surface-200">
-                    Series
-                  </th>
-                  <th className="px-4 py-3 font-semibold text-surface-200 text-center whitespace-nowrap">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 font-semibold text-surface-200 text-center whitespace-nowrap">
-                    Seasons
-                  </th>
-                  <th className="px-4 py-3 font-semibold text-surface-200 text-center whitespace-nowrap">
-                    Episodes
-                  </th>
-                  <th className="px-4 py-3 font-semibold text-surface-200 whitespace-nowrap">
-                    Next up
-                  </th>
-                  <th className="px-4 py-3 font-semibold text-surface-200 whitespace-nowrap text-center">
-                    Quick Prefs
-                  </th>
-                  {isOwner && (
-                    <th className="px-4 py-3 font-semibold text-surface-200 whitespace-nowrap text-center">
-                      Actions
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedItems.map((item) => {
-                  const percent =
-                    item.total_episodes > 0
-                      ? Math.round(
-                          (item.episodes_watched / item.total_episodes) * 100,
-                        )
-                      : 0;
-                  const isCompleted =
-                    item.tv_status === "completed" || item.all_complete;
-                  const nextLabel = isCompleted
-                    ? "Caught up"
-                    : item.tv_status === "dropped"
-                      ? "Dropped"
-                      : `S${item.next_season} E${item.next_episode}`;
-                  const nextUrl =
-                    !item.all_complete &&
-                    item.next_season != null &&
-                    item.next_episode != null
-                      ? `/app/tv/${item.show_id}/season/${item.next_season}/episode/${item.next_episode}`
-                      : `/app/tv/${item.show_id}`;
-
-                  return (
-                    <tr
-                      key={item.show_id}
-                      className="border-b border-surface-700/40 hover:bg-surface-800/50 transition-colors"
-                    >
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/app/tv/${item.show_id}`}
-                          className="font-medium text-white hover:text-brand-300 hover:underline flex items-center gap-3"
-                        >
-                          {item.poster_path ? (
-                            <img
-                              src={`https://image.tmdb.org/t/p/w92${item.poster_path}`}
-                              alt=""
-                              className="w-9 h-[54px] object-cover rounded shrink-0 shadow-lg"
-                            />
-                          ) : (
-                            <div className="w-9 h-[54px] rounded bg-surface-700 shrink-0 flex items-center justify-center text-surface-500 text-[10px]">
-                              No poster
-                            </div>
-                          )}
-                          <div className="flex flex-col gap-1">
-                            <span className="line-clamp-1">
-                              {item.show_name}
-                            </span>
-                            <div className="w-24 h-1 bg-surface-700 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-brand-500"
-                                style={{ width: `${percent}%` }}
-                              />
-                            </div>
-                          </div>
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {isOwner ? (
-                          <select
-                            value={item.tv_status ?? ""}
-                            onChange={(e) =>
-                              handleStatusChange(item.show_id, e.target.value)
-                            }
-                            disabled={statusUpdating === item.show_id}
-                            className="bg-surface-900 border border-surface-700 text-surface-200 text-[11px] py-1 px-2 rounded-lg"
-                          >
-                            <option value="">Untagged</option>
-                            {Object.entries(TV_STATUS_LABELS).map(
-                              ([val, lab]) => (
-                                <option key={val} value={val}>
-                                  {lab}
-                                </option>
-                              ),
-                            )}
-                          </select>
-                        ) : (
-                          <span className="text-[11px] font-medium text-surface-400">
-                            {TV_STATUS_LABELS[item.tv_status ?? "untagged"]}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-surface-300 text-center text-xs font-medium">
-                        {item.seasons_completed}
-                      </td>
-                      <td className="px-4 py-3 text-surface-300 text-center text-xs font-medium">
-                        {item.episodes_watched}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link
-                          href={nextUrl}
-                          className="text-xs font-medium text-brand-400 hover:text-brand-300 underline-offset-4 hover:underline"
-                        >
-                          {nextLabel}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 min-w-[140px]">
-                        <ThreePrefrenceBtn
-                          variant="compact"
-                          cardId={item.show_id}
-                          cardType="tv"
-                          cardName={item.show_name}
-                          cardImg={item.poster_path ?? undefined}
-                          genres={[]}
-                          onAddWatchedTv={() =>
-                            setEditModalShowId(item.show_id)
-                          }
-                        />
-                      </td>
-                      {isOwner && (
-                        <td className="px-4 py-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => setEditModalShowId(item.show_id)}
-                            className="text-[11px] font-medium text-surface-400 hover:text-brand-400 transition-colors"
-                          >
-                            Edit
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                showId={item.show_id}
+                showName={item.show_name}
+                posterPath={item.poster_path}
+                seasonsCompleted={item.seasons_completed}
+                episodesWatched={item.episodes_watched}
+                totalEpisodes={item.total_episodes}
+                nextSeason={item.next_season}
+                nextEpisode={item.next_episode}
+                allComplete={item.all_complete}
+                tvStatus={item.tv_status}
+                isOwner={isOwner}
+                onMarkNext={handleMarkNext}
+                markingId={markingId}
+              />
+            ))}
           </div>
-        </div>
-      )}
 
-      {/* Count + View more / Load all */}
-      <div className="px-4 py-3 border-t border-surface-700/60 bg-surface-800/50 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-surface-400">
-          Showing{" "}
-          <span className="font-medium text-surface-200">{items.length}</span>{" "}
-          of <span className="font-medium text-surface-200">{total}</span> TV
-          show{total !== 1 ? "s" : ""}
-        </p>
-        {hasMore && (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={handleViewMore}
-              disabled={loadingMore || loadingAll}
-              aria-busy={loadingMore}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-surface-700 text-surface-200 hover:bg-surface-600 disabled:opacity-50 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
-            >
-              {loadingMore ? (
-                <>
-                  <LoadingSpinner
-                    size="sm"
-                    className="border-t-white shrink-0"
-                  />
-                  <span>Loading…</span>
-                </>
-              ) : (
-                `View more (${remainingCount} left)`
-              )}
-            </button>
-            {remainingCount > VIEW_MORE_BATCH && (
+          {/* Load More */}
+          {hasMore && (
+            <div className="flex justify-center">
               <button
                 type="button"
-                onClick={handleLoadAll}
-                disabled={loadingMore || loadingAll}
-                aria-busy={loadingAll}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-900/60 text-amber-200 hover:bg-amber-900/80 disabled:opacity-50 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
-                title="Load all series. This may take a while."
+                onClick={handleViewMore}
+                disabled={loadingMore}
+                className="px-6 py-3 rounded-xl text-sm font-medium bg-surface-800 text-surface-200 hover:bg-surface-700 disabled:opacity-50 transition-colors flex items-center gap-2"
               >
-                {loadingAll ? (
+                {loadingMore ? (
                   <>
-                    <LoadingSpinner
-                      size="sm"
-                      className="border-t-amber-400 shrink-0"
-                    />
-                    <span>Loading all…</span>
+                    <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+                    Loading…
                   </>
                 ) : (
-                  "Load all (may take a while)"
+                  `Load more (${remainingCount} left)`
                 )}
               </button>
-            )}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {/* List View */}
+          <div className="rounded-xl border border-surface-700/60 bg-surface-900/40 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[480px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-surface-700/60 bg-surface-800/50">
+                    <th className="px-4 py-3 font-semibold text-surface-200">Series</th>
+                    <th className="px-4 py-3 font-semibold text-surface-200 text-center whitespace-nowrap">Status</th>
+                    <th className="px-4 py-3 font-semibold text-surface-200 text-center whitespace-nowrap">Progress</th>
+                    <th className="px-4 py-3 font-semibold text-surface-200 text-center whitespace-nowrap">Episodes</th>
+                    <th className="px-4 py-3 font-semibold text-surface-200 whitespace-nowrap">Next up</th>
+                    {isOwner && (
+                      <th className="px-4 py-3 font-semibold text-surface-200 whitespace-nowrap text-center">Actions</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedItems.map((item) => {
+                    const percent = item.total_episodes > 0
+                      ? Math.round((item.episodes_watched / item.total_episodes) * 100)
+                      : 0;
+                    const statusColor = item.tv_status === "watching"
+                      ? "text-emerald-400"
+                      : item.tv_status === "completed"
+                      ? "text-brand-400"
+                      : item.tv_status === "dropped"
+                      ? "text-red-400"
+                      : "text-surface-400";
 
-      {loadingAll && (
-        <div className="px-4 py-3 border-t border-surface-700/60 bg-surface-800/50 text-center">
-          <p className="text-sm text-brand-200/90">
-            Loading all series… This may take a while.
+                    return (
+                      <tr
+                        key={item.show_id}
+                        className="border-b border-surface-700/40 hover:bg-surface-800/50 transition-colors"
+                      >
+                        <td className="px-4 py-3">
+                          <a
+                            href={`/app/tv/${item.show_id}`}
+                            className="font-medium text-white hover:text-brand-400 hover:underline flex items-center gap-3"
+                          >
+                            {item.poster_path ? (
+                              <img
+                                src={`https://image.tmdb.org/t/p/w92${item.poster_path}`}
+                                alt=""
+                                className="w-9 h-[54px] object-cover rounded shrink-0 shadow-lg"
+                              />
+                            ) : (
+                              <div className="w-9 h-[54px] rounded bg-surface-700 shrink-0 flex items-center justify-center text-surface-500 text-[10px]">
+                                No poster
+                              </div>
+                            )}
+                            <div className="flex flex-col gap-1">
+                              <span className="line-clamp-1">{item.show_name}</span>
+                              <div className="w-24 h-1 bg-surface-700 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-brand-500"
+                                  style={{ width: `${percent}%` }}
+                                />
+                              </div>
+                            </div>
+                          </a>
+                        </td>
+                        <td className={`px-4 py-3 text-center text-xs font-medium ${statusColor}`}>
+                          {TV_STATUS_LABELS[item.tv_status ?? "untagged"] ?? "Untagged"}
+                        </td>
+                        <td className="px-4 py-3 text-surface-300 text-center text-xs font-medium">
+                          {percent}%
+                        </td>
+                        <td className="px-4 py-3 text-surface-300 text-center text-xs font-medium">
+                          {item.episodes_watched}/{item.total_episodes}
+                        </td>
+                        <td className="px-4 py-3">
+                          {item.next_season && item.next_episode ? (
+                            <button
+                              onClick={() => handleMarkNext(item.show_id)}
+                              disabled={markingId === item.show_id}
+                              className="text-xs font-medium text-brand-400 hover:text-brand-300 underline-offset-4 hover:underline disabled:opacity-50"
+                            >
+                              {markingId === item.show_id ? "Marking…" : `S${item.next_season}E${item.next_episode}`}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-surface-500">
+                              {item.all_complete ? "Complete" : "—"}
+                            </span>
+                          )}
+                        </td>
+                        {isOwner && (
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditModalShowId(item.show_id);
+                                setEditModalShowName(item.show_name);
+                              }}
+                              className="text-[11px] font-medium text-surface-400 hover:text-brand-400 transition-colors"
+                            >
+                              Manage
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Load More */}
+          {hasMore && (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={handleViewMore}
+                disabled={loadingMore}
+                className="px-6 py-3 rounded-xl text-sm font-medium bg-surface-800 text-surface-200 hover:bg-surface-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                {loadingMore ? (
+                  <>
+                    <LoadingSpinner size="sm" className="border-t-white shrink-0" />
+                    Loading…
+                  </>
+                ) : (
+                  `Load more (${remainingCount} left)`
+                )}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Count */}
+      {total > 0 && (
+        <div className="px-4 py-3 border-t border-surface-700/60 bg-surface-800/50 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-surface-400">
+            Showing{" "}
+            <span className="font-medium text-surface-200">{items.length}</span>{" "}
+            of <span className="font-medium text-surface-200">{total}</span> TV
+            show{total !== 1 ? "s" : ""}
           </p>
         </div>
       )}
 
+      {/* Episode Management Modal */}
       {editModalShowId && (
-        <EditTvProgressModal
+        <EpisodeManagementModal
           showId={editModalShowId}
-          showName={
-            items.find((i) => i.show_id === editModalShowId)?.show_name ?? ""
-          }
+          showName={editModalShowName}
           isOpen={!!editModalShowId}
           onClose={() => setEditModalShowId(null)}
-          onSuccess={refreshList}
+          onSuccess={() => {
+            setEditModalShowId(null);
+            refreshList();
+          }}
         />
       )}
     </div>
