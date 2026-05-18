@@ -6,7 +6,13 @@ import { GenreList } from "@/staticData/genreList";
 import MediaCard from "@components/cards/MediaCard";
 import SendMessageModal from "@components/message/sendCard";
 
-export default function HomeContentTile({ data, type }: { data: { results?: any[] }; type: string }) {
+export default function HomeContentTile({
+  data,
+  type,
+}: {
+  data: { results?: any[] };
+  type: string;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cardData, setCardData] = useState<any>(null);
@@ -31,7 +37,8 @@ export default function HomeContentTile({ data, type }: { data: { results?: any[
   const scroll = (dir: number) => {
     const el = scrollRef.current;
     if (el) {
-      const w = el.querySelector(".image-item")?.clientWidth ?? itemWidth + 16;
+      const w =
+        el.querySelector(".image-item")?.clientWidth ?? itemWidth + 16;
       el.scrollBy({ left: w * 2 * dir, behavior: "smooth" });
     }
   };
@@ -64,28 +71,35 @@ export default function HomeContentTile({ data, type }: { data: { results?: any[
   );
 
   return (
-    <div className="w-full md:px-4 md:mb-5">
+    <div className="w-full">
       <SendMessageModal
         media_type={type !== "mix" ? type : cardData?.media_type}
         data={cardData}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
-      <div className="relative">
+      <div className="relative group">
         <div
           ref={scrollRef}
-          className="flex flex-row gap-4 py-3 overflow-x-auto no-scrollbar pb-1"
+          className="flex flex-row gap-4 py-2 overflow-x-auto no-scrollbar pretty-scrollbar"
         >
           {results.length > 0 ? (
             results.map((item: any) => {
               const mediaType = type === "mix" ? item.media_type : type;
               const genreIds = item.genre_ids ?? [];
               const genres = genreIds
-                .map((id: number) => GenreList.genres.find((g: any) => g.id === id)?.name)
+                .map(
+                  (id: number) =>
+                    GenreList.genres.find((g: any) => g.id === id)?.name
+                )
                 .filter(Boolean);
               const year =
                 item.release_date || item.first_air_date
-                  ? String(new Date(item.release_date || item.first_air_date).getFullYear())
+                  ? String(
+                      new Date(
+                        item.release_date || item.first_air_date
+                      ).getFullYear()
+                    )
                   : null;
 
               return (
@@ -110,43 +124,45 @@ export default function HomeContentTile({ data, type }: { data: { results?: any[
               );
             })
           ) : (
-            <p className="text-neutral-400 text-center w-full py-4">
+            <p className="text-surface-500 text-center w-full py-8 text-sm">
               No titles available
             </p>
           )}
         </div>
 
+        {/* Gradient edges */}
         <div
-          className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-20 bg-gradient-to-r from-neutral-950 to-transparent pointer-events-none transition-opacity duration-300 ${
+          className={`hidden md:block absolute top-0 left-0 h-full w-16 bg-gradient-to-r from-surface-950 to-transparent pointer-events-none transition-opacity duration-300 ${
             canScrollLeft ? "opacity-100" : "opacity-0"
           }`}
           aria-hidden
         />
         <div
-          className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-20 bg-gradient-to-l from-neutral-950 to-transparent pointer-events-none transition-opacity duration-300 ${
+          className={`hidden md:block absolute top-0 right-0 h-full w-16 bg-gradient-to-l from-surface-950 to-transparent pointer-events-none transition-opacity duration-300 ${
             canScrollRight ? "opacity-100" : "opacity-0"
           }`}
           aria-hidden
         />
 
+        {/* Scroll buttons */}
         {canScrollLeft && (
           <button
             type="button"
             onClick={() => scroll(-1)}
-            className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2.5 rounded-full hover:bg-neutral-700 transition-colors z-10 shadow-lg items-center justify-center"
+            className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-surface-800/90 backdrop-blur-sm text-surface-200 p-2.5 rounded-full hover:bg-surface-700 transition-all z-10 shadow-lg shadow-black/20 items-center justify-center opacity-0 group-hover:opacity-100"
             aria-label="Scroll left"
           >
-            <FaChevronLeft size={18} />
+            <FaChevronLeft size={16} />
           </button>
         )}
         {canScrollRight && (
           <button
             type="button"
             onClick={() => scroll(1)}
-            className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2.5 rounded-full hover:bg-neutral-700 transition-colors z-10 shadow-lg items-center justify-center"
+            className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-surface-800/90 backdrop-blur-sm text-surface-200 p-2.5 rounded-full hover:bg-surface-700 transition-all z-10 shadow-lg shadow-black/20 items-center justify-center opacity-0 group-hover:opacity-100"
             aria-label="Scroll right"
           >
-            <FaChevronRight size={18} />
+            <FaChevronRight size={16} />
           </button>
         )}
       </div>

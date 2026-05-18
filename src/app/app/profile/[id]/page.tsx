@@ -295,9 +295,9 @@ export default async function ProfilePage({ params }: PageProps) {
     "text-xl sm:text-2xl font-bold text-white tracking-tight mb-4";
 
   return (
-    <div className="min-h-screen w-full bg-neutral-950">
+    <div className="min-h-screen w-full bg-surface-950">
       {/* Subtle gradient background */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(120,80,40,0.08),transparent)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(34,197,94,0.04),transparent)] pointer-events-none" />
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-10">
         {/* Hero — full-bleed feel */}
         <ProfileHero
@@ -319,7 +319,7 @@ export default async function ProfilePage({ params }: PageProps) {
           messageLink={
             <Link
               href={`/app/messages/${user.id}`}
-              className="inline-flex items-center px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium border border-white/10 transition-colors"
+              className="inline-flex items-center px-5 py-2.5 rounded-full bg-brand-500/10 hover:bg-brand-500/15 text-brand-300 text-sm font-medium border border-brand-500/20 transition-colors"
             >
               Message
             </Link>
@@ -341,7 +341,7 @@ export default async function ProfilePage({ params }: PageProps) {
             {isOwner && (
               <div className="flex items-center gap-2">
                 {favoriteDisplay.length === 0 && (
-                  <span className="text-neutral-500 text-sm hidden sm:inline">
+                  <span className="text-surface-500 text-sm hidden sm:inline">
                     Add your 4 favorites
                   </span>
                 )}
@@ -352,13 +352,13 @@ export default async function ProfilePage({ params }: PageProps) {
               </div>
             )}
           </div>
-          <div className="rounded-2xl border border-neutral-700/60 bg-neutral-800/30 p-6">
+          <div className="rounded-2xl border border-surface-800/50 bg-surface-900/30 p-6">
             {favoriteDisplay.length === 0 && !isOwner ? (
-              <p className="text-neutral-500 text-sm text-center py-6">
+              <p className="text-surface-500 text-sm text-center py-6">
                 No favorites added yet.
               </p>
             ) : favoriteDisplay.length === 0 && isOwner ? (
-              <p className="text-neutral-500 text-sm text-center py-6">
+              <p className="text-surface-500 text-sm text-center py-6">
                 Add your 4 favorite titles above to show your taste at a glance.
               </p>
             ) : (
@@ -371,7 +371,7 @@ export default async function ProfilePage({ params }: PageProps) {
         {canViewContent && (
           <section aria-label="Currently watching">
             <h2 className={SECTION_TITLE}>Currently watching</h2>
-            <div className="rounded-2xl border border-neutral-700/60 bg-neutral-800/30 p-6">
+            <div className="rounded-2xl border border-surface-800/50 bg-surface-900/30 p-6">
               <ProfileCurrentlyWatching userId={user.id} />
             </div>
           </section>
@@ -424,16 +424,16 @@ export default async function ProfilePage({ params }: PageProps) {
         {canViewContent && (
           <section
             aria-label="Reviews, ratings and diary"
-            className="rounded-2xl border border-neutral-700/60 bg-neutral-800/30 p-6"
+            className="rounded-2xl border border-surface-800/50 bg-surface-900/30 p-6"
           >
             <h2 className={SECTION_TITLE}>Reviews, ratings & diary</h2>
             {isOwner && (
-              <div className="text-sm text-neutral-400 mb-4 max-w-2xl space-y-2">
+              <div className="text-sm text-surface-400 mb-4 max-w-2xl space-y-2">
                 <p>
                   Each row shows a title you’ve watched with a{" "}
-                  <strong className="text-neutral-300">rating</strong> (1–10),{" "}
-                  <strong className="text-neutral-300">public review</strong>,
-                  and <strong className="text-neutral-300">your diary</strong>{" "}
+                  <strong className="text-surface-300">rating</strong> (1–10),{" "}
+                  <strong className="text-surface-300">public review</strong>,
+                  and <strong className="text-surface-300">your diary</strong>{" "}
                   (private notes). Your diary is only visible to you and is
                   never shown to visitors. Add or edit from the movie or TV page
                   (open the title from the link). Control who sees ratings and
@@ -463,7 +463,7 @@ export default async function ProfilePage({ params }: PageProps) {
         {/* Top genres */}
         <section
           aria-label="Top genres"
-          className="rounded-2xl border border-neutral-700/60 bg-neutral-800/30 p-6"
+          className="rounded-2xl border border-surface-800/50 bg-surface-900/30 p-6"
         >
           <StatisticsGenre username={user.username} userId={user.id} />
         </section>
@@ -472,7 +472,7 @@ export default async function ProfilePage({ params }: PageProps) {
         {canViewContent && (
           <section aria-label="Series progress">
             <h2 className={SECTION_TITLE}>Series progress</h2>
-            <p className="text-sm text-neutral-400 mb-4">
+            <p className="text-sm text-surface-400 mb-4">
               Episodes and seasons completed per show
             </p>
             <ProfileTvProgress userId={user.id} isOwner={isOwner} />
@@ -483,7 +483,7 @@ export default async function ProfilePage({ params }: PageProps) {
         {canViewContent ? (
           <section id="activity-and-lists" aria-label="Activity and lists">
             <h2 className={SECTION_TITLE}>Activity & lists</h2>
-            <div className="rounded-2xl border border-neutral-700/60 bg-neutral-800/30 p-6">
+            <div className="rounded-2xl border border-surface-800/50 bg-surface-900/30 p-6">
               <ProfileTabs
                 activity={<RecentActivityStrip items={recentActivity} />}
                 lists={<ProfileLists profileId={user.id} isOwner={isOwner} />}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import React, { useState } from "react";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { Film, Eye, EyeOff } from "lucide-react";
 
 type LoginFormProps = {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -30,31 +31,44 @@ export default function LoginForm({
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-neutral-950 px-4 py-10">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex flex-col justify-center items-center bg-surface-950 px-4 py-10">
+      {/* Background decoration */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-500/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
+      </div>
+
+      <div className="relative w-full max-w-md">
+        {/* Logo */}
         <div className="text-center mb-8">
           <Link
-            href="/app"
-            className="text-2xl font-bold text-white hover:text-neutral-300 transition-colors"
+            href="/"
+            className="inline-flex items-center gap-2.5 text-2xl font-bold text-white hover:text-brand-400 transition-colors"
           >
-            Let&apos;s See
+            <Film className="w-7 h-7 text-brand-500" />
+            LetSee
           </Link>
-          <p className="text-neutral-400 mt-1 text-sm">Social media for cinema.</p>
+          <p className="text-surface-500 mt-1.5 text-sm">
+            Social film journal for cinephiles
+          </p>
         </div>
 
-        <div className="rounded-2xl border border-neutral-700/60 bg-neutral-900/80 p-6 sm:p-8 shadow-xl">
-          <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">
-            Welcome back
-          </h1>
-          <p className="text-neutral-400 text-sm mb-6">
-            Sign in with your email to continue.
-          </p>
+        {/* Card */}
+        <div className="rounded-2xl border border-surface-800 bg-surface-900/80 p-6 sm:p-8 shadow-2xl shadow-black/20">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-white mb-1">
+              Welcome back
+            </h1>
+            <p className="text-surface-400 text-sm">
+              Sign in to continue your cinematic journey
+            </p>
+          </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <div>
               <label
                 htmlFor="login-email"
-                className="block text-sm font-medium text-neutral-300 mb-1.5"
+                className="block text-sm font-medium text-surface-300 mb-2"
               >
                 Email
               </label>
@@ -66,56 +80,61 @@ export default function LoginForm({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full rounded-xl bg-surface-800 border border-surface-700 px-4 py-3 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="login-password"
-                className="block text-sm font-medium text-neutral-300 mb-1.5"
-              >
-                Password
-              </label>
-              <input
-                id="login-password"
-                name="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="••••••••"
-              />
-              <p className="mt-1.5 text-xs text-neutral-500">
+              <div className="flex items-center justify-between mb-2">
+                <label
+                  htmlFor="login-password"
+                  className="block text-sm font-medium text-surface-300"
+                >
+                  Password
+                </label>
                 <Link
                   href="/forgot-password"
-                  className="font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+                  className="text-xs font-medium text-brand-400 hover:text-brand-300 transition-colors"
                 >
                   Forgot password?
                 </Link>
-              </p>
+              </div>
+              <div className="relative">
+                <input
+                  id="login-password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full rounded-xl bg-surface-800 border border-surface-700 px-4 py-3 pr-12 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-500 hover:text-surface-300 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-neutral-400 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showPassword}
-                onChange={(e) => setShowPassword(e.target.checked)}
-                className="rounded border-neutral-600 bg-neutral-800 text-indigo-600 focus:ring-indigo-500"
-              />
-              Show password
-            </label>
-
             {info && (
-              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 text-sm text-emerald-200">
+              <div className="rounded-xl bg-brand-500/10 border border-brand-500/20 px-4 py-3 text-sm text-brand-300 flex items-start gap-2">
+                <span className="mt-0.5 shrink-0">✉️</span>
                 {info}
               </div>
             )}
             {error && (
-              <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-200">
+              <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-300">
                 {error}
               </div>
             )}
@@ -123,28 +142,30 @@ export default function LoginForm({
             <button
               type="submit"
               disabled={!canSubmit}
-              className="w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              className="w-full rounded-xl bg-brand-500 hover:bg-brand-600 text-surface-950 font-semibold py-3.5 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-surface-900 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-brand-500/20"
             >
               {loading ? (
                 <>
-                  <LoadingSpinner size="sm" className="border-t-white" />
+                  <LoadingSpinner size="sm" className="border-t-surface-950" />
                   Signing in…
                 </>
               ) : (
-                "Log in"
+                "Sign in"
               )}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-neutral-400">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/signup"
-              className="font-medium text-indigo-400 hover:text-indigo-300"
-            >
-              Sign up
-            </Link>
-          </p>
+          <div className="mt-6 pt-6 border-t border-surface-800 text-center">
+            <p className="text-sm text-surface-400">
+              Don&apos;t have an account?{" "}
+              <Link
+                href="/signup"
+                className="font-medium text-brand-400 hover:text-brand-300 transition-colors"
+              >
+                Create one
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

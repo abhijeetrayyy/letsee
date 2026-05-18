@@ -3,6 +3,7 @@ import { useState } from "react";
 import MediaCard from "@components/cards/MediaCard";
 import SendMessageModal from "@components/message/sendCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { Sparkles } from "lucide-react";
 
 interface MovieRecommendation {
   name: string;
@@ -43,7 +44,6 @@ export default function Recommendations() {
       const data: MovieRecommendation[] = await response.json();
       setRecommendations(data);
     } catch (err: unknown) {
-      console.error(err);
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setIsLoading(false);
@@ -51,39 +51,43 @@ export default function Recommendations() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <SendMessageModal
         media_type={"movie"}
         data={cardData}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
+
       <div className="flex justify-center">
         <button
           onClick={fetchRecommendations}
           disabled={isLoading}
           aria-busy={isLoading}
-          className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[180px] transition-all duration-200 active:scale-[0.98]"
+          className="px-6 py-2.5 bg-brand-500 text-surface-950 font-semibold rounded-full hover:bg-brand-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[200px] transition-all duration-200 active:scale-[0.98] hover:shadow-lg hover:shadow-brand-500/20"
         >
           {isLoading ? (
             <>
-              <LoadingSpinner size="sm" className="border-t-white shrink-0" />
-              <span>Loading…</span>
+              <LoadingSpinner size="sm" className="border-t-surface-950 shrink-0" />
+              <span>Finding picks…</span>
             </>
           ) : (
-            "Get recommendations"
+            <>
+              <Sparkles className="w-4 h-4" />
+              Get AI Recommendations
+            </>
           )}
         </button>
       </div>
 
       {error && (
-        <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm">
+        <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20 text-red-300 text-sm">
           {error}
         </div>
       )}
 
       {recommendations.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
           {recommendations.map((data) => {
             const genres = Array.isArray(data.genres)
               ? data.genres.filter(Boolean)

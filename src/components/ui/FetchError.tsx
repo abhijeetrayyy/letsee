@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 
 type FetchErrorProps = {
   message?: string;
@@ -8,9 +9,6 @@ type FetchErrorProps = {
   className?: string;
 };
 
-/**
- * Consistent error + retry UX for failed fetches.
- */
 export function FetchError({
   message = "Something went wrong. Please try again.",
   onRetry,
@@ -18,20 +16,26 @@ export function FetchError({
 }: FetchErrorProps) {
   return (
     <div
-      className={`rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-amber-100 ${className}`}
+      className={`rounded-xl border border-red-500/20 bg-red-500/5 p-5 text-red-200 ${className}`}
       role="alert"
     >
-      <p className="font-semibold">Couldn&apos;t load content</p>
-      <p className="mt-1 text-sm text-amber-200">{message}</p>
-      {onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="mt-3 rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-500 transition-colors"
-        >
-          Try again
-        </button>
-      )}
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+        <div>
+          <p className="font-medium text-red-300">Couldn&apos;t load content</p>
+          <p className="mt-1 text-sm text-red-400/80">{message}</p>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-1.5 text-sm font-medium text-red-300 hover:bg-red-500/20 transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Try again
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -13,15 +13,20 @@ type CalendarData = {
 
 type CalendarSectionProps = { hideMainHeading?: boolean };
 
-export default function CalendarSection({ hideMainHeading }: CalendarSectionProps = {}) {
-  const { data, error, loading, refetch } = useApiFetch<CalendarData>("/api/calendar", {
-    credentials: "include",
-    enabled: true,
-  });
+export default function CalendarSection({
+  hideMainHeading,
+}: CalendarSectionProps = {}) {
+  const { data, error, loading, refetch } = useApiFetch<CalendarData>(
+    "/api/calendar",
+    {
+      credentials: "include",
+      enabled: true,
+    }
+  );
 
   if (loading) {
     return (
-      <div className="w-full mx-auto mb-5 md:px-4 flex justify-center py-8">
+      <div className="w-full mx-auto flex justify-center py-8">
         <LoadingSpinner />
       </div>
     );
@@ -29,7 +34,7 @@ export default function CalendarSection({ hideMainHeading }: CalendarSectionProp
 
   if (error) {
     return (
-      <div className="w-full mx-auto mb-5 md:px-4">
+      <div className="w-full mx-auto">
         <FetchError message={error} onRetry={refetch} />
       </div>
     );
@@ -45,17 +50,23 @@ export default function CalendarSection({ hideMainHeading }: CalendarSectionProp
   return (
     <div className="w-full space-y-8">
       {!hideMainHeading && (
-        <h2 className="text-2xl font-bold text-neutral-100">Calendar &amp; upcoming</h2>
+        <h2 className="text-2xl font-bold text-surface-100">
+          Calendar &amp; upcoming
+        </h2>
       )}
       {nowPlaying.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-neutral-200 mb-3">In theaters</h3>
+          <h3 className="text-base font-semibold text-surface-300 mb-3">
+            In theaters
+          </h3>
           <HomeContentTile type="movie" data={{ results: nowPlaying }} />
         </div>
       )}
       {tvAiring.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-neutral-200 mb-3">TV this week</h3>
+          <h3 className="text-base font-semibold text-surface-300 mb-3">
+            TV this week
+          </h3>
           <HomeContentTile type="tv" data={{ results: tvAiring }} />
         </div>
       )}

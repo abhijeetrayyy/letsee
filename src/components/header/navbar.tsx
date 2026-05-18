@@ -5,6 +5,7 @@ import { IoNotificationsOutline } from "react-icons/io5";
 import { FaUser, FaMagnifyingGlass } from "react-icons/fa6";
 import { FcFilmReel } from "react-icons/fc";
 import { HiHome } from "react-icons/hi2";
+import { Film } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabase/client";
 import SignOut from "../buttons/signOut";
@@ -23,7 +24,7 @@ interface User {
 type NavbarStatus = "loading" | "anon" | "needs_profile" | "ok";
 
 const navIconClass =
-  "h-10 w-10 flex items-center justify-center rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-700/60 text-neutral-200 transition-colors shrink-0";
+  "h-10 w-10 flex items-center justify-center rounded-xl bg-surface-800/80 hover:bg-surface-700 border border-surface-700/50 text-surface-300 hover:text-white transition-all duration-200 shrink-0";
 
 export function LogedNavbar() {
   const [user, setUser] = useState<User | null>(null);
@@ -36,7 +37,8 @@ export function LogedNavbar() {
           credentials: "include",
           cache: "no-store",
         });
-        if (!response.ok) throw new Error(`Navbar request failed: ${response.status}`);
+        if (!response.ok)
+          throw new Error(`Navbar request failed: ${response.status}`);
         const data = await response.json();
         setStatus((data?.status ?? "anon") as NavbarStatus);
         setUser(data?.user ?? null);
@@ -47,7 +49,9 @@ export function LogedNavbar() {
     };
 
     fetchUser();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
       fetchUser();
     });
     return () => subscription.unsubscribe();
@@ -55,17 +59,18 @@ export function LogedNavbar() {
 
   if (status === "loading") {
     return (
-      <header className="sticky top-0 z-50 w-full border-b border-neutral-800 bg-neutral-900/95 backdrop-blur-sm">
+      <header className="sticky top-0 z-50 w-full border-b border-surface-800/50 bg-surface-950/90 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link
             href="/app"
-            className="text-xl font-bold text-white transition-colors hover:text-neutral-200"
+            className="flex items-center gap-2 text-xl font-bold text-white"
           >
-            Let&apos;s see
+            <Film className="w-6 h-6 text-brand-500" />
+            <span>LetSee</span>
           </Link>
           <div className="flex items-center gap-2">
-            <div className="h-10 w-10 animate-pulse rounded-xl bg-neutral-800" />
-            <div className="h-10 w-10 animate-pulse rounded-xl bg-neutral-800" />
+            <div className="h-10 w-10 animate-pulse rounded-xl bg-surface-800" />
+            <div className="h-10 w-10 animate-pulse rounded-xl bg-surface-800" />
           </div>
         </div>
       </header>
@@ -76,20 +81,24 @@ export function LogedNavbar() {
   const isProfileReady = status === "ok";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-neutral-800 bg-neutral-900/95 shadow-sm backdrop-blur-sm">
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6" aria-label="Main">
+    <header className="sticky top-0 z-50 w-full border-b border-surface-800/50 bg-surface-950/90 backdrop-blur-xl">
+      <nav
+        className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6"
+        aria-label="Main"
+      >
         {/* Left: logo + nav links */}
         <div className="flex min-w-0 items-center gap-6">
           <Link
             href="/app"
-            className="shrink-0 text-xl font-bold tracking-tight text-white transition-colors hover:text-neutral-200"
+            className="shrink-0 flex items-center gap-2 text-xl font-bold text-white transition-colors hover:text-brand-400"
           >
-            Let&apos;s see
+            <Film className="w-6 h-6 text-brand-500" />
+            <span className="hidden sm:inline">LetSee</span>
           </Link>
           <div className="hidden items-center gap-1 sm:flex">
             <Link
               href="/app"
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-800 hover:text-white"
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-surface-400 transition-colors hover:bg-surface-800 hover:text-white"
             >
               <HiHome className="size-4 shrink-0" aria-hidden />
               Home
@@ -97,7 +106,7 @@ export function LogedNavbar() {
             {isAuthed && (
               <Link
                 href="/app/reel"
-                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-800 hover:text-white"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-surface-400 transition-colors hover:bg-surface-800 hover:text-white"
               >
                 <FcFilmReel className="size-4 shrink-0" aria-hidden />
                 Reels
@@ -164,13 +173,13 @@ export function LogedNavbar() {
               <>
                 <Link
                   href="/login"
-                  className="rounded-xl px-4 py-2.5 text-sm font-medium text-white bg-neutral-700 hover:bg-neutral-600 transition-colors"
+                  className="rounded-xl px-4 py-2.5 text-sm font-medium text-surface-300 hover:text-white transition-colors"
                 >
                   Log in
                 </Link>
                 <Link
                   href="/signup"
-                  className="rounded-xl px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 transition-colors"
+                  className="rounded-xl px-4 py-2.5 text-sm font-medium text-surface-950 bg-brand-500 hover:bg-brand-600 transition-colors"
                 >
                   Sign up
                 </Link>
@@ -180,7 +189,7 @@ export function LogedNavbar() {
               <>
                 <Link
                   href="/app/profile/setup"
-                  className="rounded-xl px-4 py-2.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-500 transition-colors"
+                  className="rounded-xl px-4 py-2.5 text-sm font-medium text-surface-950 bg-amber-500 hover:bg-amber-400 transition-colors"
                 >
                   Complete profile
                 </Link>

@@ -1,4 +1,3 @@
-// components/scroll/movieGenre.tsx
 "use client";
 import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
@@ -23,7 +22,8 @@ function MovieGenre({ genre }: any) {
   const scrollLeft = () => {
     const element = scrollRef.current;
     if (element) {
-      const itemWidth = element.querySelector(".card-item")?.clientWidth || 200;
+      const itemWidth =
+        element.querySelector(".card-item")?.clientWidth || 200;
       const shift = window.innerWidth < 640 ? itemWidth * 2 : itemWidth * 3;
       element.scrollBy({ left: -shift, behavior: "smooth" });
     }
@@ -32,7 +32,8 @@ function MovieGenre({ genre }: any) {
   const scrollRight = () => {
     const element = scrollRef.current;
     if (element) {
-      const itemWidth = element.querySelector(".card-item")?.clientWidth || 200;
+      const itemWidth =
+        element.querySelector(".card-item")?.clientWidth || 200;
       const shift = window.innerWidth < 640 ? itemWidth * 2 : itemWidth * 3;
       element.scrollBy({ left: shift, behavior: "smooth" });
     }
@@ -49,60 +50,58 @@ function MovieGenre({ genre }: any) {
 
   if (items.length === 0) {
     return (
-      <p className="text-sm text-neutral-400">
+      <p className="text-sm text-surface-500">
         Genres are unavailable right now.
       </p>
     );
   }
 
   return (
-    <div className="relative">
+    <div className="relative group">
       <div
         ref={scrollRef}
-        className="relative flex flex-row overflow-x-auto no-scrollbar gap-2 py-3 z-10"
+        className="relative flex flex-row overflow-x-auto no-scrollbar gap-2.5 py-2 z-10 pretty-scrollbar"
       >
         {items.map((genreItem: any) => (
           <Link
             href={`/app/moviebygenre/list/${genreItem.id}-${genreItem.name}`}
-            className="card-item h-24 min-w-32 sm:min-w-40 md:min-w-48 rounded-md overflow-hidden shrink-0 flex items-center justify-center bg-neutral-800 bg-opacity-80 hover:bg-opacity-100"
+            className="card-item h-20 sm:h-24 min-w-28 sm:min-w-36 md:min-w-44 rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-surface-800/60 border border-surface-700/40 hover:bg-surface-700/80 hover:border-surface-600/60 transition-all duration-200"
             key={genreItem.id}
           >
-            <span className="text-white text-sm sm:text-base md:text-lg font-semibold drop-shadow-md">
+            <span className="text-surface-200 text-sm sm:text-base md:text-lg font-semibold drop-shadow-md hover:text-white transition-colors">
               {genreItem.name}
             </span>
           </Link>
         ))}
       </div>
 
-      {/* Left Fade Overlay */}
       <div
-        className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-16 bg-linear-to-r from-black to-transparent pointer-events-none transition-opacity duration-300 ${
-          canScrollLeft ? "opacity-80" : "opacity-0"
+        className={`hidden md:block absolute top-0 left-0 h-full w-12 bg-gradient-to-r from-surface-950 to-transparent pointer-events-none transition-opacity duration-300 ${
+          canScrollLeft ? "opacity-100" : "opacity-0"
+        }`}
+      />
+      <div
+        className={`hidden md:block absolute top-0 right-0 h-full w-12 bg-gradient-to-l from-surface-950 to-transparent pointer-events-none transition-opacity duration-300 ${
+          canScrollRight ? "opacity-100" : "opacity-0"
         }`}
       />
 
-      {/* Right Fade Overlay */}
-      <div
-        className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-16 bg-linear-to-l from-black to-transparent pointer-events-none transition-opacity duration-300 ${
-          canScrollRight ? "opacity-80" : "opacity-0"
-        }`}
-      />
-
-      {/* Scroll Buttons */}
       {canScrollLeft && (
         <button
           onClick={scrollLeft}
-          className="hidden md:block absolute left-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+          className="hidden md:flex absolute left-2 top-1/2 transform -translate-y-1/2 bg-surface-800/90 backdrop-blur-sm text-surface-200 p-2.5 rounded-full hover:bg-surface-700 hover:text-white transition-all duration-200 z-10 shadow-lg shadow-black/20 opacity-0 group-hover:opacity-100 items-center justify-center"
+          aria-label="Scroll left"
         >
-          <FaChevronLeft size={16} />
+          <FaChevronLeft size={14} />
         </button>
       )}
       {canScrollRight && (
         <button
           onClick={scrollRight}
-          className="hidden md:block absolute right-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+          className="hidden md:flex absolute right-2 top-1/2 transform -translate-y-1/2 bg-surface-800/90 backdrop-blur-sm text-surface-200 p-2.5 rounded-full hover:bg-surface-700 hover:text-white transition-all duration-200 z-10 shadow-lg shadow-black/20 opacity-0 group-hover:opacity-100 items-center justify-center"
+          aria-label="Scroll right"
         >
-          <FaChevronRight size={16} />
+          <FaChevronRight size={14} />
         </button>
       )}
     </div>

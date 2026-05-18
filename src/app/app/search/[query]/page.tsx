@@ -280,7 +280,7 @@ export default function SearchResultsPage() {
       <div className="flex flex-col gap-4 mb-6">
         <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-3">
           <input
-            className="flex-1 rounded-full bg-neutral-800 px-4 py-3 text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-500"
+            className="flex-1 rounded-full bg-surface-800 px-4 py-3 text-surface-100 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
             type="text"
             value={draftQuery}
             onChange={(e) => setDraftQuery(e.target.value)}
@@ -289,7 +289,7 @@ export default function SearchResultsPage() {
           />
           <button
             type="submit"
-            className="rounded-full bg-indigo-600 px-6 py-3 text-white hover:bg-indigo-500 font-medium"
+            className="rounded-full bg-brand-500 hover:bg-brand-400"
           >
             Search
           </button>
@@ -302,8 +302,8 @@ export default function SearchResultsPage() {
               onClick={() => handleFilterChange(type)}
               className={`rounded-full px-4 py-1.5 text-sm capitalize ${
                 mediaType === type
-                  ? "bg-neutral-200 text-neutral-900"
-                  : "bg-neutral-800 text-neutral-200 hover:bg-neutral-700"
+                  ? "bg-surface-200 text-surface-900"
+                  : "bg-surface-800 text-surface-200 hover:bg-surface-700"
               }`}
             >
               {typeLabel(type)}
@@ -314,7 +314,7 @@ export default function SearchResultsPage() {
             onClick={handleAdultToggle}
             aria-pressed={adult}
             className={`rounded-full px-4 py-1.5 text-sm ${
-              adult ? "bg-amber-500 text-neutral-900" : "bg-neutral-800 text-neutral-200 hover:bg-neutral-700"
+              adult ? "bg-amber-500 text-surface-950" : "bg-surface-800 text-surface-200 hover:bg-surface-700"
             }`}
           >
             {adult ? "Adult: On" : "Adult: Off"}
@@ -323,9 +323,9 @@ export default function SearchResultsPage() {
 
         {/* Year, language, genre, where to watch — only for movie/tv */}
         {showMediaFilters && (
-          <div className="flex flex-wrap gap-3 items-end pt-2 border-t border-neutral-700/50">
+          <div className="flex flex-wrap gap-3 items-end pt-2 border-t border-surface-700/50">
             <div>
-              <label htmlFor="filter-year" className="block text-xs font-medium text-neutral-500 mb-1">
+              <label htmlFor="filter-year" className="block text-xs font-medium text-surface-500 mb-1">
                 Year
               </label>
               <input
@@ -336,18 +336,18 @@ export default function SearchResultsPage() {
                 placeholder="Any"
                 value={year}
                 onChange={(e) => navigate({ year: e.target.value.trim(), page: 1 })}
-                className="w-24 rounded-lg bg-neutral-800 border border-neutral-600 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-24 rounded-lg bg-surface-800 border border-surface-600 px-3 py-2 text-sm text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
               />
             </div>
             <div>
-              <label htmlFor="filter-lang" className="block text-xs font-medium text-neutral-500 mb-1">
+              <label htmlFor="filter-lang" className="block text-xs font-medium text-surface-500 mb-1">
                 Language
               </label>
               <select
                 id="filter-lang"
                 value={language || ""}
                 onChange={(e) => navigate({ language: e.target.value, page: 1 })}
-                className="rounded-lg bg-neutral-800 border border-neutral-600 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="rounded-lg bg-surface-800 border border-surface-600 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50"
               >
                 <option value="">Any</option>
                 <option value="en-US">English</option>
@@ -361,14 +361,14 @@ export default function SearchResultsPage() {
               </select>
             </div>
             <div>
-              <label htmlFor="filter-genre" className="block text-xs font-medium text-neutral-500 mb-1">
+              <label htmlFor="filter-genre" className="block text-xs font-medium text-surface-500 mb-1">
                 Genre
               </label>
               <select
                 id="filter-genre"
                 value={genre || ""}
                 onChange={(e) => navigate({ genre: e.target.value, page: 1 })}
-                className="min-w-[140px] rounded-lg bg-neutral-800 border border-neutral-600 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="min-w-[140px] rounded-lg bg-surface-800 border border-surface-600 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50"
               >
                 <option value="">Any</option>
                 {GenreList.genres.map((g: { id: number; name: string }) => (
@@ -379,14 +379,14 @@ export default function SearchResultsPage() {
               </select>
             </div>
             <div>
-              <label htmlFor="filter-watch" className="block text-xs font-medium text-neutral-500 mb-1">
+              <label htmlFor="filter-watch" className="block text-xs font-medium text-surface-500 mb-1">
                 Where to watch
               </label>
               <select
                 id="filter-watch"
                 value={watchProviders || ""}
                 onChange={(e) => navigate({ watchProviders: e.target.value, page: 1 })}
-                className="min-w-[160px] rounded-lg bg-neutral-800 border border-neutral-600 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="min-w-[160px] rounded-lg bg-surface-800 border border-surface-600 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50"
               >
                 <option value="">Any</option>
                 {watchProvidersList.map((p) => (
@@ -409,7 +409,7 @@ export default function SearchResultsPage() {
                     page: 1,
                   })
                 }
-                className="rounded-lg px-3 py-2 text-sm text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors"
+                className="rounded-lg px-3 py-2 text-sm text-surface-400 hover:text-white hover:bg-surface-700 transition-colors"
               >
                 Clear filters
               </button>
@@ -417,7 +417,7 @@ export default function SearchResultsPage() {
           </div>
         )}
 
-        <p className="text-sm text-neutral-400 mt-2">
+        <p className="text-sm text-surface-400 mt-2">
           Results for &quot;{decodedQuery || "filters"}&quot; · {typeLabel(mediaType)} · {adult ? "Adult on" : "Safe search"}
         </p>
       </div>
@@ -437,7 +437,7 @@ export default function SearchResultsPage() {
           <button
             type="button"
             onClick={handleRetry}
-            className="w-fit rounded-full bg-neutral-800 px-4 py-2 text-sm text-neutral-200 hover:bg-neutral-700"
+            className="w-fit rounded-full bg-surface-800 px-4 py-2 text-sm text-surface-200 hover:bg-surface-700"
           >
             Retry
           </button>
@@ -448,7 +448,7 @@ export default function SearchResultsPage() {
       {loading && (
         <div className="flex flex-col items-center justify-center gap-4 py-16" aria-busy="true">
           <LoadingSpinner size="lg" className="border-t-white" />
-          <p className="text-neutral-400">Searching…</p>
+          <p className="text-surface-400">Searching…</p>
         </div>
       )}
 
@@ -456,7 +456,7 @@ export default function SearchResultsPage() {
       {!loading && (
         <>
           {results.total_results > 0 && (
-            <p className="mb-4 text-neutral-400">
+            <p className="mb-4 text-surface-400">
               {results.total_results} {results.total_results === 1 ? "result" : "results"}
             </p>
           )}
@@ -464,13 +464,13 @@ export default function SearchResultsPage() {
           {/* No results */}
           {results.total_results === 0 && (
             <div className="flex flex-col items-center justify-center gap-5 py-16 text-center">
-              <p className="text-lg text-neutral-300">
+              <p className="text-lg text-surface-300">
                 No results for &quot;<span className="text-pink-400">{decodedQuery}</span>&quot;
               </p>
-              <p className="text-sm text-neutral-500">Try a different term or filters.</p>
+              <p className="text-sm text-surface-500">Try a different term or filters.</p>
               <Link
                 href="/app/search"
-                className="rounded-full bg-neutral-700 px-4 py-2 text-sm text-neutral-200 hover:bg-neutral-600"
+                className="rounded-full bg-surface-700 px-4 py-2 text-sm text-surface-200 hover:bg-neutral-600"
               >
                 New search
               </Link>
@@ -480,15 +480,15 @@ export default function SearchResultsPage() {
 
           {/* Keyword list */}
           {results.total_results > 0 && isKeywordList && (
-            <div className="rounded-lg bg-neutral-800 p-4 mb-6">
-              <p className="mb-3 text-sm text-neutral-300">Choose a keyword to see related movies.</p>
+            <div className="rounded-lg bg-surface-800 p-4 mb-6">
+              <p className="mb-3 text-sm text-surface-300">Choose a keyword to see related movies.</p>
               <div className="flex flex-wrap gap-2">
                 {results.results.map((kw) => (
                   <button
                     key={kw.id}
                     type="button"
                     onClick={() => handleKeywordSelect(kw.id)}
-                    className="rounded-full bg-neutral-700 px-4 py-2 text-sm text-neutral-100 hover:bg-neutral-600"
+                    className="rounded-full bg-surface-700 px-4 py-2 text-sm text-surface-100 hover:bg-neutral-600"
                   >
                     {kw.name || "Keyword"}
                   </button>
@@ -558,13 +558,13 @@ export default function SearchResultsPage() {
                   type="button"
                   onClick={() => handlePageChange(page - 1)}
                   disabled={page <= 1}
-                  className="rounded-md bg-neutral-700 px-3 py-2 text-sm hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-md bg-surface-700 px-3 py-2 text-sm hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
                 {pageItems.map((item, i) =>
                   item === "..." ? (
-                    <span key={`ellipsis-${i}`} className="px-2 text-neutral-500">
+                    <span key={`ellipsis-${i}`} className="px-2 text-surface-500">
                       …
                     </span>
                   ) : (
@@ -573,7 +573,7 @@ export default function SearchResultsPage() {
                       type="button"
                       onClick={() => handlePageChange(item)}
                       className={`rounded-md px-3 py-2 text-sm ${
-                        item === page ? "bg-neutral-200 text-neutral-900" : "bg-neutral-700 hover:bg-neutral-600"
+                        item === page ? "bg-surface-200 text-surface-900" : "bg-surface-700 hover:bg-neutral-600"
                       }`}
                     >
                       {item}
@@ -584,12 +584,12 @@ export default function SearchResultsPage() {
                   type="button"
                   onClick={() => handlePageChange(page + 1)}
                   disabled={page >= results.total_pages}
-                  className="rounded-md bg-neutral-700 px-3 py-2 text-sm hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-md bg-surface-700 px-3 py-2 text-sm hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
               </div>
-              <p className="text-sm text-neutral-500">
+              <p className="text-sm text-surface-500">
                 Page {page} of {results.total_pages}
               </p>
               <form onSubmit={handlePageInputSubmit} className="flex items-center gap-2">
@@ -603,9 +603,9 @@ export default function SearchResultsPage() {
                   max={results.total_pages}
                   value={pageInput}
                   onChange={(e) => setPageInput(e.target.value)}
-                  className="w-20 rounded-md bg-neutral-800 px-3 py-2 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-500"
+                  className="w-20 rounded-md bg-surface-800 px-3 py-2 text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
-                <button type="submit" className="rounded-md bg-neutral-700 px-3 py-2 text-sm hover:bg-neutral-600">
+                <button type="submit" className="rounded-md bg-surface-700 px-3 py-2 text-sm hover:bg-neutral-600">
                   Go
                 </button>
               </form>

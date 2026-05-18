@@ -52,7 +52,9 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
   const scroll = (dir: "left" | "right") => {
     const el = scrollRef.current;
     if (!el) return;
-    const card = el.querySelector(".discover-user-card") as HTMLElement | null;
+    const card = el.querySelector(
+      ".discover-user-card"
+    ) as HTMLElement | null;
     const step = (card?.offsetWidth ?? 280) + 16;
     el.scrollBy({ left: dir === "left" ? -step : step, behavior: "smooth" });
   };
@@ -70,7 +72,7 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
 
   if (fetchError) {
     return (
-      <div className="w-full mx-auto mb-5 md:px-4">
+      <div className="w-full mx-auto">
         <FetchError
           message={
             fetchError === "Request failed (401)"
@@ -88,12 +90,12 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
       {!hideTitleLink && (
         <Link
           href="/app/profile"
-          className="text-lg font-semibold mb-3 inline-block underline text-neutral-100 hover:text-indigo-300 transition-colors"
+          className="text-lg font-semibold mb-3 inline-block text-surface-200 hover:text-brand-400 transition-colors"
         >
           Discover people
         </Link>
       )}
-      <div className="relative -mx-1 px-1">
+      <div className="relative group -mx-1 px-1">
         <div
           ref={scrollRef}
           className="flex gap-4 py-2 overflow-x-auto overflow-y-hidden scroll-smooth no-scrollbar"
@@ -103,24 +105,25 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
             [...Array(5)].map((_, i) => (
               <div
                 key={i}
-                className="discover-user-card shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-neutral-800/80 border border-neutral-700/50 overflow-hidden"
+                className="discover-user-card shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-surface-800/50 border border-surface-700/40 overflow-hidden"
               >
                 <div className="p-5 flex flex-col items-center text-center">
-                  <div className="w-20 h-20 rounded-full bg-neutral-700 animate-pulse" />
-                  <div className="mt-3 h-5 w-24 rounded bg-neutral-700 animate-pulse" />
-                  <div className="mt-2 h-4 w-full rounded bg-neutral-700/80 animate-pulse" />
+                  <div className="w-20 h-20 rounded-full bg-surface-700/50 animate-pulse" />
+                  <div className="mt-3 h-5 w-24 rounded bg-surface-700/50 animate-pulse" />
+                  <div className="mt-2 h-4 w-full rounded bg-surface-700/30 animate-pulse" />
                   <div className="mt-4 flex gap-3 justify-center">
-                    <div className="h-8 w-14 rounded-lg bg-neutral-700 animate-pulse" />
-                    <div className="h-8 w-14 rounded-lg bg-neutral-700 animate-pulse" />
-                    <div className="h-8 w-14 rounded-lg bg-neutral-700 animate-pulse" />
+                    <div className="h-8 w-14 rounded-lg bg-surface-700/50 animate-pulse" />
+                    <div className="h-8 w-14 rounded-lg bg-surface-700/50 animate-pulse" />
+                    <div className="h-8 w-14 rounded-lg bg-surface-700/50 animate-pulse" />
                   </div>
                 </div>
               </div>
             ))
           ) : users.length === 0 ? (
-            <div className="shrink-0 w-full min-h-[200px] rounded-2xl bg-neutral-800/50 border border-neutral-700/50 border-dashed flex items-center justify-center">
-              <p className="text-neutral-500 text-sm text-center px-4">
-                No other users to show yet. Be the first to add a username and start sharing.
+            <div className="shrink-0 w-full min-h-[200px] rounded-2xl bg-surface-800/30 border border-surface-700/30 border-dashed flex items-center justify-center">
+              <p className="text-surface-500 text-sm text-center px-4">
+                No other users to show yet. Be the first to add a username and
+                start sharing.
               </p>
             </div>
           ) : (
@@ -129,33 +132,33 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
                 <Link
                   key={item.username}
                   href={`/app/profile/${item.username}`}
-                  className="discover-user-card group shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-neutral-800/80 border border-neutral-700/50 hover:border-neutral-600 hover:bg-neutral-800 transition-all duration-200 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
+                  className="discover-user-card group shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-surface-900/60 border border-surface-700/40 hover:border-surface-600/60 hover:bg-surface-800/80 transition-all duration-300 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-950"
                 >
                   <div className="p-5 flex flex-col items-center text-center">
                     <ProfileAvatar
                       src={item.avatar_url || "/avatar.svg"}
                       alt={`${item.username} avatar`}
-                      className="w-20 h-20 rounded-full object-cover border-2 border-neutral-600 group-hover:border-neutral-500 transition-colors ring-2 ring-neutral-800"
+                      className="w-20 h-20 rounded-full object-cover border-2 border-surface-700 group-hover:border-brand-500/30 transition-colors ring-2 ring-surface-900"
                       width={80}
                       height={80}
                     />
-                    <h3 className="mt-3 text-base font-semibold text-white group-hover:text-indigo-200 transition-colors truncate w-full">
+                    <h3 className="mt-3 text-base font-semibold text-white group-hover:text-brand-400 transition-colors truncate w-full">
                       @{formatUsername(item.username)}
                     </h3>
-                    <p className="mt-1 text-xs text-neutral-400 line-clamp-2 min-h-8">
+                    <p className="mt-1 text-xs text-surface-500 line-clamp-2 min-h-8">
                       {item.about || "Movie & TV enthusiast"}
                     </p>
                     <div className="mt-4 flex items-center gap-2 flex-wrap justify-center">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-700/80 text-neutral-300 text-xs">
-                        <FaEye className="text-neutral-500 size-3" aria-hidden />
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-800/80 text-surface-400 text-xs border border-surface-700/30">
+                        <FaEye className="text-surface-500 size-3" aria-hidden />
                         {item.watched_count}
                       </span>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-700/80 text-neutral-300 text-xs">
-                        <FaHeart className="text-neutral-500 size-3" aria-hidden />
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-800/80 text-surface-400 text-xs border border-surface-700/30">
+                        <FaHeart className="text-surface-500 size-3" aria-hidden />
                         {item.favorites_count}
                       </span>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-700/80 text-neutral-300 text-xs">
-                        <FaBookmark className="text-neutral-500 size-3" aria-hidden />
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-800/80 text-surface-400 text-xs border border-surface-700/30">
+                        <FaBookmark className="text-surface-500 size-3" aria-hidden />
                         {item.watchlist_count}
                       </span>
                     </div>
@@ -164,9 +167,9 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
               ))}
               <Link
                 href="/app/profile"
-                className="discover-user-card shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-neutral-800/50 border border-neutral-700/50 border-dashed hover:border-neutral-600 hover:bg-neutral-800/80 transition-all duration-200 flex items-center justify-center min-h-[220px] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
+                className="discover-user-card shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-surface-900/30 border border-surface-700/30 border-dashed hover:border-brand-500/30 hover:bg-surface-800/50 transition-all duration-300 flex items-center justify-center min-h-[220px] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-950"
               >
-                <span className="inline-flex items-center gap-2 text-sm font-medium text-neutral-400 hover:text-indigo-300 transition-colors">
+                <span className="inline-flex items-center gap-2 text-sm font-medium text-surface-500 hover:text-brand-400 transition-colors">
                   View all
                   <HiArrowRight className="size-4" aria-hidden />
                 </span>
@@ -177,13 +180,13 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
 
         {/* Fade edges */}
         <div
-          className={`pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-linear-to-r from-neutral-900 to-transparent transition-opacity duration-200 hidden sm:block ${
+          className={`pointer-events-none absolute left-0 top-0 bottom-0 w-10 bg-gradient-to-r from-surface-950 to-transparent transition-opacity duration-200 hidden sm:block ${
             canScrollLeft ? "opacity-100" : "opacity-0"
           }`}
           aria-hidden
         />
         <div
-          className={`pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-linear-to-l from-neutral-900 to-transparent transition-opacity duration-200 hidden sm:block ${
+          className={`pointer-events-none absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-surface-950 to-transparent transition-opacity duration-200 hidden sm:block ${
             canScrollRight ? "opacity-100" : "opacity-0"
           }`}
           aria-hidden
@@ -194,20 +197,20 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
           <button
             type="button"
             onClick={() => scroll("left")}
-            className="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 z-10 size-9 items-center justify-center rounded-full bg-neutral-800 border border-neutral-600 text-neutral-200 shadow-lg hover:bg-neutral-700 hover:text-white transition-colors"
+            className="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 z-10 size-9 items-center justify-center rounded-full bg-surface-800/90 border border-surface-700/50 text-surface-300 shadow-lg hover:bg-surface-700 hover:text-white transition-all opacity-0 group-hover:opacity-100"
             aria-label="Scroll left"
           >
-            <FaChevronLeft className="size-4" />
+            <FaChevronLeft className="size-3.5" />
           </button>
         )}
         {canScrollRight && (
           <button
             type="button"
             onClick={() => scroll("right")}
-            className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 z-10 size-9 items-center justify-center rounded-full bg-neutral-800 border border-neutral-600 text-neutral-200 shadow-lg hover:bg-neutral-700 hover:text-white transition-colors"
+            className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 z-10 size-9 items-center justify-center rounded-full bg-surface-800/90 border border-surface-700/50 text-surface-300 shadow-lg hover:bg-surface-700 hover:text-white transition-all opacity-0 group-hover:opacity-100"
             aria-label="Scroll right"
           >
-            <FaChevronRight className="size-4" />
+            <FaChevronRight className="size-3.5" />
           </button>
         )}
       </div>

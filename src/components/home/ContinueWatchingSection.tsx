@@ -53,7 +53,7 @@ export default function ContinueWatchingSection() {
     try {
       const [continueRes, watchingRes] = await Promise.all([
         fetch("/api/continue-watching", { cache: "no-store" }).then((r) =>
-          r.json(),
+          r.json()
         ),
         fetch(`/api/currently-watching`, {
           cache: "no-store",
@@ -116,7 +116,7 @@ export default function ContinueWatchingSection() {
         }),
       });
       if (res.ok) {
-        await fetchData(); // Refresh to get next episode
+        await fetchData();
       }
     } catch (error) {
       console.error("Failed to mark episode", error);
@@ -125,8 +125,7 @@ export default function ContinueWatchingSection() {
     }
   };
 
-  if (loading) return null; // or loading skeleton
-  // Removed early return for items.length === 0 to keep section visible
+  if (loading) return null;
 
   const isRecent = (dateStr: string | null) => {
     if (!dateStr) return false;
@@ -134,7 +133,7 @@ export default function ContinueWatchingSection() {
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 14; // Considered "New" if aired within last 2 weeks
+    return diffDays <= 14;
   };
 
   const formatDate = (dateStr: string) => {
@@ -146,34 +145,44 @@ export default function ContinueWatchingSection() {
 
   return (
     <section
-      className="rounded-2xl border border-neutral-700/60 bg-neutral-800/50 px-4 sm:px-6 py-8 sm:py-10"
+      className="animate-fade-up"
       aria-labelledby="continue-watching-heading"
     >
-      <h2
-        id="continue-watching-heading"
-        className="text-2xl sm:text-3xl font-bold text-white tracking-tight mb-2"
-      >
-        Jump back in
-      </h2>
-      <p className="text-sm sm:text-base text-neutral-400 mb-6">
-        Continue watching your shows and movies
-      </p>
+      <div className="flex items-end justify-between mb-5">
+        <div>
+          <h2
+            id="continue-watching-heading"
+            className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+          >
+            <Link
+              href="/app/profile"
+              className="group inline-flex items-center gap-2 hover:text-brand-400 transition-colors"
+            >
+              <FaPlay className="w-5 h-5 text-brand-400" />
+              Jump Back In
+            </Link>
+          </h2>
+          <p className="text-sm text-surface-500 mt-1">
+            Continue watching your shows and movies
+          </p>
+        </div>
+      </div>
 
       {items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-10 px-4 rounded-xl bg-neutral-900/30 border border-dashed border-neutral-700">
-          <p className="text-neutral-500 text-sm text-center">
-            You haven't started any shows or movies yet. Explore titles to see
-            them here!
+        <div className="flex flex-col items-center justify-center py-10 px-4 rounded-2xl bg-surface-900/30 border border-dashed border-surface-700/40">
+          <p className="text-surface-500 text-sm text-center">
+            You haven&apos;t started any shows or movies yet. Explore titles to
+            see them here!
           </p>
           <Link
             href="/app/search/discover"
-            className="mt-4 px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs transition-colors"
+            className="mt-4 px-4 py-2 rounded-full bg-surface-800 border border-surface-700 hover:bg-surface-700 hover:text-white text-surface-400 text-xs transition-colors"
           >
             Explore Popular
           </Link>
         </div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+        <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar pretty-scrollbar">
           {items.map((item) => {
             if (item.source === "continue") {
               const cItem = item as ContinueItem & { source: "continue" };
@@ -182,7 +191,7 @@ export default function ContinueWatchingSection() {
                 : "/no-photo.webp";
 
               const nextUrl = cItem.is_caught_up
-                ? `/app/tv/${cItem.show_id}` // Go to show page if caught up
+                ? `/app/tv/${cItem.show_id}`
                 : `/app/tv/${cItem.show_id}/season/${cItem.next_season}/episode/${cItem.next_episode}`;
 
               const progress =
@@ -190,8 +199,8 @@ export default function ContinueWatchingSection() {
                   ? Math.min(
                       100,
                       Math.round(
-                        (cItem.episodes_watched / cItem.total_episodes) * 100,
-                      ),
+                        (cItem.episodes_watched / cItem.total_episodes) * 100
+                      )
                     )
                   : 0;
 
@@ -205,7 +214,7 @@ export default function ContinueWatchingSection() {
                 >
                   <Link
                     href={nextUrl}
-                    className="block rounded-xl overflow-hidden border border-neutral-700 bg-neutral-800/80 hover:border-neutral-600 hover:bg-neutral-800 transition-colors"
+                    className="block rounded-xl overflow-hidden border border-surface-700/40 bg-surface-900/60 hover:border-surface-600/60 transition-all duration-200"
                   >
                     <div className="relative aspect-2/3 w-full overflow-hidden">
                       <img
@@ -214,68 +223,62 @@ export default function ContinueWatchingSection() {
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
 
-                      {/* Status Badge */}
                       {cItem.tv_status && (
                         <div className="absolute top-2 right-2 z-10 flex flex-col gap-1 items-end">
                           <span
                             className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide shadow-sm
                            ${
                              cItem.tv_status === "watching"
-                               ? "bg-green-600/90 text-white"
+                               ? "bg-brand-500/90 text-surface-950"
                                : cItem.tv_status === "rewatching"
-                                 ? "bg-blue-600/90 text-white"
-                                 : "bg-gray-600/90 text-white"
+                                 ? "bg-blue-500/90 text-white"
+                                 : "bg-surface-600/90 text-white"
                            }`}
                           >
                             {cItem.tv_status === "rewatching" ? "Rewatch" : ""}
                           </span>
                           {hasNewEpisodes && (
-                            <span className="px-1.5 py-0.5 rounded bg-amber-500/90 text-white text-[10px] font-bold uppercase tracking-wide shadow-sm animate-pulse">
+                            <span className="px-1.5 py-0.5 rounded bg-accent-gold/90 text-surface-950 text-[10px] font-bold uppercase tracking-wide shadow-sm animate-pulse">
                               NEW EP
                             </span>
                           )}
                         </div>
                       )}
 
-                      {/* Caught Up / Up Next Badge */}
                       {cItem.is_caught_up && (
                         <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1.5 p-2 text-center">
-                          <span className="bg-neutral-800/90 text-neutral-200 px-3 py-1 rounded-full text-xs font-medium border border-neutral-600 whitespace-nowrap">
+                          <span className="bg-surface-800/90 text-surface-200 px-3 py-1 rounded-full text-xs font-medium border border-surface-600 whitespace-nowrap">
                             Caught Up
                           </span>
                           {cItem.next_air_date && (
-                            <span className="text-[10px] uppercase font-bold text-amber-400 bg-black/50 px-2 py-0.5 rounded">
+                            <span className="text-[10px] uppercase font-bold text-accent-gold bg-black/50 px-2 py-0.5 rounded">
                               Returns {formatDate(cItem.next_air_date)}
                             </span>
                           )}
                         </div>
                       )}
 
-                      {/* Progress Overlay (Gradient) */}
                       <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
 
-                      {/* Episode Info */}
                       {!cItem.is_caught_up && (
                         <div className="absolute bottom-3 left-3 right-3 z-10">
                           <span className="text-xs font-semibold text-white/90 block mb-1">
                             S{cItem.next_season} E{cItem.next_episode}
                           </span>
-                          {/* Progress Bar */}
-                          <div className="w-full h-1 bg-neutral-700/50 rounded-full overflow-hidden">
+                          <div className="w-full h-1 bg-surface-700/50 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-amber-500 rounded-full"
+                              className="h-full bg-brand-500 rounded-full transition-all duration-500"
                               style={{ width: `${progress}%` }}
                             />
                           </div>
                         </div>
                       )}
 
-                      {/* Hover: Mark Next Button */}
                       {!cItem.is_caught_up && (
                         <button
                           onClick={(e) => handleMarkNext(e, cItem)}
                           disabled={marking === cItem.show_id}
-                          className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-white/90 text-neutral-900 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white hover:scale-105 focus:opacity-100 disabled:opacity-50 z-20 shadow-lg"
+                          className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-brand-500 text-surface-950 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 focus:opacity-100 disabled:opacity-50 z-20 shadow-lg"
                           title="Mark next episode as watched"
                         >
                           {marking === cItem.show_id ? (
@@ -287,10 +290,10 @@ export default function ContinueWatchingSection() {
                       )}
                     </div>
                     <div className="p-3 flex-1 min-h-0">
-                      <p className="text-sm font-semibold text-neutral-100 line-clamp-1 group-hover:text-amber-500 transition-colors">
+                      <p className="text-sm font-semibold text-surface-100 line-clamp-1 group-hover:text-brand-400 transition-colors">
                         {cItem.show_name}
                       </p>
-                      <p className="text-xs text-neutral-400 mt-0.5 font-medium">
+                      <p className="text-xs text-surface-500 mt-0.5 font-medium">
                         {cItem.is_caught_up
                           ? "All caught up"
                           : `${cItem.episodes_watched} of ${cItem.total_episodes} watched`}
@@ -298,8 +301,7 @@ export default function ContinueWatchingSection() {
                     </div>
                   </Link>
 
-                  {/* Preference Buttons */}
-                  <div className="border border-neutral-700/60 border-t-0 rounded-b-xl overflow-hidden bg-neutral-900">
+                  <div className="border border-surface-700/40 border-t-0 rounded-b-xl overflow-hidden bg-surface-900/80">
                     <ThreePrefrenceBtn
                       variant="compact"
                       cardId={cItem.show_id}
@@ -318,7 +320,6 @@ export default function ContinueWatchingSection() {
                 </div>
               );
             } else {
-              // "Watching" items (Manual adds or Movies)
               const wItem = item as WatchingItem & { source: "watching" };
               const posterUrl =
                 wItem.image_url && wItem.image_url.length > 1
@@ -336,7 +337,7 @@ export default function ContinueWatchingSection() {
                 >
                   <Link
                     href={href}
-                    className="block rounded-xl overflow-hidden border border-neutral-700 bg-neutral-800/80 hover:border-neutral-600 hover:bg-neutral-800 transition-colors"
+                    className="block rounded-xl overflow-hidden border border-surface-700/40 bg-surface-900/60 hover:border-surface-600/60 transition-all duration-200"
                   >
                     <div className="relative aspect-2/3 w-full overflow-hidden">
                       <img
@@ -345,25 +346,24 @@ export default function ContinueWatchingSection() {
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                       <div className="absolute top-2 left-2">
-                        <span className="px-1.5 py-0.5 rounded bg-blue-600/90 text-white text-[10px] font-bold uppercase tracking-wide shadow-sm">
+                        <span className="px-1.5 py-0.5 rounded bg-blue-500/90 text-white text-[10px] font-bold uppercase tracking-wide shadow-sm">
                           {wItem.item_type === "tv" ? "TV" : "Movie"}
                         </span>
                       </div>
                     </div>
                     <div className="p-3 flex-1 min-h-0">
-                      <p className="text-sm font-semibold text-neutral-100 line-clamp-1 group-hover:text-blue-400 transition-colors">
+                      <p className="text-sm font-semibold text-surface-100 line-clamp-1 group-hover:text-brand-400 transition-colors">
                         {wItem.item_name}
                       </p>
                       {wItem.item_type === "tv" && (
-                        <p className="text-xs text-neutral-400 mt-0.5">
+                        <p className="text-xs text-surface-500 mt-0.5">
                           Start watching
                         </p>
                       )}
                     </div>
                   </Link>
 
-                  {/* Preference Buttons */}
-                  <div className="border border-neutral-700/60 border-t-0 rounded-b-xl overflow-hidden bg-neutral-900">
+                  <div className="border border-surface-700/40 border-t-0 rounded-b-xl overflow-hidden bg-surface-900/80">
                     <ThreePrefrenceBtn
                       variant="compact"
                       cardId={wItem.item_id}
@@ -404,7 +404,7 @@ export default function ContinueWatchingSection() {
           watchedPayload={{
             itemId: Number(tvModalOpen.id),
             name: tvModalOpen.name,
-            imgUrl: "", // Modal will fetch if needed or we can pass it
+            imgUrl: "",
             adult: false,
             genres: [],
           }}

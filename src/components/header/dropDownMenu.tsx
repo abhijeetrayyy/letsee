@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { FaChevronDown, FaUser } from "react-icons/fa6";
+import { FaChevronDown, FaUser, FaFilm, FaTv, FaUsers } from "react-icons/fa6";
 import SignOut from "../buttons/signOut";
 
 const DropdownMenu = ({ user }: { user: { username?: string } }) => {
@@ -25,14 +25,14 @@ const DropdownMenu = ({ user }: { user: { username?: string } }) => {
   }, [isOpen]);
 
   const linkClass =
-    "flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-200 transition-colors hover:bg-neutral-700 hover:text-white";
+    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-surface-300 transition-colors hover:bg-surface-700 hover:text-white";
 
   return (
     <div ref={dropdownRef} className="relative">
       <button
         type="button"
         onClick={toggleDropdown}
-        className="flex h-10 items-center gap-2 rounded-xl border border-neutral-700/60 bg-neutral-800 px-3 py-2 text-sm font-medium text-neutral-200 transition-colors hover:bg-neutral-700"
+        className="flex h-10 items-center gap-2 rounded-xl border border-surface-700/50 bg-surface-800/80 px-3 py-2 text-sm font-medium text-surface-300 transition-all duration-150 hover:bg-surface-700 hover:text-white"
         aria-expanded={isOpen}
         aria-haspopup="true"
         aria-label="Account menu"
@@ -42,13 +42,13 @@ const DropdownMenu = ({ user }: { user: { username?: string } }) => {
           {user?.username ?? "Account"}
         </span>
         <FaChevronDown
-          className={`size-3.5 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`size-3 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
 
       {isOpen && (
         <div
-          className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-neutral-700 bg-neutral-800 py-2 shadow-xl"
+          className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-surface-700/50 bg-surface-900 py-2 shadow-xl shadow-black/30 animate-scale-in"
           role="menu"
         >
           <div className="flex flex-col gap-0.5 px-2">
@@ -58,7 +58,7 @@ const DropdownMenu = ({ user }: { user: { username?: string } }) => {
               className={linkClass}
               role="menuitem"
             >
-              <FaUser className="size-4 shrink-0" />
+              <FaUser className="size-4 shrink-0 text-brand-400" />
               My profile
             </Link>
             <Link
@@ -67,6 +67,7 @@ const DropdownMenu = ({ user }: { user: { username?: string } }) => {
               className={linkClass}
               role="menuitem"
             >
+              <FaFilm className="size-4 shrink-0 text-blue-400" />
               Movie genres
             </Link>
             <Link
@@ -75,9 +76,19 @@ const DropdownMenu = ({ user }: { user: { username?: string } }) => {
               className={linkClass}
               role="menuitem"
             >
+              <FaTv className="size-4 shrink-0 text-purple-400" />
               TV genres
             </Link>
-            <div className="my-1 border-t border-neutral-700" />
+            <Link
+              href="/app/profile"
+              onClick={() => setIsOpen(false)}
+              className={linkClass}
+              role="menuitem"
+            >
+              <FaUsers className="size-4 shrink-0 text-amber-400" />
+              Discover people
+            </Link>
+            <div className="my-1 border-t border-surface-800" />
             <div className="px-2">
               <SignOut />
             </div>
