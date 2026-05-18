@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+﻿import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import {
@@ -6,28 +6,29 @@ import {
   ShowFollower,
   FollowerBtnClient,
 } from "@/components/profile/profllebtn";
-import ProfileContent from "@components/profile/profileContent";
 import ProfileLists from "@components/profile/ProfileLists";
 import Visibility from "@components/profile/visibility";
-import StatisticsGenre from "@components/profile/statisticsGenre";
 import Logornot from "@components/guide/logornot";
 import RecommendationTile from "@components/profile/recomendation";
 import TasteInFourStrip from "@components/profile/TasteInFourStrip";
 import EditTasteInFour from "@components/profile/EditTasteInFour";
-import RecentActivityStrip from "@components/profile/RecentActivityStrip";
-import ProfileTabs from "@components/profile/ProfileTabs";
-import ProfileHero from "@components/profile/ProfileHero";
 import ProfileHighlights from "@components/profile/ProfileHighlights";
-import ProfileStatsStrip from "@components/profile/ProfileStatsStrip";
 import ProfileTvProgress from "@components/profile/ProfileTvProgress";
-import ProfileReviewsRatingsDiaryRows from "@components/profile/ProfileReviewsRatingsDiaryRows";
 import ProfileCurrentlyWatching from "@components/profile/ProfileCurrentlyWatching";
 import ProfileAnimeSection from "@components/profile/ProfileAnimeSection";
 import VisibilityGate from "@components/profile/VisibilityGate";
+import ProfileHeroNew from "@components/profile/ProfileHeroNew";
+import ProfileTabsNew from "@components/profile/ProfileTabsNew";
+import FilmDiary from "@components/profile/FilmDiary";
+import ReviewsSection from "@components/profile/ReviewsSection";
+import WatchedGrid from "@components/profile/WatchedGrid";
+import ListsSection from "@components/profile/ListsSection";
+import StatsSection from "@components/profile/StatsSection";
+import ActivityFeed from "@components/profile/ActivityFeed";
 
 export const dynamic = "force-dynamic";
 
-// Fetch user data and statistics. Uses only the viewer's Supabase client; RLS (profile_visible_to_viewer) allows reading when profile is public or followers+follow.
+// Fetch user data and statistics
 const fetchProfileData = async (
   username: string | null,
   currentUserId: string | null,
@@ -283,7 +284,7 @@ export default async function ProfilePage({ params }: PageProps) {
     redirect(`/app/profile/${user.username}`);
   }
 
-  // Determine content visibility (normalize: DB enum is lowercase; default to public so "Public" profile is visible)
+  // Determine content visibility
   const visibility = String(user?.visibility ?? "public").toLowerCase();
   const canViewContent =
     isOwner ||
@@ -291,16 +292,14 @@ export default async function ProfilePage({ params }: PageProps) {
     (visibility === "followers" && followData.isFollowing);
 
   const avatarSrc = user.avatar_url || "/avatar.svg";
-  const SECTION_TITLE =
-    "text-xl sm:text-2xl font-bold text-white tracking-tight mb-4";
 
   return (
     <div className="min-h-screen w-full bg-surface-950">
       {/* Subtle gradient background */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(34,197,94,0.04),transparent)] pointer-events-none" />
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-10">
-        {/* Hero — full-bleed feel */}
-        <ProfileHero
+        {/* Hero Section */}
+        <ProfileHeroNew
           username={user.username}
           avatarSrc={avatarSrc}
           bannerUrl={user.banner_url || null}
@@ -332,12 +331,20 @@ export default async function ProfilePage({ params }: PageProps) {
           ShowFollower={ShowFollower}
           visibilityControl={<Visibility />}
           userId={user.id}
+          stats={{
+            watchedCount: stats.watchedCount,
+            favoriteCount: stats.favoriteCount,
+            watchlistCount: stats.watchlistCount,
+            watchingCount: stats.watchingCount,
+          }}
         />
 
         {/* Taste in 4 */}
         <section aria-label="Taste in 4">
           <div className="flex items-center justify-between gap-4 mb-4">
-            <h2 className={SECTION_TITLE}>Taste in 4</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+              Taste in 4
+            </h2>
             {isOwner && (
               <div className="flex items-center gap-2">
                 {favoriteDisplay.length === 0 && (
@@ -370,14 +377,16 @@ export default async function ProfilePage({ params }: PageProps) {
         {/* Currently watching */}
         {canViewContent && (
           <section aria-label="Currently watching">
-            <h2 className={SECTION_TITLE}>Currently watching</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight mb-4">
+              Currently watching
+            </h2>
             <div className="rounded-2xl border border-surface-800/50 bg-surface-900/30 p-6">
               <ProfileCurrentlyWatching userId={user.id} />
             </div>
           </section>
         )}
 
-        {/* Anime TV series — watching + watched */}
+        {/* Anime TV series */}
         {canViewContent && (
           <ProfileAnimeSection
             userId={user.id}
@@ -387,7 +396,7 @@ export default async function ProfilePage({ params }: PageProps) {
           />
         )}
 
-        {/* Anime movies — watching + watched */}
+        {/* Anime movies */}
         {canViewContent && (
           <ProfileAnimeSection
             userId={user.id}
@@ -397,62 +406,12 @@ export default async function ProfilePage({ params }: PageProps) {
           />
         )}
 
-        {/* Stats strip */}
-        <section aria-label="Statistics">
-          <h2 className={SECTION_TITLE}>Stats</h2>
-          <ProfileStatsStrip
-            stats={[
-              { value: stats.watchedCount, label: "Watched" },
-              { value: stats.watchingCount ?? 0, label: "Watching" },
-              { value: stats.movieCount ?? 0, label: "Movies" },
-              { value: stats.tvCount ?? 0, label: "TV" },
-              { value: stats.episodesCount ?? 0, label: "Episodes" },
-              { value: stats.favoriteCount, label: "Favorites" },
-              { value: stats.watchlistCount, label: "Watchlist" },
-              {
-                value: stats.watchedThisYear,
-                label: `This year (${new Date().getFullYear()})`,
-              },
-            ]}
-            moviesCount={stats.movieCount ?? 0}
-            tvCount={stats.tvCount ?? 0}
-            episodesCount={stats.episodesCount ?? 0}
-          />
-        </section>
-
-        {/* Reviews, ratings & diary — prominent upper section */}
-        {canViewContent && (
-          <section
-            aria-label="Reviews, ratings and diary"
-            className="rounded-2xl border border-surface-800/50 bg-surface-900/30 p-6"
-          >
-            <h2 className={SECTION_TITLE}>Reviews, ratings & diary</h2>
-            {isOwner && (
-              <div className="text-sm text-surface-400 mb-4 max-w-2xl space-y-2">
-                <p>
-                  Each row shows a title you’ve watched with a{" "}
-                  <strong className="text-surface-300">rating</strong> (1–10),{" "}
-                  <strong className="text-surface-300">public review</strong>,
-                  and <strong className="text-surface-300">your diary</strong>{" "}
-                  (private notes). Your diary is only visible to you and is
-                  never shown to visitors. Add or edit from the movie or TV page
-                  (open the title from the link). Control who sees ratings and
-                  public reviews via the visibility settings at the top of your
-                  profile.
-                </p>
-              </div>
-            )}
-            <ProfileReviewsRatingsDiaryRows
-              userId={user.id}
-              isOwner={isOwner}
-            />
-          </section>
-        )}
-
         {/* Highlights */}
         {(featuredList || pinnedReview) && (
           <section aria-label="Highlights">
-            <h2 className={SECTION_TITLE}>Highlights</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight mb-4">
+              Highlights
+            </h2>
             <ProfileHighlights
               featuredList={featuredList}
               pinnedReview={pinnedReview}
@@ -460,18 +419,12 @@ export default async function ProfilePage({ params }: PageProps) {
           </section>
         )}
 
-        {/* Top genres */}
-        <section
-          aria-label="Top genres"
-          className="rounded-2xl border border-surface-800/50 bg-surface-900/30 p-6"
-        >
-          <StatisticsGenre username={user.username} userId={user.id} />
-        </section>
-
-        {/* Series progress (episode-level TV tracking) — visible to profile owner and visitors */}
+        {/* Series progress */}
         {canViewContent && (
           <section aria-label="Series progress">
-            <h2 className={SECTION_TITLE}>Series progress</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight mb-4">
+              Series progress
+            </h2>
             <p className="text-sm text-surface-400 mb-4">
               Episodes and seasons completed per show
             </p>
@@ -479,22 +432,52 @@ export default async function ProfilePage({ params }: PageProps) {
           </section>
         )}
 
-        {/* Content: tabs or visibility gate */}
+        {/* Main Tabs: Diary | Reviews | Films | Lists | Stats | Activity */}
         {canViewContent ? (
-          <section id="activity-and-lists" aria-label="Activity and lists">
-            <h2 className={SECTION_TITLE}>Activity & lists</h2>
+          <section aria-label="Profile content">
             <div className="rounded-2xl border border-surface-800/50 bg-surface-900/30 p-6">
-              <ProfileTabs
-                activity={<RecentActivityStrip items={recentActivity} />}
-                lists={<ProfileLists profileId={user.id} isOwner={isOwner} />}
-                all={
+              <ProfileTabsNew
+                diary={
+                  <FilmDiary userId={user.id} isOwner={isOwner} />
+                }
+                reviews={
+                  <ReviewsSection userId={user.id} isOwner={isOwner} />
+                }
+                films={
+                  <WatchedGrid userId={user.id} isOwner={isOwner} />
+                }
+                lists={
+                  <ListsSection profileId={user.id} isOwner={isOwner} />
+                }
+                stats={
+                  <StatsSection
+                    userId={user.id}
+                    isOwner={isOwner}
+                    stats={{
+                      watchedCount: stats.watchedCount,
+                      favoriteCount: stats.favoriteCount,
+                      watchlistCount: stats.watchlistCount,
+                      watchingCount: stats.watchingCount,
+                      watchedThisYear: stats.watchedThisYear,
+                      movieCount: stats.movieCount,
+                      tvCount: stats.tvCount,
+                      episodesCount: stats.episodesCount,
+                    }}
+                  />
+                }
+                activity={
                   <>
                     <RecommendationTile
                       isOwner={isOwner}
                       name={user.username}
                       id={user.id}
                     />
-                    <ProfileContent profileId={user.id} isOwner={isOwner} />
+                    <ActivityFeed
+                      items={(recentActivity ?? []).map((item: any) => ({
+                        ...item,
+                        activity_type: "watched" as const,
+                      }))}
+                    />
                   </>
                 }
               />
