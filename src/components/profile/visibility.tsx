@@ -90,7 +90,7 @@ const Visibility: React.FC = () => {
           id="profile-visibility"
           value={visibility}
           onChange={(e) => setVisibility(e.target.value)}
-          className="h-9 min-w-40 max-w-48 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-1.5 text-sm text-white focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/50 shrink-0"
+          className="h-9 min-w-40 max-w-48 rounded-lg border border-surface-600 bg-surface-800 px-3 py-1.5 text-sm text-white focus:border-brand-500/50 focus:outline-none focus:ring-1 focus:ring-brand-500/50 shrink-0"
         >
           <option value="public">Public</option>
           <option value="followers">Friends only</option>
@@ -108,7 +108,7 @@ const Visibility: React.FC = () => {
           id="default-tv-status"
           value={defaultTvStatus}
           onChange={(e) => setDefaultTvStatus(e.target.value)}
-          className="h-9 min-w-40 max-w-48 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-1.5 text-sm text-white focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/50 shrink-0"
+          className="h-9 min-w-40 max-w-48 rounded-lg border border-surface-600 bg-surface-800 px-3 py-1.5 text-sm text-white focus:border-brand-500/50 focus:outline-none focus:ring-1 focus:ring-brand-500/50 shrink-0"
         >
           <option value="watching">Watching</option>
           <option value="plan_to_watch">Plan to watch</option>
@@ -119,7 +119,7 @@ const Visibility: React.FC = () => {
         </select>
       </div>
       <div className="space-y-4 text-sm">
-        <p className="text-neutral-400 text-xs max-w-md">
+        <p className="text-surface-400 text-xs max-w-md">
           These control what appears in the &quot;Reviews, ratings &amp;
           diary&quot; section. Diary is only ever visible to you; ratings and
           public reviews can be shown or hidden from visitors.
@@ -130,13 +130,13 @@ const Visibility: React.FC = () => {
               type="checkbox"
               checked={profileShowDiary}
               onChange={(e) => setProfileShowDiary(e.target.checked)}
-              className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500/50 mt-0.5 shrink-0"
+              className="rounded border-surface-600 bg-surface-800 text-brand-500 focus:ring-brand-500/50 mt-0.5 shrink-0"
             />
             <span className="text-white/80 group-hover:text-white">
               Show my diary on my profile
             </span>
           </label>
-          <p className="text-neutral-500 text-xs pl-6 -mt-1.5">
+          <p className="text-surface-500 text-xs pl-6 -mt-1.5">
             Diary = your private notes per title (only you see them). On = you
             see them on your profile. Off = they stay hidden on your profile;
             you can still add or edit diary on each title page.
@@ -147,13 +147,13 @@ const Visibility: React.FC = () => {
               type="checkbox"
               checked={profileShowRatings}
               onChange={(e) => setProfileShowRatings(e.target.checked)}
-              className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500/50 mt-0.5 shrink-0"
+              className="rounded border-surface-600 bg-surface-800 text-brand-500 focus:ring-brand-500/50 mt-0.5 shrink-0"
             />
             <span className="text-white/80 group-hover:text-white">
               Show my ratings to visitors
             </span>
           </label>
-          <p className="text-neutral-500 text-xs pl-6 -mt-1.5">
+          <p className="text-surface-500 text-xs pl-6 -mt-1.5">
             Ratings = your 1–10 score per title. On = visitors see your scores.
             Off = visitors don’t see them (you still see yours on your own
             profile).
@@ -164,13 +164,13 @@ const Visibility: React.FC = () => {
               type="checkbox"
               checked={profileShowPublicReviews}
               onChange={(e) => setProfileShowPublicReviews(e.target.checked)}
-              className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500/50 mt-0.5 shrink-0"
+              className="rounded border-surface-600 bg-surface-800 text-brand-500 focus:ring-brand-500/50 mt-0.5 shrink-0"
             />
             <span className="text-white/80 group-hover:text-white">
               Show my public reviews to visitors
             </span>
           </label>
-          <p className="text-neutral-500 text-xs pl-6 -mt-1.5">
+          <p className="text-surface-500 text-xs pl-6 -mt-1.5">
             Public review = the review you choose to share per title (separate
             from private diary). On = visitors see these. Off = visitors don’t
             (you still see yours on your own profile).
@@ -180,7 +180,7 @@ const Visibility: React.FC = () => {
       <button
         type="submit"
         disabled={saving}
-        className="h-9 shrink-0 rounded-lg bg-amber-500 px-4 text-sm font-medium text-neutral-900 hover:bg-amber-400 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-neutral-900"
+        className="h-9 shrink-0 rounded-lg bg-brand-500 px-4 text-sm font-medium text-surface-950 hover:bg-brand-400 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2 focus:ring-offset-surface-950"
       >
         {saving ? "Saving…" : "Save"}
       </button>

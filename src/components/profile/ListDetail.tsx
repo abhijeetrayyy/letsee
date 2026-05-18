@@ -141,7 +141,7 @@ export default function ListDetail({ listId }: { listId: number }) {
     return (
       <div className="max-w-4xl mx-auto p-6 flex flex-col items-center justify-center gap-4 py-16 min-h-[200px]">
         <LoadingSpinner size="lg" className="border-t-white shrink-0" />
-        <p className="text-neutral-500 text-sm animate-pulse">Loading list…</p>
+        <p className="text-surface-500 text-sm animate-pulse">Loading list…</p>
       </div>
     );
   }
@@ -155,9 +155,9 @@ export default function ListDetail({ listId }: { listId: number }) {
         onClose={() => setShareModalOpen(false)}
       />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-neutral-100">{list.name}</h1>
-        {list.description && <p className="text-neutral-400 mt-1">{list.description}</p>}
-        <p className="text-sm text-neutral-500 mt-1">{list.visibility} · {items.length} item{items.length !== 1 ? "s" : ""}</p>
+        <h1 className="text-2xl font-bold text-surface-100">{list.name}</h1>
+        {list.description && <p className="text-surface-400 mt-1">{list.description}</p>}
+        <p className="text-sm text-surface-500 mt-1">{list.visibility} · {items.length} item{items.length !== 1 ? "s" : ""}</p>
       </div>
 
       {list.is_owner && (
@@ -165,7 +165,7 @@ export default function ListDetail({ listId }: { listId: number }) {
           <button
             type="button"
             onClick={() => setAddModalOpen(true)}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
+            className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-surface-950"
           >
             Add item
           </button>
@@ -173,9 +173,9 @@ export default function ListDetail({ listId }: { listId: number }) {
       )}
 
       {items.length === 0 ? (
-        <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/30 p-8 text-center">
-          <p className="text-neutral-400 text-sm">No items yet.</p>
-          <p className="text-neutral-500 text-sm mt-1">Add movies or TV shows using the button above.</p>
+        <div className="rounded-xl border border-surface-700/60 bg-surface-900/30 p-8 text-center">
+          <p className="text-surface-400 text-sm">No items yet.</p>
+          <p className="text-surface-500 text-sm mt-1">Add movies or TV shows using the button above.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -210,8 +210,8 @@ export default function ListDetail({ listId }: { listId: number }) {
 
       {addModalOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/70 overflow-y-auto">
-          <div className="bg-neutral-800 rounded-xl border border-neutral-600 w-full max-w-lg p-6 mt-8">
-            <h3 className="text-xl font-semibold text-neutral-100 mb-4">Add to list</h3>
+          <div className="bg-surface-800 rounded-xl border border-surface-600 w-full max-w-lg p-6 mt-8">
+            <h3 className="text-xl font-semibold text-surface-100 mb-4">Add to list</h3>
             <div className="flex gap-2 mb-4">
               <input
                 type="text"
@@ -219,14 +219,14 @@ export default function ListDetail({ listId }: { listId: number }) {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 placeholder="Search movie or TV show..."
-                className="flex-1 px-3 py-2 rounded-lg bg-neutral-700 border border-neutral-600 text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="flex-1 px-3 py-2 rounded-lg bg-surface-700 border border-surface-600 text-surface-100 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
               <button
                 type="button"
                 onClick={handleSearch}
                 disabled={searching}
                 aria-busy={searching}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium disabled:opacity-60 flex items-center justify-center gap-2 min-w-[100px] transition-all duration-200 active:scale-[0.98]"
+                className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg font-medium disabled:opacity-60 flex items-center justify-center gap-2 min-w-[100px] transition-all duration-200 active:scale-[0.98]"
               >
                 {searching ? (
                   <>
@@ -240,19 +240,19 @@ export default function ListDetail({ listId }: { listId: number }) {
             </div>
             <div className="max-h-64 overflow-y-auto space-y-2">
               {searching && searchResults.length === 0 && searchQuery.trim() ? (
-                <div className="py-6 flex flex-col items-center justify-center gap-2 text-neutral-500 text-sm">
+                <div className="py-6 flex flex-col items-center justify-center gap-2 text-surface-500 text-sm">
                   <LoadingSpinner size="sm" className="border-t-white shrink-0" />
                   <span className="animate-pulse">Searching…</span>
                 </div>
               ) : !searching && searchResults.length === 0 && searchQuery.trim() ? (
-                <p className="py-4 text-center text-neutral-500 text-sm">No results for &quot;{searchQuery.trim()}&quot;. Try another title.</p>
+                <p className="py-4 text-center text-surface-500 text-sm">No results for &quot;{searchQuery.trim()}&quot;. Try another title.</p>
               ) : null}
               {searchResults.map((r) => (
                 <button
                   key={`${r.media_type ?? "movie"}-${r.id}`}
                   type="button"
                   onClick={() => handleAddItem(r)}
-                  className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-neutral-700 text-left transition-all duration-200 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-inset"
+                  className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-surface-700 text-left transition-all duration-200 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-inset"
                 >
                   {r.poster_path ? (
                     <img
@@ -261,17 +261,17 @@ export default function ListDetail({ listId }: { listId: number }) {
                       className="w-10 h-14 rounded object-cover shrink-0"
                     />
                   ) : (
-                    <div className="w-10 h-14 rounded bg-neutral-700 shrink-0" />
+                    <div className="w-10 h-14 rounded bg-surface-700 shrink-0" />
                   )}
-                  <span className="font-medium text-neutral-100 truncate">{r.title ?? r.name}</span>
-                  <span className="text-xs text-neutral-500">{r.media_type ?? "movie"}</span>
+                  <span className="font-medium text-surface-100 truncate">{r.title ?? r.name}</span>
+                  <span className="text-xs text-surface-500">{r.media_type ?? "movie"}</span>
                 </button>
               ))}
             </div>
             <button
               type="button"
               onClick={() => { setAddModalOpen(false); setSearchQuery(""); setSearchResults([]); }}
-              className="mt-4 px-4 py-2 text-neutral-300 hover:bg-neutral-700 rounded-lg transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2 focus:ring-offset-neutral-800"
+              className="mt-4 px-4 py-2 text-surface-300 hover:bg-surface-700 rounded-lg transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-surface-500 focus:ring-offset-2 focus:ring-offset-surface-800"
             >
               Close
             </button>

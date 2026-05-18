@@ -48,11 +48,11 @@ export default function RecentActivityStrip({
 }) {
   return (
     <div className="w-full">
-      <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-4">
+      <h3 className="text-sm font-semibold text-surface-400 uppercase tracking-wider mb-4">
         Recent activity
       </h3>
       {!items?.length ? (
-        <p className="text-neutral-500 text-sm py-8 text-center rounded-xl bg-neutral-800/30 border border-neutral-700/50">
+        <p className="text-surface-500 text-sm py-8 text-center rounded-xl bg-surface-800/30 border border-surface-700/50">
           No recent activity yet. Watched titles and ratings will show here.
         </p>
       ) : (
@@ -112,9 +112,9 @@ function ActivityCard({
   const src = imgError ? NO_POSTER : imgSrc;
 
   return (
-    <div className="group shrink-0 w-28 sm:w-32 flex flex-col rounded-xl overflow-hidden border border-neutral-700/60 bg-neutral-800/50 hover:border-amber-500/40 transition-all duration-200">
+    <div className="group shrink-0 w-28 sm:w-32 flex flex-col rounded-xl overflow-hidden border border-surface-700/60 bg-surface-800/50 hover:border-accent-gold/40 transition-all duration-200">
       <Link href={href} className="block">
-        <div className="aspect-2/3 overflow-hidden bg-neutral-800">
+        <div className="aspect-2/3 overflow-hidden bg-surface-800">
           <img
             src={src}
             alt={itemName}
@@ -129,12 +129,12 @@ function ActivityCard({
           >
             {itemName}
           </p>
-          <p className="text-neutral-500 text-[10px] mt-0.5">
+          <p className="text-surface-500 text-[10px] mt-0.5">
             {formatDate(watchedAt)}
           </p>
           {snippet && (
             <p
-              className="text-neutral-400 text-[10px] line-clamp-1 mt-1"
+              className="text-surface-400 text-[10px] line-clamp-1 mt-1"
               title={reviewText ?? undefined}
             >
               {snippet}
@@ -144,7 +144,7 @@ function ActivityCard({
       </Link>
 
       {/* Preference Buttons Strip */}
-      <div className="border-t border-white/5 bg-neutral-900">
+      <div className="border-t border-white/5 bg-surface-900">
         <ThreePrefrenceBtn
           variant="compact"
           cardId={itemId}

@@ -204,9 +204,9 @@ export default function ProfileTvProgress({
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/30 p-6 flex flex-col items-center justify-center gap-3 min-h-[120px]">
+      <div className="rounded-xl border border-surface-700/60 bg-surface-900/40 p-6 flex flex-col items-center justify-center gap-3 min-h-[120px]">
         <LoadingSpinner size="md" className="border-t-white shrink-0" />
-        <p className="text-neutral-500 text-sm animate-pulse">
+        <p className="text-surface-500 text-sm animate-pulse">
           Loading series progress…
         </p>
       </div>
@@ -250,7 +250,7 @@ export default function ProfileTvProgress({
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Status Tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-neutral-900 border border-neutral-800 rounded-xl overflow-x-auto no-scrollbar whitespace-nowrap">
+        <div className="flex items-center gap-1.5 p-1 bg-surface-900 border border-surface-800 rounded-xl overflow-x-auto no-scrollbar whitespace-nowrap">
           {[
             { id: "", label: "All" },
             { id: "watching", label: "Watching" },
@@ -272,8 +272,8 @@ export default function ProfileTvProgress({
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 statusFilter === s.id
-                  ? "bg-neutral-800 text-white shadow-sm"
-                  : "text-neutral-500 hover:text-neutral-400"
+                  ? "bg-surface-800 text-white shadow-sm"
+                  : "text-surface-500 hover:text-surface-400"
               }`}
             >
               {s.label}
@@ -286,7 +286,7 @@ export default function ProfileTvProgress({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="bg-neutral-900 border border-neutral-800 text-neutral-300 text-xs py-2 px-3 rounded-xl focus:ring-1 focus:ring-indigo-500 outline-none h-[38px]"
+            className="bg-surface-900 border border-surface-800 text-surface-300 text-xs py-2 px-3 rounded-xl focus:ring-1 focus:ring-brand-500 outline-none h-[38px]"
           >
             <option value="last_watched">Last Activity</option>
             <option value="name">Sort by Name</option>
@@ -294,13 +294,13 @@ export default function ProfileTvProgress({
           </select>
 
           {/* View Toggle */}
-          <div className="flex items-center gap-1.5 p-1 bg-neutral-900 border border-neutral-800 rounded-xl">
+          <div className="flex items-center gap-1.5 p-1 bg-surface-900 border border-surface-800 rounded-xl">
             <button
               onClick={() => setViewMode("grid")}
               className={`p-2 rounded-lg transition-all ${
                 viewMode === "grid"
-                  ? "bg-neutral-800 text-white shadow-sm"
-                  : "text-neutral-500 hover:text-neutral-400"
+                  ? "bg-surface-800 text-white shadow-sm"
+                  : "text-surface-500 hover:text-surface-400"
               }`}
               title="Grid View"
             >
@@ -325,8 +325,8 @@ export default function ProfileTvProgress({
               onClick={() => setViewMode("list")}
               className={`p-2 rounded-lg transition-all ${
                 viewMode === "list"
-                  ? "bg-neutral-800 text-white shadow-sm"
-                  : "text-neutral-500 hover:text-neutral-400"
+                  ? "bg-surface-800 text-white shadow-sm"
+                  : "text-surface-500 hover:text-surface-400"
               }`}
               title="List View"
             >
@@ -354,8 +354,8 @@ export default function ProfileTvProgress({
       </div>
 
       {total === 0 && !loading && (
-        <div className="rounded-2xl border border-neutral-700/60 bg-neutral-800/20 p-12 text-center">
-          <p className="text-neutral-500 text-sm">
+        <div className="rounded-2xl border border-surface-700/60 bg-surface-900/20 p-12 text-center">
+          <p className="text-surface-500 text-sm">
             {statusFilter
               ? `No series found in the "${TV_STATUS_LABELS[statusFilter]}" category.`
               : "No episode progress yet. Mark episodes as watched on TV show pages to see your progress here."}
@@ -386,7 +386,7 @@ export default function ProfileTvProgress({
             return (
               <div
                 key={item.show_id}
-                className="group relative flex flex-col rounded-2xl border border-neutral-700/60 bg-neutral-800/20 overflow-hidden hover:border-neutral-500/60 transition-all duration-300"
+                className="group relative flex flex-col rounded-2xl border border-surface-700/60 bg-surface-900/40 overflow-hidden hover:border-surface-500/60 transition-all duration-300"
               >
                 {/* Poster & Overlay */}
                 <div className="aspect-[16/9] relative overflow-hidden">
@@ -395,11 +395,11 @@ export default function ProfileTvProgress({
                     alt=""
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60 group-hover:opacity-80"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/40 to-transparent" />
 
                   {/* Status Badge */}
                   <div className="absolute top-3 left-3">
-                    <span className="px-2 py-1 rounded-md bg-neutral-950/80 backdrop-blur-md border border-neutral-700 text-[10px] font-bold uppercase tracking-wider text-neutral-300">
+                    <span className="px-2 py-1 rounded-md bg-surface-950/80 backdrop-blur-md border border-surface-700 text-[10px] font-bold uppercase tracking-wider text-surface-300">
                       {TV_STATUS_LABELS[item.tv_status ?? "untagged"] ??
                         "Untagged"}
                     </span>
@@ -407,18 +407,18 @@ export default function ProfileTvProgress({
 
                   {/* Progress Info Overlay */}
                   <div className="absolute bottom-3 left-3 right-3 flex flex-col gap-1.5">
-                    <h3 className="text-base font-bold text-white line-clamp-1 group-hover:text-indigo-300 transition-colors">
+                    <h3 className="text-base font-bold text-white line-clamp-1 group-hover:text-brand-300 transition-colors">
                       {item.show_name}
                     </h3>
-                    <div className="flex items-center justify-between text-[11px] font-medium text-neutral-400">
+                    <div className="flex items-center justify-between text-[11px] font-medium text-surface-400">
                       <span>
                         {item.episodes_watched} / {item.total_episodes} eps
                       </span>
                       <span>{percent}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-neutral-800/80 rounded-full overflow-hidden border border-neutral-700/30">
+                    <div className="w-full h-1.5 bg-surface-800/80 rounded-full overflow-hidden border border-surface-700/30">
                       <div
-                        className="h-full bg-indigo-500 rounded-full transition-all duration-500 group-hover:bg-indigo-400"
+                        className="h-full bg-brand-500 rounded-full transition-all duration-500 group-hover:bg-brand-400"
                         style={{ width: `${percent}%` }}
                       />
                     </div>
@@ -426,7 +426,7 @@ export default function ProfileTvProgress({
                 </div>
 
                 {/* Actions Section */}
-                <div className="flex flex-col bg-neutral-900/40">
+                <div className="flex flex-col bg-surface-900/40">
                   <div className="p-4 flex flex-col gap-3">
                     <div className="flex items-center justify-between gap-2">
                       <Link
@@ -435,14 +435,14 @@ export default function ProfileTvProgress({
                             ? `/app/tv/${item.show_id}`
                             : `/app/tv/${item.show_id}/season/${item.next_season}/episode/${item.next_episode}`
                         }
-                        className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+                        className="text-xs font-semibold text-brand-400 hover:text-brand-300 transition-colors"
                       >
                         {nextLabel}
                       </Link>
                       {isOwner && (
                         <button
                           onClick={() => setEditModalShowId(item.show_id)}
-                          className="text-[10px] font-medium text-neutral-500 hover:text-neutral-300"
+                          className="text-[10px] font-medium text-surface-500 hover:text-surface-300"
                         >
                           Edit
                         </button>
@@ -456,7 +456,7 @@ export default function ProfileTvProgress({
                         <button
                           onClick={() => handleMarkNext(item)}
                           disabled={!!markingId}
-                          className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-bold text-neutral-200 transition-all flex items-center justify-center gap-2 hover:border-indigo-500/50 hover:text-white disabled:opacity-50 active:scale-[0.98]"
+                          className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-bold text-surface-200 transition-all flex items-center justify-center gap-2 hover:border-brand-500/50 hover:text-white disabled:opacity-50 active:scale-[0.98]"
                         >
                           {markingId === item.show_id ? (
                             <LoadingSpinner
@@ -484,7 +484,7 @@ export default function ProfileTvProgress({
                   </div>
 
                   {/* Preference Buttons Strip */}
-                  <div className="border-t border-white/5 bg-neutral-900">
+                  <div className="border-t border-white/5 bg-surface-900">
                     <ThreePrefrenceBtn
                       variant="compact"
                       cardId={item.show_id}
@@ -501,31 +501,31 @@ export default function ProfileTvProgress({
           })}
         </div>
       ) : (
-        <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/30 overflow-hidden">
+        <div className="rounded-xl border border-surface-700/60 bg-surface-900/40 overflow-hidden">
           <div className="overflow-x-auto pretty-scrollbar pb-1">
             <table className="w-full min-w-[480px] text-left text-sm">
               <thead>
-                <tr className="border-b border-neutral-700/60 bg-neutral-800/50">
-                  <th className="px-4 py-3 font-semibold text-neutral-200">
+                <tr className="border-b border-surface-700/60 bg-surface-800/50">
+                  <th className="px-4 py-3 font-semibold text-surface-200">
                     Series
                   </th>
-                  <th className="px-4 py-3 font-semibold text-neutral-200 text-center whitespace-nowrap">
+                  <th className="px-4 py-3 font-semibold text-surface-200 text-center whitespace-nowrap">
                     Status
                   </th>
-                  <th className="px-4 py-3 font-semibold text-neutral-200 text-center whitespace-nowrap">
+                  <th className="px-4 py-3 font-semibold text-surface-200 text-center whitespace-nowrap">
                     Seasons
                   </th>
-                  <th className="px-4 py-3 font-semibold text-neutral-200 text-center whitespace-nowrap">
+                  <th className="px-4 py-3 font-semibold text-surface-200 text-center whitespace-nowrap">
                     Episodes
                   </th>
-                  <th className="px-4 py-3 font-semibold text-neutral-200 whitespace-nowrap">
+                  <th className="px-4 py-3 font-semibold text-surface-200 whitespace-nowrap">
                     Next up
                   </th>
-                  <th className="px-4 py-3 font-semibold text-neutral-200 whitespace-nowrap text-center">
+                  <th className="px-4 py-3 font-semibold text-surface-200 whitespace-nowrap text-center">
                     Quick Prefs
                   </th>
                   {isOwner && (
-                    <th className="px-4 py-3 font-semibold text-neutral-200 whitespace-nowrap text-center">
+                    <th className="px-4 py-3 font-semibold text-surface-200 whitespace-nowrap text-center">
                       Actions
                     </th>
                   )}
@@ -556,12 +556,12 @@ export default function ProfileTvProgress({
                   return (
                     <tr
                       key={item.show_id}
-                      className="border-b border-neutral-700/40 hover:bg-neutral-800/50 transition-colors"
+                      className="border-b border-surface-700/40 hover:bg-surface-800/50 transition-colors"
                     >
                       <td className="px-4 py-3">
                         <Link
                           href={`/app/tv/${item.show_id}`}
-                          className="font-medium text-white hover:text-indigo-300 hover:underline flex items-center gap-3"
+                          className="font-medium text-white hover:text-brand-300 hover:underline flex items-center gap-3"
                         >
                           {item.poster_path ? (
                             <img
@@ -570,7 +570,7 @@ export default function ProfileTvProgress({
                               className="w-9 h-[54px] object-cover rounded shrink-0 shadow-lg"
                             />
                           ) : (
-                            <div className="w-9 h-[54px] rounded bg-neutral-700 shrink-0 flex items-center justify-center text-neutral-500 text-[10px]">
+                            <div className="w-9 h-[54px] rounded bg-surface-700 shrink-0 flex items-center justify-center text-surface-500 text-[10px]">
                               No poster
                             </div>
                           )}
@@ -578,9 +578,9 @@ export default function ProfileTvProgress({
                             <span className="line-clamp-1">
                               {item.show_name}
                             </span>
-                            <div className="w-24 h-1 bg-neutral-700 rounded-full overflow-hidden">
+                            <div className="w-24 h-1 bg-surface-700 rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-indigo-500"
+                                className="h-full bg-brand-500"
                                 style={{ width: `${percent}%` }}
                               />
                             </div>
@@ -595,7 +595,7 @@ export default function ProfileTvProgress({
                               handleStatusChange(item.show_id, e.target.value)
                             }
                             disabled={statusUpdating === item.show_id}
-                            className="bg-neutral-900 border border-neutral-700 text-neutral-200 text-[11px] py-1 px-2 rounded-lg"
+                            className="bg-surface-900 border border-surface-700 text-surface-200 text-[11px] py-1 px-2 rounded-lg"
                           >
                             <option value="">Untagged</option>
                             {Object.entries(TV_STATUS_LABELS).map(
@@ -607,21 +607,21 @@ export default function ProfileTvProgress({
                             )}
                           </select>
                         ) : (
-                          <span className="text-[11px] font-medium text-neutral-400">
+                          <span className="text-[11px] font-medium text-surface-400">
                             {TV_STATUS_LABELS[item.tv_status ?? "untagged"]}
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-neutral-300 text-center text-xs font-medium">
+                      <td className="px-4 py-3 text-surface-300 text-center text-xs font-medium">
                         {item.seasons_completed}
                       </td>
-                      <td className="px-4 py-3 text-neutral-300 text-center text-xs font-medium">
+                      <td className="px-4 py-3 text-surface-300 text-center text-xs font-medium">
                         {item.episodes_watched}
                       </td>
                       <td className="px-4 py-3">
                         <Link
                           href={nextUrl}
-                          className="text-xs font-medium text-indigo-400 hover:text-indigo-300 underline-offset-4 hover:underline"
+                          className="text-xs font-medium text-brand-400 hover:text-brand-300 underline-offset-4 hover:underline"
                         >
                           {nextLabel}
                         </Link>
@@ -644,7 +644,7 @@ export default function ProfileTvProgress({
                           <button
                             type="button"
                             onClick={() => setEditModalShowId(item.show_id)}
-                            className="text-[11px] font-medium text-neutral-400 hover:text-indigo-400 transition-colors"
+                            className="text-[11px] font-medium text-surface-400 hover:text-brand-400 transition-colors"
                           >
                             Edit
                           </button>
@@ -660,11 +660,11 @@ export default function ProfileTvProgress({
       )}
 
       {/* Count + View more / Load all */}
-      <div className="px-4 py-3 border-t border-neutral-700/60 bg-neutral-800/50 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-neutral-400">
+      <div className="px-4 py-3 border-t border-surface-700/60 bg-surface-800/50 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-surface-400">
           Showing{" "}
-          <span className="font-medium text-neutral-200">{items.length}</span>{" "}
-          of <span className="font-medium text-neutral-200">{total}</span> TV
+          <span className="font-medium text-surface-200">{items.length}</span>{" "}
+          of <span className="font-medium text-surface-200">{total}</span> TV
           show{total !== 1 ? "s" : ""}
         </p>
         {hasMore && (
@@ -674,7 +674,7 @@ export default function ProfileTvProgress({
               onClick={handleViewMore}
               disabled={loadingMore || loadingAll}
               aria-busy={loadingMore}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-neutral-700 text-neutral-200 hover:bg-neutral-600 disabled:opacity-50 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-surface-700 text-surface-200 hover:bg-surface-600 disabled:opacity-50 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
             >
               {loadingMore ? (
                 <>
@@ -715,8 +715,8 @@ export default function ProfileTvProgress({
       </div>
 
       {loadingAll && (
-        <div className="px-4 py-3 border-t border-neutral-700/60 bg-neutral-800/50 text-center">
-          <p className="text-sm text-amber-200/90">
+        <div className="px-4 py-3 border-t border-surface-700/60 bg-surface-800/50 text-center">
+          <p className="text-sm text-brand-200/90">
             Loading all series… This may take a while.
           </p>
         </div>

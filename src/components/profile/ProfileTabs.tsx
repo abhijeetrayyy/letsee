@@ -25,7 +25,7 @@ export default function ProfileTabs({
     <div className="w-full">
       {/* Pill-style tab bar */}
       <div
-        className="inline-flex p-1 rounded-2xl bg-neutral-800/80 border border-neutral-700/60 gap-1"
+        className="inline-flex p-1 rounded-2xl bg-surface-800/80 border border-surface-700/60 gap-1"
         role="tablist"
         aria-label="Profile sections"
       >
@@ -37,10 +37,10 @@ export default function ProfileTabs({
             aria-selected={activeTab === tab.id}
             id={`tab-${tab.id}`}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2 focus:ring-offset-neutral-900 ${
+            className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-surface-950 ${
               activeTab === tab.id
-                ? "bg-amber-500 text-neutral-900 shadow-lg shadow-amber-500/20"
-                : "text-neutral-400 hover:text-white hover:bg-neutral-700/50"
+                ? "bg-brand-500 text-surface-950 shadow-lg shadow-brand-500/20"
+                : "text-surface-400 hover:text-white hover:bg-surface-700/50"
             }`}
           >
             {tab.label}

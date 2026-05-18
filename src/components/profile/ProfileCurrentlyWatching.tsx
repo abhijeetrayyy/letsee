@@ -86,8 +86,8 @@ export default function ProfileCurrentlyWatching({
       <div className="flex gap-4 overflow-hidden">
         {[1, 2, 3].map((i) => (
           <div key={i} className="shrink-0 w-32 sm:w-36 animate-pulse">
-            <div className="aspect-2/3 rounded-lg bg-neutral-700/50" />
-            <div className="mt-2 h-3 w-3/4 rounded bg-neutral-700/50" />
+            <div className="aspect-2/3 rounded-lg bg-surface-700/50" />
+            <div className="mt-2 h-3 w-3/4 rounded bg-surface-700/50" />
           </div>
         ))}
       </div>
@@ -96,7 +96,7 @@ export default function ProfileCurrentlyWatching({
 
   if (items.length === 0) {
     return (
-      <p className="text-sm text-neutral-500 py-4">
+      <p className="text-sm text-surface-500 py-4">
         {animeOnly && itemType
           ? `No anime ${itemType === "tv" ? "series" : "movies"} in progress.`
           : "Not watching anything right now."}
@@ -122,7 +122,7 @@ export default function ProfileCurrentlyWatching({
         return (
           <div
             key={item.item_id}
-            className="shrink-0 w-32 sm:w-36 flex flex-col rounded-xl overflow-hidden border border-neutral-700 bg-neutral-800/80 hover:border-neutral-600 hover:bg-neutral-800 transition-colors group"
+            className="shrink-0 w-32 sm:w-36 flex flex-col rounded-xl overflow-hidden border border-surface-700 bg-surface-800/80 hover:border-surface-600 hover:bg-surface-800 transition-colors group"
           >
             <Link
               href={href}
@@ -134,12 +134,12 @@ export default function ProfileCurrentlyWatching({
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
               <div className="absolute top-2 left-2">
-                <span className="px-1.5 py-0.5 rounded bg-amber-500/90 text-neutral-900 text-[10px] font-semibold uppercase tracking-wide">
+                <span className="px-1.5 py-0.5 rounded bg-accent-gold/90 text-surface-950 text-[10px] font-semibold uppercase tracking-wide">
                   {item.item_type === "tv" ? "TV" : "Movie"}
                 </span>
               </div>
               {progressText && (
-                <div className="absolute bottom-0 left-0 right-0 bg-neutral-900/80 backdrop-blur-sm px-2 py-1">
+                <div className="absolute bottom-0 left-0 right-0 bg-surface-900/80 backdrop-blur-sm px-2 py-1">
                   <p className="text-[10px] font-medium text-amber-400 truncate">
                     {progressText}
                   </p>
@@ -149,14 +149,14 @@ export default function ProfileCurrentlyWatching({
             <div className="p-2 flex-1">
               <Link
                 href={href}
-                className="text-sm font-medium text-neutral-100 line-clamp-2 hover:text-indigo-400 transition-colors"
+                className="text-sm font-medium text-surface-100 line-clamp-2 hover:text-brand-400 transition-colors"
               >
                 {item.item_name}
               </Link>
             </div>
 
             {/* Preference Buttons */}
-            <div className="border-t border-white/5 bg-neutral-900/50">
+            <div className="border-t border-white/5 bg-surface-900/50">
               <ThreePrefrenceBtn
                 variant="compact"
                 cardId={item.item_id}

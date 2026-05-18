@@ -146,7 +146,7 @@ const WatchedMoviesList = ({
 
       {/* Media Type Filter */}
       {!itemType && (
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-neutral-900 border border-neutral-800 w-fit mb-6">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-900 border border-surface-800 w-fit mb-6">
           {[
             { id: undefined, label: "All" },
             { id: "movie", label: "Movies" },
@@ -160,8 +160,8 @@ const WatchedMoviesList = ({
               }}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 activeType === type.id
-                  ? "bg-neutral-800 text-white shadow-sm"
-                  : "text-neutral-500 hover:text-neutral-300"
+                  ? "bg-surface-800 text-white shadow-sm"
+                  : "text-surface-500 hover:text-surface-300"
               }`}
             >
               {type.label}
@@ -177,8 +177,8 @@ const WatchedMoviesList = ({
             onClick={handleClearFilter}
             className={`text-sm md:text-base px-4 py-2 rounded-md ${
               !genreFilter
-                ? "bg-blue-500 text-white"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                ? "bg-brand-500 text-white"
+                : "bg-surface-700 text-surface-200 hover:bg-surface-600"
             }`}
           >
             All
@@ -187,8 +187,8 @@ const WatchedMoviesList = ({
             onClick={() => handleGenreFilter("Animation")}
             className={`text-sm md:text-base px-4 py-2 rounded-md ${
               genreFilter === "Animation"
-                ? "bg-blue-500 text-white"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                ? "bg-brand-500 text-white"
+                : "bg-surface-700 text-surface-200 hover:bg-surface-600"
             }`}
           >
             Anime/Animation
@@ -197,11 +197,11 @@ const WatchedMoviesList = ({
             <button
               key={index}
               onClick={() => handleGenreFilter(genre)}
-              className={`px-4 py-2 rounded-md text-sm md:text-base ${
-                genreFilter === genre
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
+            className={`px-4 py-2 rounded-md text-sm md:text-base ${
+              genreFilter === genre
+                ? "bg-brand-500 text-white"
+                : "bg-surface-700 text-surface-200 hover:bg-surface-600"
+            }`}
             >
               {genre}
             </button>
@@ -213,14 +213,14 @@ const WatchedMoviesList = ({
       {loading && memoizedMovies.length === 0 && (
         <div className="w-full p-12 flex flex-col items-center justify-center gap-4 min-h-[200px]">
           <LoadingSpinner size="lg" className="border-t-white" />
-          <p className="text-neutral-400 text-sm animate-pulse">
+          <p className="text-surface-400 text-sm animate-pulse">
             Loading your watched list…
           </p>
         </div>
       )}
       {!loading && memoizedMovies.length === 0 ? (
         <div className="w-full p-10">
-          <p className="m-auto w-fit text-neutral-400">No items yet.</p>
+          <p className="m-auto w-fit text-surface-400">No items yet.</p>
         </div>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 ">
@@ -240,12 +240,12 @@ const WatchedMoviesList = ({
             const subtitle = (
               <>
                 {tvStatusLabel && (
-                  <span className="block text-xs text-indigo-400/90 font-medium">
+                  <span className="block text-xs text-brand-400/90 font-medium">
                     {tvStatusLabel}
                   </span>
                 )}
                 {item.watched_at && (
-                  <span className="block text-xs text-neutral-500">
+                  <span className="block text-xs text-surface-500">
                     Watched {formatWatchedDate(item.watched_at)}
                   </span>
                 )}
@@ -255,7 +255,7 @@ const WatchedMoviesList = ({
                   </span>
                 )}
                 {(isOwner ? item.review_text : item.public_review_text) && (
-                  <span className="block text-xs text-neutral-400 line-clamp-2 mt-0.5">
+                  <span className="block text-xs text-surface-400 line-clamp-2 mt-0.5">
                     {(() => {
                       const text = isOwner
                         ? item.review_text
@@ -295,7 +295,7 @@ const WatchedMoviesList = ({
           {memoizedMovies.length < totalItems && (
             <div>
               <button
-                className="w-full h-full min-h-[330px] flex flex-col items-center justify-center gap-2 text-neutral-300 border border-neutral-600 bg-neutral-700/80 rounded-xl hover:bg-neutral-700 hover:border-neutral-500 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
+                className="w-full h-full min-h-[330px] flex flex-col items-center justify-center gap-2 text-surface-300 border border-surface-600 bg-surface-700/80 rounded-xl hover:bg-surface-700 hover:border-surface-500 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
                 onClick={handlePageChange}
                 disabled={loading}
                 aria-busy={loading}

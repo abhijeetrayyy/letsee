@@ -21,9 +21,9 @@ export default function ProfileAnimeSection({
       <h2 id={`anime-${type}-heading`} className="text-xl sm:text-2xl font-bold text-white tracking-tight mb-4">
         {sectionTitle}
       </h2>
-      <div className="rounded-2xl border border-neutral-700/60 bg-neutral-800/30 p-6 space-y-6">
+      <div className="rounded-2xl border border-surface-700/60 bg-surface-900/40 p-6 space-y-6">
         <div>
-          <h3 className="text-sm font-medium text-neutral-400 mb-2">
+          <h3 className="text-sm font-medium text-surface-400 mb-2">
             Watching
           </h3>
           <ProfileCurrentlyWatching
@@ -33,7 +33,7 @@ export default function ProfileAnimeSection({
           />
         </div>
         <div>
-          <h3 className="text-sm font-medium text-neutral-400 mb-2">
+          <h3 className="text-sm font-medium text-surface-400 mb-2">
             Watched
           </h3>
           <ProfileWatched

@@ -55,16 +55,16 @@ export default function ProfileHero({
         {hasBanner ? (
           <ProfileBanner src={bannerUrl!} />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-b from-neutral-800 via-neutral-800 to-neutral-900" />
+          <div className="absolute inset-0 bg-gradient-to-b from-surface-800 via-surface-800 to-surface-900" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/95 via-neutral-950/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface-950/95 via-surface-950/40 to-transparent" />
       </div>
 
       {/* Profile content — overlapping the cover only; bottom is padded so it never overlaps next section */}
       <div className="relative px-4 sm:px-6 md:px-8 -mt-24 sm:-mt-28 md:-mt-32 pt-0">
         <div className="max-w-4xl flex flex-col sm:flex-row sm:items-end gap-6">
           {/* Avatar — fallback to default on load error */}
-          <div className="shrink-0 w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-2xl overflow-hidden border-4 border-neutral-900 shadow-2xl bg-neutral-800 ring-2 ring-white/10">
+          <div className="shrink-0 w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-2xl overflow-hidden border-4 border-surface-950 shadow-2xl bg-surface-800 ring-2 ring-brand-500/20">
             <ProfileAvatar
               src={avatarSrc}
               alt={`@${username}`}
@@ -82,7 +82,7 @@ export default function ProfileHero({
                 {isOwner && (
                   <Link
                     href="/app/profile/setup"
-                    className="shrink-0 p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/90 transition-colors"
+                    className="shrink-0 p-2.5 rounded-xl bg-surface-800/80 hover:bg-brand-500/20 text-surface-200 hover:text-brand-400 transition-all border border-surface-700/50"
                     aria-label="Edit profile"
                   >
                     <FaEdit className="w-5 h-5" />
@@ -102,7 +102,7 @@ export default function ProfileHero({
             </div>
 
             {isOwner && (
-              <div className="pt-2 border-t border-white/10">
+              <div className="pt-2 border-t border-surface-700/50">
                 {visibilityControl}
               </div>
             )}
