@@ -2,6 +2,8 @@
 
 > Full capability documentation for the LetSee social film/TV journal.
 > Covers every feature, its logic, data flow, and file locations.
+>
+> **Profile Upgrade Plan**: See `docs/PROFILE_UPGRADE_PLAN.md` for the complete analysis and roadmap for the world-class profile page upgrade.
 
 ---
 
@@ -21,6 +23,34 @@
 12. [Batch & Utility APIs](#12-batch--utility-apis)
 13. [Infrastructure](#13-infrastructure)
 14. [Data Model](#14-data-model)
+
+---
+
+## World-Class Upgrade Status
+
+### ✅ Completed (6 of 14 features upgraded)
+
+| # | Feature | Commit | Key Upgrades |
+|---|---------|--------|-------------|
+| 2.6 | **What to Watch** | `d62e6a5` | Multi-step wizard, 10 visual mood cards, smart ranking (weighted shuffle), session dedup, quick presets, re-roll/reset, thumbs feedback, skeleton loading, staggered animation |
+| 3.3 | **Natural Language Search** | `d2edbd5` | Director/rating/language parsing, voice search, interpretation pill chips, recent searches dropdown, example chips, refine-in-discover, shuffle button, staggered animation |
+| 7.2 | **Collaborative Filtering** | `318ad89` | Recency bonus (15% boost), similar user profiles with avatars/genres, per-card match tags, auto-load on mount, skeleton loading, staggered animation |
+| 7.3 | **Because You Watched X** | `9f03b83` | Genre breakdown tooltip, one-click add to watchlist, inline overview preview, match score bar, score badge, dynamic section title with top genres |
+| 8.1 | **Viewing Dashboard** | `a202c94` | Chart.js interactive bars (tooltips, gradients), Year-in-Review card (exportable PNG), full dashboard PNG export, glassmorphism design, API yearInReview section |
+| 9.1 | **Smart Watchlist** | `e848c2b` | Drag-to-reorder (localStorage), batch actions (select/remove), predicted rating histogram, inline remove, staggered animation |
+
+### ❌ Not Yet Upgraded (8 remaining)
+
+| Section | Feature | Planned Upgrades |
+|---------|---------|-----------------|
+| 9.2 | **TV Completion Predictor** | Calendar integration, catch-up pace toggle, batch episode updates |
+| 9.3 | **Franchise Tracker** | Auto-discover franchises, image grid view, franchise progress |
+| 9.4 | **Friend Compatibility** | Genre affinity breakdown chart, shared picks widget |
+| 10 | **TV-Specific Features** | Season progress bars, episode check-in modal |
+| 11.1 | **Streaming Availability Alerts** | Notification inbox, one-click filter by provider |
+| 11.2 | **Background Jobs** | Job status dashboard, retry controls |
+| 12 | **Batch Operations API** | Undo support, progress WebSocket, idempotency keys |
+| 6 | **Social Features** | Activity feed enhancements, recommendation sharing |
 
 ---
 
@@ -472,7 +502,7 @@ Individual stat endpoints:
 **File**: `src/components/profile/SmartWatchlist.tsx`
 **API**: `src/app/api/watchlist/smart/route.ts`
 
-**World-Class Upgrade** (pending commit):
+**World-Class Upgrade** (commit `e848c2b`):
 
 **Algorithm**:
 1. Fetch user's ratings + watched genres.
