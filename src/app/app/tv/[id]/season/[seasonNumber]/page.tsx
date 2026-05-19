@@ -1,4 +1,3 @@
-// app/tv/[id]/season/[seasonNumber]/page.tsx
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -7,6 +6,7 @@ import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { fetchTmdb } from "@/utils/tmdbClient";
 import { createClient } from "@/utils/supabase/server";
 import TvStatusSelector from "@/components/tv/TvStatusSelector";
+import { ArrowLeft, Tv, Calendar, Film } from "lucide-react";
 
 interface Episode {
   id: number;
@@ -38,7 +38,6 @@ const getNumericId = (value: string) => {
 
 const SEASON_REVALIDATE_SEC = 300;
 
-// Fetch series (cached) and season data (one TMDB call for season)
 const fetchSeriesAndSeasonData = async (
   seriesId: string,
   seasonNumber: string,
@@ -104,25 +103,25 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
     data = await fetchSeriesAndSeasonData(numericId, seasonNumber);
   } catch (error) {
     return (
-      <div className="min-h-screen bg-neutral-900 text-neutral-200 flex items-center justify-center p-4">
-        <p className="text-red-400 text-center">
-          Error: {(error as Error).message}
-        </p>
+      <div className="min-h-screen bg-surface-950 text-white flex items-center justify-center p-4">
+        <div className="glass-card rounded-2xl p-8 max-w-md text-center">
+          <p className="text-red-400 text-lg font-semibold">Error loading season</p>
+          <p className="text-surface-400 text-sm mt-2">{(error as Error).message}</p>
+          <Link href={`/app/tv/${numericId}`} className="btn-primary mt-4 inline-block">
+            Back to Show
+          </Link>
+        </div>
       </div>
     );
   }
 
-  const { seriesName, seriesOverview, seriesPoster, seasons, currentSeason } =
-    data;
+  const { seriesName, seriesOverview, seriesPoster, seasons, currentSeason } = data;
   const currentSeasonNum = parseInt(seasonNumber, 10);
-  const nextSeason = seasons.find(
-    (s: any) => s.season_number === currentSeasonNum + 1,
-  );
+  const prevSeason = seasons.find((s: any) => s.season_number === currentSeasonNum - 1 && s.season_number > 0);
+  const nextSeason = seasons.find((s: any) => s.season_number === currentSeasonNum + 1);
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   let initialTVStatus = null;
   if (user) {
     const { data } = await supabase
@@ -135,123 +134,160 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-900 text-neutral-200 p-4">
-      <div className="max-w-5xl mx-auto">
-        {/* Series Header */}
-        <header className="mb-8 flex flex-col sm:flex-row gap-6">
-          {seriesPoster && (
-            <img
-              src={`https://image.tmdb.org/t/p/w300${seriesPoster}`}
-              alt={seriesName}
-              width={300}
-              height={450}
-              className="rounded-lg object-cover"
-            />
-          )}
-          <div className="flex-1">
-            <Link
-              href={`/app/tv/${numericId}`}
-              className="text-2xl sm:text-4xl font-bold text-neutral-100  hover:underline "
-            >
-              {seriesName}
-            </Link>
-            <p className="text-sm sm:text-base text-neutral-300 mb-4 py-5">
-              {seriesOverview || "No overview available."}
-            </p>
-            <p className="text-sm text-neutral-400">
-              Showing Season {currentSeasonNum} of {seasons.length}
-            </p>
-            <div className="mt-4">
-              <TvStatusSelector
-                showId={numericId}
-                initialStatus={initialTVStatus}
-              />
-            </div>
-          </div>
-        </header>
+    <div className="min-h-screen bg-surface-950 text-white">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-brand-500/5 via-surface-950 to-surface-950" />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          {/* Back Link */}
+          <Link href={`/app/tv/${numericId}`} className="inline-flex items-center gap-2 text-sm text-surface-400 hover:text-brand-400 transition-colors mb-6">
+            <ArrowLeft className="w-4 h-4" />
+            Back to {seriesName}
+          </Link>
 
-        {/* Current Season Details */}
-        <section className="bg-neutral-800 rounded-lg p-4 mb-8">
-          <div className="flex flex-col sm:flex-row gap-4">
-            {currentSeason.poster_path && (
-              <img
-                src={`https://image.tmdb.org/t/p/w185${currentSeason.poster_path}`}
-                alt={currentSeason.name}
-                width={185}
-                height={278}
-                className="rounded-md object-cover"
-              />
+          <div className="flex flex-col sm:flex-row gap-6 sm:gap-8">
+            {/* Series Poster */}
+            {seriesPoster && (
+              <div className="shrink-0 w-32 sm:w-40">
+                <div className="relative rounded-xl overflow-hidden ring-1 ring-white/10 shadow-xl">
+                  <img
+                    src={`https://image.tmdb.org/t/p/w300${seriesPoster}`}
+                    alt={seriesName}
+                    className="w-full aspect-[2/3] object-cover"
+                  />
+                </div>
+              </div>
             )}
-            <div className="flex-1">
-              <h2 className="text-xl sm:text-2xl font-semibold text-neutral-100 mb-2">
-                {currentSeason.name}
-              </h2>
-              <p className="text-sm text-neutral-400 mb-2">
-                {currentSeason.air_date?.slice(0, 4) || "TBA"}
+
+            {/* Series Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <Tv className="w-4 h-4 text-brand-400" />
+                <span className="text-xs text-surface-500 font-medium uppercase tracking-wider">TV Series</span>
+              </div>
+              <Link href={`/app/tv/${numericId}`} className="text-2xl sm:text-4xl font-black text-white hover:text-brand-400 transition-colors">
+                {seriesName}
+              </Link>
+              <p className="text-sm text-surface-400 mt-3 line-clamp-3 max-w-2xl">
+                {seriesOverview || "No overview available."}
               </p>
-              <p className="text-sm text-neutral-300">
-                {currentSeason.overview || "No overview available."}
-              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <span className="pill-glass text-sm">
+                  Season {currentSeasonNum} of {seasons.length}
+                </span>
+                <span className="pill-glass text-sm flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5" />
+                  {currentSeason.air_date?.slice(0, 4) || "TBA"}
+                </span>
+                <span className="pill-glass text-sm flex items-center gap-1">
+                  <Film className="w-3.5 h-3.5" />
+                  {currentSeason.episodes.length} episodes
+                </span>
+              </div>
+              <div className="mt-4">
+                <TvStatusSelector showId={numericId} initialStatus={initialTVStatus} />
+              </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Episode List with Mark watched */}
-          <EpisodeListWithWatched
-            showId={numericId}
-            seasonNumber={currentSeasonNum}
-            episodes={currentSeason.episodes}
-            allSeasons={seasons}
-          />
-        </section>
+      {/* Main Content */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        {/* Season Details */}
+        {currentSeason.overview && (
+          <div className="glass-card rounded-2xl p-5 mb-8">
+            <div className="flex items-start gap-4">
+              {currentSeason.poster_path && (
+                <img
+                  src={`https://image.tmdb.org/t/p/w185${currentSeason.poster_path}`}
+                  alt={currentSeason.name}
+                  className="shrink-0 w-24 rounded-lg object-cover ring-1 ring-white/10"
+                />
+              )}
+              <div>
+                <h2 className="text-xl font-bold text-white">{currentSeason.name}</h2>
+                <p className="text-sm text-surface-400 mt-2 leading-relaxed">
+                  {currentSeason.overview}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
-        {/* All Seasons List */}
-        <section className="mb-8">
-          <h2 className="text-xl sm:text-2xl font-semibold text-neutral-100 mb-4">
-            All Seasons
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {seasons.map((season: Season) => (
+        {/* Episode List */}
+        <EpisodeListWithWatched
+          showId={numericId}
+          seasonNumber={currentSeasonNum}
+          episodes={currentSeason.episodes}
+          allSeasons={seasons}
+        />
+
+        {/* Season Navigation */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mt-8 pt-6 border-t border-white/5">
+          {prevSeason ? (
+            <Link href={`/app/tv/${numericId}/season/${prevSeason.season_number}`} className="btn-secondary">
+              <ArrowLeft className="w-4 h-4" />
+              Season {prevSeason.season_number}
+            </Link>
+          ) : (
+            <div />
+          )}
+          {nextSeason ? (
+            <Link href={`/app/tv/${numericId}/season/${nextSeason.season_number}`} className="btn-primary">
+              Season {nextSeason.season_number}
+              <ArrowLeft className="w-4 h-4 rotate-180" />
+            </Link>
+          ) : (
+            <div />
+          )}
+        </div>
+
+        {/* All Seasons Grid */}
+        <div className="mt-12">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+            <div>
+              <h2 className="text-xl font-bold text-white">All Seasons</h2>
+              <p className="text-sm text-surface-500 mt-0.5">{seasons.length} seasons</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {seasons.filter((s: any) => s.season_number > 0).map((season: Season) => (
               <Link
                 key={season.id}
                 href={`/app/tv/${numericId}/season/${season.season_number}`}
-                className={`flex flex-col items-center p-2 rounded-lg transition-colors duration-200 ${
+                className={`group rounded-xl overflow-hidden transition-all duration-200 hover:-translate-y-1 ${
                   season.season_number === currentSeasonNum
-                    ? "bg-neutral-700"
-                    : "bg-neutral-800 hover:bg-neutral-700"
+                    ? "ring-2 ring-brand-500 shadow-lg shadow-brand-500/20"
+                    : "glass-card hover:border-surface-600/50"
                 }`}
               >
-                {season.poster_path ? (
-                  <img
-                    src={`https://image.tmdb.org/t/p/w154${season.poster_path}`}
-                    alt={season.name}
-                    width={154}
-                    height={231}
-                    className="rounded-md object-cover"
-                  />
-                ) : (
-                  <div className="w-[154px] h-[231px] bg-neutral-600 rounded-md flex items-center justify-center">
-                    <span className="text-xs text-neutral-400">No Image</span>
-                  </div>
-                )}
-                <span className="text-sm text-neutral-200 mt-2 text-center">
-                  {season.name}
-                </span>
+                <div className="aspect-[2/3] overflow-hidden">
+                  {season.poster_path ? (
+                    <img
+                      src={`https://image.tmdb.org/t/p/w185${season.poster_path}`}
+                      alt={season.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-surface-800 flex flex-col items-center justify-center">
+                      <Tv className="w-8 h-8 text-surface-600 mb-2" />
+                      <span className="text-xs text-surface-500">No image</span>
+                    </div>
+                  )}
+                </div>
+                <div className="p-3">
+                  <h3 className="text-sm font-semibold text-white truncate">{season.name}</h3>
+                  <p className="text-xs text-surface-500 mt-0.5">
+                    {season.episode_count} episodes
+                    {season.air_date && ` · ${season.air_date.slice(0, 4)}`}
+                  </p>
+                </div>
               </Link>
             ))}
           </div>
-        </section>
-
-        {/* Next Season Button */}
-        {nextSeason && (
-          <div className="text-center">
-            <Link
-              href={`/app/tv/${numericId}/season/${nextSeason.season_number}`}
-              className="inline-block bg-blue-600 text-white py-2 px-6 rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors duration-300"
-            >
-              Next Season (Season {nextSeason.season_number})
-            </Link>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
