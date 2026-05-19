@@ -351,16 +351,29 @@ Returns count of each score 1–10 for a user.
 **File**: `src/components/ai/collaborativeRecs.tsx`
 **API**: `src/app/api/recommendations/collaborative/route.ts`
 
+**World-Class Upgrade** (pending commit):
+
 **Algorithm**:
 1. Build normalized genre vector for current user.
 2. Sample up to 200 other users (recently active), build their genre vectors.
 3. Compute cosine similarity to each, keep those with similarity > 0.15.
 4. From top 20 similar users, collect items they rated ≥ 7/10.
-5. Weight recommendations by average score × user count.
-6. Exclude items user has already watched/favorited.
-7. Return up to 15 recommendations with avg score and user count.
+5. **Recency bonus**: items with ratings in the last 90 days get a 15% score boost (per recent-user ratio).
+6. Weight recommendations by adjusted score, then user count.
+7. Exclude items user has already watched/favorited.
+8. Return up to 15 recommendations with avg score, user count, recency flag, and genre match tags.
 
-**Output**: Shows similarity match % with the top source users.
+**Output**:
+- **Similar users row**: up to 6 user avatars with similarity %, display name, and top genre — shown as clickable chips
+- **Per-recommendation match tags**: genre badges (e.g., "Action", "Sci-Fi") showing why each item was recommended, based on intersection with user's top genres
+- **Recency indicator**: green "Recent" label on items with recent ratings
+- **User count footer**: number of similar users who rated it highly
+- **Taste summary**: header shows "Based on your taste in Action, Drama, Sci-Fi"
+- **Auto-loads** on mount instead of requiring button click; refresh button preserved
+- **Skeleton loading** grid (5 animated cards) during fetch
+- **Staggered card entrance** animation (60ms delay per card)
+
+**Edge cases**: Note messages for no data, no similar users, or all items consumed.
 
 ### 7.3 "Because You Watched X"
 
@@ -388,7 +401,7 @@ Simpler content-based: genre frequency → top genres → discover popular in th
 **File**: `src/components/profile/ViewingDashboard.tsx`
 **API**: `src/app/api/profile/stats/dashboard/route.ts`
 
-**World-Class Upgrade** (pending commit):
+**World-Class Upgrade** (commit `a202c94`):
 
 **Visualization**:
 - All bar charts replaced with **Chart.js** (via `react-chartjs-2`): monthly activity, yearly (stacked movie/TV), weekday habits, top genres (horizontal), rating distribution
