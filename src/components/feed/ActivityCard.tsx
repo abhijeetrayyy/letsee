@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import LikeButton from "@components/reactions/LikeButton";
 
 type ActivityItem = {
   id: number;
@@ -17,6 +18,8 @@ type ActivityItem = {
   review_text: string | null;
   list_name: string | null;
   created_at: string;
+  source_type: "review" | "rating" | "list" | null;
+  source_id: number | null;
 };
 
 function formatDate(iso: string): string {
@@ -175,6 +178,17 @@ export default function ActivityCard({ item }: { item: ActivityItem }) {
             )}
           </div>
         </div>
+
+        {/* Like button */}
+        {item.source_type && item.source_id != null && (
+          <div className="flex items-center gap-2 pt-1">
+            <LikeButton
+              targetType={item.source_type}
+              targetId={item.source_id}
+              size="sm"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
+import LikeButton from "@components/reactions/LikeButton";
 
 interface ReviewItem {
   id: number;
@@ -153,6 +154,9 @@ export default function PublicReviews({ itemId, itemType }: PublicReviewsProps) 
                         </span>
                       </div>
                       <p className="text-neutral-300 text-sm whitespace-pre-wrap">{r.reviewText}</p>
+                      <div className="mt-2">
+                        <LikeButton targetType="review" targetId={r.id} size="sm" />
+                      </div>
                     </div>
                     {isMine && (
                       <div className="flex shrink-0 gap-2">

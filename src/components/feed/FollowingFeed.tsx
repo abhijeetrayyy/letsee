@@ -19,6 +19,8 @@ type ActivityItem = {
   review_text: string | null;
   list_name: string | null;
   created_at: string;
+  source_type: "review" | "rating" | "list" | null;
+  source_id: number | null;
 };
 
 type FeedResponse = {

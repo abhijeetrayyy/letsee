@@ -18,6 +18,8 @@ type ActivityItem = {
   review_text: string | null;
   list_name: string | null;
   created_at: string;
+  source_type: "review" | "rating" | "list" | null;
+  source_id: number | null;
 };
 
 export async function GET(request: Request) {
@@ -160,6 +162,8 @@ export async function GET(request: Request) {
       review_text: w.public_review_text,
       list_name: null,
       created_at: w.watched_at,
+      source_type: w.public_review_text ? "review" : null,
+      source_id: w.id,
     });
   }
 
@@ -188,6 +192,8 @@ export async function GET(request: Request) {
       review_text: null,
       list_name: null,
       created_at: r.created_at,
+      source_type: "rating",
+      source_id: r.id,
     });
   }
 
@@ -210,6 +216,8 @@ export async function GET(request: Request) {
       review_text: null,
       list_name: l.name,
       created_at: l.created_at,
+      source_type: "list",
+      source_id: l.id,
     });
   }
 
