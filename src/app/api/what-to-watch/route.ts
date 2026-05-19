@@ -6,14 +6,17 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
-const MAX_PICKS = 10;
+const MAX_PICKS = 12;
+const SURPRISE_GENRES = [28, 12, 35, 18, 14, 27, 878, 53, 10749, 9648];
 
 type WhatToWatchParams = {
-  mood?: string;
+  moods?: string[];
   genre?: string;
   runtime?: string;
   decade?: string;
   mediaType?: string;
+  surprise?: string;
+  excludeIds?: string;
 };
 
 function getDecadeFilter(decade: string): { gte?: string; lte?: string } {
@@ -26,23 +29,75 @@ function getRuntimeFilter(runtime: string): { gte?: number; lte?: number } {
   return opt ? { gte: opt.min, lte: opt.max } : {};
 }
 
-function shuffleArray<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+function buildGenreVector(items: { genres?: string[] | null }[]): Record<string, number> {
+  const v: Record<string, number> = {};
+  for (const item of items) {
+    if (Array.isArray(item.genres)) {
+      for (const g of item.genres) v[g] = (v[g] ?? 0) + 1;
+    }
   }
-  return a;
+  const mag = Math.sqrt(Object.values(v).reduce((s, x) => s + x * x, 0));
+  if (mag > 0) for (const k of Object.keys(v)) v[k] /= mag;
+  return v;
+}
+
+function pickReason(item: any, genreVector: Record<string, number>): string {
+  const genreNames = (item.genre_ids as number[] ?? []).map(String);
+  const matched = genreNames.filter((g) => genreVector[g]);
+  if (matched.length > 0) {
+    const best = matched.sort((a, b) => (genreVector[b] ?? 0) - (genreVector[a] ?? 0))[0];
+    return `Matches your taste`;
+  }
+  if (item.vote_average >= 7.5) return "Critically acclaimed";
+  if (item.vote_average >= 6) return "Well-received";
+  return "Popular pick";
+}
+
+function smartScore(item: any, genreVector: Record<string, number>, genreNames: Set<string>): number {
+  const itemGenres = new Set((item.genre_ids as number[] ?? []).map(String));
+  let tasteScore = 0;
+  let matched = 0;
+  for (const g of itemGenres) {
+    if (genreVector[g]) {
+      tasteScore += genreVector[g];
+      matched++;
+    }
+  }
+  const tasteAvg = matched > 0 ? tasteScore / matched : 0;
+  const genreOverlap = genreNames.size > 0 ? [...itemGenres].filter((g) => genreNames.has(g)).length / genreNames.size : 0;
+  const quality = Math.min(1, (item.vote_average ?? 0) / 10);
+  return tasteAvg * 0.4 + genreOverlap * 0.3 + quality * 0.3;
+}
+
+function weightedShuffle<T>(items: T[], scores: number[]): T[] {
+  const indexed = items.map((item, i) => ({ item, weight: Math.max(0.1, scores[i] ?? 0.5) }));
+  const totalWeight = indexed.reduce((s, x) => s + x.weight, 0);
+  const result: T[] = [];
+  const remaining = [...indexed];
+  while (remaining.length > 0) {
+    const r = Math.random() * remaining.reduce((s, x) => s + x.weight, 0);
+    let cum = 0;
+    let chosen = 0;
+    for (let i = 0; i < remaining.length; i++) {
+      cum += remaining[i].weight;
+      if (r <= cum) { chosen = i; break; }
+    }
+    result.push(remaining[chosen].item);
+    remaining.splice(chosen, 1);
+  }
+  return result;
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const params: WhatToWatchParams = {
-    mood: searchParams.get("mood") ?? undefined,
+    moods: searchParams.get("moods")?.split(",").filter(Boolean),
     genre: searchParams.get("genre") ?? undefined,
     runtime: searchParams.get("runtime") ?? undefined,
     decade: searchParams.get("decade") ?? undefined,
     mediaType: searchParams.get("mediaType") ?? "movie",
+    surprise: searchParams.get("surprise") ?? undefined,
+    excludeIds: searchParams.get("exclude") ?? undefined,
   };
 
   const apiKey = process.env.TMDB_API_KEY;
@@ -55,40 +110,59 @@ export async function GET(request: Request) {
   const userId = auth?.user?.id;
 
   let consumedIds = new Set<string>();
+  let genreVector: Record<string, number> = {};
+  let userGenreNames = new Set<string>();
+
   if (userId) {
     const [watchedRes, favRes] = await Promise.all([
-      supabase.from("watched_items").select("item_id, item_type").eq("user_id", userId),
-      supabase.from("favorite_items").select("item_id, item_type").eq("user_id", userId),
+      supabase.from("watched_items").select("item_id, item_type, genres").eq("user_id", userId),
+      supabase.from("favorite_items").select("item_id, item_type, genres").eq("user_id", userId),
     ]);
     for (const item of [...(watchedRes.data ?? []), ...(favRes.data ?? [])]) {
       consumedIds.add(`${item.item_type}:${item.item_id}`);
     }
+    genreVector = buildGenreVector([...(watchedRes.data ?? []), ...(favRes.data ?? [])]);
+    for (const item of [...(watchedRes.data ?? []), ...(favRes.data ?? [])]) {
+      if (Array.isArray(item.genres)) item.genres.forEach((g: string) => userGenreNames.add(g));
+    }
   }
 
-  const moodInfo = params.mood ? MOODS[params.mood] : null;
-  const genreId = params.genre ? parseInt(params.genre) : null;
+  // Exclude IDs from client session
+  if (params.excludeIds) {
+    for (const eid of params.excludeIds.split(",")) {
+      consumedIds.add(`movie:${eid}`);
+      consumedIds.add(`tv:${eid}`);
+    }
+  }
+
+  const isSurprise = params.surprise === "true";
+  const moodList = params.moods?.map((m) => MOODS[m]).filter(Boolean) ?? [];
   const runtimeFilter = params.runtime ? getRuntimeFilter(params.runtime) : {};
   const decadeFilter = params.decade ? getDecadeFilter(params.decade) : {};
 
   const mediaTypes = params.mediaType === "both" ? ["movie", "tv"] : [params.mediaType || "movie"];
-
   const allPicks: any[] = [];
+  const allScores: number[] = [];
 
   for (const mediaType of mediaTypes) {
     const endpoint = mediaType === "movie" ? "discover/movie" : "discover/tv";
     const paramsObj = new URLSearchParams({
       api_key: apiKey,
       language: "en-US",
-      sort_by: "vote_average.desc",
       "vote_count.gte": "50",
       page: "1",
     });
 
-    let genres: number[] = [];
-    if (moodInfo) genres.push(...moodInfo.genres);
-    if (genreId) genres.push(genreId);
-    if (genres.length > 0) {
-      paramsObj.set("with_genres", [...new Set(genres)].join(","));
+    if (isSurprise) {
+      // Surprise mode: random genre from popular set
+      const randomGenre = SURPRISE_GENRES[Math.floor(Math.random() * SURPRISE_GENRES.length)];
+      paramsObj.set("sort_by", "vote_average.desc");
+      paramsObj.set("with_genres", String(randomGenre));
+    } else {
+      let genres: number[] = [];
+      for (const mood of moodList) genres.push(...mood.genres);
+      if (genres.length > 0) paramsObj.set("with_genres", [...new Set(genres)].join(","));
+      paramsObj.set("sort_by", "popularity.desc");
     }
 
     if (mediaType === "movie") {
@@ -105,18 +179,26 @@ export async function GET(request: Request) {
 
     try {
       const data = await serverFetchJson<{ results?: any[] }>(url);
-      const results = (data.results ?? []).filter((item: any) => {
+      for (const item of (data.results ?? [])) {
         const key = `${mediaType}:${item.id}`;
-        return !consumedIds.has(key);
-      });
-      allPicks.push(...results.map((r: any) => ({ ...r, _mediaType: mediaType })));
+        if (!consumedIds.has(key)) {
+          allPicks.push({ ...item, _mediaType: mediaType });
+        }
+      }
     } catch {
       // skip failed endpoint
     }
   }
 
-  const shuffled = shuffleArray(allPicks);
-  const picks = shuffled.slice(0, MAX_PICKS).map((item: any) => ({
+  for (const item of allPicks) {
+    const score = isSurprise
+      ? Math.random()
+      : smartScore(item, genreVector, userGenreNames);
+    allScores.push(score);
+  }
+
+  const ordered = weightedShuffle(allPicks, allScores);
+  const picks = ordered.slice(0, MAX_PICKS).map((item: any) => ({
     id: String(item.id),
     title: item.title ?? item.name ?? "Unknown",
     mediaType: item._mediaType ?? "movie",
@@ -125,17 +207,19 @@ export async function GET(request: Request) {
     overview: item.overview ?? "",
     voteAverage: item.vote_average ?? 0,
     genreIds: item.genre_ids ?? [],
+    reason: pickReason(item, genreVector),
   }));
 
   return NextResponse.json({
     params: {
-      mood: moodInfo ? { label: moodInfo.label, icon: moodInfo.icon } : null,
-      genre: genreId,
+      moods: moodList.map((m) => ({ label: m.label, icon: m.icon })),
       runtime: params.runtime ?? null,
       decade: params.decade ?? null,
       mediaType: params.mediaType ?? "movie",
+      isSurprise,
     },
     picks,
     total: picks.length,
+    sessionId: Date.now().toString(36),
   });
 }
