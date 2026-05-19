@@ -12,7 +12,8 @@ import {
 } from "@/utils/searchUrl";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FaFilter, FaSearch } from "react-icons/fa";
+import { FaFilter, FaSearch, FaMagic } from "react-icons/fa";
+import NaturalSearch from "@components/search/NaturalSearch";
 
 const MAX_RECENT = 8;
 const STORAGE_KEY = "recent_searches";
@@ -241,6 +242,18 @@ export default function SearchLandingPage() {
           Search
         </button>
       </form>
+
+      {/* Natural Language Search Toggle */}
+      <details className="mb-6 group">
+        <summary className="cursor-pointer flex items-center gap-2 text-sm text-surface-400 hover:text-surface-200 transition-colors select-none">
+          <FaMagic className="w-4 h-4 text-brand-400 group-open:text-brand-300" />
+          <span className="font-medium">Smart Search</span>
+          <span className="text-xs text-surface-500">— search in plain English</span>
+        </summary>
+        <div className="mt-4">
+          <NaturalSearch />
+        </div>
+      </details>
 
       {/* Live results (fetch on word change – same as desktop) */}
       {showResults && (

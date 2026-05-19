@@ -24,6 +24,8 @@ import ReviewsSection from "@components/profile/ReviewsSection";
 import WatchedGrid from "@components/profile/WatchedGrid";
 import ListsSection from "@components/profile/ListsSection";
 import StatsSection from "@components/profile/StatsSection";
+import ViewingDashboard from "@components/profile/ViewingDashboard";
+import FriendCompatibility from "@components/profile/FriendCompatibility";
 import ActivityFeed from "@components/profile/ActivityFeed";
 
 export const dynamic = "force-dynamic";
@@ -339,6 +341,13 @@ export default async function ProfilePage({ params }: PageProps) {
           }}
         />
 
+        {/* Friend compatibility (only when viewing other's profile) */}
+        {!isOwner && currentUserId && (
+          <section aria-label="Compatibility">
+            <FriendCompatibility profileId={user.id} />
+          </section>
+        )}
+
         {/* Taste in 4 */}
         <section aria-label="Taste in 4">
           <div className="flex items-center justify-between gap-4 mb-4">
@@ -448,6 +457,11 @@ export default async function ProfilePage({ params }: PageProps) {
                 }
                 lists={
                   <ListsSection profileId={user.id} isOwner={isOwner} />
+                }
+                dashboard={
+                  isOwner ? (
+                    <ViewingDashboard userId={user.id} isOwner={isOwner} />
+                  ) : undefined
                 }
                 stats={
                   <StatsSection

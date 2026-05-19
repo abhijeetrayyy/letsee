@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 
-type TabId = "diary" | "reviews" | "films" | "lists" | "stats" | "activity";
+type TabId = "diary" | "reviews" | "films" | "lists" | "dashboard" | "stats" | "activity";
 
 const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "diary", label: "Diary", icon: "📅" },
   { id: "reviews", label: "Reviews", icon: "✍️" },
   { id: "films", label: "Films", icon: "🎬" },
   { id: "lists", label: "Lists", icon: "📋" },
-  { id: "stats", label: "Stats", icon: "📊" },
+  { id: "dashboard", label: "Dashboard", icon: "📊" },
+  { id: "stats", label: "Stats", icon: "📈" },
   { id: "activity", label: "Activity", icon: "🔔" },
 ];
 
@@ -18,6 +19,7 @@ export default function ProfileTabsNew({
   reviews,
   films,
   lists,
+  dashboard,
   stats,
   activity,
 }: {
@@ -25,6 +27,7 @@ export default function ProfileTabsNew({
   reviews: React.ReactNode;
   films: React.ReactNode;
   lists: React.ReactNode;
+  dashboard?: React.ReactNode;
   stats: React.ReactNode;
   activity: React.ReactNode;
 }) {
@@ -57,6 +60,7 @@ export default function ProfileTabsNew({
         {activeTab === "reviews" && reviews}
         {activeTab === "films" && films}
         {activeTab === "lists" && lists}
+        {activeTab === "dashboard" && (dashboard ?? stats)}
         {activeTab === "stats" && stats}
         {activeTab === "activity" && activity}
       </div>

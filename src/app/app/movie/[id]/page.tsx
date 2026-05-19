@@ -1,6 +1,7 @@
 import { Countrydata } from "@/staticData/countryName";
 import Movie from "@components/clientComponent/movie";
 import MovieRecoTile from "@components/movie/recoTiles";
+import BecauseYouWatched from "@components/movie/BecauseYouWatched";
 
 import { Metadata } from "next";
 import { tmdbFetchJson } from "@/utils/tmdb";
@@ -120,6 +121,7 @@ const MovieDetails = async ({ params }: PageProps) => {
         credits={credits}
         id={numericId}
       />
+      <BecauseYouWatched itemId={numericId} mediaType="movie" sectionTitle="Because you watched this" />
       {recoData.total_results > 0 && (
         <MovieRecoTile type="movie" title={movie.title} data={recoData} sectionTitle="More like this" />
       )}

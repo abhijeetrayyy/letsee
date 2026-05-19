@@ -1,5 +1,6 @@
 import Tv from "@components/clientComponent/tv";
 import MovieRecoTile from "@components/movie/recoTiles";
+import BecauseYouWatched from "@components/movie/BecauseYouWatched";
 import { Metadata } from "next";
 import { tmdbFetchJson } from "@/utils/tmdb";
 import { notFound } from "next/navigation";
@@ -116,6 +117,7 @@ const ShowDetails = async ({ params }: PageProps) => {
         crew={crew}
         id={numericId}
       />
+      <BecauseYouWatched itemId={numericId} mediaType="tv" sectionTitle="Because you watched this" />
       {recoData.total_results > 0 && (
         <MovieRecoTile type="tv" title={show.name} data={recoData} sectionTitle="More like this" />
       )}

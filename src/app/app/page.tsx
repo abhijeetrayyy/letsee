@@ -3,6 +3,9 @@ import DiscoverUsers from "@components/home/DiscoverUser";
 import CalendarSection from "@components/home/CalendarSection";
 import ContinueWatchingSection from "@components/home/ContinueWatchingSection";
 import OpenAiReco from "@components/ai/openaiReco";
+import CollaborativeRecs from "@components/ai/collaborativeRecs";
+import WhatToWatch from "@components/home/WhatToWatch";
+import CompletionPredictor from "@components/tv/CompletionPredictor";
 import HomeVideo from "@components/home/videoReel";
 import MovieGenre from "@components/scroll/movieGenre";
 import TvGenre from "@components/scroll/tvGenre";
@@ -61,7 +64,38 @@ export default async function Home() {
         {/* Continue watching */}
         <ContinueWatchingSection />
 
-        {/* Personal recommendations */}
+        {/* TV completion predictor */}
+        <section className="animate-fade-up" aria-labelledby="predictor-heading">
+          <div className="flex items-end justify-between mb-5">
+            <div>
+              <h2 id="predictor-heading" className={headingBase}>
+                <Tv className="w-5 h-5 text-accent-purple" />
+                TV Completion Forecast
+              </h2>
+              <p className="text-sm text-surface-500 mt-1">
+                Estimated finish dates for your shows
+              </p>
+            </div>
+          </div>
+          <CompletionPredictor />
+        </section>
+
+        {/* What to watch picker */}
+        <section className="animate-fade-up" aria-labelledby="picker-heading">
+          <div className="flex items-end justify-between mb-5">
+            <div>
+              <h2 id="picker-heading" className={headingBase}>
+                <Sparkles className="w-5 h-5 text-accent-purple" />
+                What should I watch?
+              </h2>
+              <p className="text-sm text-surface-500 mt-1">
+                Pick a mood, set filters, and let us decide
+              </p>
+            </div>
+          </div>
+          <WhatToWatch />
+        </section>
+
         <section className="animate-fade-up stagger-1" aria-labelledby="reco-heading">
           <div className="flex items-end justify-between mb-5">
             <div>
@@ -80,8 +114,24 @@ export default async function Home() {
           <OpenAiReco />
         </section>
 
+        {/* Collaborative recommendations */}
+        <section className="animate-fade-up stagger-2" aria-labelledby="collab-heading">
+          <div className="flex items-end justify-between mb-5">
+            <div>
+              <h2 id="collab-heading" className={headingBase}>
+                <Users className="w-5 h-5 text-accent-purple" />
+                People Like You Also Like
+              </h2>
+              <p className="text-sm text-surface-500 mt-1">
+                Powered by collaborative filtering with similar viewers
+              </p>
+            </div>
+          </div>
+          <CollaborativeRecs />
+        </section>
+
         {/* Discover people */}
-        <section className="animate-fade-up stagger-2" aria-labelledby="discover-heading">
+        <section className="animate-fade-up stagger-3" aria-labelledby="discover-heading">
           <div className="flex items-end justify-between mb-5">
             <div>
               <h2 id="discover-heading" className={headingBase}>
