@@ -86,21 +86,21 @@ export default function CollaborativeRecs() {
     <div ref={sectionRef} className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-accent-purple shrink-0" />
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+          <div className="flex-1 min-w-0">
             <h3 className="text-base font-semibold text-surface-100">People Like You Also Like</h3>
+            {userTopGenres.length > 0 && (
+              <p className="text-xs text-surface-500 mt-0.5">
+                Based on your taste in <span className="text-surface-300">{userTopGenres.join(", ")}</span>
+              </p>
+            )}
           </div>
-          {userTopGenres.length > 0 && (
-            <p className="text-xs text-surface-500 mt-0.5">
-              Based on your taste in <span className="text-surface-300">{userTopGenres.join(", ")}</span>
-            </p>
-          )}
         </div>
         <button
           onClick={fetchRecommendations}
           disabled={isLoading}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-surface-800 hover:bg-surface-700 text-surface-300 rounded-lg border border-surface-700/50 transition-all disabled:opacity-50 shrink-0"
+          className="btn-ghost text-xs disabled:opacity-50 shrink-0"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
           Refresh
@@ -113,7 +113,7 @@ export default function CollaborativeRecs() {
           {similarUsers.slice(0, 6).map((u, i) => (
             <div
               key={i}
-              className="flex items-center gap-2 px-3 py-1.5 bg-surface-800/40 rounded-full border border-surface-700/40 text-xs"
+              className="pill-glass text-xs"
               title={`${u.displayName ?? "User"} — ${u.similarity}% match${u.topGenres.length > 0 ? ` • ${u.topGenres.join(", ")}` : ""}`}
             >
               {u.avatarUrl ? (

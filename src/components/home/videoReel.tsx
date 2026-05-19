@@ -5,7 +5,7 @@ import Link from "next/link";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { FetchError } from "@/components/ui/FetchError";
-import { Play, Star, Calendar } from "lucide-react";
+import { Play, Star, Calendar, Clapperboard } from "lucide-react";
 
 const IMAGE_BASE = "https://image.tmdb.org/t/p";
 const FALLBACK_IMAGE = "/backgroundjpeg.webp";
@@ -132,29 +132,28 @@ function HomeHeroBanner() {
   const current = items[currentIndex];
   const hasBackdrop = current?.backdrop_path;
   const hasPoster = current?.poster_path;
-  const imagePath = hasBackdrop || hasPoster;
   const year = current?.release_date
     ? new Date(current.release_date).getFullYear()
     : null;
   const rating =
     current?.vote_average != null ? current.vote_average.toFixed(1) : null;
 
-  const desktopSrc = imagePath
-    ? hasBackdrop
-      ? `${IMAGE_BASE}/w1280${current!.backdrop_path}`
-      : `${IMAGE_BASE}/w780${current!.poster_path}`
+  const desktopSrc = hasBackdrop
+    ? `${IMAGE_BASE}/w1280${current!.backdrop_path}`
+    : hasPoster
+    ? `${IMAGE_BASE}/w780${current!.poster_path}`
     : FALLBACK_IMAGE;
 
-  const mobileSrc = imagePath
-    ? hasPoster
-      ? `${IMAGE_BASE}/w500${current!.poster_path}`
-      : `${IMAGE_BASE}/w780${current!.backdrop_path}`
+  const mobileSrc = hasPoster
+    ? `${IMAGE_BASE}/w500${current!.poster_path}`
+    : hasBackdrop
+    ? `${IMAGE_BASE}/w780${current!.backdrop_path}`
     : FALLBACK_IMAGE;
 
   return (
     <div className="relative max-w-[1920px] mx-auto w-full overflow-hidden">
       <section
-        className="relative w-full min-h-[75vw] sm:min-h-[55vw] md:min-h-[45vw] lg:min-h-[36rem] max-h-[85vh] bg-surface-950"
+        className="relative w-full min-h-[70vw] sm:min-h-[50vw] md:min-h-[42vw] lg:min-h-[34rem] max-h-[80vh] bg-surface-950"
         aria-label="Featured"
         onMouseDown={onTouchStart}
         onMouseMove={onTouchMove}
@@ -175,57 +174,63 @@ function HomeHeroBanner() {
           </div>
         ) : (
           <>
-            {/* Background image */}
+            {/* Background image with subtle zoom */}
             <picture className="absolute inset-0 block">
               <source media="(max-width: 767px)" srcSet={mobileSrc} />
               <img
                 src={desktopSrc}
                 alt={current?.title ?? ""}
-                className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-700"
+                className="absolute inset-0 w-full h-full object-cover object-center scale-105 transition-all duration-1000"
                 sizes="(max-width: 768px) 100vw, 1280px"
                 fetchPriority="high"
               />
             </picture>
 
-            {/* Gradient overlays */}
+            {/* Dramatic cinematic overlays */}
             <div
-              className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/40 to-transparent pointer-events-none"
+              className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/50 to-surface-950/10 pointer-events-none"
               aria-hidden
             />
             <div
-              className="absolute inset-0 bg-gradient-to-r from-surface-950/60 via-transparent to-transparent pointer-events-none"
+              className="absolute inset-0 bg-gradient-to-r from-surface-950/80 via-surface-950/20 to-transparent pointer-events-none"
+              aria-hidden
+            />
+            <div
+              className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_0%,rgba(34,197,94,0.05),transparent)] pointer-events-none"
               aria-hidden
             />
 
-            {/* Top badge */}
-            <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-10">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-500/15 border border-brand-500/20 px-3 py-1.5 text-xs font-medium text-brand-300 backdrop-blur-md">
-                <Play className="w-3 h-3 fill-brand-400" />
+            {/* Featured badge */}
+            <div className="absolute top-5 left-5 sm:top-8 sm:left-8 z-10">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-white uppercase tracking-wider">
+                <Clapperboard className="w-3.5 h-3.5 text-brand-400" />
                 Featured
               </span>
             </div>
 
-            {/* Details overlay */}
-            <div className="absolute bottom-0 left-0 right-0 z-10 p-5 sm:p-8 md:p-10 lg:p-12 flex flex-col gap-3 max-w-3xl">
-              {/* Meta info */}
-              <div className="flex flex-wrap items-center gap-3 text-sm">
-                {year != null && (
-                  <span className="flex items-center gap-1.5 text-surface-300">
-                    <Calendar className="w-3.5 h-3.5 text-surface-500" />
-                    {year}
-                  </span>
-                )}
-                {rating != null && (
-                  <span className="flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 text-accent-gold fill-accent-gold" />
-                    <span className="text-surface-200 font-medium">{rating}</span>
-                    <span className="text-surface-500">/10</span>
-                  </span>
-                )}
-              </div>
+            {/* Content overlay */}
+            <div className="absolute bottom-0 left-0 right-0 z-10 p-6 sm:p-10 md:p-14 lg:p-16 flex flex-col gap-4 max-w-3xl">
+              {/* Meta pills */}
+              {(year != null || rating != null) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {year != null && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-sm border border-white/10 text-sm text-surface-300">
+                      <Calendar className="w-3.5 h-3.5 text-surface-500" />
+                      {year}
+                    </span>
+                  )}
+                  {rating != null && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-sm border border-white/10 text-sm">
+                      <Star className="w-3.5 h-3.5 text-accent-gold fill-accent-gold" />
+                      <span className="text-white font-semibold">{rating}</span>
+                      <span className="text-surface-500">/10</span>
+                    </span>
+                  )}
+                </div>
+              )}
 
-              {/* Title */}
-              <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight">
+              {/* Title with gradient */}
+              <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white leading-none tracking-tight hero-title-gradient">
                 {current?.id ? (
                   <Link
                     href={`/app/movie/${current.id}`}
@@ -238,16 +243,11 @@ function HomeHeroBanner() {
                 )}
               </h2>
 
-              {/* Description */}
-              <p className="text-surface-400 text-sm sm:text-base max-w-xl leading-relaxed">
-                Love stories and feel-good picks — discover more below.
-              </p>
-
               {/* CTA */}
               {current?.id && (
                 <Link
                   href={`/app/movie/${current.id}`}
-                  className="mt-2 inline-flex w-fit items-center gap-2 rounded-full bg-brand-500 px-6 py-2.5 text-sm font-semibold text-surface-950 hover:bg-brand-400 transition-all duration-200 hover:shadow-lg hover:shadow-brand-500/20"
+                  className="mt-2 inline-flex w-fit items-center gap-2.5 rounded-full bg-brand-500 px-7 py-3 text-sm font-semibold text-surface-950 hover:bg-brand-400 transition-all duration-300 hover:shadow-lg hover:shadow-brand-500/25 hover:-translate-y-0.5 active:translate-y-0"
                 >
                   <Play className="w-4 h-4 fill-surface-950" />
                   View Film
@@ -257,16 +257,16 @@ function HomeHeroBanner() {
 
             {/* Navigation dots */}
             {items.length > 1 && (
-              <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 gap-2 sm:bottom-6">
+              <div className="absolute bottom-5 right-5 sm:bottom-8 sm:right-8 z-10 flex items-center gap-2">
                 {items.map((_, i) => (
                   <button
                     key={i}
                     type="button"
                     onClick={() => goTo(i)}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                    className={`rounded-full transition-all duration-300 ${
                       i === currentIndex
-                        ? "w-8 bg-brand-400"
-                        : "w-1.5 bg-white/30 hover:bg-white/50"
+                        ? "h-2 w-8 bg-brand-400"
+                        : "h-2 w-2 bg-white/20 hover:bg-white/40"
                     }`}
                     aria-label={`Slide ${i + 1}`}
                   />
@@ -280,18 +280,18 @@ function HomeHeroBanner() {
                 <button
                   type="button"
                   onClick={prev}
-                  className="absolute left-3 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-black/30 p-3 text-white backdrop-blur-sm hover:bg-black/50 transition-all md:block"
+                  className="absolute left-4 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-black/30 backdrop-blur-sm border border-white/10 p-3 text-white hover:bg-black/50 transition-all md:block"
                   aria-label="Previous"
                 >
-                  <FaChevronLeft size={18} />
+                  <FaChevronLeft size={16} />
                 </button>
                 <button
                   type="button"
                   onClick={next}
-                  className="absolute right-3 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-black/30 p-3 text-white backdrop-blur-sm hover:bg-black/50 transition-all md:block"
+                  className="absolute right-4 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-black/30 backdrop-blur-sm border border-white/10 p-3 text-white hover:bg-black/50 transition-all md:block"
                   aria-label="Next"
                 >
-                  <FaChevronRight size={18} />
+                  <FaChevronRight size={16} />
                 </button>
               </>
             )}
@@ -300,13 +300,13 @@ function HomeHeroBanner() {
       </section>
 
       {/* Reels CTA strip */}
-      <div className="flex items-center justify-between gap-4 bg-surface-900/80 px-4 py-3 sm:px-6 sm:py-3.5 border-t border-surface-800/50">
-        <p className="text-sm text-surface-400">
+      <div className="flex items-center justify-between gap-4 bg-surface-900/60 backdrop-blur-sm px-5 py-3 sm:px-8 border-b border-white/5">
+        <p className="text-sm text-surface-500">
           Short clips by mood and your watchlist.
         </p>
         <Link
           href="/app/reel"
-          className="shrink-0 rounded-full bg-surface-800 border border-surface-700 px-4 py-1.5 text-sm font-medium text-surface-300 hover:bg-surface-700 hover:text-white transition-colors"
+          className="shrink-0 rounded-full bg-surface-800/60 border border-surface-700/50 px-4 py-2 text-sm font-medium text-surface-300 hover:bg-surface-700 hover:text-white transition-all"
         >
           Watch Reels
         </Link>

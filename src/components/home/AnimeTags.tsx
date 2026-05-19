@@ -35,7 +35,7 @@ export default function AnimeTags() {
         <Link
           key={getTagKey(tag, i)}
           href={getTagHref(tag)}
-          className="inline-flex items-center rounded-full border border-surface-700/50 bg-surface-800/50 px-4 py-2 text-sm font-medium text-surface-300 transition-all duration-200 hover:border-brand-500/30 hover:bg-brand-500/5 hover:text-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:ring-offset-2 focus:ring-offset-surface-950"
+          className="pill-glass"
         >
           {tag.label}
         </Link>

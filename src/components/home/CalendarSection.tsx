@@ -56,17 +56,23 @@ export default function CalendarSection({
       )}
       {nowPlaying.length > 0 && (
         <div>
-          <h3 className="text-base font-semibold text-surface-300 mb-3">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+          <h3 className="text-base font-semibold text-surface-300">
             In theaters
           </h3>
+        </div>
           <HomeContentTile type="movie" data={{ results: nowPlaying }} />
         </div>
       )}
       {tvAiring.length > 0 && (
         <div>
-          <h3 className="text-base font-semibold text-surface-300 mb-3">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+          <h3 className="text-base font-semibold text-surface-300">
             TV this week
           </h3>
+        </div>
           <HomeContentTile type="tv" data={{ results: tvAiring }} />
         </div>
       )}

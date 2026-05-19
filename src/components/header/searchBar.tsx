@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FaSearch, FaTimes } from "react-icons/fa";
 import { FaCircleNotch } from "react-icons/fa6";
+import { Film, Tv, User, Hash, TrendingUp, Clock } from "lucide-react";
 
 interface SearchResult {
   id: number;
@@ -47,6 +48,13 @@ const emptyResults: ResultsState = {
   person: [],
   keyword: [],
 };
+
+const QUICK_CATEGORIES = [
+  { label: "Movies", icon: Film, mediaType: "movie" as SearchMediaType },
+  { label: "TV Shows", icon: Tv, mediaType: "tv" as SearchMediaType },
+  { label: "People", icon: User, mediaType: "person" as SearchMediaType },
+  { label: "Keywords", icon: Hash, mediaType: "keyword" as SearchMediaType },
+];
 
 function highlightLabel(text: string, query: string) {
   if (!query || query.length < 2) return text;
@@ -133,6 +141,7 @@ function SearchBar() {
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cacheRef = useRef<Record<string, ResultsState>>({});
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const query = input.trim();
   const displayResults = useMemo(() => normalizeResults(results), [results]);
@@ -263,6 +272,7 @@ function SearchBar() {
 
   const openModal = () => {
     setIsModalOpen(true);
+    setTimeout(() => inputRef.current?.focus(), 100);
   };
 
   const handleSearch = (value: string, category?: SearchMediaType) => {
@@ -320,59 +330,46 @@ function SearchBar() {
 
   return (
     <>
-      <form className="relative flex flex-row items-center w-full max-w-md">
-        <input
-          className="hidden md:flex w-full py-2 px-4 bg-surface-800 text-surface-200 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 placeholder-surface-500 text-sm sm:text-base border border-surface-700/50 transition-all"
-          name="searchtext"
-          type="text"
-          value={input}
-          onFocus={openModal}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setInput(e.target.value)
-          }
-          placeholder="Search movies, TV, people..."
-        />
-        <button
-          onClick={openModal}
-          type="button"
-          className="md:absolute md:right-2 md:top-1/2 transform md:-translate-y-1/2 bg-surface-700 text-surface-300 p-1.5 rounded-full hover:bg-surface-600 hover:text-white transition-colors"
-          disabled={isSearchLoading}
-          aria-label="Open search"
-        >
-          {isSearchLoading ? (
-            <div className="w-fit m-auto animate-spin">
-              <FaCircleNotch size={16} />
-            </div>
-          ) : (
-            <FaSearch size={16} />
-          )}
-        </button>
-      </form>
+      {/* Inline search trigger */}
+      <button
+        onClick={openModal}
+        type="button"
+        className="nav-search w-full"
+        aria-label="Open search"
+      >
+        <FaSearch className="text-surface-500 size-3.5 shrink-0" />
+        <span className="text-surface-500 text-sm truncate">Search movies, TV, people...</span>
+        <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded bg-surface-800 border border-surface-700 text-[10px] text-surface-500 font-mono">
+          /
+        </kbd>
+      </button>
 
+      {/* Search modal */}
       {isModalOpen && (
         <div
           role="dialog"
           aria-modal="true"
           aria-label="Search"
-          className="fixed inset-0 z-50 flex flex-col items-center justify-start pt-6 sm:pt-10 animate-fade-in"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-start pt-8 sm:pt-16 animate-fade-in"
         >
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-surface-950/80 backdrop-blur-lg"
+            className="absolute inset-0 bg-surface-950/85 backdrop-blur-xl"
             aria-hidden
             onClick={closeModal}
           />
           {/* Content */}
           <div
-            className="relative w-full max-w-3xl mx-4 rounded-2xl border border-surface-700/50 bg-surface-900 shadow-2xl shadow-black/40 animate-scale-in"
+            className="relative w-full max-w-2xl mx-4 rounded-2xl border border-white/10 bg-surface-900/95 shadow-2xl shadow-black/50 animate-scale-in overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Search input area */}
-            <div className="p-4 sm:p-5">
-              <div className="relative flex flex-row items-center">
+            <div className="p-4 sm:p-5 border-b border-white/5">
+              <div className="relative flex items-center">
                 <FaSearch className="absolute left-4 text-surface-500 w-5 h-5" />
                 <input
-                  className="w-full py-3 pl-12 pr-12 bg-surface-800 text-surface-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/50 text-base sm:text-lg placeholder-surface-500 border border-surface-700/50 transition-all"
+                  ref={inputRef}
+                  className="w-full py-3 pl-12 pr-12 bg-transparent text-surface-100 text-lg placeholder-surface-500 outline-none"
                   name="searchtext"
                   type="text"
                   value={input}
@@ -393,6 +390,24 @@ function SearchBar() {
                 </button>
               </div>
 
+              {/* Quick categories */}
+              {!query && (
+                <div className="flex items-center gap-2 mt-4">
+                  <span className="text-xs text-surface-500 mr-1">Browse:</span>
+                  {QUICK_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.label}
+                      type="button"
+                      onClick={() => handleSearch("", cat.mediaType)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-800/60 border border-surface-700/50 text-xs text-surface-400 hover:bg-surface-700 hover:text-white transition-all"
+                    >
+                      <cat.icon className="w-3 h-3" />
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Keyboard hints */}
               <div className="flex flex-wrap items-center gap-2 mt-3 px-1">
                 {[
@@ -402,9 +417,9 @@ function SearchBar() {
                 ].map((hint) => (
                   <span
                     key={hint.label}
-                    className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-surface-500"
+                    className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-surface-600"
                   >
-                    <kbd className="px-1.5 py-0.5 rounded bg-surface-800 border border-surface-700 font-mono text-surface-400">
+                    <kbd className="px-1.5 py-0.5 rounded bg-surface-800 border border-surface-700 font-mono text-surface-500">
                       {hint.key}
                     </kbd>
                     {hint.label}
@@ -414,23 +429,20 @@ function SearchBar() {
             </div>
 
             {/* Results area */}
-            <div className="border-t border-surface-800/50 max-h-[65vh] overflow-y-auto p-4 sm:p-5">
+            <div className="max-h-[60vh] overflow-y-auto p-4 sm:p-5">
               {!isValidSearchQuery(query) && (
-                <div className="space-y-4">
-                  <p className="text-surface-400 text-sm">
-                    Start typing to search across movies, TV, people, and
-                    keywords.
-                  </p>
+                <div className="space-y-5">
                   {recentSearches.length > 0 && (
                     <div>
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-medium text-surface-300">
+                        <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5" />
                           Recent searches
                         </h3>
                         <button
                           type="button"
                           onClick={handleClearRecent}
-                          className="text-xs text-surface-500 hover:text-surface-300 transition-colors"
+                          className="text-xs text-surface-600 hover:text-surface-300 transition-colors"
                         >
                           Clear all
                         </button>
@@ -441,7 +453,7 @@ function SearchBar() {
                             key={term}
                             type="button"
                             onClick={() => handleSearch(term)}
-                            className="rounded-full bg-surface-800 border border-surface-700/50 px-3 py-1.5 text-sm text-surface-300 hover:bg-surface-700 hover:text-white transition-colors"
+                            className="rounded-full bg-surface-800/60 border border-surface-700/50 px-3.5 py-2 text-sm text-surface-300 hover:bg-surface-700 hover:text-white transition-all"
                           >
                             {term}
                           </button>
@@ -449,13 +461,16 @@ function SearchBar() {
                       </div>
                     </div>
                   )}
+                  <p className="text-surface-500 text-sm">
+                    Start typing to search across movies, TV, people, and keywords.
+                  </p>
                 </div>
               )}
 
               {isValidSearchQuery(query) && (
                 <>
                   {isLoading && (
-                    <div className="flex flex-col items-center gap-3 py-10 text-surface-400">
+                    <div className="flex flex-col items-center gap-3 py-12 text-surface-500">
                       <FaCircleNotch className="animate-spin" size={24} />
                       <span className="text-sm">
                         Searching for &ldquo;{query}&rdquo;
@@ -470,7 +485,7 @@ function SearchBar() {
                   )}
 
                   {!isLoading && !error && flatResults.length === 0 && (
-                    <div className="flex flex-col items-center gap-3 py-10 text-surface-400">
+                    <div className="flex flex-col items-center gap-3 py-12 text-surface-500">
                       {didYouMean ? (
                         <>
                           <p className="text-surface-300">
@@ -534,7 +549,7 @@ function SearchBar() {
                         return (
                           <div key={category} className="mb-6 last:mb-0">
                             <div className="flex items-center justify-between mb-3">
-                              <h3 className="text-sm font-semibold text-surface-300 uppercase tracking-wider">
+                              <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider">
                                 {category === "tv" ? "TV Shows" : category}
                               </h3>
                               <button
@@ -576,7 +591,7 @@ function SearchBar() {
                                     className={`flex items-center gap-3 rounded-xl p-3 text-left transition-all duration-150 ${
                                       isActive
                                         ? "bg-surface-700/80 ring-1 ring-brand-500/30"
-                                        : "bg-surface-800/50 hover:bg-surface-700/60"
+                                        : "bg-surface-800/40 hover:bg-surface-700/60"
                                     }`}
                                   >
                                     {item.poster_path || item.profile_path ? (

@@ -25,6 +25,32 @@ const headingLinkClass =
 
 const arrowIcon = "w-4 h-4 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200";
 
+const sectionHeader = (icon: React.ReactNode, title: string, subtitle: string) => (
+  <div className="flex items-center gap-3 mb-5">
+    <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+    <div>
+      <h2 className={headingBase}>{title}</h2>
+      <p className="text-sm text-surface-500 mt-0.5">{subtitle}</p>
+    </div>
+  </div>
+);
+
+const sectionHeaderLink = (icon: React.ReactNode, title: string, subtitle: string, href: string) => (
+  <div className="flex items-center gap-3 mb-5">
+    <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+    <div>
+      <h2 className={headingBase}>
+        <Link href={href} className={headingLinkClass}>
+          {icon}
+          {title}
+          <ArrowRight className={arrowIcon} />
+        </Link>
+      </h2>
+      <p className="text-sm text-surface-500 mt-0.5">{subtitle}</p>
+    </div>
+  </div>
+);
+
 export default async function Home() {
   const { sections, errors } = await getHomeSections();
 
@@ -44,7 +70,7 @@ export default async function Home() {
 
   return (
     <>
-      {/* Hero */}
+      {/* ──────── HERO ──────── */}
       <section className="w-full" aria-label="Featured">
         <HomeVideo />
       </section>
@@ -62,446 +88,143 @@ export default async function Home() {
           </div>
         )}
 
-        {/* Continue watching */}
+        {/* ──────── PERSONAL ──────── */}
         <ContinueWatchingSection />
 
-        {/* TV completion predictor */}
+        {/* TV Completion Predictor */}
         <section className="animate-fade-up" aria-labelledby="predictor-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="predictor-heading" className={headingBase}>
-                <Tv className="w-5 h-5 text-accent-purple" />
-                TV Completion Forecast
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Estimated finish dates for your shows
-              </p>
-            </div>
-          </div>
+          {sectionHeader(<Tv className="w-5 h-5 text-accent-purple" />, "TV Completion Forecast", "Estimated finish dates for your shows")}
           <CompletionPredictor />
         </section>
 
         {/* What to watch picker */}
         <section className="animate-fade-up" aria-labelledby="picker-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="picker-heading" className={headingBase}>
-                <Sparkles className="w-5 h-5 text-accent-purple" />
-                What should I watch?
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Pick a mood, set filters, and let us decide
-              </p>
-            </div>
-          </div>
+          {sectionHeader(<Sparkles className="w-5 h-5 text-accent-purple" />, "What should I watch?", "Pick a mood, set filters, and let us decide")}
           <WhatToWatch />
         </section>
 
+        {/* ──────── SOCIAL ──────── */}
         {/* Following Activity Feed */}
         <section className="animate-fade-up" aria-labelledby="feed-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="feed-heading" className={headingBase}>
-                <Rss className="w-5 h-5 text-accent-purple" />
-                Following Feed
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                See what people are watching, rating, and reviewing
-              </p>
-            </div>
-          </div>
+          {sectionHeader(<Rss className="w-5 h-5 text-accent-purple" />, "Following Feed", "See what people are watching, rating, and reviewing")}
           <FollowingFeed />
         </section>
 
+        {/* For You - AI recommendations */}
         <section className="animate-fade-up stagger-1" aria-labelledby="reco-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="reco-heading" className={headingBase}>
-                <Link href="/app/profile" className={headingLinkClass}>
-                  <Sparkles className="w-5 h-5 text-brand-400" />
-                  For You
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Based on your favorites and watched list
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(<Sparkles className="w-5 h-5 text-brand-400" />, "For You", "Based on your favorites and watched list", "/app/profile")}
           <OpenAiReco />
         </section>
 
         {/* Collaborative recommendations */}
         <section className="animate-fade-up stagger-2" aria-labelledby="collab-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="collab-heading" className={headingBase}>
-                <Users className="w-5 h-5 text-accent-purple" />
-                People Like You Also Like
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Powered by collaborative filtering with similar viewers
-              </p>
-            </div>
-          </div>
+          {sectionHeader(<Users className="w-5 h-5 text-accent-purple" />, "People Like You Also Like", "Powered by collaborative filtering with similar viewers")}
           <CollaborativeRecs />
         </section>
 
         {/* Discover people */}
         <section className="animate-fade-up stagger-3" aria-labelledby="discover-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="discover-heading" className={headingBase}>
-                <Link href="/app/profile" className={headingLinkClass}>
-                  <Users className="w-5 h-5 text-blue-400" />
-                  Discover People
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                See what others are watching
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(<Users className="w-5 h-5 text-blue-400" />, "Discover People", "See what others are watching", "/app/profile")}
           <DiscoverUsers hideTitleLink />
         </section>
 
-        {/* Calendar & upcoming */}
-        <section className="animate-fade-up stagger-3" aria-labelledby="calendar-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="calendar-heading" className={headingBase}>
-                <Link
-                  href="/app/search/discover?media_type=movie"
-                  className={headingLinkClass}
-                >
-                  <Calendar className="w-5 h-5 text-amber-400" />
-                  Calendar & Upcoming
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                In theaters and on TV this week
-              </p>
-            </div>
-          </div>
-          <CalendarSection hideMainHeading />
-        </section>
-
+        {/* ──────── TRENDING ──────── */}
         {/* Weekly top 20 */}
         <section aria-labelledby="weekly-top-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="weekly-top-heading" className={headingBase}>
-                <Link href="/app/search/discover" className={headingLinkClass}>
-                  <Film className="w-5 h-5 text-rose-400" />
-                  Weekly Top 20
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Most popular right now
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(<Film className="w-5 h-5 text-rose-400" />, "Weekly Top 20", "Most popular right now", "/app/search/discover")}
           <HomeContentTile type="mix" data={{ results: weeklyTop }} />
         </section>
 
         {/* Trending TV */}
         <section aria-labelledby="trending-tv-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="trending-tv-heading" className={headingBase}>
-                <Link
-                  href="/app/search/discover?media_type=tv"
-                  className={headingLinkClass}
-                >
-                  <Tv className="w-5 h-5 text-purple-400" />
-                  Trending TV Shows
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">Popular today</p>
-            </div>
-          </div>
+          {sectionHeaderLink(<Tv className="w-5 h-5 text-purple-400" />, "Trending TV Shows", "Popular today", "/app/search/discover?media_type=tv")}
           <HomeContentTile type="tv" data={{ results: trendingTv }} />
         </section>
 
+        {/* Calendar & upcoming */}
+        <section className="animate-fade-up stagger-3" aria-labelledby="calendar-heading">
+          {sectionHeaderLink(<Calendar className="w-5 h-5 text-amber-400" />, "Calendar & Upcoming", "In theaters and on TV this week", "/app/search/discover?media_type=movie")}
+          <CalendarSection hideMainHeading />
+        </section>
+
+        {/* ──────── BROWSE ──────── */}
         {/* Browse by tag */}
         <section aria-labelledby="browse-tags-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="browse-tags-heading" className={headingBase}>
-                <Link href="/app/search" className={headingLinkClass}>
-                  <Tag className="w-5 h-5 text-cyan-400" />
-                  Browse by Tag
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Genres, keywords and categories
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(<Tag className="w-5 h-5 text-cyan-400" />, "Browse by Tag", "Genres, keywords and categories", "/app/search")}
           <BrowseTags />
         </section>
 
         {/* Anime sections */}
         <section aria-labelledby="anime-browse-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="anime-browse-heading" className={headingBase}>
-                <Link
-                  href={buildSearchUrl({
-                    query: "discover",
-                    mediaType: "tv",
-                    keyword: "210024",
-                  })}
-                  className={headingLinkClass}
-                >
-                  Browse Anime
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Series, films, Isekai and more
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(null, "Browse Anime", "Series, films, Isekai and more", buildSearchUrl({ query: "discover", mediaType: "tv", keyword: "210024" }))}
           <AnimeTags />
         </section>
 
         {/* Anime series */}
         <section aria-labelledby="anime-series-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="anime-series-heading" className={headingBase}>
-                <Link
-                  href="/app/tvbygenre/list/16-Animation"
-                  className={headingLinkClass}
-                >
-                  Anime Series
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Jujutsu Kaisen, SPY×FAMILY, One Piece & more
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(null, "Anime Series", "Jujutsu Kaisen, SPY×FAMILY, One Piece & more", "/app/tvbygenre/list/16-Animation")}
           <HomeContentTile type="tv" data={{ results: animeSeries }} />
         </section>
 
         {/* Anime films */}
         <section aria-labelledby="anime-films-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="anime-films-heading" className={headingBase}>
-                <Link
-                  href={buildSearchUrl({
-                    query: "discover",
-                    mediaType: "movie",
-                    genre: "16",
-                    language: "ja",
-                  })}
-                  className={headingLinkClass}
-                >
-                  Anime Films
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Studio Ghibli, Makoto Shinkai and Japanese animated movies
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(null, "Anime Films", "Studio Ghibli, Makoto Shinkai and Japanese animated movies", buildSearchUrl({ query: "discover", mediaType: "movie", genre: "16", language: "ja" }))}
           <HomeContentTile type="movie" data={{ results: animeFilms }} />
         </section>
 
+        {/* ──────── CURATED COLLECTIONS ──────── */}
         {/* Romance */}
         <section aria-labelledby="romance-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="romance-heading" className={headingBase}>
-                <Link
-                  href="/app/moviebygenre/list/10749-Romance"
-                  className={headingLinkClass}
-                >
-                  Romance & Love
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Love stories and feel-good picks
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(null, "Romance & Love", "Love stories and feel-good picks", "/app/moviebygenre/list/10749-Romance")}
           <HomeContentTile type="movie" data={{ results: romance }} />
         </section>
 
         {/* Action */}
         <section aria-labelledby="action-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="action-heading" className={headingBase}>
-                <Link
-                  href="/app/moviebygenre/list/28-Action"
-                  className={headingLinkClass}
-                >
-                  Action
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Thrills and blockbusters
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(null, "Action", "Thrills and blockbusters", "/app/moviebygenre/list/28-Action")}
           <HomeContentTile type="movie" data={{ results: action }} />
         </section>
 
         {/* Crime */}
         <section aria-labelledby="crime-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="crime-heading" className={headingBase}>
-                <Link
-                  href="/app/moviebygenre/list/80-Crime"
-                  className={headingLinkClass}
-                >
-                  Crime
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Heists, detectives and the underworld
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(null, "Crime", "Heists, detectives and the underworld", "/app/moviebygenre/list/80-Crime")}
           <HomeContentTile type="movie" data={{ results: crime }} />
         </section>
 
         {/* Thriller */}
         <section aria-labelledby="thrills-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="thrills-heading" className={headingBase}>
-                <Link
-                  href="/app/moviebygenre/list/53-Thriller"
-                  className={headingLinkClass}
-                >
-                  Thrills
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Edge-of-your-seat tension and suspense
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(null, "Thrills", "Edge-of-your-seat tension and suspense", "/app/moviebygenre/list/53-Thriller")}
           <HomeContentTile type="movie" data={{ results: thriller }} />
         </section>
 
         {/* Dark zones */}
         <section aria-labelledby="dark-zones-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="dark-zones-heading" className={headingBase}>
-                <Link
-                  href="/app/moviebygenre/list/27-Horror"
-                  className={headingLinkClass}
-                >
-                  Dark Zones
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Horror and the darker side of cinema
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(null, "Dark Zones", "Horror and the darker side of cinema", "/app/moviebygenre/list/27-Horror")}
           <HomeContentTile type="movie" data={{ results: darkZones }} />
         </section>
 
         {/* Horror */}
         <section aria-labelledby="horror-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="horror-heading" className={headingBase}>
-                <Link
-                  href="/app/moviebygenre/list/27-Horror"
-                  className={headingLinkClass}
-                >
-                  Horror
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Scares, suspense and the supernatural
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(null, "Horror", "Scares, suspense and the supernatural", "/app/moviebygenre/list/27-Horror")}
           <HomeContentTile type="movie" data={{ results: horror }} />
         </section>
 
         {/* Bollywood */}
         <section aria-labelledby="bollywood-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="bollywood-heading" className={headingBase}>
-                <Link
-                  href="/app/search/discover?media_type=movie&lang=hi"
-                  className={headingLinkClass}
-                >
-                  Bollywood
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Hindi cinema picks
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(null, "Bollywood", "Hindi cinema picks", "/app/search/discover?media_type=movie&lang=hi")}
           <HomeContentTile type="movie" data={{ results: bollywood }} />
         </section>
 
+        {/* ──────── GENRE BROWSER ──────── */}
         {/* Movie genres */}
         <section aria-labelledby="movie-genres-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="movie-genres-heading" className={headingBase}>
-                <Link
-                  href="/app/search/discover?media_type=movie"
-                  className={headingLinkClass}
-                >
-                  Movie Genres
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">Browse by genre</p>
-            </div>
-          </div>
+          {sectionHeaderLink(<Film className="w-5 h-5 text-surface-400" />, "Movie Genres", "Browse by genre", "/app/search/discover?media_type=movie")}
           <MovieGenre genre={movieGenres} />
         </section>
 
         {/* TV genres */}
         <section aria-labelledby="tv-genres-heading">
-          <div className="flex items-end justify-between mb-5">
-            <div>
-              <h2 id="tv-genres-heading" className={headingBase}>
-                <Link
-                  href="/app/search/discover?media_type=tv"
-                  className={headingLinkClass}
-                >
-                  TV Show Genres
-                  <ArrowRight className={arrowIcon} />
-                </Link>
-              </h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Browse TV by genre
-              </p>
-            </div>
-          </div>
+          {sectionHeaderLink(<Tv className="w-5 h-5 text-surface-400" />, "TV Show Genres", "Browse TV by genre", "/app/search/discover?media_type=tv")}
           <TvGenre tvGenres={tvGenres} />
         </section>
       </div>

@@ -88,12 +88,15 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
   return (
     <div className="w-full">
       {!hideTitleLink && (
-        <Link
-          href="/app/profile"
-          className="text-lg font-semibold mb-3 inline-block text-surface-200 hover:text-brand-400 transition-colors"
-        >
-          Discover people
-        </Link>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+          <Link
+            href="/app/profile"
+            className="text-lg font-semibold text-surface-200 hover:text-brand-400 transition-colors"
+          >
+            Discover people
+          </Link>
+        </div>
       )}
       <div className="relative group -mx-1 px-1">
         <div

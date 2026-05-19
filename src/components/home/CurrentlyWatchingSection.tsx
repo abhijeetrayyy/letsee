@@ -50,15 +50,15 @@ export default function CurrentlyWatchingSection() {
       className="rounded-2xl border border-neutral-700/60 bg-neutral-800/50 px-4 sm:px-6 py-8 sm:py-10"
       aria-labelledby="currently-watching-heading"
     >
-      <h2
-        id="currently-watching-heading"
-        className="text-2xl sm:text-3xl font-bold text-white tracking-tight mb-2"
-      >
-        Currently watching
-      </h2>
-      <p className="text-sm sm:text-base text-neutral-400 mb-6">
-        What you&apos;re watching right now
-      </p>
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+        <h2
+          id="currently-watching-heading"
+          className="text-2xl sm:text-3xl font-bold text-white tracking-tight"
+        >
+          Currently watching
+        </h2>
+      </div>
       <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
         {items.map((item) => {
           const posterUrl =

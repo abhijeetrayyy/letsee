@@ -139,7 +139,7 @@ export default function FollowingFeed() {
               setHasMore(true);
               fetchFeed(null);
             }}
-            className="ml-auto text-surface-500 hover:text-surface-300 transition-colors"
+            className="btn-ghost ml-auto"
             title="Refresh"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
