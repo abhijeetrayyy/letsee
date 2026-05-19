@@ -39,7 +39,7 @@ const fetchProfileData = async (username: string | null, currentUserId: string |
     if (error || !authUser) redirect("/login");
     const { data: profile, error: profileError } = await supabase
       .from("users")
-      .select("id, username, about, visibility, avatar_url, banner_url, tagline, website, location, created_at")
+      .select("id, username, about, visibility, avatar_url, banner_url, tagline, created_at")
       .eq("id", authUser.id)
       .single();
     if (profileError || !profile) redirect("/app/profile/setup");
@@ -49,7 +49,7 @@ const fetchProfileData = async (username: string | null, currentUserId: string |
   } else {
     const { data, error } = await supabase
       .from("users")
-      .select("id, username, about, visibility, avatar_url, banner_url, tagline, website, location, created_at")
+      .select("id, username, about, visibility, avatar_url, banner_url, tagline, created_at")
       .eq("username", username)
       .single();
     if (error || !data) return null;
@@ -161,8 +161,6 @@ const fetchProfileData = async (username: string | null, currentUserId: string |
     hasBanner: !!user.banner_url,
     hasTagline: !!user.tagline,
     hasBio: !!user.about,
-    hasWebsite: !!user.website,
-    hasLocation: !!user.location,
     tasteInFourFilled: favoriteDisplay.length === 4,
     hasFeaturedList: !!user.featured_list_id,
     hasPinnedReview: !!user.pinned_review_id,
@@ -229,8 +227,6 @@ export default async function ProfilePage({ params }: PageProps) {
           bannerUrl={user.banner_url || null}
           tagline={user.tagline || null}
           about={user.about || null}
-          website={user.website || null}
-          location={user.location || null}
           createdAt={user.created_at || ""}
           isOwner={isOwner}
           followersCount={followData.followersCount ?? 0}

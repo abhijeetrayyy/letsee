@@ -28,7 +28,7 @@
 
 ## World-Class Upgrade Status
 
-### ✅ Completed (6 of 14 features upgraded)
+### ✅ Completed (7 of 14 features upgraded)
 
 | # | Feature | Commit | Key Upgrades |
 |---|---------|--------|-------------|
@@ -38,8 +38,9 @@
 | 7.3 | **Because You Watched X** | `9f03b83` | Genre breakdown tooltip, one-click add to watchlist, inline overview preview, match score bar, score badge, dynamic section title with top genres |
 | 8.1 | **Viewing Dashboard** | `a202c94` | Chart.js interactive bars (tooltips, gradients), Year-in-Review card (exportable PNG), full dashboard PNG export, glassmorphism design, API yearInReview section |
 | 9.1 | **Smart Watchlist** | `e848c2b` | Drag-to-reorder (localStorage), batch actions (select/remove), predicted rating histogram, inline remove, staggered animation |
+| **Profile** | **Profile Page Restructure** | `cfb28bb` | New section order (Hero → Compatibility → Taste Summary → Taste in 4 → Year in Review → Highlights → Tabs), redesigned hero with website/location/join date/rich stats, auto-generated taste summary card, profile completeness bar, compact year-in-review card, sticky section nav, series tab, glassmorphism design |
 
-### ❌ Not Yet Upgraded (8 remaining)
+### ❌ Not Yet Upgraded (7 remaining)
 
 | Section | Feature | Planned Upgrades |
 |---------|---------|-----------------|

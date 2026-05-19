@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { FaEdit, FaGlobe } from "react-icons/fa";
-import { FaLocationDot, FaCalendar, FaFilm, FaTv, FaClock, FaBookmark } from "react-icons/fa6";
+import { FaEdit } from "react-icons/fa";
+import { FaCalendar, FaFilm, FaTv, FaClock, FaBookmark } from "react-icons/fa6";
 import ProfileAvatar from "@components/profile/ProfileAvatar";
 import ProfileBanner from "@components/profile/ProfileBanner";
 import ProfileCompletenessBar from "./ProfileCompletenessBar";
@@ -11,8 +11,6 @@ type ProfileHeroProps = {
   bannerUrl: string | null;
   tagline: string | null;
   about: string | null;
-  website: string | null;
-  location: string | null;
   createdAt: string;
   isOwner: boolean;
   followersCount: number;
@@ -42,8 +40,6 @@ type ProfileHeroProps = {
     hasBanner: boolean;
     hasTagline: boolean;
     hasBio: boolean;
-    hasWebsite: boolean;
-    hasLocation: boolean;
     tasteInFourFilled: boolean;
     hasFeaturedList: boolean;
     hasPinnedReview: boolean;
@@ -66,7 +62,7 @@ function formatDate(iso: string): string {
 
 export default function ProfileHero({
   username, avatarSrc, bannerUrl, tagline, about,
-  website, location, createdAt, isOwner,
+  createdAt, isOwner,
   followButton, messageLink, loginPrompt,
   showFollow, showMessage, showLoginPrompt,
   ShowFollowing, ShowFollower, visibilityControl,
@@ -115,18 +111,8 @@ export default function ProfileHero({
                 <p className="mt-0.5 text-sm sm:text-base text-white/70 italic">&quot;{tagline}&quot;</p>
               )}
 
-              {/* Meta row: website, location, joined */}
+              {/* Meta row: joined date */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5 text-xs text-surface-400">
-                {website && (
-                  <a href={website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-brand-400 transition-colors">
-                    <FaGlobe className="w-3 h-3" /> {website.replace(/^https?:\/\//, "")}
-                  </a>
-                )}
-                {location && (
-                  <span className="flex items-center gap-1">
-                    <FaLocationDot className="w-3 h-3" /> {location}
-                  </span>
-                )}
                 {createdAt && (
                   <span className="flex items-center gap-1">
                     <FaCalendar className="w-3 h-3" /> Joined {formatDate(createdAt)}

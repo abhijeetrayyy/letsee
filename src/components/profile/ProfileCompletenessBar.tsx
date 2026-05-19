@@ -10,25 +10,11 @@ type CompletenessCheck = {
 };
 
 export default function ProfileCompletenessBar({
-  hasAvatar,
-  hasBanner,
-  hasTagline,
-  hasBio,
-  hasWebsite,
-  hasLocation,
-  tasteInFourFilled,
-  hasFeaturedList,
-  hasPinnedReview,
+  hasAvatar, hasBanner, hasTagline, hasBio,
+  tasteInFourFilled, hasFeaturedList, hasPinnedReview,
 }: {
-  hasAvatar: boolean;
-  hasBanner: boolean;
-  hasTagline: boolean;
-  hasBio: boolean;
-  hasWebsite: boolean;
-  hasLocation: boolean;
-  tasteInFourFilled: boolean;
-  hasFeaturedList: boolean;
-  hasPinnedReview: boolean;
+  hasAvatar: boolean; hasBanner: boolean; hasTagline: boolean; hasBio: boolean;
+  tasteInFourFilled: boolean; hasFeaturedList: boolean; hasPinnedReview: boolean;
 }) {
   const checks: CompletenessCheck[] = useMemo(
     () => [
@@ -36,13 +22,11 @@ export default function ProfileCompletenessBar({
       { key: "banner", label: "Add a banner image", done: hasBanner },
       { key: "tagline", label: "Write a tagline", done: hasTagline },
       { key: "bio", label: "Write a bio", done: hasBio },
-      { key: "website", label: "Add your website", done: hasWebsite },
-      { key: "location", label: "Set your location", done: hasLocation },
       { key: "taste4", label: "Fill your Taste in 4", done: tasteInFourFilled },
       { key: "list", label: "Feature a list", done: hasFeaturedList },
       { key: "review", label: "Pin a review", done: hasPinnedReview },
     ],
-    [hasAvatar, hasBanner, hasTagline, hasBio, hasWebsite, hasLocation, tasteInFourFilled, hasFeaturedList, hasPinnedReview],
+    [hasAvatar, hasBanner, hasTagline, hasBio, tasteInFourFilled, hasFeaturedList, hasPinnedReview],
   );
 
   const done = checks.filter((c) => c.done).length;
