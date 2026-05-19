@@ -380,7 +380,7 @@ Returns count of each score 1–10 for a user.
 **File**: `src/components/movie/BecauseYouWatched.tsx`
 **API**: `src/app/api/recommendations/because-you-watched/route.ts`
 
-**World-Class Upgrade** (pending commit):
+**World-Class Upgrade** (commit `9f03b83`):
 
 **Algorithm** (hybrid content + personalization):
 1. Fetch current item's genres + TMDB recommendations/similar list.
@@ -472,12 +472,22 @@ Individual stat endpoints:
 **File**: `src/components/profile/SmartWatchlist.tsx`
 **API**: `src/app/api/watchlist/smart/route.ts`
 
+**World-Class Upgrade** (pending commit):
+
 **Algorithm**:
 1. Fetch user's ratings + watched genres.
 2. Build genre profile: for each genre, compute normalized weight from rated scores.
 3. For each watchlist item, predict rating = 5.5 + avg(genre weights × 2), clamped to [1, 10].
 4. Sort by predicted rating descending.
 5. Show taste profile (top affinities) and per-item reason badges.
+
+**UI/UX upgrades**:
+- **Drag-to-reorder**: HTML5 native drag-and-drop. Items can be dragged within the grid to reorder. Order is persisted in `localStorage` keyed by user ID. "Reset" button restores predicted-rating sort.
+- **Batch actions**: "Select" toggle button enters batch mode with checkboxes on each card. "Select all" / "Deselect all" controls. "Remove selected" button calls `POST /api/deletewatchlistButton` for each item with optimistic UI.
+- **Predicted rating distribution histogram**: CSS bar chart at the top grouping items into 5 buckets (1-3, 3-5, 5-7, 7-9, 9-10) with a summary line showing "% of items are high confidence (7+)".
+- **Inline remove button**: Per-item trash icon on hover that optimistically removes from the list and calls the delete API.
+- **Staggered card entrance animation** (60ms delay per card).
+- Drag handle icon, sort indicators, glassmorphism card styling.
 
 ### 9.2 TV Completion Predictor
 
