@@ -4,37 +4,46 @@
 
 ---
 
-## Current State
+## Implementation Status
 
-LetSee already has a **solid social foundation**:
+### ✅ Completed
+
+| Phase | Feature | Commit | What was built |
+|-------|---------|--------|----------------|
+| **1** | **Global Following Activity Feed** | `df4a538` | Feed API with pagination, FollowingFeed component (infinite scroll), ActivityCard, fallback to popular users, home page integration |
+| **2** | **Like/Reaction System** | `cc048e7` | Reactions table + RLS, toggle API (optimistic), LikeButton component, integrated into ActivityCard + PublicReviews |
+| **3** | **Full Notification System** | `707f532` | Notifications table + RLS, Postgres triggers (follow/like/watched), API (list + mark-read), full notification center UI, real-time badge, RealtimeNotification update |
+
+### 🔄 Next Up
+
+| Phase | Feature | Priority |
+|-------|---------|----------|
+| **4** | **Comments on Public Reviews** | P1 |
+| **5** | **Notification Preferences UI** | P1 |
+| **6** | **User Blocking & Reporting** | P2 |
+| **7** | **Collaborative Lists** | P3 |
+
+---
+
+## What's Been Built
 
 | Feature | Status |
 |---------|--------|
-| Follow/unfollow with request system | ✅ Working |
-| Direct messaging (text + card shares) | ✅ Working |
-| User-to-user recommendations on profiles | ✅ Working |
-| Friend compatibility score (genre + rating) | ✅ Working |
-| Public reviews on movie/TV detail pages | ✅ Working |
-| Shared custom lists with visibility controls | ✅ Working |
-| Profile browsing & discovery page | ✅ Working |
-| Collaborative filtering (people like you also like) | ✅ Working |
-| Discover People on home page | ✅ Working |
-| Follow request notifications | ✅ Working (basic) |
-
-**What's Missing** (the collaborative layer):
-
-| Feature | Priority | Impact |
-|---------|----------|--------|
-| Global Following Activity Feed on home page | **P0** | Highest — shows what friends are watching |
-| Like/Reaction system on reviews & activity | **P0** | High — enables lightweight engagement |
-| Full notification center (likes, follows, comments, friend activity) | **P1** | High — keeps users coming back |
-| Comments on public reviews | **P1** | High — enables discussion |
-| Notification preferences UI | **P1** | Medium — gives user control |
-| User blocking & reporting | **P2** | Medium — safety & moderation |
-| @mentions in reviews & messages | **P2** | Low — nice-to-have |
-| Collaborative lists | **P3** | Medium — group curation |
-| Gamification (badges, challenges) | **P3** | Low — engagement driver |
-| Watch parties | **P4** | Low — advanced social |
+| Global Following Activity Feed on home page | ✅ Done |
+| Like/Reaction system on feed + reviews | ✅ Done |
+| Full notification center (follows, likes, friend activity) | ✅ Done |
+| Follow/unfollow with request system | ✅ Already working |
+| Direct messaging (text + card shares) | ✅ Already working |
+| User-to-user recommendations on profiles | ✅ Already working |
+| Friend compatibility score (genre + rating) | ✅ Already working |
+| Public reviews on movie/TV detail pages | ✅ Already working |
+| Shared custom lists with visibility controls | ✅ Already working |
+| Profile browsing & discovery page | ✅ Already working |
+| Comments on public reviews | 🔜 Next |
+| Notification preferences UI | 🔜 Next |
+| User blocking & reporting | 📋 Planned |
+| Collaborative lists | 📋 Planned |
+| Gamification (badges, challenges) | 📋 Planned |
 
 ---
 

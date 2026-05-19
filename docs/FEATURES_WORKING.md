@@ -28,7 +28,7 @@
 
 ## World-Class Upgrade Status
 
-### ✅ Completed (7 of 14 features upgraded)
+### ✅ Completed (8 of 14 features upgraded)
 
 | # | Feature | Commit | Key Upgrades |
 |---|---------|--------|-------------|
@@ -38,9 +38,10 @@
 | 7.3 | **Because You Watched X** | `9f03b83` | Genre breakdown tooltip, one-click add to watchlist, inline overview preview, match score bar, score badge, dynamic section title with top genres |
 | 8.1 | **Viewing Dashboard** | `a202c94` | Chart.js interactive bars (tooltips, gradients), Year-in-Review card (exportable PNG), full dashboard PNG export, glassmorphism design, API yearInReview section |
 | 9.1 | **Smart Watchlist** | `e848c2b` | Drag-to-reorder (localStorage), batch actions (select/remove), predicted rating histogram, inline remove, staggered animation |
-| **Profile** | **Profile Page Restructure** | `cfb28bb` | New section order (Hero → Compatibility → Taste Summary → Taste in 4 → Year in Review → Highlights → Tabs), redesigned hero with website/location/join date/rich stats, auto-generated taste summary card, profile completeness bar, compact year-in-review card, sticky section nav, series tab, glassmorphism design |
+| **Profile** | **Profile Page Restructure** | `cfb28bb` | New section order (Hero → Compatibility → Taste Summary → Taste in 4 → Year in Review → Highlights → Tabs), redesigned hero, auto-generated taste summary card, profile completeness bar, compact year-in-review card, sticky section nav, series tab, glassmorphism design |
+| **6** | **Social Features** | `707f532` | **Following Activity Feed** (home page infinite scroll), **Like/Reaction system** (❤️ on feed + reviews), **Full Notification Center** (follows, likes, friend activity with triggers) |
 
-### ❌ Not Yet Upgraded (7 remaining)
+### ❌ Not Yet Upgraded (6 remaining)
 
 | Section | Feature | Planned Upgrades |
 |---------|---------|-----------------|
@@ -51,7 +52,6 @@
 | 11.1 | **Streaming Availability Alerts** | Notification inbox, one-click filter by provider |
 | 11.2 | **Background Jobs** | Job status dashboard, retry controls |
 | 12 | **Batch Operations API** | Undo support, progress WebSocket, idempotency keys |
-| 6 | **Social Features** | Activity feed enhancements, recommendation sharing |
 
 ---
 
@@ -325,13 +325,83 @@ Returns count of each score 1–10 for a user.
 **API**: `src/app/api/getfollower/route.ts`, `src/app/api/getfollowing/route.ts`
 **Helper**: `src/utils/followerAction.ts` — client-side follow/request/accept/reject
 
-### 6.3 Activity Feed
+### 6.3 Activity Feed (Global Following Feed)
 
-**Component**: `src/components/profile/ActivityFeed.tsx`
-**Data**: Recent watched items with `activity_type`: `watched`, `rated`, `reviewed`, `list_created`
-**Display**: Poster thumbnails, item names, relative timestamps, star ratings, review snippets
+**Component**: `src/components/feed/FollowingFeed.tsx`, `src/components/feed/ActivityCard.tsx`
+**API**: `src/app/api/feed/following/route.ts`
 
-### 6.4 Direct Messages
+**World-Class Upgrade** (commit `df4a538`):
+
+**Algorithm**:
+1. Get list of user IDs the current user follows (from `user_connections`).
+2. Query `watched_items`, `user_ratings`, and `user_lists` for those users.
+3. Union all activity types (watched, reviewed, rated, list_created), sort by `created_at` desc.
+4. **Fallback**: If user follows fewer than 3 people, supplement with popular public users (by watched_count).
+5. Cursor-based pagination (20 items per page) with infinite scroll.
+
+**UI/UX**:
+- Infinite scroll via IntersectionObserver
+- Skeleton loading state (5 animated placeholder cards)
+- Empty state with "Follow people to see what they're watching" messaging
+- Status bar showing "From N people you follow" with refresh button
+- "You're all caught up!" message when all items loaded
+
+**ActivityCard features**:
+- User avatar + username link
+- Activity type badge (color-coded: Watched=emerald, Rated=amber, Reviewed=blue, List=purple)
+- Relative timestamp
+- Poster thumbnail (linked to detail page)
+- Star rating display (1-10)
+- Review text snippet (italic, quoted)
+- **Like button** on each activity item (see Reactions)
+
+### 6.4 Reactions / Like System
+
+**Table**: `reactions` (migration 026)
+**Component**: `src/components/reactions/LikeButton.tsx`
+**API**: `src/app/api/reactions/toggle/route.ts`
+
+**World-Class Upgrade** (commit `cc048e7`):
+
+**Features**:
+- Toggle like on any target type (review, watched, rating, list, comment, activity)
+- Animated heart icon with fill transition
+- Optimistic UI updates (instant feedback, revert on failure)
+- Like count display (tabular-nums for consistent width)
+- Color transition: gray (unliked) → red (liked) with background fill
+
+**Integration points**:
+- `ActivityCard.tsx` — like on feed activity items (source_type/source_id)
+- `PublicReviews.tsx` — like on movie/TV detail page reviews
+
+### 6.5 Notification System
+
+**Table**: `notifications` (migration 027)
+**API**: `src/app/api/notifications/route.ts`
+**Page**: `src/app/app/notification/page.tsx`
+
+**World-Class Upgrade** (commit `707f532`):
+
+**Automatic triggers** (Postgres functions):
+- `notify_follow_request()` — when a follow request is sent
+- `notify_follow_accepted()` — when a follow request is accepted
+- `notify_like()` — when someone likes your content (review, rating, list)
+- `notify_friend_watched()` — when a followed user watches/reviews something
+
+**Notification types**: `follow_request`, `follow_accepted`, `like`, `friend_watched`, `friend_reviewed`, `friend_rated`
+
+**Notification Center UI**:
+- Grouped notifications with actor avatar + type icon overlay
+- Color-coded type icons (follow=blue, like=red, watched=amber, reviewed=purple)
+- Follow request section with Accept/Reject buttons
+- Unread indicator (brand-400 dot) on unread items
+- Clickable notifications → navigate to relevant content
+- "Mark all read" button
+- Paginated (20 per page)
+- Empty state for zero notifications
+- Real-time badge in header (RealtimeNotification.tsx) — counts unread via Supabase Realtime
+
+### 6.6 Direct Messages
 
 **Table**: `messages` (types: `text`, `cardmix`)
 **APIs**: `src/app/api/messages/` — send, list conversations, read thread
