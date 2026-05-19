@@ -39,11 +39,13 @@ export default function FriendsWhoWatched({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-3 py-3 animate-pulse">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="w-10 h-10 rounded-full bg-surface-800 shrink-0" />
-        ))}
-        <div className="h-3 bg-surface-800 rounded w-24" />
+      <div className="glass-card rounded-2xl p-5 animate-pulse">
+        <div className="flex items-center gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="w-10 h-10 rounded-full bg-surface-800 shrink-0" />
+          ))}
+          <div className="h-3 bg-surface-800 rounded w-24" />
+        </div>
       </div>
     );
   }
@@ -71,42 +73,38 @@ export default function FriendsWhoWatched({
   const maxDisplay = 6;
 
   return (
-    <div className="rounded-2xl border border-surface-700/40 bg-surface-900/40 backdrop-blur-sm p-5">
-      <h3 className="text-sm font-semibold text-surface-200 flex items-center gap-2 mb-4">
-        <Users className="w-4 h-4 text-brand-400" />
-        Friends Who Engaged
-      </h3>
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="card-accent rounded-2xl p-5 animate-fade-up">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+        <h3 className="text-sm font-semibold text-surface-100">Friends Who Engaged</h3>
+      </div>
+      <div className="flex flex-wrap items-center gap-2.5">
         {friends.slice(0, maxDisplay).map((f) => (
           <Link
             key={f.userId}
             href={`/app/profile/${f.username}`}
-            className="group flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-surface-800/50 hover:bg-surface-700/60 border border-surface-700/30 hover:border-surface-600/50 transition-all"
+            className="group flex items-center gap-2.5 px-3 py-2 rounded-xl bg-surface-800/40 hover:bg-surface-700/50 border border-surface-700/20 hover:border-surface-600/40 transition-all"
           >
             <div className="relative shrink-0">
               <img
-                src={
-                  f.avatarUrl
-                    ? (f.avatarUrl.startsWith("http") ? f.avatarUrl : f.avatarUrl)
-                    : "/default-avatar.webp"
-                }
+                src={f.avatarUrl?.startsWith("http") ? f.avatarUrl : f.avatarUrl || "/default-avatar.webp"}
                 alt={f.username}
-                className="w-7 h-7 rounded-full object-cover border border-surface-600"
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-surface-700 group-hover:ring-brand-500/30 transition-all"
               />
-              <span className="absolute -bottom-0.5 -right-0.5 bg-surface-900 rounded-full p-0.5 leading-none">
-                <span className="text-[10px] text-brand-400">{actionIcon(f.action)}</span>
+              <span className="absolute -bottom-0.5 -right-0.5 bg-surface-900 rounded-full p-0.5 ring-2 ring-surface-900">
+                <span className="text-[10px] text-brand-400 flex">{actionIcon(f.action)}</span>
               </span>
             </div>
-            <span className="text-xs font-medium text-surface-300 group-hover:text-white transition-colors truncate max-w-[80px]">
-              {f.username}
-            </span>
-            <span className="text-[10px] text-surface-500 hidden sm:inline">
-              {actionLabel(f.action)}
-            </span>
+            <div className="flex flex-col">
+              <span className="text-xs font-medium text-surface-200 group-hover:text-white transition-colors truncate max-w-[90px]">
+                {f.username}
+              </span>
+              <span className="text-[10px] text-surface-500">{actionLabel(f.action)}</span>
+            </div>
           </Link>
         ))}
         {friends.length > maxDisplay && (
-          <span className="text-xs text-surface-500">
+          <span className="text-xs text-surface-500 px-2 py-1 rounded-lg bg-surface-800/30">
             +{friends.length - maxDisplay} more
           </span>
         )}

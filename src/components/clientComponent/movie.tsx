@@ -7,7 +7,7 @@ import { LiaImdb } from "react-icons/lia";
 import Link from "next/link";
 import MovieCast from "@components/movie/MovieCast";
 import Video from "@components/movie/Video";
-import { Send, Star, Clock, Globe, DollarSign, Clapperboard, Hash, Sparkles, TrendingUp } from "lucide-react";
+import { Send, Star, Clock, Globe, DollarSign, Clapperboard, BookOpen } from "lucide-react";
 import SendMessageModal from "@components/message/sendCard";
 import ImdbRating from "@components/movie/imdbRating";
 import UserRating from "@components/movie/UserRating";
@@ -74,152 +74,141 @@ export default function Movie({
       <SendMessageModal media_type="movie" data={cardData} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
       <div className="text-white relative w-full bg-surface-950 min-h-screen">
-        {/* Hero with backdrop */}
-        <section id="section-overview" className="relative w-full min-h-[380px] md:min-h-[500px] flex flex-col justify-end">
+        {/* ──────── CINEMATIC HERO ──────── */}
+        <section id="section-overview" className="relative w-full min-h-[440px] md:min-h-[580px] flex flex-col justify-end overflow-hidden">
           {backdropUrl && (
             <>
-              <img src={backdropUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" />
-              <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/50 to-transparent" aria-hidden />
-              <div className="absolute inset-0 bg-gradient-to-r from-surface-950/70 via-transparent to-transparent" aria-hidden />
+              <img src={backdropUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-25 scale-110" />
+              <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/70 to-surface-950/10" aria-hidden />
+              <div className="absolute inset-0 bg-gradient-to-r from-surface-950/90 via-surface-950/30 to-transparent" aria-hidden />
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(34,197,94,0.06),transparent)]" aria-hidden />
             </>
           )}
-          <div className="relative z-10 max-w-6xl w-full mx-auto px-4 sm:px-6 pb-8 md:pb-10">
-            {/* Badges */}
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span className="px-2.5 py-0.5 rounded-md bg-brand-500/90 text-surface-950 text-xs font-bold uppercase tracking-wider">
-                Movie
-              </span>
+          <div className="relative z-10 section-container pb-16 md:pb-24 animate-fade-up">
+            <div className="flex flex-wrap items-center gap-3 mb-5">
+              <span className="badge-brand">Movie</span>
               {movie?.adult && (
-                <span className="px-2.5 py-0.5 rounded-md bg-red-500/90 text-white text-xs font-bold">18+</span>
+                <span className="px-2.5 py-0.5 rounded-md bg-red-500/15 text-red-400 border border-red-500/25 text-[10px] font-bold uppercase tracking-wider">18+</span>
               )}
               {status && (
-                <span className="text-surface-400 text-sm font-medium">{status}</span>
+                <span className="text-surface-600 text-xs font-medium uppercase tracking-wider">{status}</span>
               )}
             </div>
 
-            {/* Title */}
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight leading-none hero-title-gradient max-w-4xl">
               {movie?.title}
             </h1>
             {tagline && (
-              <p className="mt-2 text-base md:text-lg text-surface-400 italic max-w-2xl">
-                {tagline}
+              <p className="mt-3 text-base md:text-lg text-surface-500 max-w-2xl leading-relaxed font-light italic">
+                &ldquo;{tagline}&rdquo;
               </p>
             )}
 
-            {/* Key facts */}
-            <div className="mt-4 flex flex-wrap gap-2 md:gap-3">
+            <div className="mt-6 flex flex-wrap gap-2">
               {voteAvg != null && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800/80 border border-surface-700/40 text-sm">
-                  <Star className="w-4 h-4 text-accent-gold fill-accent-gold" />
-                  <span className="text-white font-semibold">{voteAvg}</span>
+                <span className="pill-glass">
+                  <Star className="text-accent-gold fill-accent-gold !w-3.5 !h-3.5" />
+                  <span className="text-white font-bold">{voteAvg}</span>
                   {voteCount != null && voteCount > 0 && (
-                    <span className="text-surface-500 text-xs">({voteCount.toLocaleString()})</span>
+                    <span className="text-surface-600 text-xs font-normal">({voteCount.toLocaleString()})</span>
                   )}
                 </span>
               )}
               {movie?.release_date && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800/80 border border-surface-700/40 text-surface-300 text-sm">
+                <span className="pill-glass">
                   {new Date(movie.release_date).getFullYear()}
                 </span>
               )}
               {movie?.runtime != null && movie.runtime > 0 && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800/80 border border-surface-700/40 text-surface-300 text-sm">
-                  <Clock className="w-3.5 h-3.5 text-surface-500" />
+                <span className="pill-glass">
+                  <Clock />
                   {Math.floor(movie.runtime / 60)}h {movie.runtime % 60}m
                 </span>
               )}
               {origLang && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800/80 border border-surface-700/40 text-surface-300 text-sm">
-                  <Globe className="w-3.5 h-3.5 text-surface-500" />
+                <span className="pill-glass">
+                  <Globe />
                   {origLang}
                 </span>
               )}
             </div>
+
+            <div className="mt-6 flex flex-wrap gap-2.5 items-center">
+              <ThreeUserPrefrenceBtn
+                variant="detail"
+                genres={movieGenres.map((g: any) => g.name)}
+                cardId={movie?.id}
+                cardType="movie"
+                cardName={movie?.name || movie?.title}
+                cardAdult={movie?.adult}
+                cardImg={movie?.poster_path || movie?.backdrop_path}
+              />
+              <button
+                type="button"
+                onClick={() => handleCardTransfer(movie)}
+                className="btn-secondary"
+                aria-label="Share"
+              >
+                <Send className="text-base shrink-0" /> Share
+              </button>
+            </div>
           </div>
         </section>
 
-        {/* Main content */}
-        <section className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 md:py-12">
-          <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
-            {/* Poster */}
-            <div className="shrink-0 w-full lg:w-72 xl:w-80">
-              <img
-                src={posterUrl}
-                alt={movie?.title ?? "Poster"}
-                className="w-full rounded-2xl poster-shadow object-cover aspect-2/3 max-h-[480px]"
-              />
+        {/* ──────── MAIN CONTENT ──────── */}
+        <section className="section-container -mt-16 md:-mt-20 relative z-20">
+          <div className="flex flex-col lg:flex-row gap-6 lg:gap-10">
+            {/* Poster – premium floating card */}
+            <div className="shrink-0 w-full lg:w-72 xl:w-80 animate-fade-up">
+              <div className="relative hover-lift rounded-2xl">
+                <div className="absolute -inset-1 bg-gradient-to-b from-brand-500/10 to-transparent rounded-2xl blur-xl opacity-50" aria-hidden />
+                <img
+                  src={posterUrl}
+                  alt={movie?.title ?? "Poster"}
+                  className="w-full rounded-2xl poster-shadow-lg object-cover aspect-[2/3] max-h-[500px] ring-1 ring-white/10 relative"
+                />
+                <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/5 pointer-events-none" />
+              </div>
             </div>
 
-            {/* Details */}
-            <div className="flex-1 min-w-0 space-y-6">
-            {/* Actions */}
-            <div id="section-actions" className="flex flex-wrap gap-2">
-                <ThreeUserPrefrenceBtn
-                  variant="detail"
-                  genres={movieGenres.map((g: any) => g.name)}
-                  cardId={movie?.id}
-                  cardType="movie"
-                  cardName={movie?.name || movie?.title}
-                  cardAdult={movie?.adult}
-                  cardImg={movie?.poster_path || movie?.backdrop_path}
-                />
-                <button
-                  type="button"
-                  onClick={() => handleCardTransfer(movie)}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium bg-surface-800/80 text-surface-300 hover:bg-surface-700 hover:text-white border border-surface-700/40 transition-all"
-                  aria-label="Share"
-                >
-                  <Send className="text-base shrink-0" aria-hidden /> Share
-                </button>
-              </div>
-
-              {/* Country */}
-              {Array.isArray(CountryName) && CountryName.length > 0 && (
-                <div className="text-sm text-surface-400">
-                  <span className="font-medium text-surface-300">Country: </span>
-                  {CountryName.slice(0, 3).map((item: any, i: number) => (
-                    <span key={i}>
-                      {item?.[0]?.english_name ?? ""}
-                      {i < Math.min(3, CountryName.length) - 1 ? ", " : ""}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* IMDb */}
-              {movie?.imdb_id && (
-                <div className="flex items-center gap-3">
-                  <LiaImdb className="text-4xl text-accent-gold" />
-                  <Link
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    href={`https://imdb.com/title/${movie.imdb_id}`}
-                    className="text-surface-300 hover:text-accent-gold transition-colors text-sm font-medium"
-                  >
-                    <ImdbRating id={movie.imdb_id} />
-                  </Link>
-                </div>
-              )}
-
-              {/* Rating & Reviews */}
-              <div id="section-ratings" className="space-y-4 pt-4 border-t border-surface-800/50">
-                <UserRating
-                  itemId={id}
-                  itemType="movie"
-                  itemName={movie?.title}
-                  imageUrl={movie?.poster_path ? `https://image.tmdb.org/t/p/w92${movie.poster_path}` : undefined}
-                  isWatched={hasWatched(id)}
-                />
-                <WatchedReview itemId={id} itemType="movie" isWatched={hasWatched(id)} />
-                <PublicReviews itemId={id} itemType="movie" />
+            {/* Details Column */}
+            <div className="flex-1 min-w-0 flex flex-col gap-6 animate-fade-up stagger-1">
+              {/* Country + IMDb */}
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm">
+                {Array.isArray(CountryName) && CountryName.length > 0 && (
+                  <span className="text-surface-500">
+                    <span className="text-surface-400 font-medium">Country: </span>
+                    {CountryName.slice(0, 3).map((item: any, i: number) => (
+                      <span key={i}>
+                        {item?.[0]?.english_name ?? ""}
+                        {i < Math.min(3, CountryName.length) - 1 ? ", " : ""}
+                      </span>
+                    ))}
+                  </span>
+                )}
+                {movie?.imdb_id && (
+                  <span className="flex items-center gap-1.5">
+                    <LiaImdb className="text-xl text-accent-gold" />
+                    <Link
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      href={`https://imdb.com/title/${movie.imdb_id}`}
+                      className="text-surface-400 hover:text-accent-gold transition-colors text-sm font-medium"
+                    >
+                      <ImdbRating id={movie.imdb_id} />
+                    </Link>
+                  </span>
+                )}
               </div>
 
               {/* Overview */}
               {movie?.overview && (
-                <div className="pt-4 border-t border-surface-800/50">
-                  <h2 className="text-lg font-semibold text-white mb-3">Overview</h2>
-                  <p className="text-surface-400 text-sm leading-relaxed">
+                <div className="card-accent rounded-2xl p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <BookOpen className="w-4 h-4 text-brand-400" />
+                    <span className="text-xs font-semibold text-surface-100 uppercase tracking-wider">Overview</span>
+                  </div>
+                  <p className="text-sm text-surface-400 leading-relaxed">
                     {showFullOverview ? movie.overview : movie.overview.slice(0, 320)}
                     {movie.overview.length > 320 && !showFullOverview && "…"}
                   </p>
@@ -227,105 +216,154 @@ export default function Movie({
                     <button
                       type="button"
                       onClick={toggleOverview}
-                      className="mt-3 text-brand-400 hover:text-brand-300 text-sm font-medium transition-colors"
+                      className="mt-3 text-xs font-semibold text-brand-400 hover:text-brand-300 transition-colors"
                     >
-                      {showFullOverview ? "Read less" : "Read more"}
+                      {showFullOverview ? "Show less" : "Read more"}
                     </button>
                   )}
                 </div>
               )}
 
               {/* Details */}
-              <div className="pt-4 border-t border-surface-800/50 space-y-4">
-                <h2 className="text-lg font-semibold text-white mb-2">Details</h2>
-                {directors.length > 0 && (
-                  <div className="flex items-start gap-2 text-sm">
-                    <Clapperboard className="w-4 h-4 text-surface-500 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="text-surface-500">Director: </span>
-                      {directors.map((d: any, i: number) => (
+              <div className="card-accent rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Clapperboard className="w-4 h-4 text-brand-400" />
+                  <span className="text-xs font-semibold text-surface-100 uppercase tracking-wider">Details</span>
+                </div>
+                <div className="space-y-3">
+                  {directors.length > 0 && (
+                    <div className="flex items-start gap-2 text-sm">
+                      <span className="text-surface-500 shrink-0">Director:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {directors.map((d: any, i: number) => (
+                          <Link
+                            key={d.id}
+                            href={`/app/person/${d.id}-${String(d.name).trim().replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-")}`}
+                            className="text-surface-300 hover:text-brand-400 transition-colors"
+                          >
+                            {d.name}{i < directors.length - 1 ? "," : ""}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {movie?.genres?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {movie.genres.map((g: any) => (
                         <Link
-                          key={d.id}
-                          href={`/app/person/${d.id}-${String(d.name).trim().replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-")}`}
-                          className="text-surface-300 hover:text-brand-400 hover:underline transition-colors"
+                          key={g.id}
+                          href={`/app/moviebygenre/list/${g.id}-${String(g.name).trim().replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-")}`}
+                          className="chip-surface"
                         >
-                          {d.name}{i < directors.length - 1 ? ", " : ""}
+                          {g.name}
                         </Link>
                       ))}
                     </div>
-                  </div>
-                )}
-                {movie?.genres?.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {movie.genres.map((g: any) => (
-                      <Link
-                        key={g.id}
-                        href={`/app/moviebygenre/list/${g.id}-${String(g.name).trim().replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-")}`}
-                        className="px-3 py-1 rounded-full bg-surface-800/60 border border-surface-700/40 text-surface-300 text-xs font-medium hover:bg-surface-700 hover:text-white hover:border-surface-600 transition-all"
-                      >
-                        {g.name}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-                {movie?.production_companies?.length > 0 && (
-                  <div className="text-sm text-surface-500">
-                    <span className="text-surface-600">Production: </span>
-                    {movie.production_companies.slice(0, 5).map((c: any, i: number) => (
-                      <span key={c.id}>
-                        {c.name}
-                        {i < Math.min(5, movie.production_companies.length) - 1 ? ", " : ""}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {hasMoney && (
-                  <div className="flex flex-wrap gap-4 text-sm text-surface-500">
-                    {budget > 0 && (
-                      <span className="flex items-center gap-1.5">
-                        <DollarSign className="w-3.5 h-3.5" />
-                        Budget: ${(budget / 1_000_000).toFixed(1)}M
-                      </span>
-                    )}
-                    {revenue > 0 && (
-                      <span className="flex items-center gap-1.5">
-                        <DollarSign className="w-3.5 h-3.5" />
-                        Revenue: ${(revenue / 1_000_000).toFixed(1)}M
-                      </span>
-                    )}
-                  </div>
-                )}
+                  )}
+                  {movie?.production_companies?.length > 0 && (
+                    <div className="text-sm text-surface-500">
+                      <span className="text-surface-500">Production: </span>
+                      {movie.production_companies.slice(0, 5).map((c: any, i: number) => (
+                        <span key={c.id}>
+                          {c.name}
+                          {i < Math.min(5, movie.production_companies.length) - 1 ? ", " : ""}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {hasMoney && (
+                    <div className="flex flex-wrap gap-4 text-sm text-surface-500">
+                      {budget > 0 && (
+                        <span className="flex items-center gap-1.5">
+                          <DollarSign className="w-3.5 h-3.5 text-surface-600" />
+                          Budget: ${(budget / 1_000_000).toFixed(1)}M
+                        </span>
+                      )}
+                      {revenue > 0 && (
+                        <span className="flex items-center gap-1.5">
+                          <DollarSign className="w-3.5 h-3.5 text-surface-600" />
+                          Revenue: ${(revenue / 1_000_000).toFixed(1)}M
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Social Proof Section */}
-          <div id="section-social" className="mt-8 space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-4 h-4 text-brand-400" />
-              <h2 className="text-lg font-semibold text-white">Community</h2>
+          {/* Your Activity */}
+          <div id="section-ratings" className="mt-10">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+              <div>
+                <h2 className="section-header">Your Activity</h2>
+                <p className="section-desc">Rate, review, and track</p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-4">
+              <UserRating
+                itemId={id}
+                itemType="movie"
+                itemName={movie?.title}
+                imageUrl={movie?.poster_path ? `https://image.tmdb.org/t/p/w92${movie.poster_path}` : undefined}
+                isWatched={hasWatched(id)}
+              />
+              <WatchedReview itemId={id} itemType="movie" isWatched={hasWatched(id)} />
+            </div>
+          </div>
+
+          {/* Community */}
+          <div id="section-social" className="mt-12 space-y-5">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+              <div>
+                <h2 className="section-header">Community</h2>
+                <p className="section-desc">See what friends think</p>
+              </div>
             </div>
             <FriendsWhoWatched itemId={id} itemType="movie" />
             <RatingDistribution itemId={id} itemType="movie" />
           </div>
 
-          {/* More Content Section */}
-          <div id="section-more" className="mt-8 space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Hash className="w-4 h-4 text-brand-400" />
-              <h2 className="text-lg font-semibold text-white">Explore More</h2>
+          {/* Community Reviews */}
+          <div id="section-reviews" className="mt-12">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+              <div>
+                <h2 className="section-header">Community Reviews</h2>
+                <p className="section-desc">Everyone&apos;s thoughts</p>
+              </div>
             </div>
-            <CollectionBanner collection={collection} />
-            <KeywordTags keywords={keywords} />
+            <PublicReviews itemId={id} itemType="movie" />
           </div>
         </section>
 
-        {/* Full-width sections */}
-        <div id="section-cast">
-          <WatchOptionsViewer mediaId={id} mediaType="movie" />
+        {/* ──────── FULL WIDTH SECTIONS ──────── */}
+        <div className="bg-gradient-section mt-12">
+          <div id="section-cast">
+            <WatchOptionsViewer mediaId={id} mediaType="movie" />
+            <MovieCast credits={credits?.cast} id={id} type="movie" />
+          </div>
+
+          {/* Explore More */}
+          <section className="section-container section-spacing">
+            <div id="section-more" className="space-y-5">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+                <div>
+                  <h2 className="section-header">Explore More</h2>
+                  <p className="section-desc">Related content and themes</p>
+                </div>
+              </div>
+              <CollectionBanner collection={collection} />
+              <KeywordTags keywords={keywords} />
+            </div>
+          </section>
         </div>
+
+        {/* Media */}
         <div id="section-media">
-          <MovieCast credits={credits?.cast} id={id} type="movie" />
           <Video videos={videos} movie={movie} />
           <ImageViewer movie={movie} Bimages={Bimages} Pimages={Pimages} />
         </div>
