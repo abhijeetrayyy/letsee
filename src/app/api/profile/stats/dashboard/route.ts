@@ -8,6 +8,19 @@ type WeekdayStat = { day: string; count: number };
 type StreakInfo = { current: number; longest: number };
 type GenreRating = { genre: string; avgRating: number; count: number };
 type TopItem = { itemId: string; name: string; itemType: string; score: number; imageUrl: string | null };
+type YearReview = {
+  moviesThisYear: number;
+  tvThisYear: number;
+  episodesThisYear: number;
+  totalHoursThisYear: number;
+  distinctGenresCount: number;
+  topGenreThisYear: string | null;
+  topRatedThisYear: TopItem[];
+  mostWatchedMonth: string | null;
+  mostWatchedDay: string | null;
+  totalDaysWatched: number;
+  currentYear: number;
+};
 
 type DashboardData = {
   overview: {
@@ -29,6 +42,7 @@ type DashboardData = {
   avgRatingPerGenre: GenreRating[];
   topRated: TopItem[];
   tvCompletion: { completed: number; total: number; rate: number } | null;
+  yearInReview: YearReview | null;
 };
 
 export async function GET(request: Request) {
@@ -219,6 +233,79 @@ export async function GET(request: Request) {
       tvCompletion = { completed, total: tvList.length, rate: Math.round((completed / tvList.length) * 100) };
     }
 
+    // Year in review (current year)
+    const thisYear = new Date().getFullYear();
+    const thisYearItems = watchedItems.filter((i) => {
+      if (!i.watched_at) return false;
+      return new Date(i.watched_at).getFullYear() === thisYear;
+    });
+    const thisYearMovies = thisYearItems.filter((i) => i.item_type === "movie");
+    const thisYearTv = thisYearItems.filter((i) => i.item_type === "tv");
+    const thisYearEpisodes = thisYearItems.length > 0 || true ? episodesCount : 0;
+
+    const yearGenreCounts: Record<string, number> = {};
+    thisYearItems.forEach((item) => {
+      if (Array.isArray(item.genres)) {
+        item.genres.forEach((g: string) => { yearGenreCounts[g] = (yearGenreCounts[g] || 0) + 1; });
+      }
+    });
+    const topGenreThisYear = Object.entries(yearGenreCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+    const yearMonthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const yearMonthMap: Record<number, number> = {};
+    thisYearItems.forEach((item) => {
+      if (item.watched_at) {
+        const m = new Date(item.watched_at).getMonth();
+        yearMonthMap[m] = (yearMonthMap[m] || 0) + 1;
+      }
+    });
+    const bestMonthIdx = Object.entries(yearMonthMap).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const mostWatchedMonth = bestMonthIdx !== undefined ? yearMonthLabels[Number(bestMonthIdx)] : null;
+
+    const yearWeekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const yearWeekdayMap: Record<number, number> = {};
+    thisYearItems.forEach((item) => {
+      if (item.watched_at) {
+        const d = new Date(item.watched_at).getDay();
+        yearWeekdayMap[d] = (yearWeekdayMap[d] || 0) + 1;
+      }
+    });
+    const bestDayIdx = Object.entries(yearWeekdayMap).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const mostWatchedDay = bestDayIdx !== undefined ? yearWeekdayLabels[Number(bestDayIdx)] : null;
+
+    const thisYearDates = [...new Set(thisYearItems.filter((i) => i.watched_at).map((i) => new Date(i.watched_at).toISOString().split("T")[0]))];
+
+    const yearRatings = ratings.filter((r) => {
+      const key = `${r.item_type}:${r.item_id}`;
+      return thisYearItems.some((wi) => `${wi.item_type}:${wi.item_id}` === key);
+    });
+    const thisYearWatchedMap = new Map(thisYearItems.map((i) => [`${i.item_type}:${i.item_id}`, i]));
+    const yearTopRated: TopItem[] = yearRatings
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((r) => {
+        const key = `${r.item_type}:${r.item_id}`;
+        const item = thisYearWatchedMap.get(key);
+        return {
+          itemId: r.item_id, name: item?.item_name ?? r.item_id,
+          itemType: r.item_type, score: r.score, imageUrl: null,
+        };
+      });
+
+    const yearInReview: YearReview | null = thisYearItems.length > 0 ? {
+      moviesThisYear: thisYearMovies.length,
+      tvThisYear: thisYearTv.length,
+      episodesThisYear: 0,
+      totalHoursThisYear: Math.round(thisYearMovies.length * 2 + (thisYearTv.length * 8) * 0.75),
+      distinctGenresCount: Object.keys(yearGenreCounts).length,
+      topGenreThisYear,
+      topRatedThisYear: yearTopRated,
+      mostWatchedMonth,
+      mostWatchedDay,
+      totalDaysWatched: thisYearDates.length,
+      currentYear: thisYear,
+    } : null;
+
     const dashboard: DashboardData = {
       overview: {
         watchedCount: watchedItems.length,
@@ -239,6 +326,7 @@ export async function GET(request: Request) {
       avgRatingPerGenre,
       topRated,
       tvCompletion,
+      yearInReview,
     };
 
     return new Response(JSON.stringify({ data: dashboard }));

@@ -148,7 +148,7 @@ Short-form movie clips browsable by genre/keyword. `src/components/reel/` — fe
 **File**: `src/components/search/NaturalSearch.tsx`
 **API**: `src/app/api/search/natural/route.ts`
 
-**World-Class Upgrade** (commit TBD):
+**World-Class Upgrade** (commit `d2edbd5`):
 
 **Query parsing** (pattern-based, no LLM dependency):
 - Genre extraction: matches against known genre names + aliases ("sci-fi" → "Science Fiction", "rom-com" → "Romance") + partial name matching
@@ -388,7 +388,23 @@ Simpler content-based: genre frequency → top genres → discover popular in th
 **File**: `src/components/profile/ViewingDashboard.tsx`
 **API**: `src/app/api/profile/stats/dashboard/route.ts`
 
-**Available on**: Profile → "Dashboard" tab (owner only).
+**World-Class Upgrade** (pending commit):
+
+**Visualization**:
+- All bar charts replaced with **Chart.js** (via `react-chartjs-2`): monthly activity, yearly (stacked movie/TV), weekday habits, top genres (horizontal), rating distribution
+- Tooltips on hover, gradient bar colors, animated entrance, responsive sizing
+- Glassmorphism cards with gradient borders and backdrop blur
+
+**New sections**:
+- **Year in Review** card: dedicated highlight reel for the current year showing movies, shows, hours, days watched, top genre, best month, favorite weekday, top 3 rated items, genres explored. Exportable as PNG via `html2canvas`.
+- **Streaks** card re-styled alongside favorites/watchlist count in a 4-card row
+
+**Export**:
+- "Export" button in header captures full dashboard as PNG using `html2canvas` (2x scale)
+- Year-in-Review card has its own dedicated export button
+
+**API**:
+- Added `yearInReview` section to dashboard response (current year only): `moviesThisYear`, `tvThisYear`, `totalHoursThisYear`, `distinctGenresCount`, `topGenreThisYear`, `topRatedThisYear[]`, `mostWatchedMonth`, `mostWatchedDay`, `totalDaysWatched`
 
 **Data returned** (single consolidated endpoint):
 
@@ -404,6 +420,7 @@ Simpler content-based: genre frequency → top genres → discover popular in th
 | **Avg Rating per Genre** | Average score per genre | Cross-reference ratings with watched_items genres |
 | **Top Rated** | Top 5 highest-scored items | Sort user_ratings desc, join against watched for names |
 | **TV Completion** | Completed / total / % | From user_tv_list status |
+| **Year in Review** | Current year highlight reel | Filtered watched items + ratings for current year only |
 
 ### 8.2 Profile Stats (Legacy)
 
