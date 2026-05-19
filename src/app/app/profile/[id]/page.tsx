@@ -25,6 +25,7 @@ import TasteSummary from "@components/profile/TasteSummary";
 import ProfileYearInReview from "@components/profile/ProfileYearInReview";
 import Visibility from "@components/profile/visibility";
 import { computeTasteSummary, type TasteProfile } from "@/utils/tasteProfile";
+import { Share2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
