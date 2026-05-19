@@ -7,7 +7,7 @@ import { LiaImdb } from "react-icons/lia";
 import Link from "next/link";
 import MovieCast from "@components/movie/MovieCast";
 import Video from "@components/movie/Video";
-import { Send, Star, Clock, Globe, DollarSign, Clapperboard } from "lucide-react";
+import { Send, Star, Clock, Globe, DollarSign, Clapperboard, Hash, Sparkles, TrendingUp } from "lucide-react";
 import SendMessageModal from "@components/message/sendCard";
 import ImdbRating from "@components/movie/imdbRating";
 import UserRating from "@components/movie/UserRating";
@@ -15,6 +15,12 @@ import WatchedReview from "@components/movie/WatchedReview";
 import PublicReviews from "@components/movie/PublicReviews";
 import ImageViewer from "@components/clientComponent/ImaeViewer";
 import WatchOptionsViewer from "./watchOptionView";
+import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
+import RatingDistribution from "@components/detail/RatingDistribution";
+import CollectionBanner from "@components/detail/CollectionBanner";
+import KeywordTags from "@components/detail/KeywordTags";
+import ContentAdvisory from "@components/detail/ContentAdvisory";
+import SectionNav from "@components/detail/SectionNav";
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: "English", es: "Spanish", fr: "French", de: "German",
@@ -28,6 +34,7 @@ function langLabel(iso: string): string {
 
 export default function Movie({
   CountryName, movie, Bimages, Pimages, credits, videos, id,
+  keywords = [], collection = null, releaseDates = [],
 }: any) {
   const { hasWatched } = useContext(UserPrefrenceContext);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -63,11 +70,12 @@ export default function Movie({
 
   return (
     <div>
+      <SectionNav />
       <SendMessageModal media_type="movie" data={cardData} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
       <div className="text-white relative w-full bg-surface-950 min-h-screen">
         {/* Hero with backdrop */}
-        <section className="relative w-full min-h-[340px] md:min-h-[460px] flex flex-col justify-end">
+        <section id="section-overview" className="relative w-full min-h-[380px] md:min-h-[500px] flex flex-col justify-end">
           {backdropUrl && (
             <>
               <img src={backdropUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" />
@@ -145,8 +153,8 @@ export default function Movie({
 
             {/* Details */}
             <div className="flex-1 min-w-0 space-y-6">
-              {/* Actions */}
-              <div className="flex flex-wrap gap-2">
+            {/* Actions */}
+            <div id="section-actions" className="flex flex-wrap gap-2">
                 <ThreeUserPrefrenceBtn
                   variant="detail"
                   genres={movieGenres.map((g: any) => g.name)}
@@ -195,7 +203,7 @@ export default function Movie({
               )}
 
               {/* Rating & Reviews */}
-              <div className="space-y-4 pt-4 border-t border-surface-800/50">
+              <div id="section-ratings" className="space-y-4 pt-4 border-t border-surface-800/50">
                 <UserRating
                   itemId={id}
                   itemType="movie"
@@ -290,13 +298,37 @@ export default function Movie({
               </div>
             </div>
           </div>
+
+          {/* Social Proof Section */}
+          <div id="section-social" className="mt-8 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-4 h-4 text-brand-400" />
+              <h2 className="text-lg font-semibold text-white">Community</h2>
+            </div>
+            <FriendsWhoWatched itemId={id} itemType="movie" />
+            <RatingDistribution itemId={id} itemType="movie" />
+          </div>
+
+          {/* More Content Section */}
+          <div id="section-more" className="mt-8 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Hash className="w-4 h-4 text-brand-400" />
+              <h2 className="text-lg font-semibold text-white">Explore More</h2>
+            </div>
+            <CollectionBanner collection={collection} />
+            <KeywordTags keywords={keywords} />
+          </div>
         </section>
 
         {/* Full-width sections */}
-        <WatchOptionsViewer mediaId={id} mediaType="movie" />
-        <MovieCast credits={credits?.cast} id={id} type="movie" />
-        <Video videos={videos} movie={movie} />
-        <ImageViewer movie={movie} Bimages={Bimages} Pimages={Pimages} />
+        <div id="section-cast">
+          <WatchOptionsViewer mediaId={id} mediaType="movie" />
+        </div>
+        <div id="section-media">
+          <MovieCast credits={credits?.cast} id={id} type="movie" />
+          <Video videos={videos} movie={movie} />
+          <ImageViewer movie={movie} Bimages={Bimages} Pimages={Pimages} />
+        </div>
       </div>
     </div>
   );

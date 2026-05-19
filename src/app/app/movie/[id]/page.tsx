@@ -21,7 +21,7 @@ const MOVIE_REVALIDATE_SEC = 3600; // 1 hour
 /** Single TMDB call for movie page: details + credits, videos, images, recommendations, similar (deduped by Next.js with generateMetadata). */
 async function getMovieFull(id: string) {
   return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar`,
+    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar,keywords,release_dates`,
     "Movie full",
     { revalidate: MOVIE_REVALIDATE_SEC }
   );
@@ -99,6 +99,9 @@ const MovieDetails = async ({ params }: PageProps) => {
   const videos = (movie.videos?.results ?? []) as any[];
   const Pimages = movie.images?.posters ?? [];
   const Bimages = movie.images?.backdrops ?? [];
+  const keywords = movie.keywords?.keywords ?? movie.keywords?.results ?? [];
+  const collection = movie.belongs_to_collection ?? null;
+  const releaseDates = movie.release_dates?.results ?? [];
 
   const originCountries = Array.isArray(movie.origin_country)
     ? movie.origin_country
@@ -120,6 +123,9 @@ const MovieDetails = async ({ params }: PageProps) => {
         movie={movie}
         credits={credits}
         id={numericId}
+        keywords={keywords}
+        collection={collection}
+        releaseDates={releaseDates}
       />
       <BecauseYouWatched itemId={numericId} mediaType="movie" sectionTitle="Because you watched this" />
       {recoData.total_results > 0 && (

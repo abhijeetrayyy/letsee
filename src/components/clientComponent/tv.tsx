@@ -9,6 +9,7 @@ import MovieCast from "@components/movie/MovieCast";
 import Video from "@components/movie/Video";
 import SendMessageModal from "@components/message/sendCard";
 import { LuSend } from "react-icons/lu";
+import { Sparkles, Hash } from "lucide-react";
 import ImageViewer from "@components/clientComponent/ImaeViewer";
 import ImdbRating from "@components/movie/imdbRating";
 import UserRating from "@components/movie/UserRating";
@@ -17,6 +18,11 @@ import PublicReviews from "@components/movie/PublicReviews";
 import TvShowProgress from "@components/tv/TvShowProgress";
 import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
 import WatchOptionsViewer from "@components/clientComponent/watchOptionView";
+import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
+import RatingDistribution from "@components/detail/RatingDistribution";
+import KeywordTags from "@components/detail/KeywordTags";
+import ContentAdvisory from "@components/detail/ContentAdvisory";
+import SectionNav from "@components/detail/SectionNav";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa6";
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -44,6 +50,8 @@ export default function Tv({
   id,
   Pimages,
   Bimages,
+  keywords = [],
+  contentRatings = [],
 }: any) {
   const { hasWatched, refreshPreferences } = useContext(UserPrefrenceContext);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -145,6 +153,7 @@ export default function Tv({
 
   return (
     <div>
+      <SectionNav />
       <SendMessageModal
         media_type="tv"
         data={cardData}
@@ -174,7 +183,7 @@ export default function Tv({
       />
       <div className="text-white relative w-full bg-neutral-900 min-h-screen">
         {/* Hero: backdrop + title + tagline */}
-        <section className="relative w-full min-h-[320px] md:min-h-[420px] flex flex-col justify-end">
+        <section id="section-overview" className="relative w-full min-h-[350px] md:min-h-[460px] flex flex-col justify-end">
           {backdropUrl && (
             <>
               <img
@@ -317,7 +326,7 @@ export default function Tv({
               )}
 
               {/* Your rating & reviews */}
-              <div className="space-y-4 pt-2 border-t border-neutral-700">
+              <div id="section-ratings" className="space-y-4 pt-2 border-t border-neutral-700">
                 {hasWatched(id) && (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm text-neutral-400">Your list:</span>
@@ -476,14 +485,36 @@ export default function Tv({
               </div>
             </div>
           </div>
+
+          {/* Social Proof Section */}
+          <div id="section-social" className="mt-8 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <h2 className="text-lg font-semibold text-white">Community</h2>
+            </div>
+            <FriendsWhoWatched itemId={id} itemType="tv" />
+            <RatingDistribution itemId={id} itemType="tv" />
+          </div>
+
+          {/* Explore More */}
+          <div id="section-more" className="mt-8 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Hash className="w-4 h-4 text-indigo-400" />
+              <h2 className="text-lg font-semibold text-white">Explore More</h2>
+            </div>
+            <ContentAdvisory ratings={contentRatings} />
+            <KeywordTags keywords={keywords} />
+          </div>
         </section>
 
-        <WatchOptionsViewer mediaId={Number(id)} mediaType="tv" />
-        <MovieCast credits={cast} id={show?.id ?? id} type="tv" />
+        <div id="section-cast">
+          <WatchOptionsViewer mediaId={Number(id)} mediaType="tv" />
+          <MovieCast credits={cast} id={show?.id ?? id} type="tv" />
+        </div>
 
         {/* Seasons */}
         {seasons.length > 0 && (
-          <section className="max-w-6xl w-full mx-auto px-4 py-8">
+          <section id="section-seasons" className="max-w-6xl w-full mx-auto px-4 py-8">
             <h2 className="text-2xl font-bold text-white mb-4">Seasons</h2>
             {firstSeason && (
               <div className="mb-6 rounded-xl overflow-hidden border border-neutral-700 bg-neutral-800/80">
@@ -587,8 +618,10 @@ export default function Tv({
           </section>
         )}
 
-        <Video videos={videos} movie={show} />
-        <ImageViewer movie={show} Bimages={Bimages} Pimages={Pimages} />
+        <div id="section-media">
+          <Video videos={videos} movie={show} />
+          <ImageViewer movie={show} Bimages={Bimages} Pimages={Pimages} />
+        </div>
       </div>
     </div>
   );
