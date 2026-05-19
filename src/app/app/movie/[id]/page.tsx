@@ -21,7 +21,7 @@ const MOVIE_REVALIDATE_SEC = 3600; // 1 hour
 /** Single TMDB call for movie page: details + credits, videos, images, recommendations, similar (deduped by Next.js with generateMetadata). */
 async function getMovieFull(id: string) {
   return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar,keywords,release_dates`,
+    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar,keywords,release_dates,watch_providers`,
     "Movie full",
     { revalidate: MOVIE_REVALIDATE_SEC }
   );
@@ -113,6 +113,9 @@ const MovieDetails = async ({ params }: PageProps) => {
   const recoData = movie.recommendations ?? { total_results: 0, results: [] };
   const similarData = movie.similar ?? { total_results: 0, results: [] };
 
+  const watchProviders = movie.watch_providers?.results?.US ?? null;
+  const flatrateProviders = watchProviders?.flatrate ?? [];
+
   return (
     <div>
       <Movie
@@ -126,6 +129,8 @@ const MovieDetails = async ({ params }: PageProps) => {
         keywords={keywords}
         collection={collection}
         releaseDates={releaseDates}
+        watchProviders={flatrateProviders}
+        watchLink={watchProviders?.link ?? ""}
       />
       <BecauseYouWatched itemId={numericId} mediaType="movie" sectionTitle="Because you watched this" />
       {recoData.total_results > 0 && (

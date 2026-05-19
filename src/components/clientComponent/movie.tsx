@@ -7,7 +7,7 @@ import { LiaImdb } from "react-icons/lia";
 import Link from "next/link";
 import MovieCast from "@components/movie/MovieCast";
 import Video from "@components/movie/Video";
-import { Send, Star, Clock, Globe, DollarSign, Clapperboard, BookOpen } from "lucide-react";
+import { Send, Star, Clock, Globe, DollarSign, Clapperboard, BookOpen, Play, Share2, X } from "lucide-react";
 import SendMessageModal from "@components/message/sendCard";
 import ImdbRating from "@components/movie/imdbRating";
 import UserRating from "@components/movie/UserRating";
@@ -32,14 +32,29 @@ function langLabel(iso: string): string {
   return LANGUAGE_NAMES[iso] ?? iso?.toUpperCase() ?? "";
 }
 
+const PROVIDER_FALLBACK: Record<number, string> = {
+  8: "https://www.netflix.com",
+  9: "https://www.amazon.com/Prime-Video",
+  15: "https://www.hulu.com",
+  337: "https://www.disneyplus.com",
+  350: "https://www.hbomax.com",
+  386: "https://www.paramountplus.com",
+  531: "https://www.mubi.com",
+};
+
 export default function Movie({
   CountryName, movie, Bimages, Pimages, credits, videos, id,
   keywords = [], collection = null, releaseDates = [],
+  watchProviders = [], watchLink = "",
 }: any) {
   const { hasWatched } = useContext(UserPrefrenceContext);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cardData, setCardData] = useState([]) as any;
   const [showFullOverview, setShowFullOverview] = useState(false);
+  const [trailerModal, setTrailerModal] = useState(false);
+  const [shareModal, setShareModal] = useState(false);
+  const [quickRate, setQuickRate] = useState(false);
+  const [userRating, setUserRating] = useState<number | null>(null);
 
   const movieGenres = Array.isArray(movie?.genres) ? movie.genres : [];
   const directors = credits?.crew?.filter((c: any) => c.job === "Director") ?? [];
@@ -55,12 +70,27 @@ export default function Movie({
   const revenue = movie?.revenue ? Number(movie.revenue) : 0;
   const hasMoney = budget > 0 || revenue > 0;
 
+  const trailer = videos?.find((v: any) => v.type === "Trailer" && v.site === "YouTube") ??
+    videos?.find((v: any) => v.site === "YouTube");
+
   const handleCardTransfer = (data: any) => {
     setCardData(data);
     setIsModalOpen(true);
   };
 
   const toggleOverview = () => setShowFullOverview(!showFullOverview);
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(url);
+    }
+  };
+
+  const handleQuickRate = (rating: number) => {
+    setUserRating(rating);
+    setQuickRate(false);
+  };
 
   const backdropUrl = movie?.backdrop_path && !movie?.adult
     ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null;
@@ -72,6 +102,67 @@ export default function Movie({
     <div>
       <SectionNav />
       <SendMessageModal media_type="movie" data={cardData} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
+      {/* Trailer Modal */}
+      {trailerModal && trailer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setTrailerModal(false)}>
+          <div className="relative w-full max-w-4xl mx-4" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setTrailerModal(false)} className="absolute -top-10 right-0 text-white hover:text-brand-400 transition-colors" aria-label="Close trailer">
+              <X className="w-6 h-6" />
+            </button>
+            <div className="aspect-video rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl">
+              <iframe className="w-full h-full" src={`https://www.youtube.com/embed/${trailer.key}?autoplay=1`} title={trailer.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+            </div>
+            <p className="text-sm text-surface-400 mt-3 text-center">{trailer.name}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Share Modal */}
+      {shareModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setShareModal(false)}>
+          <div className="glass-card rounded-2xl p-6 w-full max-w-sm mx-4 animate-fade-up" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">Share</h3>
+              <button onClick={() => setShareModal(false)} className="text-surface-400 hover:text-white transition-colors" aria-label="Close share">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <button onClick={handleShare} className="w-full btn-secondary text-sm py-2.5">
+                <Share2 className="w-4 h-4" /> Copy Link
+              </button>
+              <button onClick={() => window.open(`https://twitter.com/intent/tweet?text=Check out ${movie?.title}&url=${encodeURIComponent(window.location.href)}`, "_blank")} className="w-full btn-secondary text-sm py-2.5">
+                Share on X
+              </button>
+              <button onClick={() => handleCardTransfer(movie)} className="w-full btn-secondary text-sm py-2.5">
+                <Send className="w-4 h-4" /> Send via Message
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Rate Modal */}
+      {quickRate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setQuickRate(false)}>
+          <div className="glass-card rounded-2xl p-6 w-full max-w-sm mx-4 animate-fade-up" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">Rate this movie</h3>
+              <button onClick={() => setQuickRate(false)} className="text-surface-400 hover:text-white transition-colors" aria-label="Close rating">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                <button key={n} onClick={() => handleQuickRate(n)} className={`rounded-xl py-3 text-lg font-bold transition-all hover:scale-105 ${n <= 3 ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : n <= 6 ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30" : "bg-brand-500/20 text-brand-400 hover:bg-brand-500/30"}`}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="text-white relative w-full bg-surface-950 min-h-screen">
         {/* ──────── CINEMATIC HERO ──────── */}
@@ -133,6 +224,21 @@ export default function Movie({
               )}
             </div>
 
+            {/* Streaming Provider Badges */}
+            {watchProviders.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-surface-500 font-medium">Stream on:</span>
+                {watchProviders.slice(0, 6).map((p: any) => (
+                  <Link key={p.provider_id} href={watchLink || PROVIDER_FALLBACK[p.provider_id] || "#"} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors">
+                    {p.logo_path && (
+                      <img src={`https://image.tmdb.org/t/p/w45${p.logo_path}`} alt={p.provider_name} className="w-5 h-5 rounded object-contain" />
+                    )}
+                    <span className="text-xs text-surface-300">{p.provider_name}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+
             <div className="mt-6 flex flex-wrap gap-2.5 items-center">
               <ThreeUserPrefrenceBtn
                 variant="detail"
@@ -143,13 +249,19 @@ export default function Movie({
                 cardAdult={movie?.adult}
                 cardImg={movie?.poster_path || movie?.backdrop_path}
               />
-              <button
-                type="button"
-                onClick={() => handleCardTransfer(movie)}
-                className="btn-secondary"
-                aria-label="Share"
-              >
-                <Send className="text-base shrink-0" /> Share
+              {/* Quick Rate */}
+              <button type="button" onClick={() => setQuickRate(true)} className="btn-secondary">
+                <Star className="w-4 h-4 text-accent-gold" /> Rate
+              </button>
+              {/* Watch Trailer */}
+              {trailer && (
+                <button type="button" onClick={() => setTrailerModal(true)} className="btn-primary">
+                  <Play className="w-4 h-4 fill-current" /> Trailer
+                </button>
+              )}
+              {/* Share */}
+              <button type="button" onClick={() => setShareModal(true)} className="btn-secondary" aria-label="Share">
+                <Share2 className="w-4 h-4" /> Share
               </button>
             </div>
           </div>
@@ -292,6 +404,18 @@ export default function Movie({
             </div>
           </div>
 
+          {/* Where to Watch – moved up for prominence */}
+          <div id="section-watch" className="mt-10">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+              <div>
+                <h2 className="section-header">Where to Watch</h2>
+                <p className="section-desc">Streaming, rental and purchase options</p>
+              </div>
+            </div>
+            <WatchOptionsViewer mediaId={id} mediaType="movie" />
+          </div>
+
           {/* Your Activity */}
           <div id="section-ratings" className="mt-10">
             <div className="flex items-center gap-3 mb-5">
@@ -342,7 +466,6 @@ export default function Movie({
         {/* ──────── FULL WIDTH SECTIONS ──────── */}
         <div className="bg-gradient-section mt-12">
           <div id="section-cast">
-            <WatchOptionsViewer mediaId={id} mediaType="movie" />
             <MovieCast credits={credits?.cast} id={id} type="movie" />
           </div>
 
