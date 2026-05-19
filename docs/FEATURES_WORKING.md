@@ -351,7 +351,7 @@ Returns count of each score 1–10 for a user.
 **File**: `src/components/ai/collaborativeRecs.tsx`
 **API**: `src/app/api/recommendations/collaborative/route.ts`
 
-**World-Class Upgrade** (pending commit):
+**World-Class Upgrade** (commit `318ad89`):
 
 **Algorithm**:
 1. Build normalized genre vector for current user.
@@ -380,12 +380,29 @@ Returns count of each score 1–10 for a user.
 **File**: `src/components/movie/BecauseYouWatched.tsx`
 **API**: `src/app/api/recommendations/because-you-watched/route.ts`
 
+**World-Class Upgrade** (pending commit):
+
 **Algorithm** (hybrid content + personalization):
 1. Fetch current item's genres + TMDB recommendations/similar list.
 2. Build user's weighted genre preference from their ratings (score centered at 5.5).
 3. For each candidate: score by genre match with user preference (70%) + genre overlap with current item (30%).
-4. Return top 12 scored items with match reason badge.
-5. Integrated on both movie and TV detail pages.
+4. Return top 12 scored items with per-genre breakdown, match score, and match reason.
+
+**API response enhancements**:
+- `genreBreakdown: { genre: string; weight: number }[]` — per-item genre match details showing each matching genre and the user's preference weight
+- `overview` — truncated overview text (300 chars) for inline preview
+- `sharedGenreCount` — number of genres matching user's taste
+- `currentTitle` — name of the item being viewed
+- `userTopGenres` — user's top 4 preferred genres (shown in section header)
+
+**UI/UX upgrades**:
+- **Genre breakdown tooltip**: hover a card (400ms delay) to see a detailed popover with each matching genre, a weight bar, and the numeric weight value
+- **One-click add to watchlist**: hover-reveal `+` button on each card that calls `POST /api/watchlistButton` with optimistic UI update (checkmark after added)
+- **Inline overview preview**: click the info icon on a card to see the item's overview in a popover above the card
+- **Match score bar**: thin color-coded progress bar under each poster (green ≥70, yellow ≥40, gray <40)
+- **Match score badge**: pill showing "N% match" with consistent color coding
+- **Section subtitle**: shows "Matched by [top genres]" when available
+- **Dynamic section title**: "Because you watched [item name]" when name is available
 
 ### 7.4 Personal Recommendations (TMDB-based)
 

@@ -36,7 +36,7 @@ function buildWeightedGenrePreference(
 
   const result: Record<string, number> = {};
   for (const [genre, data] of Object.entries(weights)) {
-    result[genre] = data.count > 0 ? data.total / data.count : 0;
+    result[genre] = data.count > 0 ? Math.round((data.total / data.count) * 100) / 100 : 0;
   }
   return result;
 }
@@ -46,7 +46,8 @@ function scoreItemForUser(
   genreNamesToIds: Record<string, number>,
   userPreference: Record<string, number>,
   currentItemGenres: number[],
-): { score: number; matchReason: string } {
+): { score: number; matchReason: string; genreBreakdown: { genre: string; weight: number }[] } {
+  const genreBreakdown: { genre: string; weight: number }[] = [];
   let totalScore = 0;
   let matchedCount = 0;
   let bestMatch = "";
@@ -56,13 +57,14 @@ function scoreItemForUser(
     if (weight !== undefined) {
       totalScore += weight;
       matchedCount++;
+      genreBreakdown.push({ genre: genreName, weight });
       if (!bestMatch || weight > (userPreference[bestMatch] ?? 0)) {
         bestMatch = genreName;
       }
     }
   }
 
-  if (matchedCount === 0) return { score: 0, matchReason: "" };
+  if (matchedCount === 0) return { score: 0, matchReason: "", genreBreakdown: [] };
 
   const avgScore = totalScore / matchedCount;
   const matchQuality = matchedCount / Math.max(genreNames.length, 1);
@@ -77,6 +79,7 @@ function scoreItemForUser(
   return {
     score: Math.round((combined * 0.7 + currentBonus * 0.3) * 100),
     matchReason: bestMatch ? `Matches your taste in ${bestMatch}` : "Similar genres",
+    genreBreakdown: genreBreakdown.sort((a, b) => b.weight - a.weight),
   };
 }
 
@@ -110,6 +113,8 @@ export async function GET(request: Request) {
       recommendations?: { results?: any[] };
       similar?: { results?: any[] };
       vote_average?: number;
+      title?: string;
+      name?: string;
     }>(currentUrl);
 
     if (!currentData) {
@@ -146,7 +151,7 @@ export async function GET(request: Request) {
     ];
 
     const seen = new Set<string>();
-    const scored: { item: any; score: number; reason: string }[] = [];
+    const scored: { item: any; score: number; reason: string; breakdown: { genre: string; weight: number }[] }[] = [];
 
     for (const item of candidates) {
       const itemMediaType = item.media_type ?? mediaType;
@@ -158,7 +163,7 @@ export async function GET(request: Request) {
         .map((id: number) => Object.entries(genreNamesToIds).find(([, v]) => v === id)?.[0])
         .filter(Boolean);
 
-      const { score, matchReason } = scoreItemForUser(
+      const { score, matchReason, genreBreakdown } = scoreItemForUser(
         itemGenreNames as string[],
         genreNamesToIds,
         userPreference,
@@ -166,24 +171,37 @@ export async function GET(request: Request) {
       );
 
       if (score > 0) {
-        scored.push({ item, score, reason: matchReason });
+        scored.push({ item, score, reason: matchReason, breakdown: genreBreakdown });
       }
     }
 
     scored.sort((a, b) => b.score - a.score);
 
+    const currentTitle = currentData.title ?? currentData.name ?? "";
+
     const results = scored.slice(0, MAX_RESULTS).map((s) => ({
       id: String(s.item.id),
       title: s.item.title ?? s.item.name ?? "Unknown",
       mediaType: s.item.media_type ?? mediaType,
-      posterUrl: s.item.poster_path ? `https://image.tmdb.org/t/p/w500${s.item.poster_path}` : null,
+      posterUrl: s.item.poster_path ? `https://image.tmdb.org/t/p/w342${s.item.poster_path}` : null,
       year: (s.item.release_date ?? s.item.first_air_date ?? "").substring(0, 4),
+      overview: (s.item.overview ?? "").substring(0, 300),
       voteAverage: s.item.vote_average ?? 0,
       matchScore: s.score,
       matchReason: s.reason,
+      genreBreakdown: s.breakdown,
+      sharedGenreCount: s.breakdown.length,
     }));
 
-    return NextResponse.json({ results, total: results.length });
+    return NextResponse.json({
+      results,
+      total: results.length,
+      currentTitle,
+      userTopGenres: Object.entries(userPreference)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([g]) => g),
+    });
   } catch (err) {
     console.error("Because you watched error:", err);
     return NextResponse.json({ error: "Failed to get recommendations" }, { status: 500 });
