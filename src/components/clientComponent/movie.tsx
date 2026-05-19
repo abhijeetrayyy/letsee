@@ -13,7 +13,7 @@ import ImdbRating from "@components/movie/imdbRating";
 import UserRating from "@components/movie/UserRating";
 import WatchedReview from "@components/movie/WatchedReview";
 import PublicReviews from "@components/movie/PublicReviews";
-import ImageViewer from "@components/clientComponent/ImaeViewer";
+import ImageViewer from "@components/clientComponent/ImageViewer";
 import WatchOptionsViewer from "./watchOptionView";
 import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
 import RatingDistribution from "@components/detail/RatingDistribution";

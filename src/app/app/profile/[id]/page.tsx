@@ -3,9 +3,9 @@ import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import {
   ShowFollowing, ShowFollower, FollowerBtnClient,
-} from "@/components/profile/profllebtn";
+} from "@/components/profile/profileBtn";
 import Logornot from "@components/guide/logornot";
-import RecommendationTile from "@components/profile/recomendation";
+import RecommendationTile from "@components/profile/recommendation";
 import TasteInFourStrip from "@components/profile/TasteInFourStrip";
 import EditTasteInFour from "@components/profile/EditTasteInFour";
 import ProfileHighlights from "@components/profile/ProfileHighlights";

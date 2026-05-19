@@ -1,4 +1,4 @@
-import Pagination from "@/components/buttons/serchbygenreBtn";
+import Pagination from "@/components/buttons/searchByGenreBtn";
 import { notFound } from "next/navigation";
 
 import MoviebyGenre from "@components/clientComponent/moviebyGenre";

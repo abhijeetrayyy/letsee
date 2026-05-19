@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import React from "react";
-import { ShowFollower, ShowFollowing } from "./profllebtn";
+import { ShowFollower, ShowFollowing } from "./profileBtn";
 
 async function UserConnections({ userId }: any) {
   const supabase = await createClient();

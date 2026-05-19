@@ -1,6 +1,6 @@
 // import React from "react";
 // import { createClient } from "@/utils/supabase/server";
-// import { FollowerBtnClient } from "./profllebtn";
+// import { FollowerBtnClient } from "./profileBtn";
 // import Link from "next/link";
 
 // async function UserIntrectionBtn({ userId }: any) {

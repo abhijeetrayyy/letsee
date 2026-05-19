@@ -10,7 +10,6 @@
     "db:dump": "npx supabase db dump -f schema_from_supabase.sql -s public"
   },
   "dependencies": {
-    "@reduxjs/toolkit": "^2.11.2",
     "@supabase/ssr": "^0.8.0",
     "axios": "^1.13.4",
     "chart.js": "^4.5.1",
@@ -25,8 +24,7 @@
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.2.4",
     "react-hot-toast": "^2.6.0",
-    "react-icons": "^5.5.0",
-    "react-redux": "^9.2.0"
+    "react-icons": "^5.5.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

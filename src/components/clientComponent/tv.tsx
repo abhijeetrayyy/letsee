@@ -10,7 +10,7 @@ import Video from "@components/movie/Video";
 import SendMessageModal from "@components/message/sendCard";
 import { LuSend } from "react-icons/lu";
 import { Star, Clock, Globe, Tv, BookOpen, Sparkles } from "lucide-react";
-import ImageViewer from "@components/clientComponent/ImaeViewer";
+import ImageViewer from "@components/clientComponent/ImageViewer";
 import ImdbRating from "@components/movie/imdbRating";
 import UserRating from "@components/movie/UserRating";
 import WatchedReview from "@components/movie/WatchedReview";
