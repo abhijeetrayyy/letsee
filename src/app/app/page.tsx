@@ -12,9 +12,10 @@ import TvGenre from "@components/scroll/tvGenre";
 import HomeContentTile from "@components/movie/homeContentTile";
 import BrowseTags from "@components/home/BrowseTags";
 import AnimeTags from "@components/home/AnimeTags";
+import FollowingFeed from "@components/feed/FollowingFeed";
 import { getHomeSections } from "@/utils/homeData";
 import { buildSearchUrl } from "@/utils/searchUrl";
-import { ArrowRight, Film, Sparkles, Users, Calendar, Tag, Tv } from "lucide-react";
+import { ArrowRight, Film, Sparkles, Users, Calendar, Tag, Tv, Rss } from "lucide-react";
 
 const headingBase =
   "text-xl sm:text-2xl font-bold text-white tracking-tight";
@@ -94,6 +95,22 @@ export default async function Home() {
             </div>
           </div>
           <WhatToWatch />
+        </section>
+
+        {/* Following Activity Feed */}
+        <section className="animate-fade-up" aria-labelledby="feed-heading">
+          <div className="flex items-end justify-between mb-5">
+            <div>
+              <h2 id="feed-heading" className={headingBase}>
+                <Rss className="w-5 h-5 text-accent-purple" />
+                Following Feed
+              </h2>
+              <p className="text-sm text-surface-500 mt-1">
+                See what people are watching, rating, and reviewing
+              </p>
+            </div>
+          </div>
+          <FollowingFeed />
         </section>
 
         <section className="animate-fade-up stagger-1" aria-labelledby="reco-heading">
