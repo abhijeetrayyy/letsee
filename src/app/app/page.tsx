@@ -15,7 +15,8 @@ import AnimeTags from "@components/home/AnimeTags";
 import FollowingFeed from "@components/feed/FollowingFeed";
 import { getHomeSections } from "@/utils/homeData";
 import { buildSearchUrl } from "@/utils/searchUrl";
-import { ArrowRight, Film, Sparkles, Users, Calendar, Tag, Tv, Rss } from "lucide-react";
+import { ArrowRight, Film, Sparkles, Users, Calendar, Tag, Tv, Rss, Search, BookOpen, Heart } from "lucide-react";
+import { createClient } from "@/utils/supabase/server";
 
 const headingBase =
   "text-xl sm:text-2xl font-bold text-white tracking-tight";
@@ -25,7 +26,7 @@ const headingLinkClass =
 
 const arrowIcon = "w-4 h-4 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200";
 
-const sectionHeader = (icon: React.ReactNode, title: string, subtitle: string) => (
+const sectionHeader = (title: string, subtitle: string) => (
   <div className="flex items-center gap-3 mb-5">
     <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
     <div>
@@ -35,13 +36,12 @@ const sectionHeader = (icon: React.ReactNode, title: string, subtitle: string) =
   </div>
 );
 
-const sectionHeaderLink = (icon: React.ReactNode, title: string, subtitle: string, href: string) => (
+const sectionHeaderLink = (title: string, subtitle: string, href: string) => (
   <div className="flex items-center gap-3 mb-5">
     <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
     <div>
       <h2 className={headingBase}>
         <Link href={href} className={headingLinkClass}>
-          {icon}
           {title}
           <ArrowRight className={arrowIcon} />
         </Link>
@@ -51,8 +51,25 @@ const sectionHeaderLink = (icon: React.ReactNode, title: string, subtitle: strin
   </div>
 );
 
+async function getUsername() {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data } = await supabase
+      .from("users")
+      .select("username")
+      .eq("id", user.id)
+      .single();
+    return data?.username ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function Home() {
   const { sections, errors } = await getHomeSections();
+  const username = await getUsername();
 
   const movieGenres = sections.movieGenres?.genres ?? [];
   const tvGenres = sections.tvGenres?.genres ?? [];
@@ -67,6 +84,9 @@ export default async function Home() {
   const darkZones = sections.darkZones?.results ?? [];
   const horror = sections.horror?.results ?? [];
   const bollywood = sections.bollywood?.results ?? [];
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
     <>
@@ -88,143 +108,158 @@ export default async function Home() {
           </div>
         )}
 
+        {/* ──────── GREETING + QUICK ACTIONS ──────── */}
+        <div className="animate-fade-up">
+          {username && (
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-4">
+              {greeting}, <span className="text-gradient-brand">{username}</span>
+            </h1>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Link href="/app/search" className="btn-secondary text-sm">
+              <Search className="w-4 h-4" />
+              Search
+            </Link>
+            <Link href="/app/watchlist" className="btn-secondary text-sm">
+              <Heart className="w-4 h-4" />
+              Watchlist
+            </Link>
+            <Link href="/app/profile" className="btn-secondary text-sm">
+              <BookOpen className="w-4 h-4" />
+              My Diary
+            </Link>
+          </div>
+        </div>
+
         {/* ──────── PERSONAL ──────── */}
         <ContinueWatchingSection />
 
         {/* TV Completion Predictor */}
         <section className="animate-fade-up" aria-labelledby="predictor-heading">
-          {sectionHeader(<Tv className="w-5 h-5 text-accent-purple" />, "TV Completion Forecast", "Estimated finish dates for your shows")}
+          {sectionHeader("TV Completion Forecast", "Estimated finish dates for your shows")}
           <CompletionPredictor />
         </section>
 
         {/* What to watch picker */}
         <section className="animate-fade-up" aria-labelledby="picker-heading">
-          {sectionHeader(<Sparkles className="w-5 h-5 text-accent-purple" />, "What should I watch?", "Pick a mood, set filters, and let us decide")}
+          {sectionHeader("What should I watch?", "Pick a mood, set filters, and let us decide")}
           <WhatToWatch />
         </section>
 
         {/* ──────── SOCIAL ──────── */}
-        {/* Following Activity Feed */}
         <section className="animate-fade-up" aria-labelledby="feed-heading">
-          {sectionHeader(<Rss className="w-5 h-5 text-accent-purple" />, "Following Feed", "See what people are watching, rating, and reviewing")}
+          {sectionHeader("Following Feed", "See what people are watching, rating, and reviewing")}
           <FollowingFeed />
         </section>
 
-        {/* For You - AI recommendations */}
         <section className="animate-fade-up stagger-1" aria-labelledby="reco-heading">
-          {sectionHeaderLink(<Sparkles className="w-5 h-5 text-brand-400" />, "For You", "Based on your favorites and watched list", "/app/profile")}
+          {sectionHeaderLink("For You", "Based on your favorites and watched list", "/app/profile")}
           <OpenAiReco />
         </section>
 
-        {/* Collaborative recommendations */}
         <section className="animate-fade-up stagger-2" aria-labelledby="collab-heading">
-          {sectionHeader(<Users className="w-5 h-5 text-accent-purple" />, "People Like You Also Like", "Powered by collaborative filtering with similar viewers")}
+          {sectionHeader("People Like You Also Like", "Powered by collaborative filtering with similar viewers")}
           <CollaborativeRecs />
         </section>
 
-        {/* Discover people */}
         <section className="animate-fade-up stagger-3" aria-labelledby="discover-heading">
-          {sectionHeaderLink(<Users className="w-5 h-5 text-blue-400" />, "Discover People", "See what others are watching", "/app/profile")}
+          {sectionHeaderLink("Discover People", "See what others are watching", "/app/profile")}
           <DiscoverUsers hideTitleLink />
         </section>
 
         {/* ──────── TRENDING ──────── */}
-        {/* Weekly top 20 */}
         <section aria-labelledby="weekly-top-heading">
-          {sectionHeaderLink(<Film className="w-5 h-5 text-rose-400" />, "Weekly Top 20", "Most popular right now", "/app/search/discover")}
+          {sectionHeaderLink("Weekly Top 20", "Most popular right now", "/app/search/discover")}
           <HomeContentTile type="mix" data={{ results: weeklyTop }} />
         </section>
 
-        {/* Trending TV */}
         <section aria-labelledby="trending-tv-heading">
-          {sectionHeaderLink(<Tv className="w-5 h-5 text-purple-400" />, "Trending TV Shows", "Popular today", "/app/search/discover?media_type=tv")}
+          {sectionHeaderLink("Trending TV Shows", "Popular today", "/app/search/discover?media_type=tv")}
           <HomeContentTile type="tv" data={{ results: trendingTv }} />
         </section>
 
-        {/* Calendar & upcoming */}
         <section className="animate-fade-up stagger-3" aria-labelledby="calendar-heading">
-          {sectionHeaderLink(<Calendar className="w-5 h-5 text-amber-400" />, "Calendar & Upcoming", "In theaters and on TV this week", "/app/search/discover?media_type=movie")}
+          {sectionHeaderLink("Calendar & Upcoming", "In theaters and on TV this week", "/app/search/discover?media_type=movie")}
           <CalendarSection hideMainHeading />
         </section>
 
         {/* ──────── BROWSE ──────── */}
-        {/* Browse by tag */}
         <section aria-labelledby="browse-tags-heading">
-          {sectionHeaderLink(<Tag className="w-5 h-5 text-cyan-400" />, "Browse by Tag", "Genres, keywords and categories", "/app/search")}
+          {sectionHeaderLink("Browse by Tag", "Genres, keywords and categories", "/app/search")}
           <BrowseTags />
         </section>
 
-        {/* Anime sections */}
-        <section aria-labelledby="anime-browse-heading">
-          {sectionHeaderLink(null, "Browse Anime", "Series, films, Isekai and more", buildSearchUrl({ query: "discover", mediaType: "tv", keyword: "210024" }))}
-          <AnimeTags />
-        </section>
-
-        {/* Anime series */}
-        <section aria-labelledby="anime-series-heading">
-          {sectionHeaderLink(null, "Anime Series", "Jujutsu Kaisen, SPY×FAMILY, One Piece & more", "/app/tvbygenre/list/16-Animation")}
-          <HomeContentTile type="tv" data={{ results: animeSeries }} />
-        </section>
-
-        {/* Anime films */}
-        <section aria-labelledby="anime-films-heading">
-          {sectionHeaderLink(null, "Anime Films", "Studio Ghibli, Makoto Shinkai and Japanese animated movies", buildSearchUrl({ query: "discover", mediaType: "movie", genre: "16", language: "ja" }))}
-          <HomeContentTile type="movie" data={{ results: animeFilms }} />
+        {/* ──────── ANIME ──────── */}
+        <section aria-labelledby="anime-heading">
+          {sectionHeaderLink("Anime", "Series, films, Isekai and more", buildSearchUrl({ query: "discover", mediaType: "tv", keyword: "210024" }))}
+          <div className="space-y-6">
+            <AnimeTags />
+            {animeSeries.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Popular Series</h3>
+                <HomeContentTile type="tv" data={{ results: animeSeries }} />
+              </div>
+            )}
+            {animeFilms.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Popular Films</h3>
+                <HomeContentTile type="movie" data={{ results: animeFilms }} />
+              </div>
+            )}
+          </div>
         </section>
 
         {/* ──────── CURATED COLLECTIONS ──────── */}
-        {/* Romance */}
-        <section aria-labelledby="romance-heading">
-          {sectionHeaderLink(null, "Romance & Love", "Love stories and feel-good picks", "/app/moviebygenre/list/10749-Romance")}
-          <HomeContentTile type="movie" data={{ results: romance }} />
-        </section>
-
-        {/* Action */}
-        <section aria-labelledby="action-heading">
-          {sectionHeaderLink(null, "Action", "Thrills and blockbusters", "/app/moviebygenre/list/28-Action")}
-          <HomeContentTile type="movie" data={{ results: action }} />
-        </section>
-
-        {/* Crime */}
-        <section aria-labelledby="crime-heading">
-          {sectionHeaderLink(null, "Crime", "Heists, detectives and the underworld", "/app/moviebygenre/list/80-Crime")}
-          <HomeContentTile type="movie" data={{ results: crime }} />
-        </section>
-
-        {/* Thriller */}
-        <section aria-labelledby="thrills-heading">
-          {sectionHeaderLink(null, "Thrills", "Edge-of-your-seat tension and suspense", "/app/moviebygenre/list/53-Thriller")}
-          <HomeContentTile type="movie" data={{ results: thriller }} />
-        </section>
-
-        {/* Dark zones */}
-        <section aria-labelledby="dark-zones-heading">
-          {sectionHeaderLink(null, "Dark Zones", "Horror and the darker side of cinema", "/app/moviebygenre/list/27-Horror")}
-          <HomeContentTile type="movie" data={{ results: darkZones }} />
-        </section>
-
-        {/* Horror */}
-        <section aria-labelledby="horror-heading">
-          {sectionHeaderLink(null, "Horror", "Scares, suspense and the supernatural", "/app/moviebygenre/list/27-Horror")}
-          <HomeContentTile type="movie" data={{ results: horror }} />
-        </section>
-
-        {/* Bollywood */}
-        <section aria-labelledby="bollywood-heading">
-          {sectionHeaderLink(null, "Bollywood", "Hindi cinema picks", "/app/search/discover?media_type=movie&lang=hi")}
-          <HomeContentTile type="movie" data={{ results: bollywood }} />
+        <section aria-labelledby="collections-heading">
+          {sectionHeader("Curated Collections", "Handpicked genres and themes")}
+          <div className="space-y-8">
+            {romance.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Romance & Love</h3>
+                <HomeContentTile type="movie" data={{ results: romance }} />
+              </div>
+            )}
+            {action.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Action</h3>
+                <HomeContentTile type="movie" data={{ results: action }} />
+              </div>
+            )}
+            {crime.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Crime</h3>
+                <HomeContentTile type="movie" data={{ results: crime }} />
+              </div>
+            )}
+            {thriller.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Thrills</h3>
+                <HomeContentTile type="movie" data={{ results: thriller }} />
+              </div>
+            )}
+            {horror.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Horror</h3>
+                <HomeContentTile type="movie" data={{ results: horror }} />
+              </div>
+            )}
+            {bollywood.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Bollywood</h3>
+                <HomeContentTile type="movie" data={{ results: bollywood }} />
+              </div>
+            )}
+          </div>
         </section>
 
         {/* ──────── GENRE BROWSER ──────── */}
-        {/* Movie genres */}
         <section aria-labelledby="movie-genres-heading">
-          {sectionHeaderLink(<Film className="w-5 h-5 text-surface-400" />, "Movie Genres", "Browse by genre", "/app/search/discover?media_type=movie")}
+          {sectionHeaderLink("Movie Genres", "Browse by genre", "/app/search/discover?media_type=movie")}
           <MovieGenre genre={movieGenres} />
         </section>
 
-        {/* TV genres */}
         <section aria-labelledby="tv-genres-heading">
-          {sectionHeaderLink(<Tv className="w-5 h-5 text-surface-400" />, "TV Show Genres", "Browse TV by genre", "/app/search/discover?media_type=tv")}
+          {sectionHeaderLink("TV Show Genres", "Browse TV by genre", "/app/search/discover?media_type=tv")}
           <TvGenre tvGenres={tvGenres} />
         </section>
       </div>
