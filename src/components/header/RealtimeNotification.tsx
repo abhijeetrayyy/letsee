@@ -7,24 +7,25 @@ interface RealtimeUnreadCountProps {
   userId: any;
 }
 
-const RealtimeUnreadCount: React.FC<RealtimeUnreadCountProps> = ({
-  userId,
-}) => {
+const RealtimeUnreadCount: React.FC<RealtimeUnreadCountProps> = ({ userId }) => {
   const [unreadCount, setUnreadCount] = useState<number>(0);
 
   useEffect(() => {
     const fetchUnreadCount = async () => {
       const { count, error } = await supabase
-        .from("user_follow_requests")
+        .from("notifications")
         .select("*", { count: "exact", head: true })
-        .eq("receiver_id", userId)
-        .eq("status", "pending");
+        .eq("user_id", userId)
+        .eq("is_read", false);
 
       if (error) {
-        console.error(
-          "Error fetching unread follow requests count:",
-          error.message
-        );
+        // Fallback: if notifications table doesn't exist yet, check follow requests
+        const { count: fallbackCount } = await supabase
+          .from("user_follow_requests")
+          .select("*", { count: "exact", head: true })
+          .eq("receiver_id", userId)
+          .eq("status", "pending");
+        setUnreadCount(fallbackCount || 0);
       } else {
         setUnreadCount(count || 0);
       }
@@ -32,13 +33,18 @@ const RealtimeUnreadCount: React.FC<RealtimeUnreadCountProps> = ({
 
     fetchUnreadCount();
 
-    // ✅ Real-time subscription for new follow requests
+    // Real-time subscription for new notifications
     const subscription = supabase
-      .channel(`realtime-unread-follow-requests-${userId}`)
+      .channel(`realtime-notifications-${userId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "user_follow_requests" },
-        (payload) => {
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
           setUnreadCount((prevCount) => prevCount + 1);
         }
       )
@@ -47,10 +53,10 @@ const RealtimeUnreadCount: React.FC<RealtimeUnreadCountProps> = ({
         {
           event: "UPDATE",
           schema: "public",
-          table: "user_follow_requests",
-          filter: `receiver_id=eq.${userId},status=eq.pending`,
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
         },
-        fetchUnreadCount // Re-fetch count when status changes
+        fetchUnreadCount
       )
       .subscribe();
 

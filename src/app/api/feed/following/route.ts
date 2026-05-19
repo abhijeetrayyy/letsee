@@ -146,7 +146,8 @@ export async function GET(request: Request) {
   const activity: ActivityItem[] = [];
 
   for (const w of watchedItems ?? []) {
-    const u = w.users as unknown as { username: string; avatar_url: string | null; about?: string } | null;
+    const userData = Array.isArray(w.users) && w.users.length > 0 ? w.users[0] : null;
+    const u = userData as { username: string; avatar_url: string | null; about?: string } | null;
     activity.push({
       id: -(w.id),
       user_id: w.user_id,
