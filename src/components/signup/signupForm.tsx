@@ -14,6 +14,14 @@ type SignupFormProps = {
   info?: string;
 };
 
+function getPasswordStrength(password: string): { level: number; label: string; color: string } {
+  if (password.length === 0) return { level: 0, label: "", color: "" };
+  if (password.length < MIN_PASSWORD_LENGTH) return { level: 1, label: "Weak", color: "bg-red-500" };
+  if (password.length < 10) return { level: 2, label: "Fair", color: "bg-amber-500" };
+  if (/[A-Z]/.test(password) && /[0-9]/.test(password)) return { level: 4, label: "Strong", color: "bg-brand-500" };
+  return { level: 3, label: "Good", color: "bg-blue-500" };
+}
+
 export default function SignupForm({
   onSignup,
   loading,
@@ -29,6 +37,7 @@ export default function SignupForm({
   const passwordValid = password.length >= MIN_PASSWORD_LENGTH;
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
   const canSubmit = email.trim() && passwordValid && passwordsMatch && !loading;
+  const strength = getPasswordStrength(password);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -54,9 +63,10 @@ export default function SignupForm({
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-surface-950 px-4 py-10">
       {/* Background decoration */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-brand-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl" />
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 right-1/4 w-[500px] h-[500px] bg-brand-500/8 rounded-full blur-3xl animate-pulse-soft" />
+        <div className="absolute bottom-1/4 left-1/4 w-[500px] h-[500px] bg-purple-500/6 rounded-full blur-3xl animate-pulse-soft" style={{ animationDelay: "1s" }} />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(34,197,94,0.03)_0%,transparent_70%)]" />
       </div>
 
       <div className="relative w-full max-w-md">
@@ -75,7 +85,7 @@ export default function SignupForm({
         </div>
 
         {/* Card */}
-        <div className="rounded-2xl border border-surface-800 bg-surface-900/80 p-6 sm:p-8 shadow-2xl shadow-black/20">
+        <div className="rounded-2xl border border-white/10 bg-surface-900/60 backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-black/30">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-white mb-1">
               Create your account
@@ -101,7 +111,7 @@ export default function SignupForm({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-xl bg-surface-800 border border-surface-700 px-4 py-3 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all"
+                className="w-full rounded-xl bg-surface-800/60 border border-surface-700/50 px-4 py-3 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/40 transition-all"
                 placeholder="you@example.com"
               />
             </div>
@@ -123,7 +133,7 @@ export default function SignupForm({
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={MIN_PASSWORD_LENGTH}
-                  className="w-full rounded-xl bg-surface-800 border border-surface-700 px-4 py-3 pr-12 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all"
+                  className="w-full rounded-xl bg-surface-800/60 border border-surface-700/50 px-4 py-3 pr-12 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/40 transition-all"
                   placeholder="••••••••"
                 />
                 <button
@@ -139,6 +149,30 @@ export default function SignupForm({
                   )}
                 </button>
               </div>
+              {/* Password strength meter */}
+              {password.length > 0 && (
+                <div className="mt-2">
+                  <div className="flex gap-1 mb-1">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div
+                        key={i}
+                        className={`h-1 flex-1 rounded-full transition-colors ${
+                          i <= strength.level ? strength.color : "bg-surface-700"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  {strength.label && (
+                    <p className={`text-xs ${
+                      strength.level <= 1 ? "text-red-400" :
+                      strength.level === 2 ? "text-amber-400" :
+                      "text-brand-400"
+                    }`}>
+                      {strength.label}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
@@ -156,9 +190,27 @@ export default function SignupForm({
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="w-full rounded-xl bg-surface-800 border border-surface-700 px-4 py-3 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all"
+                className={`w-full rounded-xl bg-surface-800/60 border px-4 py-3 text-white placeholder-surface-500 focus:outline-none focus:ring-2 transition-all ${
+                  confirmPassword.length > 0
+                    ? passwordsMatch
+                      ? "border-brand-500/40 focus:ring-brand-500/30 focus:border-brand-500/40"
+                      : "border-red-500/40 focus:ring-red-500/30 focus:border-red-500/40"
+                    : "border-surface-700/50 focus:ring-brand-500/30 focus:border-brand-500/40"
+                }`}
                 placeholder="••••••••"
               />
+              {confirmPassword.length > 0 && (
+                <div className={`flex items-center gap-1.5 mt-1.5 text-xs ${
+                  passwordsMatch ? "text-brand-400" : "text-red-400"
+                }`}>
+                  {passwordsMatch ? (
+                    <Check className="w-3.5 h-3.5" />
+                  ) : (
+                    <X className="w-3.5 h-3.5" />
+                  )}
+                  {passwordsMatch ? "Passwords match" : "Passwords do not match"}
+                </div>
+              )}
             </div>
 
             {/* Password requirements */}
@@ -197,7 +249,7 @@ export default function SignupForm({
             <button
               type="submit"
               disabled={!canSubmit}
-              className="w-full rounded-xl bg-brand-500 hover:bg-brand-600 text-surface-950 font-semibold py-3.5 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-surface-900 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-brand-500/20"
+              className="btn-primary w-full justify-center py-3.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:transform-none"
             >
               {loading ? (
                 <>
@@ -210,7 +262,7 @@ export default function SignupForm({
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-surface-800 text-center">
+          <div className="mt-6 pt-6 border-t border-white/5 text-center">
             <p className="text-sm text-surface-400">
               Already have an account?{" "}
               <Link

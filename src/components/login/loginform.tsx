@@ -33,9 +33,10 @@ export default function LoginForm({
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-surface-950 px-4 py-10">
       {/* Background decoration */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-brand-500/8 rounded-full blur-3xl animate-pulse-soft" />
+        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-blue-500/6 rounded-full blur-3xl animate-pulse-soft" style={{ animationDelay: "1s" }} />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(34,197,94,0.03)_0%,transparent_70%)]" />
       </div>
 
       <div className="relative w-full max-w-md">
@@ -54,7 +55,7 @@ export default function LoginForm({
         </div>
 
         {/* Card */}
-        <div className="rounded-2xl border border-surface-800 bg-surface-900/80 p-6 sm:p-8 shadow-2xl shadow-black/20">
+        <div className="rounded-2xl border border-white/10 bg-surface-900/60 backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-black/30">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-white mb-1">
               Welcome back
@@ -80,7 +81,7 @@ export default function LoginForm({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-xl bg-surface-800 border border-surface-700 px-4 py-3 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all"
+                className="w-full rounded-xl bg-surface-800/60 border border-surface-700/50 px-4 py-3 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/40 transition-all"
                 placeholder="you@example.com"
               />
             </div>
@@ -109,7 +110,7 @@ export default function LoginForm({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full rounded-xl bg-surface-800 border border-surface-700 px-4 py-3 pr-12 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all"
+                  className="w-full rounded-xl bg-surface-800/60 border border-surface-700/50 px-4 py-3 pr-12 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/40 transition-all"
                   placeholder="••••••••"
                 />
                 <button
@@ -142,7 +143,7 @@ export default function LoginForm({
             <button
               type="submit"
               disabled={!canSubmit}
-              className="w-full rounded-xl bg-brand-500 hover:bg-brand-600 text-surface-950 font-semibold py-3.5 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-surface-900 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-brand-500/20"
+              className="btn-primary w-full justify-center py-3.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:transform-none"
             >
               {loading ? (
                 <>
@@ -155,7 +156,7 @@ export default function LoginForm({
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-surface-800 text-center">
+          <div className="mt-6 pt-6 border-t border-white/5 text-center">
             <p className="text-sm text-surface-400">
               Don&apos;t have an account?{" "}
               <Link
