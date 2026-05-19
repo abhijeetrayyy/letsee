@@ -16,7 +16,7 @@ const getNumericId = (value: string) => {
 
 async function getShowDetails(id: string) {
   return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,external_ids,recommendations,similar,keywords,content_ratings`,
+    `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,external_ids,recommendations,similar,keywords,content_ratings,watch_providers`,
     "TV show details",
     { next: { revalidate: 600 } }
   );
@@ -107,6 +107,9 @@ const ShowDetails = async ({ params }: PageProps) => {
   const recoData = show.recommendations ?? { total_results: 0, results: [] };
   const similarData = show.similar ?? { total_results: 0, results: [] };
 
+  const watchProviders = show.watch_providers?.results?.US ?? null;
+  const flatrateProviders = watchProviders?.flatrate ?? [];
+
   return (
     <div>
       <Tv
@@ -120,6 +123,8 @@ const ShowDetails = async ({ params }: PageProps) => {
         id={numericId}
         keywords={keywords}
         contentRatings={contentRatings}
+        watchProviders={flatrateProviders}
+        watchLink={watchProviders?.link ?? ""}
       />
       <BecauseYouWatched itemId={numericId} mediaType="tv" sectionTitle="Because you watched this" />
       {recoData.total_results > 0 && (

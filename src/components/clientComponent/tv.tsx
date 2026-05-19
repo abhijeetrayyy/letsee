@@ -9,7 +9,7 @@ import MovieCast from "@components/movie/MovieCast";
 import Video from "@components/movie/Video";
 import SendMessageModal from "@components/message/sendCard";
 import { LuSend } from "react-icons/lu";
-import { Star, Clock, Globe, Tv, BookOpen, Sparkles } from "lucide-react";
+import { Star, Clock, Globe, Tv, BookOpen, Sparkles, Play, Share2, X, Send } from "lucide-react";
 import ImageViewer from "@components/clientComponent/ImageViewer";
 import ImdbRating from "@components/movie/imdbRating";
 import UserRating from "@components/movie/UserRating";
@@ -35,9 +35,20 @@ function langLabel(iso: string): string {
   return LANGUAGE_NAMES[iso] ?? iso?.toUpperCase() ?? "";
 }
 
+const PROVIDER_FALLBACK: Record<number, string> = {
+  8: "https://www.netflix.com",
+  9: "https://www.amazon.com/Prime-Video",
+  15: "https://www.hulu.com",
+  337: "https://www.disneyplus.com",
+  350: "https://www.hbomax.com",
+  386: "https://www.paramountplus.com",
+  531: "https://www.mubi.com",
+};
+
 export default function TvDetail({
   cast, videos, ExternalIDs, show, id, Pimages, Bimages,
   keywords = [], contentRatings = [],
+  watchProviders = [], watchLink = "",
 }: any) {
   const { hasWatched, refreshPreferences } = useContext(UserPrefrenceContext);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,6 +57,10 @@ export default function TvDetail({
   const [showFullOverview, setShowFullOverview] = useState(false);
   const [tvListStatus, setTvListStatus] = useState<string | null>(null);
   const [tvListStatusUpdating, setTvListStatusUpdating] = useState(false);
+  const [trailerModal, setTrailerModal] = useState(false);
+  const [shareModal, setShareModal] = useState(false);
+  const [quickRate, setQuickRate] = useState(false);
+  const [userRating, setUserRating] = useState<number | null>(null);
   const showGenres = Array.isArray(show?.genres) ? show.genres : [];
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -91,6 +106,21 @@ export default function TvDetail({
 
   const toggleOverview = () => setShowFullOverview(!showFullOverview);
 
+  const trailer = videos?.find((v: any) => v.type === "Trailer" && v.site === "YouTube") ??
+    videos?.find((v: any) => v.site === "YouTube");
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(url);
+    }
+  };
+
+  const handleQuickRate = (rating: number) => {
+    setUserRating(rating);
+    setQuickRate(false);
+  };
+
   const seasons = Array.isArray(show?.seasons)
     ? show.seasons.filter((s: any) => s.name !== "Specials") : [];
   const seasonsForModal = seasons.map((s: any) => ({
@@ -123,6 +153,68 @@ export default function TvDetail({
     <div>
       <SectionNav />
       <SendMessageModal media_type="tv" data={cardData} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
+      {/* Trailer Modal */}
+      {trailerModal && trailer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setTrailerModal(false)}>
+          <div className="relative w-full max-w-4xl mx-4" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setTrailerModal(false)} className="absolute -top-10 right-0 text-white hover:text-brand-400 transition-colors" aria-label="Close trailer">
+              <X className="w-6 h-6" />
+            </button>
+            <div className="aspect-video rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl">
+              <iframe className="w-full h-full" src={`https://www.youtube.com/embed/${trailer.key}?autoplay=1`} title={trailer.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+            </div>
+            <p className="text-sm text-surface-400 mt-3 text-center">{trailer.name}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Share Modal */}
+      {shareModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setShareModal(false)}>
+          <div className="glass-card rounded-2xl p-6 w-full max-w-sm mx-4 animate-fade-up" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">Share</h3>
+              <button onClick={() => setShareModal(false)} className="text-surface-400 hover:text-white transition-colors" aria-label="Close share">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <button onClick={handleShare} className="w-full btn-secondary text-sm py-2.5">
+                <Share2 className="w-4 h-4" /> Copy Link
+              </button>
+              <button onClick={() => window.open(`https://twitter.com/intent/tweet?text=Check out ${show?.name}&url=${encodeURIComponent(window.location.href)}`, "_blank")} className="w-full btn-secondary text-sm py-2.5">
+                Share on X
+              </button>
+              <button onClick={() => handleCardTransfer(show)} className="w-full btn-secondary text-sm py-2.5">
+                <Send className="w-4 h-4" /> Send via Message
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Rate Modal */}
+      {quickRate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setQuickRate(false)}>
+          <div className="glass-card rounded-2xl p-6 w-full max-w-sm mx-4 animate-fade-up" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">Rate this show</h3>
+              <button onClick={() => setQuickRate(false)} className="text-surface-400 hover:text-white transition-colors" aria-label="Close rating">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                <button key={n} onClick={() => handleQuickRate(n)} className={`rounded-xl py-3 text-lg font-bold transition-all hover:scale-105 ${n <= 3 ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : n <= 6 ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30" : "bg-brand-500/20 text-brand-400 hover:bg-brand-500/30"}`}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <MarkTVWatchedModal
         showId={String(id)}
         showName={show?.name || show?.title || ""}
@@ -223,13 +315,19 @@ export default function TvDetail({
                 cardImg={show?.poster_path || show?.backdrop_path}
                 onAddWatchedTv={() => setMarkTVWatchedModalOpen(true)}
               />
-              <button
-                type="button"
-                onClick={() => handleCardTransfer(show)}
-                className="btn-secondary"
-                aria-label="Share"
-              >
-                <LuSend className="text-base shrink-0" /> Share
+              {/* Quick Rate */}
+              <button type="button" onClick={() => setQuickRate(true)} className="btn-secondary">
+                <Star className="w-4 h-4 text-accent-gold" /> Rate
+              </button>
+              {/* Watch Trailer */}
+              {trailer && (
+                <button type="button" onClick={() => setTrailerModal(true)} className="btn-primary">
+                  <Play className="w-4 h-4 fill-current" /> Trailer
+                </button>
+              )}
+              {/* Share */}
+              <button type="button" onClick={() => setShareModal(true)} className="btn-secondary" aria-label="Share">
+                <Share2 className="w-4 h-4" /> Share
               </button>
             </div>
           </div>
@@ -350,6 +448,18 @@ export default function TvDetail({
             </div>
           </div>
 
+          {/* Where to Watch – moved up for prominence */}
+          <div id="section-watch" className="mt-10">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+              <div>
+                <h2 className="section-header">Where to Watch</h2>
+                <p className="section-desc">Streaming, rental and purchase options</p>
+              </div>
+            </div>
+            <WatchOptionsViewer mediaId={Number(id)} mediaType="tv" />
+          </div>
+
           {/* Your Activity */}
           <div id="section-ratings" className="mt-10">
             <div className="flex items-center gap-3 mb-5">
@@ -430,7 +540,6 @@ export default function TvDetail({
         {/* Full-width sections */}
         <div className="bg-gradient-section mt-8">
           <div id="section-cast">
-            <WatchOptionsViewer mediaId={Number(id)} mediaType="tv" />
             <MovieCast credits={cast} id={show?.id ?? id} type="tv" />
           </div>
 
