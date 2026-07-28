@@ -170,13 +170,14 @@ export default function MarkTVWatchedModal({
     setSaving(true);
     const toastId = toast.loading("Adding to Watched…");
     try {
-      const res = await fetch("/api/watchedButton", {
-        method: "POST",
+      const res = await fetch("/api/user-media-status", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...watchedPayload,
-          mediaType: "tv",
           itemId: String(watchedPayload.itemId),
+          itemType: "tv",
+          status: "watched",
+          name: watchedPayload.name || "",
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -203,13 +204,14 @@ export default function MarkTVWatchedModal({
     setSaving(true);
     const toastId = toast.loading("Saving…");
     try {
-      const res = await fetch("/api/watchedButton", {
-        method: "POST",
+      const res = await fetch("/api/user-media-status", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...watchedPayload,
-          mediaType: "tv",
           itemId: String(watchedPayload.itemId),
+          itemType: "tv",
+          status: "watched",
+          name: watchedPayload.name || "",
           episodes: { list },
         }),
       });

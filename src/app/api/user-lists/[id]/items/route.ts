@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
+import { getAuthUserId } from "@/utils/apiAuth";
 
 type RouteContext = { params: Promise<{ id: string }> };
 

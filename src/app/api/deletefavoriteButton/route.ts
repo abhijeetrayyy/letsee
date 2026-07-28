@@ -1,77 +1,44 @@
 import { createClient } from "@/utils/supabase/server";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function POST(req: NextRequest) {
-  try {
-    const requestClone = req.clone();
-    const body = await requestClone.json();
-    const { itemId } = body;
+  const userId = await getAuthUserId();
+  if (!userId) return jsonError("Not authenticated", 401);
 
-    const supabase = await createClient();
-
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data?.user) {
-      return NextResponse.json(
-        { error: "User isn't logged in" },
-        { status: 401 }
-      );
-    }
-
-    const userId = data.user.id;
-
-    const { data: existingItem, error: fetchError } = await supabase
-      .from("favorite_items")
-      .select("item_id")
-      .eq("user_id", userId)
-      .eq("item_id", itemId)
-      .maybeSingle();
-
-    if (fetchError) {
-      return NextResponse.json(
-        { error: "Failed to fetch favorites." },
-        { status: 500 }
-      );
-    }
-
-    if (!existingItem) {
-      return NextResponse.json({ error: "Item not found" }, { status: 404 });
-    }
-
-    await removeFromFavorite(userId, itemId);
-
-    return NextResponse.json({ message: "Removed" }, { status: 200 });
-  } catch (error) {
-    console.error("Delete favorite error:", error);
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 }
-    );
-  }
-}
-
-async function removeFromFavorite(userId: string, itemId: string) {
   const supabase = await createClient();
-  // Delete the item from the watchlist
+
+  let body: { itemId?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return jsonError("Invalid JSON", 400);
+  }
+
+  const { itemId } = body;
+  if (!itemId) return jsonError("itemId is required", 400);
+
+  const { data: existingItem } = await supabase
+    .from("favorite_items")
+    .select("item_id")
+    .eq("user_id", userId)
+    .eq("item_id", String(itemId))
+    .maybeSingle();
+
+  if (!existingItem) return jsonSuccess({ message: "Not favorited" });
+
   const { error: deleteError } = await supabase
     .from("favorite_items")
     .delete()
     .eq("user_id", userId)
-    .eq("item_id", itemId);
+    .eq("item_id", String(itemId));
 
-  if (deleteError) {
-    console.log("Error deleting item:", deleteError);
-    throw deleteError;
-  }
+  if (deleteError) return jsonError(deleteError.message, 500);
 
-  // Decrement the watchlist count
-  const { error: decrementError } = await supabase.rpc(
-    "decrement_favorites_count",
-    {
-      p_user_id: userId,
-    }
-  );
+  try {
+    await supabase.rpc("decrement_favorites_count", { p_user_id: userId });
+  } catch {}
 
-  if (decrementError) {
-    throw decrementError;
-  }
+  return jsonSuccess({ message: "Removed from favorites" });
 }

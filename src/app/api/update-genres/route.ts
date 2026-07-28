@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { fetchTmdb } from "@/utils/tmdbClient";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 
@@ -41,10 +42,7 @@ async function fetchGenres(item: WatchedItem): Promise<string[] | null> {
 export async function POST(req: Request) {
   try {
     if (!TMDB_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "TMDB_API_KEY is missing on the server." }),
-        { status: 500 }
-      );
+      return jsonError("TMDB_API_KEY is missing on the server.", 500);
     }
 
     const supabase = await createClient();
@@ -90,8 +88,6 @@ export async function POST(req: Request) {
     );
   } catch (error) {
     console.error("Error updating genres:", error);
-    return new Response(JSON.stringify({ error: "Internal Server Error" }), {
-      status: 500,
-    });
+    return jsonError("Internal Server Error", 500);
   }
 }

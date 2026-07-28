@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
+import { getAuthUserId } from "@/utils/apiAuth";
 
 /** GET /api/user-rating?itemId=123&itemType=movie — returns { score: number | null } */
 export async function GET(request: NextRequest) {

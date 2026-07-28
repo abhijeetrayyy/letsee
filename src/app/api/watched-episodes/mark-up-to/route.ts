@@ -1,4 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 /**
  * POST /api/watched-episodes/mark-up-to
@@ -15,27 +17,20 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return new Response(JSON.stringify({ error: "Not authenticated" }), {
-      status: 401,
-    });
+    return jsonError("Not authenticated", 401);
   }
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-      status: 400,
-    });
+    return jsonError("Invalid JSON", 400);
   }
 
   const { showId, seasonNumber, episodeNumber, showName, imageUrl, adult, genres } = body;
 
   if (!showId || seasonNumber == null || episodeNumber == null) {
-    return new Response(
-      JSON.stringify({ error: "showId, seasonNumber, and episodeNumber are required" }),
-      { status: 400 }
-    );
+    return jsonError("showId, seasonNumber, and episodeNumber are required", 400);
   }
 
   // Fetch all seasons from TMDB to know which episodes exist
@@ -44,9 +39,7 @@ export async function POST(request: Request) {
   );
 
   if (!tmdbRes.ok) {
-    return new Response(JSON.stringify({ error: "Failed to fetch show data from TMDB" }), {
-      status: 500,
-    });
+    return jsonError("Failed to fetch show data from TMDB", 500);
   }
 
   const showData = await tmdbRes.json();
@@ -76,10 +69,7 @@ export async function POST(request: Request) {
   }
 
   if (episodesToMark.length === 0) {
-    return new Response(
-      JSON.stringify({ error: "No episodes to mark" }),
-      { status: 400 }
-    );
+    return jsonError("No episodes to mark", 400);
   }
 
   // Ensure show is in watched_items

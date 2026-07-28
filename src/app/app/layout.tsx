@@ -1,4 +1,5 @@
 import UserPrefrenceProvider from "@/app/contextAPI/userPrefrenceProvider";
+import MediaInteractionProvider from "@/app/contextAPI/MediaInteractionProvider";
 import Footbar from "@/components/footbar/foot";
 import { Toaster } from "react-hot-toast";
 
@@ -24,12 +25,14 @@ export default async function AppLayout({
           loading: { duration: Infinity },
         }}
       />
-      <UserPrefrenceProvider>
-        <div className="w-full flex flex-col min-h-screen">
-          <main className="grow">{children}</main>
-          <Footbar />
-        </div>
-      </UserPrefrenceProvider>
+      <MediaInteractionProvider>
+        <UserPrefrenceProvider>
+          <div className="w-full flex flex-col min-h-screen">
+            <main className="grow">{children}</main>
+            <Footbar />
+          </div>
+        </UserPrefrenceProvider>
+      </MediaInteractionProvider>
     </div>
   );
 }

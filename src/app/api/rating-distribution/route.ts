@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export async function GET(request: Request) {
   const itemType = searchParams.get("itemType");
 
   if (!itemId || !itemType) {
-    return NextResponse.json({ error: "itemId and itemType required" }, { status: 400 });
+    return jsonError("itemId and itemType required", 400);
   }
 
   const supabase = await createClient();

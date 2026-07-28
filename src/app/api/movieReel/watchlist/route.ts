@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { fetchTmdb } from "@/utils/tmdbClient";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 /** GET /api/movieReel/watchlist — movies from user's watchlist that have trailers (for reels) */
 export async function GET() {
@@ -24,7 +26,7 @@ export async function GET() {
 
   const movieIds = (watchlist ?? []).map((r) => r.item_id).filter(Boolean);
   if (movieIds.length === 0) {
-    return NextResponse.json({ movies: [], totalPages: 1 }, { status: 200 });
+    return jsonSuccess({ movies: [], totalPages: 1 });
   }
 
   const moviesWithDetails: any[] = [];
@@ -53,8 +55,5 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json(
-    { movies: moviesWithDetails, totalPages: 1 },
-    { status: 200 }
-  );
+  return jsonSuccess({ movies: moviesWithDetails, totalPages: 1 });
 }

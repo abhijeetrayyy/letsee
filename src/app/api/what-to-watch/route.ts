@@ -2,6 +2,8 @@ import { createClient } from "@/utils/supabase/server";
 import { serverFetchJson } from "@/utils/serverFetch";
 import { MOODS, RUNTIME_OPTIONS, DECADE_OPTIONS } from "@/staticData/moodMapping";
 import { NextResponse } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -102,7 +104,7 @@ export async function GET(request: Request) {
 
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "TMDB_API_KEY missing" }, { status: 500 });
+    return jsonError("TMDB_API_KEY missing", 500);
   }
 
   const supabase = await createClient();

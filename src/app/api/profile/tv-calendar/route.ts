@@ -1,4 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 /**
  * GET /api/profile/tv-calendar?userId=...&year=2024&month=3
@@ -12,9 +14,7 @@ export async function GET(request: Request) {
   const month = searchParams.get("month");
 
   if (!userId) {
-    return new Response(JSON.stringify({ error: "userId is required" }), {
-      status: 400,
-    });
+    return jsonError("userId is required", 400);
   }
 
   const {
@@ -30,9 +30,7 @@ export async function GET(request: Request) {
     .maybeSingle();
 
   if (!profile) {
-    return new Response(JSON.stringify({ error: "User not found" }), {
-      status: 404,
-    });
+    return jsonError("User not found", 404);
   }
 
   const visibility = String(profile.visibility ?? "public").toLowerCase().trim();
@@ -49,9 +47,7 @@ export async function GET(request: Request) {
   }
 
   if (!canView) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), {
-      status: 403,
-    });
+    return jsonError("Forbidden", 403);
   }
 
   // Build date filter

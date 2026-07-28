@@ -190,10 +190,8 @@ export default function SmartWatchlist({ userId }: { userId: string }) {
         ids.map((id) => {
           const item = orderedItems.find((i) => i.id === id);
           if (!item) return Promise.resolve();
-          return fetch("/api/deletewatchlistButton", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ itemId: item.itemId }),
+          return fetch(`/api/user-media-status?itemId=${encodeURIComponent(item.itemId)}`, {
+            method: "DELETE",
           });
         }),
       );
@@ -213,10 +211,8 @@ export default function SmartWatchlist({ userId }: { userId: string }) {
     const prevItems = orderedItems;
     setOrderedItems((prev) => prev.filter((i) => i.id !== item.id));
     try {
-      await fetch("/api/deletewatchlistButton", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId: item.itemId }),
+      await fetch(`/api/user-media-status?itemId=${encodeURIComponent(item.itemId)}`, {
+        method: "DELETE",
       });
     } catch {
       setOrderedItems(prevItems);

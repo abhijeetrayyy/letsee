@@ -1,12 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState, useContext } from "react";
+import React, { useState } from "react";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
-import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
-import { LuSend } from "react-icons/lu";
-import { Film, Tv, User } from "lucide-react";
+import { Film, Tv, User, Star } from "lucide-react";
 
 const TMDB_POSTER = "https://image.tmdb.org/t/p/w342";
 const TMDB_PROFILE = "https://image.tmdb.org/t/p/h632";
@@ -16,8 +14,7 @@ function slug(title: string): string {
 }
 
 function href(mediaType: string, id: number, title: string): string {
-  const s = slug(title);
-  return `/app/${mediaType}/${id}${s ? `-${s}` : ""}`;
+  return `/app/${mediaType}/${id}${title ? `-${slug(title)}` : ""}`;
 }
 
 export type MediaCardProps = {
@@ -36,6 +33,7 @@ export type MediaCardProps = {
   className?: string;
   style?: React.CSSProperties;
   knownFor?: string | null;
+  rating?: number | null;
 };
 
 export default function MediaCard({
@@ -54,90 +52,76 @@ export default function MediaCard({
   className = "",
   style,
   knownFor,
+  rating,
 }: MediaCardProps) {
   const [tvModalOpen, setTvModalOpen] = useState(false);
-  const { refreshPreferences } = useContext(UserPrefrenceContext);
   const isPerson = mediaType === "person";
-  const typeBadge = typeLabel ?? mediaType;
+  const typeBadge = typeLabel ?? (isPerson ? "person" : mediaType);
+
   const imageUrl = imageUrlProp ?? (posterPath && !adult
-    ? isPerson ? `${TMDB_PROFILE}${posterPath}` : `${TMDB_POSTER}${posterPath}`
+    ? (isPerson ? `${TMDB_PROFILE}${posterPath}` : `${TMDB_POSTER}${posterPath}`)
     : null);
   const imgSrc = adult && !imageUrlProp ? "/pixeled.webp" : imageUrl ?? "/no-photo.webp";
   const detailHref = href(mediaType, id, title);
-  const imgUrlForTvPayload = imageUrl && typeof imageUrl === "string" && imageUrl.startsWith("http")
-    ? imageUrl : posterPath && !adult ? `${TMDB_POSTER}${posterPath}` : "";
-  const tvWatchedPayload = {
-    itemId: id, name: title,
-    imgUrl: imgUrlForTvPayload, adult,
-    genres: Array.isArray(genres) ? genres.filter((g): g is string => typeof g === "string") : [],
-  };
-  const onAddWatchedTv = mediaType === "tv" ? () => setTvModalOpen(true) : undefined;
 
-  const TypeIcon = mediaType === "tv" ? Tv : mediaType === "person" ? User : Film;
+  const genreList = Array.isArray(genres) ? genres.filter((g): g is string => typeof g === "string") : [];
+  const tvWatchedPayload = { itemId: id, name: title, imgUrl: imageUrl ?? "", adult, genres: genreList };
+  const onAddWatchedTv = mediaType === "tv" && showActions ? () => setTvModalOpen(true) : undefined;
 
   return (
-    <div className={`group relative flex flex-col shrink-0 overflow-hidden rounded-2xl border border-white/5 bg-surface-900/50 backdrop-blur-sm poster-shadow transition-all duration-300 ease-out hover:bg-surface-800/70 hover:border-brand-500/20 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-black/50 ${className}`} style={style}>
-      {/* Glow on hover */}
-      <div className="absolute -inset-1 bg-gradient-to-b from-brand-500/0 to-brand-500/5 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" aria-hidden />
+    <div
+      className={`group relative flex flex-col rounded-xl overflow-hidden bg-surface-900/60 border border-surface-800/40 transition-all duration-300 hover:border-brand-500/20 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/30 ${className}`}
+      style={style}
+    >
+      {/* Poster */}
+      <Link href={detailHref} className="relative block overflow-hidden">
+        <img
+          src={imgSrc}
+          alt={title}
+          className={`w-full object-cover transition-transform duration-500 group-hover:scale-105 ${isPerson ? "aspect-square" : "aspect-[2/3]"}`}
+          loading="lazy"
+          decoding="async"
+        />
 
-      {/* Badges */}
-      <div className="absolute top-2 left-2 right-2 z-10 flex justify-between pointer-events-none">
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/50 backdrop-blur-sm text-surface-200 text-[10px] font-semibold uppercase tracking-wider">
-          <TypeIcon className="w-2.5 h-2.5" />
+        {/* Type badge top-left */}
+        <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] font-semibold uppercase tracking-wider text-surface-200">
+          {isPerson ? (
+            <User className="size-2.5 inline mr-0.5" />
+          ) : mediaType === "tv" ? (
+            <Tv className="size-2.5 inline mr-0.5" />
+          ) : (
+            <Film className="size-2.5 inline mr-0.5" />
+          )}
           {typeBadge}
         </span>
-        {year && !isPerson && (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-black/50 backdrop-blur-sm text-surface-300 text-[10px] font-medium">
-            {year}
+
+        {/* Rating badge top-right */}
+        {rating != null && (
+          <span className="absolute top-2 right-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] font-semibold text-accent-gold">
+            <Star className="size-2.5 fill-current" />
+            {rating.toFixed(1)}
           </span>
         )}
-      </div>
+      </Link>
 
-      {/* Image */}
-      <div className="relative w-full block leading-none overflow-hidden rounded-t-2xl">
-        <Link href={detailHref} className="block w-full">
-          <img
-            src={imgSrc}
-            alt={title}
-            className={`block w-full object-cover transition-all duration-500 ease-out group-hover:scale-105 align-bottom ${isPerson ? "aspect-square" : "aspect-[2/3]"}`}
-            loading="lazy"
-            decoding="async"
-          />
+      {/* Title and year */}
+      <div className="p-2.5 flex-1">
+        <Link href={detailHref} className="block">
+          <h3 className="text-xs font-medium text-surface-200 line-clamp-2 leading-snug group-hover:text-brand-400 transition-colors">
+            {title}
+          </h3>
         </Link>
-        <div className="absolute inset-x-0 bottom-0 h-24 pointer-events-none bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity duration-300 md:group-hover:opacity-100" aria-hidden />
-
-        {/* Desktop hover actions */}
-        {showActions && !isPerson && (
-          <div className="absolute bottom-0 left-0 right-0 w-full opacity-0 translate-y-2 transition-all duration-300 ease-out pointer-events-none md:group-hover:opacity-100 md:group-hover:translate-y-0 md:group-hover:pointer-events-auto hidden md:block">
-            <div className="bg-surface-900/90 backdrop-blur-md border-t border-white/5">
-              <ThreePrefrenceBtn
-                variant="compact"
-                cardId={id}
-                cardType={mediaType}
-                cardName={title}
-                cardAdult={adult}
-                cardImg={posterPath ?? undefined}
-                genres={genres}
-                onAddWatchedTv={onAddWatchedTv}
-              />
-              {onShare != null && (
-                <button
-                  type="button"
-                  className="flex w-full min-h-[44px] items-center justify-center gap-2 py-2.5 text-surface-300 text-sm font-medium transition-colors hover:text-white hover:bg-white/5 active:bg-white/10 touch-manipulation"
-                  onClick={onShare}
-                  aria-label="Share"
-                >
-                  <LuSend className="shrink-0 size-4" /> Share
-                </button>
-              )}
-            </div>
-          </div>
-        )}
+        <div className="flex items-center gap-2 mt-1">
+          {year && <span className="text-[10px] text-surface-500">{year}</span>}
+          {subtitle && (
+            <span className="text-[10px] text-surface-500 line-clamp-1">{subtitle}</span>
+          )}
+        </div>
       </div>
 
-      {/* Mobile actions */}
+      {/* Actions */}
       {showActions && !isPerson && (
-        <div className="relative w-full md:hidden bg-surface-900/80 border-t border-white/5">
+        <div className="border-t border-surface-800/30">
           <ThreePrefrenceBtn
             variant="compact"
             cardId={id}
@@ -145,45 +129,21 @@ export default function MediaCard({
             cardName={title}
             cardAdult={adult}
             cardImg={posterPath ?? undefined}
-            genres={genres}
+            genres={genreList}
             onAddWatchedTv={onAddWatchedTv}
           />
-          {onShare != null && (
-            <button
-              type="button"
-              className="flex w-full min-h-[44px] items-center justify-center gap-2 py-2.5 text-surface-300 text-sm font-medium transition-colors hover:text-white hover:bg-white/5 active:bg-white/10 touch-manipulation border-t border-white/5"
-              onClick={onShare}
-              aria-label="Share"
-            >
-              <LuSend className="shrink-0 size-4" /> Share
-            </button>
-          )}
         </div>
       )}
 
-      {/* Title */}
-      <div className="min-h-[56px] flex flex-col justify-center px-3 py-3 bg-surface-900/60 border-t border-white/5 rounded-b-2xl backdrop-blur-sm">
-        <Link href={detailHref} className="text-surface-100 text-sm font-semibold line-clamp-2 hover:text-brand-400 transition-colors leading-snug">
-          {title}
-        </Link>
-        {subtitle && (
-          <div className="mt-1 text-xs text-surface-500 line-clamp-2 leading-relaxed">
-            {subtitle}
-          </div>
-        )}
-        {isPerson && knownFor && (
-          <div className="mt-1 text-xs text-surface-500 line-clamp-1">{knownFor}</div>
-        )}
-      </div>
-
-      {mediaType === "tv" && (
+      {/* TV Watched modal */}
+      {mediaType === "tv" && showActions && (
         <MarkTVWatchedModal
           showId={String(id)}
           showName={title}
           seasons={[]}
           isOpen={tvModalOpen}
           onClose={() => setTvModalOpen(false)}
-          onSuccess={() => { setTvModalOpen(false); refreshPreferences?.(); }}
+          onSuccess={() => setTvModalOpen(false)}
           watchedPayload={tvWatchedPayload}
         />
       )}

@@ -203,16 +203,17 @@ export default function BecauseYouWatched({
     setWatchlistIds((prev) => new Set(prev).add(key));
 
     try {
-      await fetch("/api/watchlistButton", {
-        method: "POST",
+      await fetch("/api/user-media-status", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           itemId: item.id,
+          itemType: item.mediaType,
+          status: "watchlist",
           name: item.title,
-          mediaType: item.mediaType,
           imgUrl: item.posterUrl ?? "",
           adult: false,
-          genres: item.genreBreakdown.map((g) => g.genre),
+          genres: item.genreBreakdown.map((g: any) => g.genre),
         }),
       });
     } catch {

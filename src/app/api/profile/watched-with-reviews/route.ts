@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
+import { getAuthUserId } from "@/utils/apiAuth";
 
 /** GET /api/profile/watched-with-reviews — returns watched items that have review_text (for current user, for pinned review dropdown) */
 export async function GET() {

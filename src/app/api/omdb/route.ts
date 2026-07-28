@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function GET(request: NextRequest) {
   const apiKey = process.env.OMDB_API_KEY;
@@ -7,17 +8,11 @@ export async function GET(request: NextRequest) {
   const title = searchParams.get("t");
 
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "OMDB_API_KEY is missing on the server." },
-      { status: 500 }
-    );
+    return jsonError("OMDB_API_KEY is missing on the server.", 500);
   }
 
   if (!imdbId && !title) {
-    return NextResponse.json(
-      { error: "Missing OMDB query (i or t)." },
-      { status: 400 }
-    );
+    return jsonError("Missing OMDB query (i or t).", 400);
   }
 
   const url = new URL("https://www.omdbapi.com/");

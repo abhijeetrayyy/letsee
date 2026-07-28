@@ -1,268 +1,224 @@
+import { Suspense } from "react";
 import Link from "next/link";
-import DiscoverUsers from "@components/home/DiscoverUser";
-import CalendarSection from "@components/home/CalendarSection";
-import ContinueWatchingSection from "@components/home/ContinueWatchingSection";
-import OpenAiReco from "@components/ai/openaiReco";
-import CollaborativeRecs from "@components/ai/collaborativeRecs";
-import WhatToWatch from "@components/home/WhatToWatch";
-import CompletionPredictor from "@components/tv/CompletionPredictor";
-import HomeVideo from "@components/home/videoReel";
-import MovieGenre from "@components/scroll/movieGenre";
-import TvGenre from "@components/scroll/tvGenre";
-import HomeContentTile from "@components/movie/homeContentTile";
-import BrowseTags from "@components/home/BrowseTags";
-import AnimeTags from "@components/home/AnimeTags";
-import FollowingFeed from "@components/feed/FollowingFeed";
-import { getHomeSections } from "@/utils/homeData";
-import { buildSearchUrl } from "@/utils/searchUrl";
-import { ArrowRight, Film, Sparkles, Users, Calendar, Tag, Tv, Rss, Search, BookOpen, Heart } from "lucide-react";
+import { getHomeContent } from "@/utils/homeData";
 import { createClient } from "@/utils/supabase/server";
+import HomeHero from "@components/home/HomeHero";
+import QuickActions from "@components/home/QuickActions";
+import TrendingNow from "@components/home/TrendingNow";
+import GenreExplorer from "@components/home/GenreExplorer";
+import CollectionRow from "@components/home/CollectionRow";
+import UserSidebar from "@components/home/UserSidebar";
+import ContinueWatchingProgress from "@components/tv/ContinueWatchingProgress";
+import QuickPick from "@components/home/QuickPick";
+import FollowingFeed from "@components/feed/FollowingFeed";
+import { Film, TrendingUp, Compass, Tv, Sparkles, Flame } from "lucide-react";
 
-const headingBase =
-  "text-xl sm:text-2xl font-bold text-white tracking-tight";
-
-const headingLinkClass =
-  "group inline-flex items-center gap-2 hover:text-brand-400 transition-colors duration-200";
-
-const arrowIcon = "w-4 h-4 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200";
-
-const sectionHeader = (title: string, subtitle: string) => (
-  <div className="flex items-center gap-3 mb-5">
-    <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
-    <div>
-      <h2 className={headingBase}>{title}</h2>
-      <p className="text-sm text-surface-500 mt-0.5">{subtitle}</p>
-    </div>
-  </div>
-);
-
-const sectionHeaderLink = (title: string, subtitle: string, href: string) => (
-  <div className="flex items-center gap-3 mb-5">
-    <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
-    <div>
-      <h2 className={headingBase}>
-        <Link href={href} className={headingLinkClass}>
-          {title}
-          <ArrowRight className={arrowIcon} />
-        </Link>
-      </h2>
-      <p className="text-sm text-surface-500 mt-0.5">{subtitle}</p>
-    </div>
-  </div>
-);
-
-async function getUsername() {
+async function getUsername(): Promise<string | null> {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
-    const { data } = await supabase
-      .from("users")
-      .select("username")
-      .eq("id", user.id)
-      .single();
+    const { data } = await supabase.from("users").select("username").eq("id", user.id).single();
     return data?.username ?? null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 export default async function Home() {
-  const { sections, errors } = await getHomeSections();
+  const { content, errors } = await getHomeContent();
   const username = await getUsername();
-
-  const movieGenres = sections.movieGenres?.genres ?? [];
-  const tvGenres = sections.tvGenres?.genres ?? [];
-  const weeklyTop = sections.weeklyTop?.results ?? [];
-  const trendingTv = sections.trendingTv?.results ?? [];
-  const animeSeries = sections.animeSeries?.results ?? [];
-  const animeFilms = sections.animeFilms?.results ?? [];
-  const romance = sections.romance?.results ?? [];
-  const action = sections.action?.results ?? [];
-  const crime = sections.crime?.results ?? [];
-  const thriller = sections.thriller?.results ?? [];
-  const darkZones = sections.darkZones?.results ?? [];
-  const horror = sections.horror?.results ?? [];
-  const bollywood = sections.bollywood?.results ?? [];
+  const isLoggedIn = !!username;
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const greeting = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
 
   return (
     <>
-      {/* ──────── HERO ──────── */}
-      <section className="w-full" aria-label="Featured">
-        <HomeVideo />
-      </section>
+      {/* ═══════ HERO BANNER ═══════ */}
+      <HomeHero items={content.trending} />
 
-      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-10 sm:gap-14">
-        {errors.length > 0 && (
-          <div
-            className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-amber-200 text-sm animate-fade-in"
-            role="alert"
-          >
-            <p className="font-medium">Some sections could not load.</p>
-            <p className="mt-1 text-amber-300/70 text-xs">
-              You can still browse. Try refreshing in a moment.
-            </p>
-          </div>
-        )}
+      <div className="w-full bg-surface-950">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16">
 
-        {/* ──────── GREETING + QUICK ACTIONS ──────── */}
-        <div className="animate-fade-up">
-          {username && (
-            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-              {greeting}, <span className="text-gradient-brand">{username}</span>
-            </h1>
+          {/* Greeting */}
+          {isLoggedIn && (
+            <div className="pt-6 pb-2">
+              <h1 className="text-lg sm:text-xl font-medium text-surface-300">
+                Good {greeting}, <span className="text-white font-semibold">{username}</span>
+              </h1>
+            </div>
           )}
-          <div className="flex flex-wrap gap-2">
-            <Link href="/app/search" className="btn-secondary text-sm">
-              <Search className="w-4 h-4" />
-              Search
-            </Link>
-            <Link href="/app/watchlist" className="btn-secondary text-sm">
-              <Heart className="w-4 h-4" />
-              Watchlist
-            </Link>
-            <Link href="/app/profile" className="btn-secondary text-sm">
-              <BookOpen className="w-4 h-4" />
-              My Diary
-            </Link>
+
+          {/* Main layout: sidebar (personal) + feed */}
+          <div className="flex flex-col lg:flex-row gap-8 mt-6">
+            {/* ═══════ SIDEBAR ═══════ */}
+            <aside className="lg:w-[340px] lg:shrink-0 order-2 lg:order-1 space-y-6">
+              {isLoggedIn ? (
+                <>
+                  <UserSidebar username={username!} />
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <PlayIcon />
+                      <h2 className="text-xs font-semibold text-surface-500 uppercase tracking-[0.2em]">Continue</h2>
+                    </div>
+                    <ContinueWatchingProgress />
+                  </div>
+                  <div className="pt-2">
+                    <QuickPick />
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-2xl border border-brand-500/10 bg-gradient-to-br from-brand-500/5 to-surface-900/50 p-6 text-center">
+                  <Film className="size-8 text-brand-400 mx-auto mb-3" />
+                  <h2 className="text-white font-semibold mb-2">Join the community</h2>
+                  <p className="text-surface-400 text-sm mb-4">Track what you watch, write reviews, and discover with friends.</p>
+                  <Link href="/signup" className="btn-primary text-sm w-full justify-center py-2.5">
+                    Get started — it's free
+                  </Link>
+                  <p className="text-surface-600 text-xs mt-3">
+                    Already have an account? <Link href="/login" className="text-brand-400 hover:text-brand-300">Sign in</Link>
+                  </p>
+                </div>
+              )}
+
+              {/* Quick actions */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Compass className="size-4 text-surface-500" />
+                  <h2 className="text-xs font-semibold text-surface-500 uppercase tracking-[0.2em]">Explore</h2>
+                </div>
+                <QuickActions />
+              </div>
+
+              {/* Errors */}
+              {errors.length > 0 && (
+                <div className="rounded-xl border border-amber-500/10 bg-amber-500/5 p-3 text-amber-300/80 text-xs">
+                  Some sections couldn't load. Refresh to try again.
+                </div>
+              )}
+            </aside>
+
+            {/* ═══════ MAIN CONTENT ═══════ */}
+            <main className="flex-1 min-w-0 order-1 lg:order-2 space-y-10">
+              {/* Following Feed */}
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Flame className="size-4 text-amber-400" />
+                    <h2 className="text-lg font-bold text-white">Activity Feed</h2>
+                  </div>
+                </div>
+                <FollowingFeed />
+              </section>
+
+              {/* Trending Now */}
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="size-4 text-brand-400" />
+                    <h2 className="text-lg font-bold text-white">Trending Now</h2>
+                  </div>
+                  <Link href="/app/search?sort=trending" className="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1">
+                    View all <span className="text-surface-600">→</span>
+                  </Link>
+                </div>
+                <TrendingNow items={content.trending} trendingTv={content.trendingTv} />
+              </section>
+
+              {/* Weekly Top 20 */}
+              {content.weeklyTop.length > 0 && (
+                <section>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Tv className="size-4 text-accent-gold" />
+                      <h2 className="text-lg font-bold text-white">Top This Week</h2>
+                    </div>
+                  </div>
+                  <CollectionRow items={content.weeklyTop} showRank />
+                </section>
+              )}
+
+              {/* Anime Section */}
+              {(content.animeSeries.length > 0 || content.animeFilms.length > 0) && (
+                <section>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="size-4 text-purple-400" />
+                      <h2 className="text-lg font-bold text-white">Anime</h2>
+                    </div>
+                  </div>
+                  <div className="space-y-6">
+                    {content.animeSeries.length > 0 && (
+                      <CollectionRow items={content.animeSeries} label="Popular Series" mediaType="tv" />
+                    )}
+                    {content.animeFilms.length > 0 && (
+                      <CollectionRow items={content.animeFilms} label="Popular Films" mediaType="movie" />
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* Curated Collections */}
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Compass className="size-4 text-rose-400" />
+                    <h2 className="text-lg font-bold text-white">Curated Collections</h2>
+                  </div>
+                </div>
+                <div className="space-y-8">
+                  {content.collections.romance.length > 0 && (
+                    <CollectionRow items={content.collections.romance} label="Romance & Love" accent="rose" />
+                  )}
+                  {content.collections.action.length > 0 && (
+                    <CollectionRow items={content.collections.action} label="Action" accent="amber" />
+                  )}
+                  {content.collections.crime.length > 0 && (
+                    <CollectionRow items={content.collections.crime} label="Crime" accent="slate" />
+                  )}
+                  {content.collections.thriller.length > 0 && (
+                    <CollectionRow items={content.collections.thriller} label="Thrills" accent="emerald" />
+                  )}
+                  {content.collections.horror.length > 0 && (
+                    <CollectionRow items={content.collections.horror} label="Horror" accent="red" />
+                  )}
+                </div>
+              </section>
+
+              {/* Genre Explorer */}
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Compass className="size-4 text-blue-400" />
+                    <h2 className="text-lg font-bold text-white">Browse by Genre</h2>
+                  </div>
+                </div>
+                <GenreExplorer movieGenres={content.movieGenres} tvGenres={content.tvGenres} />
+              </section>
+
+              {/* Bollywood */}
+              {content.bollywood.length > 0 && (
+                <section>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Film className="size-4 text-orange-400" />
+                      <h2 className="text-lg font-bold text-white">Bollywood</h2>
+                    </div>
+                  </div>
+                  <CollectionRow items={content.bollywood} mediaType="movie" />
+                </section>
+              )}
+            </main>
           </div>
         </div>
-
-        {/* ──────── PERSONAL ──────── */}
-        <ContinueWatchingSection />
-
-        {/* TV Completion Predictor */}
-        <section className="animate-fade-up" aria-labelledby="predictor-heading">
-          {sectionHeader("TV Completion Forecast", "Estimated finish dates for your shows")}
-          <CompletionPredictor />
-        </section>
-
-        {/* What to watch picker */}
-        <section className="animate-fade-up" aria-labelledby="picker-heading">
-          {sectionHeader("What should I watch?", "Pick a mood, set filters, and let us decide")}
-          <WhatToWatch />
-        </section>
-
-        {/* ──────── SOCIAL ──────── */}
-        <section className="animate-fade-up" aria-labelledby="feed-heading">
-          {sectionHeader("Following Feed", "See what people are watching, rating, and reviewing")}
-          <FollowingFeed />
-        </section>
-
-        <section className="animate-fade-up stagger-1" aria-labelledby="reco-heading">
-          {sectionHeaderLink("For You", "Based on your favorites and watched list", "/app/profile")}
-          <OpenAiReco />
-        </section>
-
-        <section className="animate-fade-up stagger-2" aria-labelledby="collab-heading">
-          {sectionHeader("People Like You Also Like", "Powered by collaborative filtering with similar viewers")}
-          <CollaborativeRecs />
-        </section>
-
-        <section className="animate-fade-up stagger-3" aria-labelledby="discover-heading">
-          {sectionHeaderLink("Discover People", "See what others are watching", "/app/profile")}
-          <DiscoverUsers hideTitleLink />
-        </section>
-
-        {/* ──────── TRENDING ──────── */}
-        <section aria-labelledby="weekly-top-heading">
-          {sectionHeaderLink("Weekly Top 20", "Most popular right now", "/app/search/discover")}
-          <HomeContentTile type="mix" data={{ results: weeklyTop }} />
-        </section>
-
-        <section aria-labelledby="trending-tv-heading">
-          {sectionHeaderLink("Trending TV Shows", "Popular today", "/app/search/discover?media_type=tv")}
-          <HomeContentTile type="tv" data={{ results: trendingTv }} />
-        </section>
-
-        <section className="animate-fade-up stagger-3" aria-labelledby="calendar-heading">
-          {sectionHeaderLink("Calendar & Upcoming", "In theaters and on TV this week", "/app/search/discover?media_type=movie")}
-          <CalendarSection hideMainHeading />
-        </section>
-
-        {/* ──────── BROWSE ──────── */}
-        <section aria-labelledby="browse-tags-heading">
-          {sectionHeaderLink("Browse by Tag", "Genres, keywords and categories", "/app/search")}
-          <BrowseTags />
-        </section>
-
-        {/* ──────── ANIME ──────── */}
-        <section aria-labelledby="anime-heading">
-          {sectionHeaderLink("Anime", "Series, films, Isekai and more", buildSearchUrl({ query: "discover", mediaType: "tv", keyword: "210024" }))}
-          <div className="space-y-6">
-            <AnimeTags />
-            {animeSeries.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Popular Series</h3>
-                <HomeContentTile type="tv" data={{ results: animeSeries }} />
-              </div>
-            )}
-            {animeFilms.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Popular Films</h3>
-                <HomeContentTile type="movie" data={{ results: animeFilms }} />
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* ──────── CURATED COLLECTIONS ──────── */}
-        <section aria-labelledby="collections-heading">
-          {sectionHeader("Curated Collections", "Handpicked genres and themes")}
-          <div className="space-y-8">
-            {romance.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Romance & Love</h3>
-                <HomeContentTile type="movie" data={{ results: romance }} />
-              </div>
-            )}
-            {action.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Action</h3>
-                <HomeContentTile type="movie" data={{ results: action }} />
-              </div>
-            )}
-            {crime.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Crime</h3>
-                <HomeContentTile type="movie" data={{ results: crime }} />
-              </div>
-            )}
-            {thriller.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Thrills</h3>
-                <HomeContentTile type="movie" data={{ results: thriller }} />
-              </div>
-            )}
-            {horror.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Horror</h3>
-                <HomeContentTile type="movie" data={{ results: horror }} />
-              </div>
-            )}
-            {bollywood.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-surface-300 mb-3 uppercase tracking-wider">Bollywood</h3>
-                <HomeContentTile type="movie" data={{ results: bollywood }} />
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* ──────── GENRE BROWSER ──────── */}
-        <section aria-labelledby="movie-genres-heading">
-          {sectionHeaderLink("Movie Genres", "Browse by genre", "/app/search/discover?media_type=movie")}
-          <MovieGenre genre={movieGenres} />
-        </section>
-
-        <section aria-labelledby="tv-genres-heading">
-          {sectionHeaderLink("TV Show Genres", "Browse TV by genre", "/app/search/discover?media_type=tv")}
-          <TvGenre tvGenres={tvGenres} />
-        </section>
       </div>
     </>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg className="size-4 text-brand-400" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M8 5v14l11-7z"/>
+    </svg>
   );
 }

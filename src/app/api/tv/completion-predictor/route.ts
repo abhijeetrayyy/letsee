@@ -1,6 +1,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { serverFetchJson } from "@/utils/serverFetch";
 import { NextResponse } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -42,21 +44,21 @@ export async function GET() {
   const userId = auth?.user?.id;
 
   if (!userId) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return jsonError("Not authenticated", 401);
   }
 
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "TMDB_API_KEY missing" }, { status: 500 });
+    return jsonError("TMDB_API_KEY missing", 500);
   }
 
   try {
     const [tvListRes, watchedEpisodesRes] = await Promise.all([
-      supabase.from("user_tv_list").select("show_id, status").eq("user_id", userId).eq("status", "watching"),
+      supabase.from("user_media_status").select("item_id, status").eq("user_id", userId).eq("item_type", "tv").eq("status", "watching"),
       supabase.from("watched_episodes").select("show_id, watched_at").eq("user_id", userId).order("watched_at", { ascending: true }),
     ]);
 
-    const watchingShows = tvListRes.data ?? [];
+    const watchingShows = (tvListRes.data ?? []).map(s => ({ show_id: (s as any).item_id, status: (s as any).status }));
     const watchedEpisodes = watchedEpisodesRes.data ?? [];
 
     if (watchingShows.length === 0) {
@@ -134,6 +136,6 @@ export async function GET() {
     return NextResponse.json({ predictions });
   } catch (err) {
     console.error("Completion predictor error:", err);
-    return NextResponse.json({ error: "Failed to predict completion" }, { status: 500 });
+    return jsonError("Failed to predict completion", 500);
   }
 }

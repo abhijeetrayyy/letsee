@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
+import { getAuthUserId } from "@/utils/apiAuth";
 
 const MAX_SHOWS = 12;
 const BATCH_SIZE = 3;
@@ -24,11 +25,8 @@ type ContinueWatchingItem = {
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
-  const { data: userData, error: authError } = await supabase.auth.getUser();
-  if (authError || !userData?.user) {
-    return jsonError("User isn't logged in", 401);
-  }
-  const userId = userData.user.id;
+  const userId = await getAuthUserId();
+  if (!userId) return jsonError("Not authenticated", 401);
 
   if (!process.env.TMDB_API_KEY) {
     return jsonError("TMDB API key is missing", 500);
@@ -67,10 +65,10 @@ export async function GET(req: NextRequest) {
             .eq("show_id", showId),
           getTvShowWithSeasons(showId),
           supabase
-            .from("user_tv_list")
+            .from("user_media_status")
             .select("status")
             .eq("user_id", userId)
-            .eq("show_id", showId)
+            .eq("item_id", showId)
             .maybeSingle(),
         ]);
 

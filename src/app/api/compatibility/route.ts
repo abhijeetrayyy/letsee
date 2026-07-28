@@ -1,5 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +64,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const otherUserId = searchParams.get("userId");
   if (!otherUserId) {
-    return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    return jsonError("userId is required", 400);
   }
 
   const supabase = await createClient();
@@ -70,7 +72,7 @@ export async function GET(request: Request) {
   const currentUserId = auth?.user?.id;
 
   if (!currentUserId) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return jsonError("Not authenticated", 401);
   }
 
   try {
@@ -110,6 +112,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("Compatibility error:", err);
-    return NextResponse.json({ error: "Failed to compute compatibility" }, { status: 500 });
+    return jsonError("Failed to compute compatibility", 500);
   }
 }

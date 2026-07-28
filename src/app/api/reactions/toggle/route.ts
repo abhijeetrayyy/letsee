@@ -1,5 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -11,24 +13,24 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return jsonError("Unauthorized", 401);
   }
 
   const body = await request.json().catch(() => null);
   if (!body || !body.targetType || !body.targetId) {
-    return NextResponse.json({ error: "targetType and targetId are required" }, { status: 400 });
+    return jsonError("targetType and targetId are required", 400);
   }
 
   const { targetType, targetId } = body;
 
   const validTypes = ["review", "watched", "rating", "list", "comment", "activity"];
   if (!validTypes.includes(targetType)) {
-    return NextResponse.json({ error: "Invalid targetType" }, { status: 400 });
+    return jsonError("Invalid targetType", 400);
   }
 
   const targetIdNum = Number(targetId);
   if (!Number.isFinite(targetIdNum)) {
-    return NextResponse.json({ error: "Invalid targetId" }, { status: 400 });
+    return jsonError("Invalid targetId", 400);
   }
 
   // Check if reaction exists
@@ -95,12 +97,12 @@ export async function GET(request: Request) {
   const targetId = searchParams.get("targetId");
 
   if (!targetType || !targetId) {
-    return NextResponse.json({ error: "targetType and targetId are required" }, { status: 400 });
+    return jsonError("targetType and targetId are required", 400);
   }
 
   const targetIdNum = Number(targetId);
   if (!Number.isFinite(targetIdNum)) {
-    return NextResponse.json({ error: "Invalid targetId" }, { status: 400 });
+    return jsonError("Invalid targetId", 400);
   }
 
   // Get count

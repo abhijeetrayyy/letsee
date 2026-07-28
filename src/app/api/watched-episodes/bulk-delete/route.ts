@@ -1,4 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 /**
  * DELETE /api/watched-episodes/bulk-delete
@@ -12,27 +14,20 @@ export async function DELETE(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return new Response(JSON.stringify({ error: "Not authenticated" }), {
-      status: 401,
-    });
+    return jsonError("Not authenticated", 401);
   }
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-      status: 400,
-    });
+    return jsonError("Invalid JSON", 400);
   }
 
   const { showId, episodes } = body;
 
   if (!showId || !episodes || !Array.isArray(episodes) || episodes.length === 0) {
-    return new Response(
-      JSON.stringify({ error: "showId and episodes array are required" }),
-      { status: 400 }
-    );
+    return jsonError("showId and episodes array are required", 400);
   }
 
   // Build conditions for bulk delete

@@ -1,197 +1,80 @@
 import { createClient } from "@/utils/supabase/server";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function POST(req: NextRequest) {
-  const requestClone = req.clone();
-  const body = await requestClone.json();
-
-  const { itemId, name, mediaType, imgUrl, adult, genres } = body;
+  const userId = await getAuthUserId();
+  if (!userId) return jsonError("Not authenticated", 401);
 
   const supabase = await createClient();
 
-  // Authenticate the user
-  const { data, error: authError } = await supabase.auth.getUser();
-  if (authError || !data?.user) {
-    console.log("User isn't logged in");
-    return NextResponse.json(
-      { error: "User isn't logged in" },
-      { status: 401 }
-    );
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return jsonError("Invalid JSON body", 400);
   }
 
-  const userId = data.user.id;
+  const itemId = body.itemId != null ? String(body.itemId) : null;
+  const name = typeof body.name === "string" ? body.name : "";
+  const mediaType = body.mediaType === "tv" ? "tv" : "movie";
+  const imgUrl = typeof body.imgUrl === "string" ? body.imgUrl : null;
+  const adult = body.adult === true;
+  const genres = Array.isArray(body.genres) ? (body.genres as string[]) : [];
+
+  if (!itemId || !name) {
+    return jsonError("itemId and name are required", 400);
+  }
+
+  // Check if already favorited
+  const { data: existing, error: findError } = await supabase
+    .from("favorite_items")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("item_id", itemId)
+    .maybeSingle();
+
+  if (findError) return jsonError("Failed to check favorite status", 500);
+
+  // If already favorited, remove it (toggle off)
+  if (existing) {
+    const { error: deleteError } = await supabase
+      .from("favorite_items")
+      .delete()
+      .eq("user_id", userId)
+      .eq("item_id", itemId);
+
+    if (deleteError) return jsonError(deleteError.message, 500);
+
+    try {
+      await supabase.rpc("decrement_favorites_count", { p_user_id: userId });
+    } catch {}
+
+    return jsonSuccess({ action: "removed", message: "Removed from favorites" });
+  }
+
+  // Add to favorites
+  const { error: insertError } = await supabase.from("favorite_items").insert({
+    user_id: userId,
+    item_name: name,
+    item_id: itemId,
+    item_type: mediaType,
+    image_url: imgUrl,
+    item_adult: adult,
+    genres,
+  });
+
+  if (insertError) {
+    if (insertError.code === "23505") {
+      return jsonSuccess({ message: "Already favorited" });
+    }
+    return jsonError(insertError.message, 500);
+  }
 
   try {
-    // Check if the item exists in watchlist
-    const { data: existingWatchlistItem, error: watchlistFindError } =
-      await supabase
-        .from("user_watchlist")
-        .select()
-        .eq("user_id", userId)
-        .eq("item_id", itemId)
-        .single();
+    await supabase.rpc("increment_favorites_count", { p_user_id: userId });
+  } catch {}
 
-    if (watchlistFindError && watchlistFindError.code !== "PGRST116") {
-      throw watchlistFindError;
-    }
-
-    // Delete the item from watchlist if it exists
-    if (existingWatchlistItem) {
-      const { error: deleteWatchlistError } = await supabase
-        .from("user_watchlist")
-        .delete()
-        .eq("user_id", userId)
-        .eq("item_id", itemId);
-
-      if (deleteWatchlistError) {
-        console.log(
-          "Error deleting item from watchlist:",
-          deleteWatchlistError
-        );
-        return NextResponse.json(
-          { error: "Error deleting item from watchlist" },
-          { status: 500 }
-        );
-      }
-
-      // Decrement watchlist_count in user_count_stats
-      const { error: decrementWatchlistError } = await supabase.rpc(
-        "decrement_watchlist_count",
-        {
-          p_user_id: userId,
-        }
-      );
-
-      if (decrementWatchlistError) {
-        console.log(
-          "Error decrementing watchlist_count:",
-          decrementWatchlistError
-        );
-        return NextResponse.json(
-          { error: "Error updating watchlist count" },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Insert the item into favorite_items
-    const { error: insertError } = await supabase
-      .from("favorite_items")
-      .insert({
-        user_id: userId,
-        item_name: name,
-        item_id: itemId,
-        item_type: mediaType,
-        image_url: imgUrl,
-        item_adult: adult,
-        genres: genres,
-      });
-
-    if (insertError) {
-      if (insertError.code === "23505") {
-        console.log("Duplicate item in favorites:", insertError);
-        return NextResponse.json(
-          { error: "Item is already marked as favorite" },
-          { status: 409 }
-        );
-      } else {
-        console.log("Error inserting favorite item:", insertError);
-        return NextResponse.json(
-          { error: "Error inserting favorite item" },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Increment favorites_count in user_count_stats
-    const { error: incrementFavoritesError } = await supabase.rpc(
-      "increment_favorites_count",
-      {
-        p_user_id: userId,
-      }
-    );
-
-    if (incrementFavoritesError) {
-      console.log(
-        "Error incrementing favorites_count:",
-        incrementFavoritesError
-      );
-      return NextResponse.json(
-        { error: "Error updating favorites count" },
-        { status: 500 }
-      );
-    }
-
-    // Check if the item already exists in watched_items
-    const { data: existingWatchedItem, error: watchedFindError } =
-      await supabase
-        .from("watched_items")
-        .select()
-        .eq("user_id", userId)
-        .eq("item_id", itemId)
-        .single();
-
-    if (watchedFindError && watchedFindError.code !== "PGRST116") {
-      throw watchedFindError;
-    }
-
-    let watchedAdded = false;
-
-    if (!existingWatchedItem) {
-      // Add the item to watched_items
-      const { error: insertWatchedError } = await supabase
-        .from("watched_items")
-        .insert({
-          user_id: userId,
-          item_name: name,
-          item_id: itemId,
-          item_type: mediaType,
-          image_url: imgUrl,
-          item_adult: adult,
-          genres: genres,
-        });
-
-      if (insertWatchedError) {
-        console.log("Error inserting watched item:", insertWatchedError);
-        return NextResponse.json(
-          { error: "Error inserting watched item" },
-          { status: 500 }
-        );
-      }
-
-      // Increment watched_count in user_count_stats
-      const { error: incrementWatchedError } = await supabase.rpc(
-        "increment_watched_count",
-        {
-          p_user_id: userId,
-        }
-      );
-
-      if (incrementWatchedError) {
-        console.log("Error incrementing watched_count:", incrementWatchedError);
-        return NextResponse.json(
-          { error: "Error updating watched count" },
-          { status: 500 }
-        );
-      }
-
-      watchedAdded = true;
-    }
-
-    return NextResponse.json(
-      {
-        message:
-          "Item added to favorites" +
-          (watchedAdded ? " and watched" : "") +
-          (existingWatchlistItem ? " and removed from watchlist" : ""),
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error("Error in POST request:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  }
+  return jsonSuccess({ action: "added", message: "Added to favorites" });
 }

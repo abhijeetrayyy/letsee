@@ -1,6 +1,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { serverFetchJson } from "@/utils/serverFetch";
 import { NextResponse } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -89,12 +91,12 @@ export async function GET(request: Request) {
   const mediaType = searchParams.get("mediaType") as "movie" | "tv" | null;
 
   if (!itemId || !mediaType) {
-    return NextResponse.json({ error: "itemId and mediaType required" }, { status: 400 });
+    return jsonError("itemId and mediaType required", 400);
   }
 
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "TMDB_API_KEY missing" }, { status: 500 });
+    return jsonError("TMDB_API_KEY missing", 500);
   }
 
   const supabase = await createClient();
@@ -102,7 +104,7 @@ export async function GET(request: Request) {
   const userId = auth?.user?.id;
 
   if (!userId) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return jsonError("Not authenticated", 401);
   }
 
   try {
@@ -118,7 +120,7 @@ export async function GET(request: Request) {
     }>(currentUrl);
 
     if (!currentData) {
-      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+      return jsonError("Item not found", 404);
     }
 
     const currentGenres = (currentData.genres ?? []).map((g) => g.id);
@@ -204,6 +206,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("Because you watched error:", err);
-    return NextResponse.json({ error: "Failed to get recommendations" }, { status: 500 });
+    return jsonError("Failed to get recommendations", 500);
   }
 }

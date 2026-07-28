@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchTmdb } from "@/utils/tmdbClient";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,17 +26,11 @@ export async function POST(request: NextRequest) {
     const mediaIsMovieOrTvOrMulti =
       media_type === "movie" || media_type === "tv" || media_type === "multi";
     if (!query && !(hasDiscoverFilters && mediaIsMovieOrTvOrMulti)) {
-      return NextResponse.json(
-        { error: "Search query is required" },
-        { status: 400 }
-      );
+      return jsonError("Search query is required", 400);
     }
 
     if (!process.env.TMDB_API_KEY) {
-      return NextResponse.json(
-        { error: "TMDB_API_KEY is missing on the server." },
-        { status: 500 }
-      );
+      return jsonError("TMDB_API_KEY is missing on the server.", 500);
     }
 
     const normalizedMediaType =
@@ -152,14 +147,11 @@ export async function POST(request: NextRequest) {
       const totalPagesTv = dataTv.total_pages ?? 1;
       const totalPages = Math.max(totalPagesMovie, totalPagesTv);
 
-      return NextResponse.json(
-        {
+      return jsonSuccess({
           results: merged,
           total_pages: totalPages,
           total_results: totalMovie + totalTv,
-        },
-        { status: 200 }
-      );
+        });
     }
 
     if (useDiscover) {
@@ -232,14 +224,11 @@ export async function POST(request: NextRequest) {
       results = results.map((item: Record<string, unknown>) => ({ ...item, media_type: normalizedMediaType }));
     }
 
-    return NextResponse.json(
-      {
+    return jsonSuccess({
         results,
         total_pages: data.total_pages ?? 1,
         total_results: data.total_results ?? 0,
-      },
-      { status: 200 }
-    );
+      });
   } catch (error) {
     console.error("Search API Error:", error);
     return NextResponse.json(

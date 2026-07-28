@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 /**
  * GET /api/profile/stats/years?userId=...
@@ -10,9 +11,7 @@ export async function GET(request: Request) {
   const userId = searchParams.get("userId");
 
   if (!userId) {
-    return new Response(JSON.stringify({ error: "userId is required" }), {
-      status: 400,
-    });
+    return jsonError("userId is required", 400);
   }
 
   const { data: items, error } = await supabase

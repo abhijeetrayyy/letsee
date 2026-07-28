@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
+import { getAuthUserId } from "@/utils/apiAuth";
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();

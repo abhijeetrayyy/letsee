@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 interface User {
   username: string;
@@ -18,10 +19,7 @@ export async function GET(request: Request) {
       error: authError,
     } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json(
-        { error: "User isn't logged in" },
-        { status: 401 }
-      );
+      return jsonError("User isn't logged in", 401);
     }
 
     const selectWithAvatar =
@@ -50,10 +48,7 @@ export async function GET(request: Request) {
 
     if (result.error || !result.data) {
       console.error("Error fetching users:", result.error);
-      return NextResponse.json(
-        { error: "Error fetching users" },
-        { status: 500 }
-      );
+      return jsonError("Error fetching users", 500);
     }
 
     const usersData = result.data;
@@ -70,12 +65,9 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json({ users }, { status: 200 });
+    return jsonSuccess({ users });
   } catch (error) {
     console.error("API Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    return jsonError("Internal Server Error", 500);
   }
 }

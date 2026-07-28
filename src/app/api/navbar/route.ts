@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -11,7 +13,7 @@ export async function GET(request: Request) {
     } = await supabase.auth.getUser();
 
     if (authError || !authUser) {
-      return NextResponse.json({ status: "anon", user: null }, { status: 200 });
+      return jsonSuccess({ status: "anon", user: null });
     }
 
     // Fetch additional user data from the "users" table
@@ -23,7 +25,7 @@ export async function GET(request: Request) {
       .maybeSingle();
 
     if (dbError) {
-      return NextResponse.json({ status: "anon", user: null }, { status: 200 });
+      return jsonSuccess({ status: "anon", user: null });
     }
 
     if (!userData || !userData.username) {
@@ -36,12 +38,9 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ status: "ok", user: userData }, { status: 200 });
+    return jsonSuccess({ status: "ok", user: userData });
   } catch (error) {
     console.error("API Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    return jsonError("Internal Server Error", 500);
   }
 }

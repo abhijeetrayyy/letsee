@@ -2,6 +2,8 @@ import { GenreList } from "@/staticData/genreList";
 import { createClient } from "@/utils/supabase/server";
 import { serverFetchJson } from "@/utils/serverFetch";
 import { NextResponse } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -28,18 +30,12 @@ export async function GET() {
   const supabase = await createClient();
   const { data: auth, error: authError } = await supabase.auth.getUser();
   if (authError || !auth?.user) {
-    return NextResponse.json(
-      { error: "You must be logged in to get personal recommendations." },
-      { status: 401 }
-    );
+    return jsonError("You must be logged in to get personal recommendations.", 401);
   }
 
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "TMDB_API_KEY is missing on the server." },
-      { status: 500 }
-    );
+    return jsonError("TMDB_API_KEY is missing on the server.", 500);
   }
 
   const userId = auth.user.id;
@@ -125,9 +121,6 @@ export async function GET() {
     return NextResponse.json(payload);
   } catch (err) {
     console.error("Personal recommendations error:", err);
-    return NextResponse.json(
-      { error: "Failed to load personal recommendations." },
-      { status: 500 }
-    );
+    return jsonError("Failed to load personal recommendations.", 500);
   }
 }

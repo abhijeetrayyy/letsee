@@ -1,15 +1,14 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { item_id } = body || {};
     if (!item_id) {
-      return NextResponse.json(
-        { error: "Item ID required" },
-        { status: 400 }
-      );
+      return jsonError("Item ID required", 400);
     }
 
     const supabase = await createClient();
@@ -19,7 +18,7 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("Unauthorized", 401);
     }
 
     const { error } = await supabase
@@ -30,21 +29,12 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error("Error removing recommendation:", error);
-      return NextResponse.json(
-        { error: "Failed to remove recommendation" },
-        { status: 500 }
-      );
+      return jsonError("Failed to remove recommendation", 500);
     }
 
-    return NextResponse.json(
-      { message: "Recommendation removed" },
-      { status: 200 }
-    );
+    return jsonSuccess({ message: "Recommendation removed" });
   } catch (error) {
     console.error("Recommendation remove error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    return jsonError("Internal Server Error", 500);
   }
 }

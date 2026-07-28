@@ -78,10 +78,15 @@ export async function updateSession(request: NextRequest) {
     if (pathname.startsWith("/app") && !pathname.startsWith("/app/profile/setup")) {
       const { data: profile, error: profileError } = await supabase
         .from("users")
-        .select("username")
+        .select("username, deleted_at")
         .eq("id", user.id)
         .limit(1)
         .maybeSingle();
+
+      if (!profileError && profile?.deleted_at) {
+        return redirectWithCookies(new URL("/login?error=account-deleted", request.url));
+      }
+
       if (!profileError && !profile?.username) {
         return redirectWithCookies(new URL("/app/profile/setup", request.url));
       }

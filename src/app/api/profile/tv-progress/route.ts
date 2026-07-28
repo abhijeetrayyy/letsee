@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
+import { getAuthUserId } from "@/utils/apiAuth";
 
 const BATCH_SIZE = 3;
 const BATCH_DELAY_MS = 150;

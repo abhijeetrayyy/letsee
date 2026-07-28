@@ -1,4 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 type GenreStat = { genre: string; count: number; percentage: number };
 type RatingStat = { score: number; count: number };
@@ -51,7 +53,7 @@ export async function GET(request: Request) {
   const userId = searchParams.get("userId");
 
   if (!userId) {
-    return new Response(JSON.stringify({ error: "userId is required" }), { status: 400 });
+    return jsonError("userId is required", 400);
   }
 
   const {
@@ -332,6 +334,6 @@ export async function GET(request: Request) {
     return new Response(JSON.stringify({ data: dashboard }));
   } catch (err) {
     console.error("Dashboard error:", err);
-    return new Response(JSON.stringify({ error: "Failed to load dashboard data" }), { status: 500 });
+    return jsonError("Failed to load dashboard data", 500);
   }
 }

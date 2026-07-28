@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchTmdb } from "@/utils/tmdbClient";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function POST(req: NextRequest) {
   const requestClone = req.clone();
@@ -8,10 +9,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "TMDB_API_KEY is missing on the server." },
-      { status: 500 }
-    );
+    return jsonError("TMDB_API_KEY is missing on the server.", 500);
   }
 
   try {

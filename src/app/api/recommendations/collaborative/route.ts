@@ -1,5 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +53,7 @@ export async function GET() {
   const supabase = await createClient();
   const { data: auth, error: authError } = await supabase.auth.getUser();
   if (authError || !auth?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return jsonError("Not authenticated", 401);
   }
 
   const userId = auth.user.id;
@@ -238,6 +240,6 @@ export async function GET() {
     return NextResponse.json({ recommendations, similarUsers: detailedUsers, userTopGenres, note });
   } catch (err) {
     console.error("Collaborative filtering error:", err);
-    return NextResponse.json({ error: "Failed to compute collaborative recommendations." }, { status: 500 });
+    return jsonError("Failed to compute collaborative recommendations.", 500);
   }
 }

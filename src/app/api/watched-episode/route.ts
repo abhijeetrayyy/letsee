@@ -1,16 +1,15 @@
 import { createClient } from "@/utils/supabase/server";
-import { NextRequest, NextResponse } from "next/server";
-import { jsonError } from "@/utils/apiResponse";
+import { NextRequest } from "next/server";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { getAuthUserId } from "@/utils/apiAuth";
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 
 export async function POST(req: NextRequest) {
+  const userId = await getAuthUserId();
+  if (!userId) return jsonError("Not authenticated", 401);
+
   const supabase = await createClient();
-  const { data: userData, error: authError } = await supabase.auth.getUser();
-  if (authError || !userData?.user) {
-    return jsonError("User isn't logged in", 401);
-  }
-  const userId = userData.user.id;
 
   let body: { showId?: string; seasonNumber?: number; episodeNumber?: number };
   try {
@@ -56,11 +55,7 @@ export async function POST(req: NextRequest) {
       console.error("watched-episode delete:", deleteError);
       return jsonError("Failed to remove episode", 500);
     }
-    // We don't auto-revert status on unwatch for now, as it's ambiguous.
-    return NextResponse.json(
-      { action: "removed", message: "Episode marked as not watched" },
-      { status: 200, headers: { "Cache-Control": "no-store" } },
-    );
+    return jsonSuccess({ action: "removed", message: "Episode marked as not watched" }, { maxAge: 0 });
   }
 
   const { error: insertError } = await supabase
@@ -76,33 +71,29 @@ export async function POST(req: NextRequest) {
     return jsonError("Failed to mark episode watched", 500);
   }
 
-  // 1. Ensure it's in watched_items (and set initial status if needed)
-  await addShowToWatchedIfAtLeastOneEpisode(supabase, userId, showId);
+  // Ensure show is in user_media_status
+  await ensureShowInMediaStatus(supabase, userId, showId);
 
-  // 2. Run auto-transition logic (watching -> completed, or plan_to_watch -> watching)
-  // We do this asynchronously to not block the UI response too much,
-  // but Vercel functions might kill it. For safety, we await it.
-  await checkAndAutoUpdateStatus(supabase, userId, showId);
+  // Auto-transition status (plan_to_watch → watching, all watched → completed)
+  await autoTransitionStatus(supabase, userId, showId);
 
-  return NextResponse.json(
-    { action: "added", message: "Episode marked as watched" },
-    { status: 200, headers: { "Cache-Control": "no-store" } },
-  );
+  return jsonSuccess({ action: "added", message: "Episode marked as watched" }, { maxAge: 0 });
 }
 
-async function addShowToWatchedIfAtLeastOneEpisode(
+async function ensureShowInMediaStatus(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   showId: string,
 ) {
-  const { data: alreadyInWatched } = await supabase
-    .from("watched_items")
-    .select("id")
+  const { data: existing } = await supabase
+    .from("user_media_status")
+    .select("status")
     .eq("user_id", userId)
     .eq("item_id", showId)
     .maybeSingle();
 
-  if (alreadyInWatched) return;
+  if (existing) return;
+
   if (!TMDB_API_KEY) return;
 
   const { fetchTmdb } = await import("@/utils/tmdbClient");
@@ -116,92 +107,50 @@ async function addShowToWatchedIfAtLeastOneEpisode(
   const imgUrl = poster ? `https://image.tmdb.org/t/p/w342${poster}` : "";
   const adult = Boolean(showData?.adult);
   const genres = Array.isArray(showData?.genres)
-    ? (showData.genres as { name?: string }[])
-        .map((g) => g?.name ?? "")
-        .filter(Boolean)
+    ? (showData.genres as { name?: string }[]).map((g) => g?.name ?? "").filter(Boolean)
     : [];
 
-  const { error: insertError } = await supabase.from("watched_items").insert({
-    user_id: userId,
-    item_id: showId,
-    item_name: name,
-    item_type: "tv",
-    image_url: imgUrl,
-    item_adult: adult,
-    genres,
-  });
-  if (insertError) {
-    console.error("watched-episode addShowToWatched:", insertError);
-    return;
-  }
-  const { error: incError } = await supabase.rpc("increment_watched_count", {
-    p_user_id: userId,
-  });
-  if (incError)
-    console.error("watched-episode increment_watched_count:", incError);
-
-  const { data: userRow } = await supabase
-    .from("users")
-    .select("default_tv_status")
-    .eq("id", userId)
-    .maybeSingle();
-  const defaultStatus = (userRow as { default_tv_status?: string } | null)
-    ?.default_tv_status;
-
-  const validStatuses = [
-    "watching",
-    "completed",
-    "on_hold",
-    "dropped",
-    "plan_to_watch",
-    "rewatching",
-  ];
-  const status = validStatuses.includes(defaultStatus ?? "")
-    ? defaultStatus!
-    : "watching";
-
-  const { error: tvListError } = await supabase
-    .from("user_tv_list")
-    .upsert(
-      {
-        user_id: userId,
-        show_id: showId,
-        status,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,show_id" },
-    );
-  if (tvListError)
-    console.error("watched-episode user_tv_list upsert:", tvListError);
+  const { error } = await supabase.from("user_media_status").upsert(
+    {
+      user_id: userId,
+      item_id: showId,
+      item_type: "tv",
+      item_name: name,
+      image_url: imgUrl,
+      item_adult: adult,
+      genres,
+      status: "watching",
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,item_id" },
+  );
+  if (error) console.error("ensureShowInMediaStatus:", error);
 }
 
-async function checkAndAutoUpdateStatus(
+async function autoTransitionStatus(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   showId: string,
 ) {
   if (!TMDB_API_KEY) return;
 
-  // 1. Get current status and watched count
-  const [{ data: statusRow }, { count: watchedCount }, { fetchTmdb }] =
-    await Promise.all([
-      supabase
-        .from("user_tv_list")
-        .select("status")
-        .eq("user_id", userId)
-        .eq("show_id", showId)
-        .maybeSingle(),
-      supabase
-        .from("watched_episodes")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .eq("show_id", showId),
-      import("@/utils/tmdbClient"),
-    ]);
+  const [{ data: statusRow }, { count: watchedCount }, { fetchTmdb }] = await Promise.all([
+    supabase
+      .from("user_media_status")
+      .select("status")
+      .eq("user_id", userId)
+      .eq("item_id", showId)
+      .maybeSingle(),
+    supabase
+      .from("watched_episodes")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("show_id", showId),
+    import("@/utils/tmdbClient"),
+  ]);
 
   const currentStatus = (statusRow as { status?: string } | null)?.status;
 
-  // 2. Get total episodes from TMDB
   const res = await fetchTmdb(
     `https://api.themoviedb.org/3/tv/${showId}?api_key=${TMDB_API_KEY}`,
   );
@@ -209,10 +158,8 @@ async function checkAndAutoUpdateStatus(
   const showData = await res.json();
   const totalEpisodes = showData?.number_of_episodes;
 
-  // 3. Logic
   let newStatus: string | null = null;
 
-  // Auto-complete: if watched ALL episodes
   if (
     totalEpisodes > 0 &&
     watchedCount != null &&
@@ -221,24 +168,20 @@ async function checkAndAutoUpdateStatus(
     if (currentStatus !== "completed") {
       newStatus = "completed";
     }
-  }
-  // Auto-watching: if status is plan_to_watch (or null/dropped?) and we just watched something
-  // (We know we just watched an episode because this is called after insert)
-  else if (currentStatus === "plan_to_watch") {
+  } else if (currentStatus === "watchlist" || !currentStatus) {
     newStatus = "watching";
   }
 
   if (newStatus) {
-    await supabase
-      .from("user_tv_list")
-      .upsert(
-        {
-          user_id: userId,
-          show_id: showId,
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,show_id" },
-      );
+    await supabase.from("user_media_status").upsert(
+      {
+        user_id: userId,
+        item_id: showId,
+        item_type: "tv",
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,item_id" },
+    );
   }
 }

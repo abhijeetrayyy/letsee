@@ -1,5 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function POST(req: NextRequest) {
   try {
@@ -7,10 +9,7 @@ export async function POST(req: NextRequest) {
     const { item_id, name, item_type, image, adult } = body || {};
 
     if (!item_id || !name || !item_type) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+      return jsonError("Missing required fields", 400);
     }
 
     const supabase = await createClient();
@@ -20,7 +19,7 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("Unauthorized", 401);
     }
 
     const { error } = await supabase.from("recommendation").insert({
@@ -34,10 +33,7 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error("Error adding recommendation:", error);
-      return NextResponse.json(
-        { error: "Failed to add recommendation" },
-        { status: 500 }
-      );
+      return jsonError("Failed to add recommendation", 500);
     }
 
     const { data: updatedData } = await supabase
@@ -52,9 +48,6 @@ export async function POST(req: NextRequest) {
     );
   } catch (error) {
     console.error("Recommendation add error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    return jsonError("Internal Server Error", 500);
   }
 }

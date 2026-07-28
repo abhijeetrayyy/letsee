@@ -1,22 +1,17 @@
 import { NextResponse } from "next/server";
 import { fetchTmdb } from "@/utils/tmdbClient";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function POST(request: Request) {
   try {
     const { query, page, media_type } = await request.json();
 
     if (!query) {
-      return NextResponse.json(
-        { error: "Query parameter is required" },
-        { status: 400 }
-      );
+      return jsonError("Query parameter is required", 400);
     }
 
     if (!process.env.TMDB_API_KEY) {
-      return NextResponse.json(
-        { error: "TMDB_API_KEY is missing on the server." },
-        { status: 500 }
-      );
+      return jsonError("TMDB_API_KEY is missing on the server.", 500);
     }
 
     const url = `https://api.themoviedb.org/3/search/${media_type}?api_key=${
@@ -46,9 +41,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Error in search API:", error);
-    return NextResponse.json(
-      { error: "An error occurred while fetching data" },
-      { status: 500 }
-    );
+    return jsonError("An error occurred while fetching data", 500);
   }
 }

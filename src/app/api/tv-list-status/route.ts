@@ -1,114 +1,86 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { getAuthUserId } from "@/utils/apiAuth";
 
-const TV_STATUSES = [
-  "watching",
-  "completed",
-  "on_hold",
-  "dropped",
-  "plan_to_watch",
-  "rewatching",
-] as const;
-export type TvListStatus = (typeof TV_STATUSES)[number];
+const TV_STATUSES = ["watchlist", "watching", "watched", "on_hold", "dropped"] as const;
+export type MediaStatus = (typeof TV_STATUSES)[number];
 
-function isValidStatus(s: unknown): s is TvListStatus {
-  return typeof s === "string" && TV_STATUSES.includes(s as TvListStatus);
+function isValidStatus(s: unknown): s is MediaStatus {
+  return typeof s === "string" && TV_STATUSES.includes(s as MediaStatus);
 }
 
-/** GET ?showId=123 → { status } or ?showIds=1,2,3 → { statuses: { [showId]: status } } */
 export async function GET(req: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user?.id) {
-    return jsonError("User isn't logged in", 401);
-  }
+  const userId = await getAuthUserId();
+  if (!userId) return jsonError("Not authenticated", 401);
 
+  const supabase = await createClient();
   const showId = req.nextUrl.searchParams.get("showId")?.trim();
   const showIdsParam = req.nextUrl.searchParams.get("showIds")?.trim();
 
   if (showId) {
     const { data, error } = await supabase
-      .from("user_tv_list")
+      .from("user_media_status")
       .select("status")
-      .eq("user_id", user.id)
-      .eq("show_id", showId)
+      .eq("user_id", userId)
+      .eq("item_id", showId)
+      .eq("item_type", "tv")
       .maybeSingle();
     if (error) return jsonError("Failed to fetch status", 500);
     return jsonSuccess(
       { status: (data as { status?: string } | null)?.status ?? null },
-      { maxAge: 0 },
+      { maxAge: 0 }
     );
   }
 
   if (showIdsParam) {
-    const ids = showIdsParam
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const ids = showIdsParam.split(",").map((s) => s.trim()).filter(Boolean);
     if (ids.length === 0) return jsonSuccess({ statuses: {} }, { maxAge: 0 });
     const { data, error } = await supabase
-      .from("user_tv_list")
-      .select("show_id, status")
-      .eq("user_id", user.id)
-      .in("show_id", ids);
+      .from("user_media_status")
+      .select("item_id, status")
+      .eq("user_id", userId)
+      .eq("item_type", "tv")
+      .in("item_id", ids);
     if (error) return jsonError("Failed to fetch statuses", 500);
     const statuses: Record<string, string> = {};
-    for (const row of (data ?? []) as { show_id: string; status: string }[]) {
-      statuses[row.show_id] = row.status;
+    for (const row of (data ?? []) as { item_id: string; status: string }[]) {
+      statuses[row.item_id] = row.status;
     }
     return jsonSuccess({ statuses }, { maxAge: 0 });
   }
 
-  return jsonError("showId or showIds query parameter is required", 400);
+  return jsonError("showId or showIds is required", 400);
 }
 
-/** PATCH { showId, status } — set TV list status for current user */
-export async function PATCH(req: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user?.id) {
-    return jsonError("User isn't logged in", 401);
-  }
+export async function PUT(req: NextRequest) {
+  const userId = await getAuthUserId();
+  if (!userId) return jsonError("Not authenticated", 401);
 
+  const supabase = await createClient();
   let body: { showId?: string; status?: string };
   try {
     body = await req.json();
   } catch {
-    return jsonError("Invalid JSON body", 400);
+    return jsonError("Invalid JSON", 400);
   }
 
-  const showId = body.showId != null ? String(body.showId).trim() : "";
+  const { showId, status } = body;
   if (!showId) return jsonError("showId is required", 400);
+  if (!isValidStatus(status)) return jsonError("Invalid status", 400);
 
-  // If status is empty or "untagged", remove it from the status list
-  if (!body.status || body.status === "untagged") {
-    const { error } = await supabase
-      .from("user_tv_list")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("show_id", showId);
-    if (error) return jsonError("Failed to remove status", 500);
-    return jsonSuccess({ status: null }, { maxAge: 0 });
-  }
-
-  if (!isValidStatus(body.status))
-    return jsonError("status must be one of: " + TV_STATUSES.join(", "), 400);
-
-  const { error } = await supabase.from("user_tv_list").upsert(
+  const { error } = await supabase.from("user_media_status").upsert(
     {
-      user_id: user.id,
-      show_id: showId,
-      status: body.status,
+      user_id: userId,
+      item_id: showId,
+      item_type: "tv",
+      status,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,show_id" },
+    { onConflict: "user_id,item_id" }
   );
 
-  if (error) return jsonError("Failed to update status", 500);
-  return jsonSuccess({ status: body.status }, { maxAge: 0 });
+  if (error) return jsonError(error.message, 500);
+
+  return jsonSuccess({ ok: true, status });
 }

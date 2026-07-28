@@ -1,159 +1,83 @@
-/**
- * Server-side home page data: one place for all section fetches.
- * Carefully chosen TMDB endpoints with sort_by and vote_count for quality.
- * Each section is independent so one failure doesn't break others.
- */
-
 import { tmdbFetchJson } from "./tmdb";
 
-const REVALIDATE_HOUR = 3600;
 const KEY = process.env.TMDB_API_KEY;
+const BASE = "https://api.themoviedb.org/3";
+const HOUR = { revalidate: 3600 } as const;
 
-export type HomeSections = {
-  movieGenres: { genres: { id: number; name: string }[] };
-  tvGenres: { genres: { id: number; name: string }[] };
-  weeklyTop: { results: any[] };
-  trendingTv: { results: any[] };
-  animeSeries: { results: any[] };
-  animeFilms: { results: any[] };
-  romance: { results: any[] };
-  action: { results: any[] };
-  bollywood: { results: any[] };
-  crime: { results: any[] };
-  thriller: { results: any[] };
-  darkZones: { results: any[] };
-  horror: { results: any[] };
-};
+export interface HomeContent {
+  trending: any[];
+  trendingTv: any[];
+  weeklyTop: any[];
+  movieGenres: { id: number; name: string }[];
+  tvGenres: { id: number; name: string }[];
+  animeSeries: any[];
+  animeFilms: any[];
+  bollywood: any[];
+  collections: {
+    romance: any[];
+    action: any[];
+    crime: any[];
+    thriller: any[];
+    horror: any[];
+  };
+}
 
-export type HomeDataResult = {
-  sections: Partial<HomeSections>;
+export interface HomeData {
+  content: HomeContent;
   errors: string[];
-};
+}
 
-const emptyGenres = { genres: [] };
-const emptyResults = { results: [] };
+export async function getHomeContent(): Promise<HomeData> {
+  if (!KEY) return { content: emptyContent(), errors: ["TMDB API key missing"] };
 
-export async function getHomeSections(): Promise<HomeDataResult> {
-  if (!KEY) {
-    return { sections: {}, errors: ["TMDB API key is missing."] };
-  }
-
-  const base = "https://api.themoviedb.org/3";
-  const opts = { revalidate: REVALIDATE_HOUR } as const;
-
-  const [
-    movieGenres,
-    tvGenres,
-    weeklyTop,
-    trendingTv,
-    animeSeries,
-    animeFilms,
-    romance,
-    action,
-    bollywood,
-    crime,
-    thriller,
-    darkZones,
-    horror,
-  ] = await Promise.all([
-    tmdbFetchJson<{ genres: any[] }>(
-      `${base}/genre/movie/list?api_key=${KEY}&language=en-US`,
-      "Movie genres",
-      opts
-    ),
-    tmdbFetchJson<{ genres: any[] }>(
-      `${base}/genre/tv/list?api_key=${KEY}&language=en-US`,
-      "TV genres",
-      opts
-    ),
-    tmdbFetchJson<{ results: any[] }>(
-      `${base}/trending/all/week?api_key=${KEY}&language=en-US`,
-      "Weekly top",
-      opts
-    ),
-    tmdbFetchJson<{ results: any[] }>(
-      `${base}/trending/tv/day?api_key=${KEY}&language=en-US`,
-      "Trending TV",
-      opts
-    ),
-    tmdbFetchJson<{ results: any[] }>(
-      `${base}/discover/tv?api_key=${KEY}&language=en-US&with_keywords=210024&sort_by=popularity.desc&vote_count.gte=50&page=1`,
-      "Anime series (TMDB keyword: anime)",
-      opts
-    ),
-    tmdbFetchJson<{ results: any[] }>(
-      `${base}/discover/movie?api_key=${KEY}&language=en-US&with_genres=16&with_original_language=ja&sort_by=popularity.desc&vote_count.gte=50&page=1`,
-      "Anime films (Animation + Japanese)",
-      opts
-    ),
-    tmdbFetchJson<{ results: any[] }>(
-      `${base}/discover/movie?api_key=${KEY}&language=en-US&with_genres=10749&sort_by=popularity.desc&vote_count.gte=100&page=1`,
-      "Romance",
-      opts
-    ),
-    tmdbFetchJson<{ results: any[] }>(
-      `${base}/discover/movie?api_key=${KEY}&language=en-US&with_genres=28&sort_by=popularity.desc&vote_count.gte=100&page=1`,
-      "Action",
-      opts
-    ),
-    tmdbFetchJson<{ results: any[] }>(
-      `${base}/discover/movie?api_key=${KEY}&language=en-US&with_original_language=hi&primary_release_date.gte=2015-01-01&sort_by=popularity.desc&vote_count.gte=20&page=1`,
-      "Bollywood",
-      opts
-    ),
-    tmdbFetchJson<{ results: any[] }>(
-      `${base}/discover/movie?api_key=${KEY}&language=en-US&with_genres=80&sort_by=popularity.desc&vote_count.gte=100&page=1`,
-      "Crime",
-      opts
-    ),
-    tmdbFetchJson<{ results: any[] }>(
-      `${base}/discover/movie?api_key=${KEY}&language=en-US&with_genres=53&sort_by=popularity.desc&vote_count.gte=100&page=1`,
-      "Thriller",
-      opts
-    ),
-    tmdbFetchJson<{ results: any[] }>(
-      `${base}/discover/movie?api_key=${KEY}&language=en-US&with_genres=27&sort_by=popularity.desc&vote_count.gte=100&page=1`,
-      "Dark zones (Horror)",
-      opts
-    ),
-    tmdbFetchJson<{ results: any[] }>(
-      `${base}/discover/movie?api_key=${KEY}&language=en-US&with_genres=27&sort_by=popularity.desc&vote_count.gte=100&page=2`,
-      "Horror",
-      opts
-    ),
+  const [movieGenres, tvGenres, trending, trendingTv, weeklyTop, animeSeries, animeFilms, bollywood,
+    romance, action, crime, thriller, horror] = await Promise.all([
+    tmdbFetchJson(`${BASE}/genre/movie/list?api_key=${KEY}`, "Movie genres", HOUR),
+    tmdbFetchJson(`${BASE}/genre/tv/list?api_key=${KEY}`, "TV genres", HOUR),
+    tmdbFetchJson(`${BASE}/trending/all/day?api_key=${KEY}`, "Trending", HOUR),
+    tmdbFetchJson(`${BASE}/trending/tv/day?api_key=${KEY}`, "Trending TV", HOUR),
+    tmdbFetchJson(`${BASE}/trending/all/week?api_key=${KEY}`, "Weekly top", HOUR),
+    tmdbFetchJson(`${BASE}/discover/tv?api_key=${KEY}&with_keywords=210024&sort_by=popularity.desc&vote_count.gte=50`, "Anime series", HOUR),
+    tmdbFetchJson(`${BASE}/discover/movie?api_key=${KEY}&with_genres=16&with_original_language=ja&sort_by=popularity.desc&vote_count.gte=50`, "Anime films", HOUR),
+    tmdbFetchJson(`${BASE}/discover/movie?api_key=${KEY}&with_original_language=hi&primary_release_date.gte=2015-01-01&sort_by=popularity.desc&vote_count.gte=20`, "Bollywood", HOUR),
+    tmdbFetchJson(`${BASE}/discover/movie?api_key=${KEY}&with_genres=10749&sort_by=popularity.desc&vote_count.gte=100`, "Romance", HOUR),
+    tmdbFetchJson(`${BASE}/discover/movie?api_key=${KEY}&with_genres=28&sort_by=popularity.desc&vote_count.gte=100`, "Action", HOUR),
+    tmdbFetchJson(`${BASE}/discover/movie?api_key=${KEY}&with_genres=80&sort_by=popularity.desc&vote_count.gte=100`, "Crime", HOUR),
+    tmdbFetchJson(`${BASE}/discover/movie?api_key=${KEY}&with_genres=53&sort_by=popularity.desc&vote_count.gte=100`, "Thriller", HOUR),
+    tmdbFetchJson(`${BASE}/discover/movie?api_key=${KEY}&with_genres=27&sort_by=popularity.desc&vote_count.gte=100`, "Horror", HOUR),
   ]);
 
-  const errors = [
-    movieGenres.error,
-    tvGenres.error,
-    weeklyTop.error,
-    trendingTv.error,
-    animeSeries.error,
-    animeFilms.error,
-    romance.error,
-    action.error,
-    bollywood.error,
-    crime.error,
-    thriller.error,
-    darkZones.error,
-    horror.error,
-  ].filter(Boolean) as string[];
+  const errors = [movieGenres, tvGenres, trending, trendingTv, weeklyTop, animeSeries, animeFilms, bollywood,
+    romance, action, crime, thriller, horror]
+    .map(r => r.error)
+    .filter(Boolean) as string[];
 
-  const sections: Partial<HomeSections> = {
-    movieGenres: movieGenres.data ?? emptyGenres,
-    tvGenres: tvGenres.data ?? emptyGenres,
-    weeklyTop: weeklyTop.data ?? emptyResults,
-    trendingTv: trendingTv.data ?? emptyResults,
-    animeSeries: animeSeries.data ?? emptyResults,
-    animeFilms: animeFilms.data ?? emptyResults,
-    romance: romance.data ?? emptyResults,
-    action: action.data ?? emptyResults,
-    bollywood: bollywood.data ?? emptyResults,
-    crime: crime.data ?? emptyResults,
-    thriller: thriller.data ?? emptyResults,
-    darkZones: darkZones.data ?? emptyResults,
-    horror: horror.data ?? emptyResults,
+  return {
+    content: {
+      trending: (trending.data as any)?.results ?? [],
+      trendingTv: (trendingTv.data as any)?.results ?? [],
+      weeklyTop: (weeklyTop.data as any)?.results ?? [],
+      movieGenres: (movieGenres.data as any)?.genres ?? [],
+      tvGenres: (tvGenres.data as any)?.genres ?? [],
+      animeSeries: (animeSeries.data as any)?.results ?? [],
+      animeFilms: (animeFilms.data as any)?.results ?? [],
+      bollywood: (bollywood.data as any)?.results ?? [],
+      collections: {
+        romance: (romance.data as any)?.results ?? [],
+        action: (action.data as any)?.results ?? [],
+        crime: (crime.data as any)?.results ?? [],
+        thriller: (thriller.data as any)?.results ?? [],
+        horror: (horror.data as any)?.results ?? [],
+      },
+    },
+    errors,
   };
+}
 
-  return { sections, errors };
+function emptyContent(): HomeContent {
+  return {
+    trending: [], trendingTv: [], weeklyTop: [], movieGenres: [], tvGenres: [],
+    animeSeries: [], animeFilms: [], bollywood: [],
+    collections: { romance: [], action: [], crime: [], thriller: [], horror: [] },
+  };
 }

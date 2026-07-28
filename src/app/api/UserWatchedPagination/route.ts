@@ -1,13 +1,13 @@
 import { createClient } from "@/utils/supabase/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { userID, page, genre, itemType } = await request.json();
 
   if (!userID) {
-    return new Response(JSON.stringify({ error: "User ID is required" }), {
-      status: 400,
-    });
+    return jsonError("User ID is required", 400);
   }
 
   const {
@@ -22,9 +22,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (profileError || !profile) {
-    return new Response(JSON.stringify({ error: "User not found" }), {
-      status: 404,
-    });
+    return jsonError("User not found", 404);
   }
 
   const visibility = String(profile.visibility ?? "public").toLowerCase().trim();
@@ -43,9 +41,7 @@ export async function POST(request: Request) {
   }
 
   if (!canView) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), {
-      status: 403,
-    });
+    return jsonError("Forbidden", 403);
   }
 
   const safePage = Number(page) || 1;

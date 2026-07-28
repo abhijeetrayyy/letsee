@@ -1,6 +1,7 @@
 import { serverFetchJson } from "@/utils/serverFetch";
 import { GenreList } from "@/staticData/genreList";
 import { NextResponse } from "next/server";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -318,12 +319,12 @@ export async function GET(request: Request) {
   const query = searchParams.get("q");
 
   if (!query || query.trim().length === 0) {
-    return NextResponse.json({ error: "Query is required" }, { status: 400 });
+    return jsonError("Query is required", 400);
   }
 
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "TMDB_API_KEY missing" }, { status: 500 });
+    return jsonError("TMDB_API_KEY missing", 500);
   }
 
   try {
@@ -384,6 +385,6 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     console.error("Natural search error:", err);
-    return NextResponse.json({ error: "Search failed" }, { status: 500 });
+    return jsonError("Search failed", 500);
   }
 }

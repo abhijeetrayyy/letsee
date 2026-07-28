@@ -1,5 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function POST(req: NextRequest) {
   const requestClone = req.clone();
@@ -11,13 +13,10 @@ export async function POST(req: NextRequest) {
   // Get user details from Supabase (authenticated user)
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData?.user) {
-    return NextResponse.json(
-      { error: "User isn't logged in" },
-      { status: 401 }
-    );
+    return jsonError("User isn't logged in", 401);
   }
   if (!userId) {
-    return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    return jsonError("userId is required", 400);
   }
 
   const { data: profile, error: profileError } = await supabase
@@ -27,7 +26,7 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (profileError || !profile) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return jsonError("User not found", 404);
   }
 
   const visibility = String(profile.visibility ?? "public").toLowerCase().trim();
@@ -47,7 +46,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (!canView) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return jsonError("Forbidden", 403);
   }
 
   // Query to get emails of users followed by the specified user using the correct relationship
@@ -58,11 +57,8 @@ export async function POST(req: NextRequest) {
 
   if (connectionError) {
     console.error("Error fetching connections:", connectionError);
-    return NextResponse.json(
-      { error: "Error fetching connections" },
-      { status: 500 }
-    );
+    return jsonError("Error fetching connections", 500);
   }
 
-  return NextResponse.json({ connection }, { status: 200 });
+  return jsonSuccess({ connection });
 }

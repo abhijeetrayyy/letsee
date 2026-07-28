@@ -185,13 +185,14 @@ export default function EpisodeManagementModal({
   const handleMarkComplete = async () => {
     setSaving(true);
     try {
-      await fetch("/api/watchedButton", {
-        method: "POST",
+      await fetch("/api/user-media-status", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           itemId: showId,
           name: showName,
-          mediaType: "tv",
+          itemType: "tv",
+          status: "watched",
         }),
       });
       onSuccess();

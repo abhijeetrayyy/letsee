@@ -20,7 +20,6 @@ import RatingDistribution from "@components/detail/RatingDistribution";
 import CollectionBanner from "@components/detail/CollectionBanner";
 import KeywordTags from "@components/detail/KeywordTags";
 import ContentAdvisory from "@components/detail/ContentAdvisory";
-import SectionNav from "@components/detail/SectionNav";
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: "English", es: "Spanish", fr: "French", de: "German",
@@ -100,7 +99,6 @@ export default function Movie({
 
   return (
     <div>
-      <SectionNav />
       <SendMessageModal media_type="movie" data={cardData} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
       {/* Trailer Modal */}

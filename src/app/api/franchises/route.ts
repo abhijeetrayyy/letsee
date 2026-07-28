@@ -1,6 +1,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { FRANCHISES, type Franchise, type FranchiseEntry } from "@/staticData/franchises";
 import { NextResponse } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +22,7 @@ export async function GET() {
   const userId = auth?.user?.id;
 
   if (!userId) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return jsonError("Not authenticated", 401);
   }
 
   try {
@@ -61,6 +63,6 @@ export async function GET() {
     return NextResponse.json({ franchises: progress });
   } catch (err) {
     console.error("Franchise progress error:", err);
-    return NextResponse.json({ error: "Failed to load franchise data" }, { status: 500 });
+    return jsonError("Failed to load franchise data", 500);
   }
 }

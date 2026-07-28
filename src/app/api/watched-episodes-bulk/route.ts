@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { jsonError } from "@/utils/apiResponse";
+import { getAuthUserId } from "@/utils/apiAuth";
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 

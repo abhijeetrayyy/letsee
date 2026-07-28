@@ -22,7 +22,6 @@ import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
 import RatingDistribution from "@components/detail/RatingDistribution";
 import KeywordTags from "@components/detail/KeywordTags";
 import ContentAdvisory from "@components/detail/ContentAdvisory";
-import SectionNav from "@components/detail/SectionNav";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa6";
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -151,7 +150,6 @@ export default function TvDetail({
 
   return (
     <div>
-      <SectionNav />
       <SendMessageModal media_type="tv" data={cardData} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
       {/* Trailer Modal */}

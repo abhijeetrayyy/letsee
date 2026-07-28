@@ -22,13 +22,13 @@ import { supabase } from "@/utils/supabase/client";
 const normalizeId = (value: string | number): string => String(value);
 
 const API_ENDPOINTS: Record<PreferenceType, { add: string; remove: string }> = {
-  watched: { add: "/api/watchedButton", remove: "/api/deletewatchedButton" },
+  watched: { add: "/api/user-media-status", remove: "/api/user-media-status" },
   watchlater: {
-    add: "/api/watchlistButton",
-    remove: "/api/deletewatchlistButton",
+    add: "/api/user-media-status",
+    remove: "/api/user-media-status",
   },
   favorite: { add: "/api/favoriteButton", remove: "/api/deletefavoriteButton" },
-  watching: { add: "/api/watchingButton", remove: "/api/deletewatchingButton" },
+  watching: { add: "/api/user-media-status", remove: "/api/user-media-status" },
 };
 
 function applyUpdate(
@@ -269,24 +269,48 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
 
     processingRef.current = true;
 
-    const endpoint = payload.currentState
-      ? API_ENDPOINTS[funcType].remove
-      : API_ENDPOINTS[funcType].add;
-
     const previousState = userPrefrence;
     setUserPrefrence((prev) => applyUpdate(prev, payload));
 
-    const body: Record<string, unknown> = {
-      itemId: payload.itemId,
-      name: payload.name,
-      mediaType: payload.mediaType,
-      imgUrl: payload.imgUrl,
-      adult: payload.adult,
-      genres: payload.genres,
+    const statusMap: Record<string, string> = {
+      watched: "watched",
+      watchlater: "watchlist",
+      watching: "watching",
     };
-    if (funcType === "watched" && payload.currentState) {
-      body.keepData = payload.keepData === true;
-    }
+
+    const useNewApi = funcType !== "favorite";
+    const method = useNewApi
+      ? payload.currentState ? "DELETE" : "PUT"
+      : "POST";
+    const endpoint = useNewApi
+      ? payload.currentState
+        ? `/api/user-media-status?itemId=${encodeURIComponent(payload.itemId)}`
+        : `/api/user-media-status`
+      : payload.currentState
+        ? API_ENDPOINTS[funcType].remove
+        : API_ENDPOINTS[funcType].add;
+
+    const body: Record<string, unknown> | undefined = useNewApi
+      ? payload.currentState
+        ? undefined
+        : {
+            itemId: payload.itemId,
+            status: statusMap[funcType] || "watching",
+            itemType: payload.mediaType,
+            name: payload.name,
+            imgUrl: payload.imgUrl,
+            adult: payload.adult,
+            genres: payload.genres,
+          }
+      : {
+          itemId: payload.itemId,
+          name: payload.name,
+          mediaType: payload.mediaType,
+          imgUrl: payload.imgUrl,
+          adult: payload.adult,
+          genres: payload.genres,
+        };
+
     const doFetch = (): Promise<{ ok: boolean; message?: string }> => {
       const controller = new AbortController();
       const timeoutId = setTimeout(
@@ -294,9 +318,9 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
         REQUEST_TIMEOUT_MS,
       );
       return fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        method,
+        headers: body ? { "Content-Type": "application/json" } : {},
+        body: body ? JSON.stringify(body) : undefined,
         credentials: "include",
         signal: controller.signal,
       })

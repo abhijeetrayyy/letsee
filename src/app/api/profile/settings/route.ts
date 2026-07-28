@@ -1,4 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function GET() {
   const supabase = await createClient();
@@ -6,9 +8,7 @@ export async function GET() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user?.id) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-    });
+    return jsonError("Unauthorized", 401);
   }
   const { data, error } = await supabase
     .from("users")
@@ -21,9 +21,7 @@ export async function GET() {
     });
   }
   if (!data) {
-    return new Response(JSON.stringify({ error: "Profile not found" }), {
-      status: 404,
-    });
+    return jsonError("Profile not found", 404);
   }
   const d = data as { default_tv_status?: string } & typeof data;
   return new Response(
@@ -45,9 +43,7 @@ export async function PATCH(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user?.id) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-    });
+    return jsonError("Unauthorized", 401);
   }
   let body: {
     visibility?: string;
@@ -59,9 +55,7 @@ export async function PATCH(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-      status: 400,
-    });
+    return jsonError("Invalid JSON", 400);
   }
   const updates: Record<string, unknown> = {};
   if (typeof body.visibility === "string" && ["public", "followers", "private"].includes(body.visibility)) {
@@ -74,9 +68,7 @@ export async function PATCH(request: Request) {
     updates.default_tv_status = body.default_tv_status;
   }
   if (Object.keys(updates).length === 0) {
-    return new Response(JSON.stringify({ error: "No valid fields to update" }), {
-      status: 400,
-    });
+    return jsonError("No valid fields to update", 400);
   }
   const { error: updateError } = await supabase
     .from("users")

@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
+import { getAuthUserId } from "@/utils/apiAuth";
 
 /** GET /api/user-lists — current user's lists. GET /api/user-lists?userId=xxx — lists for profile (respects visibility). Anon can view public lists only. */
 export async function GET(request: NextRequest) {

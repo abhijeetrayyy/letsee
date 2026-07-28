@@ -1,5 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +26,7 @@ export async function POST(request: Request) {
   const userId = auth?.user?.id;
 
   if (!userId) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return jsonError("Not authenticated", 401);
   }
 
   try {
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
     switch (action) {
       case "mark-watched": {
         if (!Array.isArray(items) || items.length === 0) {
-          return NextResponse.json({ error: "items array required" }, { status: 400 });
+          return jsonError("items array required", 400);
         }
         const toInsert = items.map((item: BatchItem) => ({
           user_id: userId,
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
 
       case "add-watchlist": {
         if (!Array.isArray(items) || items.length === 0) {
-          return NextResponse.json({ error: "items array required" }, { status: 400 });
+          return jsonError("items array required", 400);
         }
         const toInsert = items.map((item: BatchItem) => ({
           user_id: userId,
@@ -80,7 +82,7 @@ export async function POST(request: Request) {
 
       case "mark-episodes": {
         if (!Array.isArray(episodes) || episodes.length === 0) {
-          return NextResponse.json({ error: "episodes array required" }, { status: 400 });
+          return jsonError("episodes array required", 400);
         }
         const toInsert = episodes.map((ep: BatchEpisode) => ({
           user_id: userId,
@@ -99,7 +101,7 @@ export async function POST(request: Request) {
 
       case "remove-watchlist": {
         if (!Array.isArray(items) || items.length === 0) {
-          return NextResponse.json({ error: "items array required" }, { status: 400 });
+          return jsonError("items array required", 400);
         }
         const ids = items.map((i: BatchItem) => i.itemId);
         const { error } = await supabase

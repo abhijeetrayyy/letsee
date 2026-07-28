@@ -1,6 +1,7 @@
 // app/api/movieReel/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { fetchTmdb } from "@/utils/tmdbClient";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 const REEL_DISCOVER_REVALIDATE_SEC = 300;
 
@@ -11,10 +12,7 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.TMDB_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { error: "API key not configured" },
-        { status: 500 }
-      );
+      return jsonError("API key not configured", 500);
     }
 
     let movieIds: number[];
@@ -31,7 +29,7 @@ export async function POST(req: NextRequest) {
       totalPages = discoverData.total_pages ?? 1;
     } else {
       if (!keyword) {
-        return NextResponse.json({ error: "Missing keyword or genreId" }, { status: 400 });
+        return jsonError("Missing keyword or genreId", 400);
       }
       // Step 1: Search for the keyword ID (throttled + cached 5 min)
       const keywordResponse = await fetchTmdb(
@@ -44,7 +42,7 @@ export async function POST(req: NextRequest) {
       const keywordId = keywordData.results[0]?.id;
 
       if (!keywordId) {
-        return NextResponse.json({ error: "Keyword not found" }, { status: 404 });
+        return jsonError("Keyword not found", 404);
       }
 
       // Step 2: Fetch movies for the specified page with discover (throttled + cached 5 min)
@@ -86,13 +84,10 @@ export async function POST(req: NextRequest) {
     // Filter movies with trailers
     const filteredMovies = moviesWithDetails.filter((movie) => movie.trailer);
 
-    return NextResponse.json(
-      {
+    return jsonSuccess({
         movies: filteredMovies,
         totalPages: totalPages ?? 1,
-      },
-      { status: 200 }
-    );
+      });
   } catch (error) {
     console.error("API Error:", error);
     return NextResponse.json(

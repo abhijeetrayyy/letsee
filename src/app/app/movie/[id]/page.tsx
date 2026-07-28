@@ -1,146 +1,107 @@
-import { Countrydata } from "@/staticData/countryName";
-import Movie from "@components/clientComponent/movie";
-import MovieRecoTile from "@components/movie/recoTiles";
-import BecauseYouWatched from "@components/movie/BecauseYouWatched";
-
 import { Metadata } from "next";
 import { tmdbFetchJson } from "@/utils/tmdb";
 import { notFound } from "next/navigation";
+import MovieDetailClient from "./MovieDetailClient";
+import { Countrydata } from "@/staticData/countryName";
+import MovieRecoTile from "@components/movie/recoTiles";
 
-type PageProps = {
-  params: Promise<{ id: string }>;
-};
+type PageProps = { params: Promise<{ id: string }> };
 
-const getNumericId = (value: string) => {
+function getNumericId(value: string) {
   const match = String(value).match(/^\d+/);
   return match ? match[0] : null;
-};
+}
 
-const MOVIE_REVALIDATE_SEC = 3600; // 1 hour
-
-/** Single TMDB call for movie page: details + credits, videos, images, recommendations, similar (deduped by Next.js with generateMetadata). */
-async function getMovieFull(id: string) {
+async function getMovie(id: string) {
   return tmdbFetchJson<any>(
     `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar,keywords,release_dates,watch_providers`,
-    "Movie full",
-    { revalidate: MOVIE_REVALIDATE_SEC }
+    "Movie detail",
+    { revalidate: 3600 }
   );
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   const numericId = getNumericId(id);
-  if (!numericId) {
-    return {
-      title: "Movie Not Found",
-      description: "Invalid movie id.",
-    };
-  }
-  const movieResult = await getMovieFull(numericId);
-  const movie = movieResult.data;
-
+  if (!numericId) return { title: "Movie Not Found" };
+  const result = await getMovie(numericId);
+  const movie = result.data;
   return {
     title: movie?.title || "Movie Not Found",
-    description:
-      movie?.tagline || movieResult.error || "Discover amazing movies!",
+    description: movie?.tagline || "Discover movies on LetSee",
     openGraph: {
-      title: movie?.title || "Movie Not Found",
-      description: movie?.tagline || "Discover amazing movies!",
-      images: [
-        {
-          url:
-            `https://image.tmdb.org/t/p/w342${movie?.poster_path}` ||
-            "/default-image.jpg",
-          width: 630,
-          height: 1200,
-        },
-      ],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: movie?.title || "Movie Not Found",
-      description: movie?.tagline || "Discover amazing movies!",
-      images: [
-        `https://image.tmdb.org/t/p/w342${movie?.poster_path}` ||
-          "/default-image.jpg",
-      ],
+      title: movie?.title,
+      description: movie?.tagline,
+      images: movie?.poster_path ? [`https://image.tmdb.org/t/p/w342${movie.poster_path}`] : [],
     },
   };
 }
 
-const MovieDetails = async ({ params }: PageProps) => {
+export default async function MoviePage({ params }: PageProps) {
   const { id } = await params;
   const numericId = getNumericId(id);
-  if (!numericId) {
-    return notFound();
-  }
-  const movieResult = await getMovieFull(numericId);
-  const movie = movieResult.data;
+  if (!numericId) return notFound();
 
+  const result = await getMovie(numericId);
+  const movie = result.data;
   if (!movie) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-900 text-neutral-200 p-4">
-        <div className="max-w-xl text-center">
-          <p className="text-lg font-semibold">Movie data unavailable.</p>
-          {movieResult.error && (
-            <p className="mt-3 text-sm text-amber-200">{movieResult.error}</p>
-          )}
-          <p className="mt-3 text-sm text-neutral-400">
-            Try refreshing in a moment.
-          </p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-surface-950 text-surface-300 p-4">
+        <p>Movie data unavailable. Try refreshing.</p>
       </div>
     );
   }
 
   const credits = movie.credits ?? { cast: [], crew: [] };
-  const videos = (movie.videos?.results ?? []) as any[];
-  const Pimages = movie.images?.posters ?? [];
-  const Bimages = movie.images?.backdrops ?? [];
+  const videos = movie.videos?.results ?? [];
+  const backdrops = movie.images?.backdrops ?? [];
+  const posters = movie.images?.posters ?? [];
   const keywords = movie.keywords?.keywords ?? movie.keywords?.results ?? [];
   const collection = movie.belongs_to_collection ?? null;
-  const releaseDates = movie.release_dates?.results ?? [];
-
-  const originCountries = Array.isArray(movie.origin_country)
-    ? movie.origin_country
-    : [];
-  const CountryName: any = originCountries.map((name: any) =>
-    Countrydata.filter((item: any) => item.iso_3166_1 == name)
+  const watchProviders = movie.watch_providers?.results?.US ?? null;
+  const flatrateProviders = watchProviders?.flatrate ?? [];
+  const directors = credits.crew?.filter((c: any) => c.job === "Director") ?? [];
+  const originCountries = movie.origin_country ?? [];
+  const countryNames = originCountries.flatMap((c: string) =>
+    Countrydata.filter((item: any) => item.iso_3166_1 === c).map((i: any) => i.english_name)
   );
 
   const recoData = movie.recommendations ?? { total_results: 0, results: [] };
   const similarData = movie.similar ?? { total_results: 0, results: [] };
+  const releaseDates = movie.release_dates?.results ?? [];
 
-  const watchProviders = movie.watch_providers?.results?.US ?? null;
-  const flatrateProviders = watchProviders?.flatrate ?? [];
+  // Find US certification
+  const usRelease = releaseDates.find((r: any) => r.iso_3166_1 === "US");
+  const certification = usRelease?.release_dates?.find((d: any) => d.certification)?.certification ?? null;
+
+  const trailer = videos.find((v: any) => v.type === "Trailer" && v.site === "YouTube")
+    ?? videos.find((v: any) => v.site === "YouTube");
 
   return (
-    <div>
-      <Movie
-        CountryName={CountryName}
-        videos={videos}
-        Pimages={Pimages}
-        Bimages={Bimages}
+    <div className="bg-surface-950 min-h-screen">
+      <MovieDetailClient
         movie={movie}
+        directors={directors}
         credits={credits}
-        id={numericId}
+        trailer={trailer}
+        certification={certification}
+        countryNames={countryNames}
+        backdrops={backdrops}
+        posters={posters}
         keywords={keywords}
         collection={collection}
-        releaseDates={releaseDates}
         watchProviders={flatrateProviders}
         watchLink={watchProviders?.link ?? ""}
       />
-      <BecauseYouWatched itemId={numericId} mediaType="movie" sectionTitle="Because you watched this" />
-      {recoData.total_results > 0 && (
-        <MovieRecoTile type="movie" title={movie.title} data={recoData} sectionTitle="More like this" />
-      )}
-      {similarData.total_results > 0 && (
-        <MovieRecoTile type="movie" title={movie.title} data={similarData} sectionTitle="Similar to this" />
-      )}
+
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
+        {recoData.total_results > 0 && (
+          <MovieRecoTile type="movie" title={movie.title} data={recoData} sectionTitle="More like this" />
+        )}
+        {similarData.total_results > 0 && (
+          <MovieRecoTile type="movie" title={movie.title} data={similarData} sectionTitle="Similar movies" />
+        )}
+      </div>
     </div>
   );
-};
-
-export default MovieDetails;
+}

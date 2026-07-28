@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
-import { NextResponse } from "next/server";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -8,10 +9,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const userId = body?.user_id;
     if (!userId) {
-      return NextResponse.json(
-        { error: "User ID required" },
-        { status: 400 }
-      );
+      return jsonError("User ID required", 400);
     }
 
     const {
@@ -27,7 +25,7 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (profileError || !profile) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return jsonError("User not found", 404);
     }
 
     const visibility = String(profile.visibility ?? "public").toLowerCase().trim();
@@ -46,7 +44,7 @@ export async function POST(request: Request) {
     }
 
     if (!canView) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return jsonError("Forbidden", 403);
     }
 
     const recoResponse = await supabase
@@ -57,10 +55,7 @@ export async function POST(request: Request) {
 
     if (recoResponse.error) {
       console.error("Error fetching recommendations:", recoResponse.error);
-      return NextResponse.json(
-        { error: "Failed to fetch recommendations" },
-        { status: 500 }
-      );
+      return jsonError("Failed to fetch recommendations", 500);
     }
 
     let watchedItems: any[] = [];
@@ -74,26 +69,17 @@ export async function POST(request: Request) {
 
       if (watchedResponse.error) {
         console.error("Error fetching watched items:", watchedResponse.error);
-        return NextResponse.json(
-          { error: "Failed to fetch watched items" },
-          { status: 500 }
-        );
+        return jsonError("Failed to fetch watched items", 500);
       }
       watchedItems = watchedResponse.data || [];
     }
 
-    return NextResponse.json(
-      {
+    return jsonSuccess({
         recommendations: recoResponse.data || [],
         watchedItems,
-      },
-      { status: 200 }
-    );
+      });
   } catch (error) {
     console.error("API Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    return jsonError("Internal Server Error", 500);
   }
 }

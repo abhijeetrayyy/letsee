@@ -1,6 +1,8 @@
 // app/api/watched-movies/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server"; // Adjust import if needed
+import { getAuthUserId } from "@/utils/apiAuth";
+import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,10 +10,7 @@ export async function POST(req: NextRequest) {
     const { userID, page = 1, limit = 7 } = body;
 
     if (!userID) {
-      return NextResponse.json(
-        { error: "User ID is required" },
-        { status: 400 }
-      );
+      return jsonError("User ID is required", 400);
     }
 
     const supabase = await createClient();
@@ -27,7 +26,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (profileError || !profile) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return jsonError("User not found", 404);
     }
 
     const visibility = String(profile.visibility ?? "public").toLowerCase().trim();
@@ -46,7 +45,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!canView) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return jsonError("Forbidden", 403);
     }
     const pageNumber = Number(page);
     const itemsPerPage = Number(limit);
@@ -76,9 +75,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("UserFavoritePagination error:", error);
-    return NextResponse.json(
-      { error: "An error occurred" },
-      { status: 500 }
-    );
+    return jsonError("An error occurred", 500);
   }
 }
