@@ -153,7 +153,7 @@ export async function GET(request: Request) {
     activity.push({
       id: -(w.id),
       user_id: w.user_id,
-      username: u?.username ?? "unknown",
+      username: u?.username ?? "user",
       display_name: u?.about ?? null,
       avatar_url: u?.avatar_url ?? null,
       activity_type: w.public_review_text ? "reviewed" : "watched",
@@ -183,7 +183,7 @@ export async function GET(request: Request) {
     activity.push({
       id: r.id,
       user_id: r.user_id,
-      username: u.username ?? "unknown",
+      username: u.username ?? "user",
       display_name: u.about ?? null,
       avatar_url: u.avatar_url ?? null,
       activity_type: "rated",

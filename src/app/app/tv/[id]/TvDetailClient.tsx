@@ -12,6 +12,8 @@ import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
 import RatingDistribution from "@components/detail/RatingDistribution";
 import WatchOptionsViewer from "@components/clientComponent/watchOptionView";
 import EpisodeListWithWatched from "@components/tv/EpisodeListWithWatched";
+import ShareModal from "@components/social/ShareModal";
+import Comments from "@components/social/Comments";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 
 const LANG: Record<string, string> = {
@@ -265,6 +267,11 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
             {/* Community Reviews */}
             <Section title="Community Reviews">
               <PublicReviews itemId={String(show.id)} itemType="tv" />
+            </Section>
+
+            {/* Discussion */}
+            <Section title="Discussion">
+              <Comments itemId={String(show.id)} itemType="tv" />
             </Section>
           </div>
 

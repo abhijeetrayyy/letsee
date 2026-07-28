@@ -11,6 +11,8 @@ import PublicReviews from "@components/movie/PublicReviews";
 import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
 import RatingDistribution from "@components/detail/RatingDistribution";
 import WatchOptionsViewer from "@components/clientComponent/watchOptionView";
+import ShareModal from "@components/social/ShareModal";
+import Comments from "@components/social/Comments";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 
 const LANG: Record<string, string> = {
@@ -187,6 +189,11 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
             {/* Community Reviews */}
             <Section title="Community Reviews">
               <PublicReviews itemId={String(movie.id)} itemType="movie" />
+            </Section>
+
+            {/* Discussion */}
+            <Section title="Discussion">
+              <Comments itemId={String(movie.id)} itemType="movie" />
             </Section>
           </div>
 
