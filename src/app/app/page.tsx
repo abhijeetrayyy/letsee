@@ -11,6 +11,10 @@ import UserSidebar from "@components/home/UserSidebar";
 import ContinueWatchingProgress from "@components/tv/ContinueWatchingProgress";
 import QuickPick from "@components/home/QuickPick";
 import FollowingFeed from "@components/feed/FollowingFeed";
+import AiringSoon from "@components/home/AiringSoon";
+import PeopleYouMayKnow from "@components/home/PeopleYouMayKnow";
+import DiscoverUsers from "@components/home/DiscoverUser";
+import CommunityLeaderboard from "@components/home/CommunityLeaderboard";
 import { Film, TrendingUp, Compass, Tv, Sparkles, Flame } from "lucide-react";
 
 async function getUsername(): Promise<string | null> {
@@ -62,6 +66,7 @@ export default async function Home() {
                     </div>
                     <ContinueWatchingProgress />
                   </div>
+                  <AiringSoon />
                   <div className="pt-2">
                     <QuickPick />
                   </div>
@@ -94,6 +99,14 @@ export default async function Home() {
                 <div className="rounded-xl border border-amber-500/10 bg-amber-500/5 p-3 text-amber-300/80 text-xs">
                   Some sections couldn't load. Refresh to try again.
                 </div>
+              )}
+
+              {/* Community discovery */}
+              {isLoggedIn && (
+                <>
+                  <PeopleYouMayKnow />
+                  <DiscoverUsers hideTitleLink />
+                </>
               )}
             </aside>
 
