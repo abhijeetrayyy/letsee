@@ -149,7 +149,8 @@ export default function MovieRecoTile({
                     handleCardTransfer(item);
                   }}
                   typeLabel={type}
-                  className="card-item image-item"
+                  rating={item.vote_average}
+                  className="card-item image-item shrink-0"
                   style={{ width: `${itemWidth}px` }}
                 />
               );
