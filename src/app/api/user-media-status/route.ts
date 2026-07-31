@@ -54,6 +54,25 @@ export async function PUT(req: NextRequest) {
     return jsonError(error.message, 500);
   }
 
+  // Mirror writes to watched_items for backward compatibility with profile/diary/reviews
+  // that still read from watched_items
+  if (status === "watched") {
+    await supabase.from("watched_items").upsert(
+      {
+        user_id: userId,
+        item_id: itemId,
+        item_type: itemType,
+        item_name: itemName,
+        image_url: imageUrl,
+        item_adult: adult,
+        genres,
+        is_watched: true,
+        watched_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,item_id" }
+    );
+  }
+
   // Update count stats after status change
   try {
     await supabase.rpc("recount_user_stats", { p_user_id: userId });
