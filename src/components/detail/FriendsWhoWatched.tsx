@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
 import Link from "next/link";
 import { Users, Eye, Star, MessageSquare } from "lucide-react";
+import { swrFetcher } from "@/utils/swrFetcher";
+import { getAvatarUrl } from "@/utils/imageUrl";
 
 type Friend = {
   userId: string;
@@ -20,24 +22,13 @@ export default function FriendsWhoWatched({
   itemId: string;
   itemType: string;
 }) {
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading } = useSWR<{ friends: Friend[] }>(
+    `/api/friends-watched?itemId=${itemId}&itemType=${itemType}`,
+    swrFetcher,
+  );
+  const friends = data?.friends ?? [];
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/friends-watched?itemId=${itemId}&itemType=${itemType}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!cancelled) setFriends(data.friends ?? []);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [itemId, itemType]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="glass-card rounded-2xl p-5 animate-pulse">
         <div className="flex items-center gap-3">
@@ -87,7 +78,7 @@ export default function FriendsWhoWatched({
           >
             <div className="relative shrink-0">
               <img
-                src={f.avatarUrl?.startsWith("http") ? f.avatarUrl : f.avatarUrl || "/default-avatar.webp"}
+                src={getAvatarUrl(f.avatarUrl)}
                 alt={f.username}
                 className="w-8 h-8 rounded-full object-cover ring-2 ring-surface-700 group-hover:ring-brand-500/30 transition-all"
               />

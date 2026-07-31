@@ -2,8 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { jsonError } from "@/utils/apiResponse";
 import { getAuthUserId } from "@/utils/apiAuth";
-
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
+import { ensureShowInMediaStatus, autoTransitionStatus } from "@/utils/tvMediaStatus";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -65,9 +64,8 @@ export async function POST(req: NextRequest) {
       return jsonError("Failed to mark episodes", 500);
     }
 
-    // Auto-update status logic (simplified version of single-episode logic)
-    // We can do this async
-    await checkAndAutoUpdateStatus(supabase, userId, showId);
+    await ensureShowInMediaStatus(supabase, userId, showId);
+    await autoTransitionStatus(supabase, userId, showId);
 
     return NextResponse.json(
       { action: "marked", count: uniqueEpisodes.length },
@@ -90,68 +88,5 @@ export async function POST(req: NextRequest) {
     // I'll leave unmark unimplemented for now or basic loop.
 
     return jsonError("Unmark action not fully implemented yet", 501);
-  }
-}
-
-async function checkAndAutoUpdateStatus(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  showId: string,
-) {
-  if (!TMDB_API_KEY) return;
-
-  // 1. Get current status
-  const { data: statusRow } = await supabase
-    .from("user_tv_list")
-    .select("status")
-    .eq("user_id", userId)
-    .eq("show_id", showId)
-    .maybeSingle();
-  const currentStatus = statusRow?.status;
-
-  // 2. Count watched
-  const { count: watchedCount } = await supabase
-    .from("watched_episodes")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("show_id", showId);
-
-  // 3. Get total episodes
-  // We need to fetch TMDB data.
-  // We can try to dynamic import to avoid top-level await issues in some envs if helper moved.
-  // But here we just fetch directly or use helper if available.
-  try {
-    const res = await fetch(
-      `https://api.themoviedb.org/3/tv/${showId}?api_key=${TMDB_API_KEY}`,
-    );
-    if (res.ok) {
-      const data = await res.json();
-      const totalEpisodes = data.number_of_episodes;
-
-      let newStatus: string | null = null;
-      if (
-        totalEpisodes > 0 &&
-        watchedCount != null &&
-        watchedCount >= totalEpisodes
-      ) {
-        if (currentStatus !== "completed") newStatus = "completed";
-      } else if (currentStatus === "plan_to_watch" && (watchedCount ?? 0) > 0) {
-        newStatus = "watching";
-      }
-
-      if (newStatus) {
-        await supabase.from("user_tv_list").upsert(
-          {
-            user_id: userId,
-            show_id: showId,
-            status: newStatus,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id,show_id" },
-        );
-      }
-    }
-  } catch (e) {
-    console.error("Auto-status update failed", e);
   }
 }

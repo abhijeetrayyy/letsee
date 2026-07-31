@@ -10,6 +10,7 @@ import { fetchTmdb } from "@/utils/tmdbClient";
 import { createClient } from "@/utils/supabase/server";
 import EpisodeRating from "@/components/tv/EpisodeRating";
 import EpisodeNote from "@/components/tv/EpisodeNote";
+import Comments from "@components/social/Comments";
 import { ArrowLeft, Clock, Calendar, Users, Clapperboard, Star } from "lucide-react";
 
 interface EpisodeDetails {
@@ -358,6 +359,15 @@ const EpisodePage = async ({ params }: PageProps) => {
             </div>
           </div>
         )}
+
+        {/* Episode Discussion */}
+        <div className="mt-10">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+            <h2 className="text-xl font-bold text-white">Episode Discussion</h2>
+          </div>
+          <Comments itemId={`${id}-s${seasonNum}-e${episode.episode_number}`} itemType="episode" />
+        </div>
       </div>
     </div>
   );

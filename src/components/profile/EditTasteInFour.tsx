@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { getPosterUrl } from "@/utils/imageUrl";
 
 type DisplayItem = {
   position: number;
@@ -18,17 +19,6 @@ type PickableItem = {
   item_type: string;
   image_url?: string | null;
 };
-
-const NO_POSTER = "/no-photo.webp";
-const TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w185";
-
-function getPosterUrl(url: string | null | undefined): string {
-  if (!url?.trim()) return NO_POSTER;
-  const u = url.trim();
-  if (u.startsWith("http")) return u;
-  const path = u.startsWith("/") ? u.slice(1) : u;
-  return `${TMDB_POSTER_BASE}/${path}`;
-}
 
 export default function EditTasteInFour({
   currentItems,

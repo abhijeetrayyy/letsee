@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
-import { Loader2, MonitorPlay, Shuffle, Clock, Calendar, Star } from "lucide-react";
+import { Loader2, MonitorPlay, Shuffle, Star } from "lucide-react";
+import { swrFetcher } from "@/utils/swrFetcher";
 
 interface WatchlistSuggestion {
   itemId: string;
@@ -11,9 +13,6 @@ interface WatchlistSuggestion {
   imageUrl: string | null;
   predictedRating: number;
   reason: string;
-  availableOn: string[];
-  runtime: number | null;
-  releaseYear: string | null;
 }
 
 interface QuickPickProps {
@@ -21,30 +20,16 @@ interface QuickPickProps {
 }
 
 export default function QuickPick({ profileId }: QuickPickProps) {
-  const [items, setItems] = useState<WatchlistSuggestion[]>([]);
-  const [loading, setLoading] = useState(true);
   const [pickedIndex, setPickedIndex] = useState<number | null>(null);
   const { isAuthenticated } = useMediaInteraction();
 
-  useEffect(() => {
-    if (!isAuthenticated) { setLoading(false); return; }
-
-    const params = profileId ? `?userId=${encodeURIComponent(profileId)}` : "";
-    fetch(`/api/watchlist/smart${params}`, { cache: "no-store" })
-      .then((r) => r.json().catch(() => ({})))
-      .then((data) => {
-        const raw = data?.items ?? [];
-        // Enrich with availability (simplified — real impl would batch-fetch providers)
-        setItems(raw.slice(0, 12).map((item: any) => ({
-          ...item,
-          availableOn: [],
-          runtime: null,
-          releaseYear: null,
-        })));
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [profileId, isAuthenticated]);
+  const params = profileId ? `?userId=${encodeURIComponent(profileId)}` : "";
+  const { data, isLoading } = useSWR<{ items: WatchlistSuggestion[] }>(
+    isAuthenticated ? `/api/watchlist/smart${params}` : null,
+    swrFetcher,
+  );
+  const items = (data?.items ?? []).slice(0, 12);
+  const loading = isAuthenticated && isLoading;
 
   const handleRandomPick = () => {
     if (!items.length) return;

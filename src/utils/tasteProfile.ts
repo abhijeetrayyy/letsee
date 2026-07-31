@@ -66,3 +66,84 @@ export function computeTasteSummary(
     totalGenresExplored: entries.length,
   };
 }
+
+export type TasteInsight = {
+  summary: string;
+  topGenres: string[];
+  watchingStyle: string;
+  recommendation: string;
+  totalWatched: number;
+  avgRating: number | null;
+};
+
+/**
+ * Builds the natural-language "taste profile" summary shown on a user's
+ * profile. Pure function over an already-computed TasteProfile so callers
+ * that already have watched_items/user_ratings loaded (the profile page,
+ * the ai-summary API route) don't need to re-query to get this text.
+ */
+export function buildTasteInsight(
+  username: string,
+  tasteProfile: TasteProfile,
+  totalWatched: number,
+  avgRating: number | null,
+): TasteInsight {
+  if (totalWatched === 0) {
+    return {
+      summary: "No watched items yet to analyze.",
+      topGenres: [],
+      watchingStyle: "",
+      recommendation: "",
+      totalWatched: 0,
+      avgRating: null,
+    };
+  }
+
+  const topGenreNames = tasteProfile.topGenres.slice(0, 4).map((g) => g.genre);
+  const roundedAvg = avgRating !== null ? Math.round(avgRating * 10) / 10 : null;
+
+  let summary = "";
+  let watchingStyle = "";
+
+  if (topGenreNames.length >= 2) {
+    summary = `${username} loves ${topGenreNames[0]} and ${topGenreNames[1]}`;
+  } else if (topGenreNames.length === 1) {
+    summary = `${username} is a ${topGenreNames[0]} fan`;
+  } else {
+    summary = `${username} has an eclectic taste`;
+  }
+
+  if (totalWatched >= 100) {
+    summary += ` with over ${totalWatched} titles watched`;
+    watchingStyle = totalWatched >= 500 ? "A true cinephile" : "An active watcher";
+  } else if (totalWatched >= 20) {
+    summary += ` across ${totalWatched} titles`;
+    watchingStyle = "Building their film journey";
+  } else {
+    summary += ` — just getting started`;
+    watchingStyle = "Early explorer";
+  }
+
+  if (roundedAvg !== null) {
+    summary += `. Average rating: ${roundedAvg}/10`;
+  }
+
+  if (tasteProfile.totalGenresExplored >= 10) {
+    summary += `. Explored ${tasteProfile.totalGenresExplored} genres`;
+  }
+
+  summary += ".";
+
+  const recommendation = topGenreNames.length > 0
+    ? `If you like their ${topGenreNames[0]} picks, check out what else they've watched.`
+    : "";
+
+  return {
+    summary,
+    topGenres: topGenreNames,
+    watchingStyle,
+    recommendation,
+    totalWatched,
+    avgRating: roundedAvg,
+  };
+}

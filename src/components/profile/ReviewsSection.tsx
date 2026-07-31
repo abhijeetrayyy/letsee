@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { swrFetcher } from "@/utils/swrFetcher";
 
 function slug(title: string): string {
   return title
@@ -46,38 +48,35 @@ export default function ReviewsSection({
   userId: string;
   isOwner?: boolean;
 }) {
-  const [items, setItems] = useState<ReviewItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `/api/profile/public-reviews?userId=${encodeURIComponent(userId)}&page=${page}&limit=12`
-      );
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setItems(data.data ?? []);
-      setTotalPages(data.totalPages ?? 1);
-    } catch (e) {
-      console.error(e);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId, page]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const { data, error, isLoading, mutate } = useSWR<{ data: ReviewItem[]; totalPages: number }>(
+    `/api/profile/public-reviews?userId=${encodeURIComponent(userId)}&page=${page}&limit=12`,
+    swrFetcher,
+  );
+  const items = data?.data ?? [];
+  const totalPages = data?.totalPages ?? 1;
+  const loading = isLoading;
 
   if (loading) {
     return (
       <div className="rounded-xl border border-surface-700/60 bg-surface-900/40 p-6 flex flex-col items-center justify-center gap-3 min-h-[200px]">
         <LoadingSpinner size="md" className="border-t-white shrink-0" />
         <p className="text-sm text-surface-500 animate-pulse">Loading reviews…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-12 text-center flex flex-col items-center gap-3">
+        <p className="text-sm text-red-300">Couldn't load reviews.</p>
+        <button
+          onClick={() => mutate()}
+          className="text-xs px-3 py-1.5 rounded-full border border-red-500/30 text-red-300 hover:bg-red-500/10 transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }

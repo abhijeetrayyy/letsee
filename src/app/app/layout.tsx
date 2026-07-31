@@ -2,6 +2,7 @@ import UserPrefrenceProvider from "@/app/contextAPI/userPrefrenceProvider";
 import MediaInteractionProvider from "@/app/contextAPI/MediaInteractionProvider";
 import Footbar from "@/components/footbar/foot";
 import { Toaster } from "react-hot-toast";
+import SwrProvider from "@/components/providers/SwrProvider";
 
 export default async function AppLayout({
   children,
@@ -25,14 +26,16 @@ export default async function AppLayout({
           loading: { duration: Infinity },
         }}
       />
-      <MediaInteractionProvider>
-        <UserPrefrenceProvider>
-          <div className="w-full flex flex-col min-h-screen">
-            <main className="grow">{children}</main>
-            <Footbar />
-          </div>
-        </UserPrefrenceProvider>
-      </MediaInteractionProvider>
+      <SwrProvider>
+        <MediaInteractionProvider>
+          <UserPrefrenceProvider>
+            <div className="w-full flex flex-col min-h-screen">
+              <main className="grow">{children}</main>
+              <Footbar />
+            </div>
+          </UserPrefrenceProvider>
+        </MediaInteractionProvider>
+      </SwrProvider>
     </div>
   );
 }

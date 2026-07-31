@@ -2,52 +2,13 @@ import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { buildGenreVector, cosineSimilarity, topGenresFromVector } from "@/utils/genreVector";
 
 export const dynamic = "force-dynamic";
 
 const MAX_SIMILAR_USERS = 20;
 const MAX_RECOMMENDATIONS = 15;
 const MIN_RATING_SCORE = 7;
-
-type GenreVector = Record<string, number>;
-
-function cosineSimilarity(a: GenreVector, b: GenreVector): number {
-  const allKeys = new Set([...Object.keys(a), ...Object.keys(b)]);
-  let dot = 0, magA = 0, magB = 0;
-  for (const key of allKeys) {
-    const va = a[key] ?? 0;
-    const vb = b[key] ?? 0;
-    dot += va * vb;
-    magA += va * va;
-    magB += vb * vb;
-  }
-  const denom = Math.sqrt(magA) * Math.sqrt(magB);
-  return denom === 0 ? 0 : dot / denom;
-}
-
-function buildGenreVector(items: { genres?: string[] | null }[]): GenreVector {
-  const vec: GenreVector = {};
-  for (const item of items) {
-    if (Array.isArray(item.genres)) {
-      for (const g of item.genres) {
-        vec[g] = (vec[g] ?? 0) + 1;
-      }
-    }
-  }
-  if (Object.keys(vec).length === 0) return {};
-  const mag = Math.sqrt(Object.values(vec).reduce((s, v) => s + v * v, 0));
-  for (const key of Object.keys(vec)) {
-    vec[key] /= mag;
-  }
-  return vec;
-}
-
-function topGenresFromVector(vec: GenreVector, count: number): string[] {
-  return Object.entries(vec)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, count)
-    .map(([g]) => g);
-}
 
 export async function GET() {
   const supabase = await createClient();
@@ -59,15 +20,24 @@ export async function GET() {
   const userId = auth.user.id;
 
   try {
-    const [userWatched, userFavs] = await Promise.all([
-      supabase.from("watched_items").select("item_id, item_type, genres").eq("user_id", userId),
+    const [userWatched, userFavs, viewerRatings] = await Promise.all([
+      supabase.from("watched_items").select("item_id, item_type, genres, item_name").eq("user_id", userId),
       supabase.from("favorite_items").select("item_id, item_type, genres").eq("user_id", userId),
+      supabase.from("user_ratings").select("item_id, item_type, score").eq("user_id", userId).gte("score", MIN_RATING_SCORE),
     ]);
 
     const consumedIds = new Set<string>();
     for (const item of [...(userWatched.data ?? []), ...(userFavs.data ?? [])]) {
       consumedIds.add(`${item.item_type}:${item.item_id}`);
     }
+
+    const viewerItemNames = new Map<string, string>();
+    for (const item of userWatched.data ?? []) {
+      viewerItemNames.set(`${item.item_type}:${item.item_id}`, item.item_name);
+    }
+    const viewerTopRatedKeys = new Set(
+      (viewerRatings.data ?? []).map((r) => `${r.item_type}:${r.item_id}`)
+    );
 
     const userVector = buildGenreVector([...(userWatched.data ?? []), ...(userFavs.data ?? [])]);
     if (Object.keys(userVector).length === 0) {
@@ -134,8 +104,8 @@ export async function GET() {
         .select("user_id, item_id, item_name, item_type, image_url, genres")
         .in("user_id", topUserIds),
       supabase
-        .from("profiles")
-        .select("id, avatar_url, display_name")
+        .from("users")
+        .select("id, username, avatar_url")
         .in("id", topUserIds),
     ]);
 
@@ -149,19 +119,74 @@ export async function GET() {
       userItemsMap.get(item.user_id)!.push(item);
     }
 
+    // Per-matched-user top-rated items (>= MIN_RATING_SCORE), keyed by user_id -> Map(itemKey -> {name, score})
+    const matchTopRatedByUser = new Map<string, Map<string, { name: string; score: number }>>();
+    for (const rating of ratingsResult.data ?? []) {
+      const key = `${rating.item_type}:${rating.item_id}`;
+      const watched = (watchedResult.data ?? []).find(
+        (w) => w.item_id === rating.item_id && w.item_type === rating.item_type && w.user_id === rating.user_id
+      );
+      if (!matchTopRatedByUser.has(rating.user_id)) matchTopRatedByUser.set(rating.user_id, new Map());
+      matchTopRatedByUser.get(rating.user_id)!.set(key, {
+        name: watched?.item_name ?? rating.item_id,
+        score: rating.score,
+      });
+    }
+
+    function buildIcebreaker(matchUserId: string, matchTopGenres: string[]): {
+      icebreaker: string;
+      sharedItem: { itemId: string; itemType: "movie" | "tv"; name: string } | null;
+    } {
+      const matchRated = matchTopRatedByUser.get(matchUserId);
+      if (matchRated) {
+        let best: { key: string; name: string; combined: number } | null = null;
+        for (const key of viewerTopRatedKeys) {
+          const matchEntry = matchRated.get(key);
+          if (!matchEntry) continue;
+          if (!best || matchEntry.score > best.combined) {
+            best = { key, name: matchEntry.name, combined: matchEntry.score };
+          }
+        }
+        if (best) {
+          const [itemType, itemId] = best.key.split(":");
+          const name = viewerItemNames.get(best.key) || best.name;
+          return {
+            icebreaker: `You both loved ${name}`,
+            sharedItem: { itemId, itemType: itemType === "tv" ? "tv" : "movie", name },
+          };
+        }
+      }
+
+      const sharedGenre = userTopGenres.find((g) =>
+        matchTopGenres.some((mg) => mg.toLowerCase() === g.toLowerCase())
+      );
+      if (sharedGenre) {
+        return { icebreaker: `You're both into ${sharedGenre}`, sharedItem: null };
+      }
+
+      return { icebreaker: "You have similar taste in movies & TV — say hi!", sharedItem: null };
+    }
+
     // Merge similarity info with user top genres
-    const detailedUsers = topUsers.map((u) => {
-      const items = userItemsMap.get(u.userId) ?? [];
-      const vec = buildGenreVector(items);
-      const prof = profileMap.get(u.userId);
-      return {
-        similarity: Math.round(u.similarity * 100),
-        avatarUrl: prof?.avatar_url ?? null,
-        displayName: prof?.display_name ?? null,
-        topGenres: topGenresFromVector(vec, 3),
-        matchedItemCount: items.filter((i) => Array.isArray(i.genres) && i.genres.length > 0).length,
-      };
-    });
+    const detailedUsers = topUsers
+      .map((u) => {
+        const items = userItemsMap.get(u.userId) ?? [];
+        const vec = buildGenreVector(items);
+        const prof = profileMap.get(u.userId);
+        const matchTopGenres = topGenresFromVector(vec, 3);
+        const { icebreaker, sharedItem } = buildIcebreaker(u.userId, matchTopGenres);
+        return {
+          user_id: u.userId,
+          username: prof?.username ?? null,
+          avatar_url: prof?.avatar_url ?? null,
+          matchScore: u.similarity,
+          topGenres: matchTopGenres,
+          matchedItemCount: items.filter((i) => Array.isArray(i.genres) && i.genres.length > 0).length,
+          icebreaker,
+          sharedItem,
+        };
+      })
+      .filter((u) => u.username);
 
     // Aggregate item scores with genres and recency
     const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000).toISOString();

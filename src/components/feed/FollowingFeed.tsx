@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef } from "react";
+import useSWRInfinite from "swr/infinite";
 import ActivityCard from "./ActivityCard";
 import { Users, RefreshCw, AlertCircle } from "lucide-react";
+import { SwrFetchError } from "@/utils/swrFetcher";
 
 type ActivityItem = {
   id: number;
@@ -31,50 +33,47 @@ type FeedResponse = {
   isSupplemented: boolean;
 };
 
+async function feedFetcher(url: string): Promise<FeedResponse> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new SwrFetchError(body.error ?? `HTTP ${res.status}`, res.status);
+  }
+  return res.json();
+}
+
+function getKey(pageIndex: number, previousPageData: FeedResponse | null) {
+  if (previousPageData && !previousPageData.hasMore) return null;
+  const params = new URLSearchParams();
+  params.set("limit", "20");
+  if (pageIndex > 0 && previousPageData?.nextCursor) {
+    params.set("cursor", previousPageData.nextCursor);
+  }
+  return `/api/feed/following?${params}`;
+}
+
 export default function FollowingFeed() {
-  const [items, setItems] = useState<ActivityItem[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [followedCount, setFollowedCount] = useState(0);
-  const [isSupplemented, setIsSupplemented] = useState(false);
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
-  const fetchFeed = useCallback(async (cursorVal: string | null) => {
+  const { data, error, size, setSize, isLoading, isValidating, mutate } =
+    useSWRInfinite<FeedResponse>(getKey, feedFetcher);
+
+  const items = data ? data.flatMap((p) => p.items) : [];
+  const hasMore = data ? data[data.length - 1].hasMore : true;
+  const followedCount = data?.[0]?.followedCount ?? 0;
+  const isSupplemented = data?.[0]?.isSupplemented ?? false;
+  const loading = isLoading;
+  const loadingMore = isValidating && size > 1;
+
+  const handleRefresh = async () => {
     try {
-      const params = new URLSearchParams();
-      params.set("limit", "20");
-      if (cursorVal) params.set("cursor", cursorVal);
-
-      const res = await fetch(`/api/feed/following?${params}`);
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `HTTP ${res.status}`);
-      }
-
-      const data: FeedResponse = await res.json();
-
-      if (cursorVal) {
-        setItems((prev) => [...prev, ...data.items]);
-      } else {
-        setItems(data.items);
-      }
-      setCursor(data.nextCursor);
-      setHasMore(data.hasMore);
-      setFollowedCount(data.followedCount);
-      setIsSupplemented(data.isSupplemented);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load feed");
-    } finally {
-      setLoading(false);
+      const fresh = await feedFetcher(getKey(0, null)!);
+      mutate([fresh], { revalidate: false });
+      setSize(1);
+    } catch {
+      mutate();
     }
-  }, []);
-
-  // Initial load
-  useEffect(() => {
-    fetchFeed(null);
-  }, [fetchFeed]);
+  };
 
   // Infinite scroll with IntersectionObserver
   useEffect(() => {
@@ -83,9 +82,8 @@ export default function FollowingFeed() {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading) {
-          setLoading(true);
-          fetchFeed(cursor);
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          setSize((prev) => prev + 1);
         }
       },
       { threshold: 0.1 }
@@ -93,7 +91,7 @@ export default function FollowingFeed() {
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore, loading, cursor, fetchFeed]);
+  }, [hasMore, loadingMore, loading, setSize]);
 
   if (error) {
     return (
@@ -101,11 +99,7 @@ export default function FollowingFeed() {
         <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
         <p className="text-sm text-red-300">Could not load feed</p>
         <button
-          onClick={() => {
-            setError(null);
-            setLoading(true);
-            fetchFeed(null);
-          }}
+          onClick={() => mutate()}
           className="mt-3 text-xs text-red-400 hover:text-red-300 underline transition-colors"
         >
           Try again
@@ -133,12 +127,7 @@ export default function FollowingFeed() {
             </span>
           )}
           <button
-            onClick={() => {
-              setLoading(true);
-              setCursor(null);
-              setHasMore(true);
-              fetchFeed(null);
-            }}
+            onClick={handleRefresh}
             className="btn-ghost ml-auto"
             title="Refresh"
           >
@@ -158,7 +147,7 @@ export default function FollowingFeed() {
 
           {/* Infinite scroll trigger */}
           <div ref={loaderRef} className="py-4 flex justify-center">
-            {loading && (
+            {loadingMore && (
               <div className="flex items-center gap-2 text-surface-500 text-xs">
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                 Loading more...

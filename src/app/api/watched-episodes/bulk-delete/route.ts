@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { autoTransitionStatus } from "@/utils/tvMediaStatus";
 
 /**
  * DELETE /api/watched-episodes/bulk-delete
@@ -66,6 +67,10 @@ export async function DELETE(request: Request) {
       JSON.stringify({ error: "Failed to delete episodes", details: errors }),
       { status: 500 }
     );
+  }
+
+  if (deleted.length > 0) {
+    await autoTransitionStatus(supabase, user.id, String(showId));
   }
 
   return new Response(

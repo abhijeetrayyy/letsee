@@ -11,7 +11,7 @@ type ActivityItem = {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
-  activity_type: "watched" | "rated" | "reviewed" | "list_created" | "favored";
+  activity_type: "watched" | "rated" | "reviewed" | "list_created" | "favored" | "started_watching";
   item_id: string | null;
   item_type: string | null;
   item_name: string | null;
@@ -23,6 +23,15 @@ type ActivityItem = {
   source_type: "review" | "rating" | "list" | null;
   source_id: number | null;
 };
+
+type JoinedUser = { username: string; avatar_url: string | null; about?: string | null };
+
+/** Supabase returns a to-one join as an object, but as an array in some query shapes/versions — normalize both. */
+function normalizeJoinedUser(value: unknown): JoinedUser | null {
+  if (!value) return null;
+  if (Array.isArray(value)) return (value[0] as JoinedUser) ?? null;
+  return value as JoinedUser;
+}
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -129,10 +138,20 @@ export async function GET(request: Request) {
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  // Fetch usernames for rating/list entries (we already have them for watched items)
+  // Also fetch "started watching" events (fires far more often than completions)
+  const { data: startedWatching } = await supabase
+    .from("user_activity")
+    .select("id, user_id, item_id, item_type, item_name, image_url, created_at")
+    .eq("activity_type", "started_watching")
+    .in("user_id", targetUserIds)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  // Fetch usernames for rating/list/started-watching entries (we already have them for watched items)
   const allUserIds = [...new Set([
     ...(ratings?.map((r) => r.user_id) ?? []),
     ...(lists?.map((l) => l.user_id) ?? []),
+    ...(startedWatching?.map((s) => s.user_id) ?? []),
   ])];
 
   const { data: users } = await supabase
@@ -148,8 +167,7 @@ export async function GET(request: Request) {
   const activity: ActivityItem[] = [];
 
   for (const w of watchedItems ?? []) {
-    const userData = Array.isArray(w.users) && w.users.length > 0 ? w.users[0] : null;
-    const u = userData as { username: string; avatar_url: string | null; about?: string } | null;
+    const u = normalizeJoinedUser(w.users);
     activity.push({
       id: -(w.id),
       user_id: w.user_id,
@@ -221,6 +239,30 @@ export async function GET(request: Request) {
       created_at: l.created_at,
       source_type: "list",
       source_id: l.id,
+    });
+  }
+
+  for (const s of startedWatching ?? []) {
+    const u = userMap.get(s.user_id);
+    if (!u) continue;
+
+    activity.push({
+      id: s.id,
+      user_id: s.user_id,
+      username: u.username ?? "user",
+      display_name: u.about ?? null,
+      avatar_url: u.avatar_url ?? null,
+      activity_type: "started_watching",
+      item_id: s.item_id,
+      item_type: s.item_type,
+      item_name: s.item_name,
+      image_url: s.image_url,
+      score: null,
+      review_text: null,
+      list_name: null,
+      created_at: s.created_at,
+      source_type: null,
+      source_id: null,
     });
   }
 

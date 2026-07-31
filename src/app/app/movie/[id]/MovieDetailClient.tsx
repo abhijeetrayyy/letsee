@@ -24,6 +24,7 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
   const { getStatus } = useMediaInteraction();
   const isWatched = getStatus(String(movie.id)) === "watched";
   const [showTrailer, setShowTrailer] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const backdropUrl = movie.backdrop_path
     ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}`
@@ -51,6 +52,14 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
           </div>
         </div>
       )}
+
+      <ShareModal
+        title={movie.title}
+        mediaType="movie"
+        itemId={movie.id}
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+      />
 
       {/* Hero */}
       <div className="relative">
@@ -118,7 +127,7 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
                     <Play className="size-4 fill-current" /> Trailer
                   </button>
                 )}
-                <button onClick={() => navigator.clipboard?.writeText(window.location.href)} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-800/60 text-surface-300 hover:text-white border border-surface-700/50 text-sm font-medium transition-colors">
+                <button onClick={() => setShareModalOpen(true)} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-800/60 text-surface-300 hover:text-white border border-surface-700/50 text-sm font-medium transition-colors">
                   <Share2 className="size-4" /> Share
                 </button>
               </div>

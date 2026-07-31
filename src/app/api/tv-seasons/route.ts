@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
-/** GET /api/tv-seasons?showId=123 — Returns seasons list for MarkTVWatchedModal (profile/cards). */
+/** GET /api/tv-seasons?showId=123 — Returns seasons list for EpisodeManagementModal (profile/cards). */
 export async function GET(req: NextRequest) {
   const showId = req.nextUrl.searchParams.get("showId");
   if (!showId?.trim()) {

@@ -111,6 +111,7 @@ export default function HomeContentTile({
                   posterPath={item.poster_path}
                   adult={item.adult}
                   genres={genres}
+                  rating={item.vote_average}
                   showActions
                   onShare={(e) => {
                     e.preventDefault();
@@ -118,7 +119,7 @@ export default function HomeContentTile({
                   }}
                   typeLabel={type === "mix" ? item.media_type : type}
                   year={year}
-                  className="card-item image-item"
+                  className="card-item image-item shrink-0"
                   style={{ width: itemWidth }}
                 />
               );

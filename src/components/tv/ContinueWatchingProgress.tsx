@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 import Link from "next/link";
 import { Play, ChevronRight, Tv } from "lucide-react";
+
+const continueWatchingFetcher = (url: string) =>
+  fetch(url, { cache: "no-store" }).then((r) => r.json());
 
 interface ContinueWatchingItem {
   show_id: string;
@@ -20,21 +23,14 @@ interface ContinueWatchingItem {
 }
 
 export default function ContinueWatchingProgress() {
-  const [items, setItems] = useState<ContinueWatchingItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const { isAuthenticated } = useMediaInteraction();
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setLoading(false);
-      return;
-    }
-    fetch("/api/continue-watching", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((data) => setItems(data.items ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [isAuthenticated]);
+  const { data, isLoading } = useSWR<{ items: ContinueWatchingItem[] }>(
+    isAuthenticated ? "/api/continue-watching" : null,
+    continueWatchingFetcher,
+  );
+  const items = data?.items ?? [];
+  const loading = isAuthenticated && isLoading;
 
   if (loading) {
     return (

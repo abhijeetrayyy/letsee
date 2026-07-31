@@ -2,8 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import EpisodeListWithWatched from "@components/tv/EpisodeListWithWatched";
-import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
-import { fetchTmdb } from "@/utils/tmdbClient";
+import { getTvShowWithSeasons, getSeasonEpisodes } from "@/utils/tmdbTvShow";
 import { createClient } from "@/utils/supabase/server";
 import TvStatusSelector from "@/components/tv/TvStatusSelector";
 import { ArrowLeft, Tv, Calendar, Film } from "lucide-react";
@@ -36,8 +35,6 @@ const getNumericId = (value: string) => {
   return match ? match[0] : null;
 };
 
-const SEASON_REVALIDATE_SEC = 300;
-
 const fetchSeriesAndSeasonData = async (
   seriesId: string,
   seasonNumber: string,
@@ -56,15 +53,11 @@ const fetchSeriesAndSeasonData = async (
   const seriesOverview = (seriesData.overview as string) ?? "";
   const seriesPoster = (seriesData.poster_path as string) ?? null;
 
-  const seasonResponse = await fetchTmdb(
-    `https://api.themoviedb.org/3/tv/${seriesId}/season/${seasonNumber}?api_key=${apiKey}`,
-    { revalidate: SEASON_REVALIDATE_SEC },
-  );
-  if (!seasonResponse.ok) {
-    if (seasonResponse.status === 404) notFound();
-    throw new Error(`Failed to fetch season data: ${seasonResponse.status}`);
+  const seasonDataRaw = await getSeasonEpisodes(seriesId, seasonNumber);
+  if (!seasonDataRaw) {
+    notFound();
   }
-  const seasonData = await seasonResponse.json();
+  const seasonData = seasonDataRaw as any;
 
   return {
     seriesName,
@@ -125,10 +118,11 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
   let initialTVStatus = null;
   if (user) {
     const { data } = await supabase
-      .from("user_tv_list")
+      .from("user_media_status")
       .select("status")
       .eq("user_id", user.id)
-      .eq("show_id", numericId)
+      .eq("item_id", numericId)
+      .eq("item_type", "tv")
       .maybeSingle();
     initialTVStatus = data?.status ?? null;
   }

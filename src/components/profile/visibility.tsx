@@ -26,14 +26,9 @@ const Visibility: React.FC = () => {
           if (typeof data.profile_show_public_reviews === "boolean")
             setProfileShowPublicReviews(data.profile_show_public_reviews);
           if (
-            [
-              "watching",
-              "completed",
-              "on_hold",
-              "dropped",
-              "plan_to_watch",
-              "rewatching",
-            ].includes(data.default_tv_status ?? "")
+            ["watchlist", "watching", "watched", "on_hold", "dropped"].includes(
+              data.default_tv_status ?? "",
+            )
           ) {
             setDefaultTvStatus(data.default_tv_status);
           }
@@ -110,12 +105,11 @@ const Visibility: React.FC = () => {
           onChange={(e) => setDefaultTvStatus(e.target.value)}
           className="h-9 min-w-40 max-w-48 rounded-lg border border-surface-600 bg-surface-800 px-3 py-1.5 text-sm text-white focus:border-brand-500/50 focus:outline-none focus:ring-1 focus:ring-brand-500/50 shrink-0"
         >
+          <option value="watchlist">Watchlist</option>
           <option value="watching">Watching</option>
-          <option value="plan_to_watch">Plan to watch</option>
-          <option value="completed">Completed</option>
+          <option value="watched">Watched</option>
           <option value="on_hold">On hold</option>
           <option value="dropped">Dropped</option>
-          <option value="rewatching">Rewatching</option>
         </select>
       </div>
       <div className="space-y-4 text-sm">

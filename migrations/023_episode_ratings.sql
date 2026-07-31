@@ -35,4 +35,4 @@ create policy "Users can delete their own episode ratings"
 create trigger set_timestamp
   before update on public.episode_ratings
   for each row
-  execute procedure trigger_set_timestamp();
+  execute procedure public.set_updated_at();

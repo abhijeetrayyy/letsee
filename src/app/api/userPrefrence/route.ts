@@ -22,6 +22,12 @@ export const GET = async (_req: NextRequest) => {
   ]);
 
   if (userFavoritesError || userWatchedError || userWatchlistError || userWatchingError) {
+    console.error("userPrefrence fetch error:", {
+      userFavoritesError,
+      userWatchedError,
+      userWatchlistError,
+      userWatchingError,
+    });
     return jsonError("Failed to fetch user preferences.", 500);
   }
 

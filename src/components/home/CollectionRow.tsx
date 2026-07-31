@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import MediaCard from "@components/cards/MediaCard";
+import { GenreList } from "@/staticData/genreList";
 
 interface Item {
   id: number;
@@ -13,10 +14,23 @@ interface Item {
   vote_average?: number;
   release_date?: string;
   first_air_date?: string;
+  adult?: boolean;
+  genre_ids?: number[];
+}
+
+function genreNames(ids?: number[]): string[] {
+  if (!Array.isArray(ids)) return [];
+  return ids
+    .map((id) => GenreList.genres.find((g) => g.id === id)?.name)
+    .filter((name): name is string => Boolean(name));
 }
 
 export default function CollectionRow({
-  items, label, mediaType, showRank,
+  items,
+  label,
+  mediaType,
+  showRank,
+  accent = "brand",
 }: {
   items: Item[];
   label?: string;
@@ -57,42 +71,52 @@ export default function CollectionRow({
       )}
 
       <div className="relative group/row">
+        {/* Left scroll */}
         {canScrollLeft && (
-          <button onClick={() => scroll(-1)} className="absolute left-0 top-0 bottom-0 z-10 w-10 flex items-center justify-center bg-gradient-to-r from-surface-950/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity" aria-label="Scroll left">
+          <button
+            onClick={() => scroll(-1)}
+            className="absolute left-0 top-0 bottom-0 z-10 w-10 flex items-center justify-center bg-gradient-to-r from-surface-950/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity"
+            aria-label="Scroll left"
+          >
             <ChevronLeft className="size-5 text-white/80" />
           </button>
         )}
 
-        <div ref={scrollRef} className="flex gap-3 overflow-x-auto scrollbar-none pb-2 -mx-1 px-1">
+        {/* Cards */}
+        <div
+          ref={scrollRef}
+          className="flex gap-3 overflow-x-auto scrollbar-none pb-2 -mx-1 px-1"
+        >
           {items.map((item, i) => {
-            const title = item.title ?? item.name ?? "Untitled";
-            const type = (mediaType ?? item.media_type ?? "movie") as "movie" | "tv";
+            const type = mediaType ?? item.media_type ?? "movie";
             const year = item.release_date ?? item.first_air_date;
             const yearStr = year ? String(new Date(year).getFullYear()) : null;
 
             return (
-              <div key={item.id} className="shrink-0 w-[140px] sm:w-[160px] relative">
-                {showRank && (
-                  <div className="absolute top-2 left-2 z-10 w-6 h-6 rounded-lg bg-black/70 backdrop-blur-sm flex items-center justify-center text-xs font-bold text-white border border-white/10">
-                    {i + 1}
-                  </div>
-                )}
-                <MediaCard
-                  id={item.id}
-                  title={title}
-                  mediaType={type}
-                  posterPath={item.poster_path ?? undefined}
-                  rating={item.vote_average ?? undefined}
-                  year={yearStr}
-                  showActions
-                />
-              </div>
+              <MediaCard
+                key={item.id}
+                id={item.id}
+                title={item.title ?? item.name ?? "Untitled"}
+                mediaType={type === "tv" ? "tv" : "movie"}
+                posterPath={item.poster_path}
+                adult={item.adult}
+                genres={genreNames(item.genre_ids)}
+                rating={item.vote_average}
+                year={yearStr}
+                rank={showRank ? i + 1 : undefined}
+                className="shrink-0 w-[140px] sm:w-[160px]"
+              />
             );
           })}
         </div>
 
+        {/* Right scroll */}
         {canScrollRight && (
-          <button onClick={() => scroll(1)} className="absolute right-0 top-0 bottom-0 z-10 w-10 flex items-center justify-center bg-gradient-to-l from-surface-950/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity" aria-label="Scroll right">
+          <button
+            onClick={() => scroll(1)}
+            className="absolute right-0 top-0 bottom-0 z-10 w-10 flex items-center justify-center bg-gradient-to-l from-surface-950/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity"
+            aria-label="Scroll right"
+          >
             <ChevronRight className="size-5 text-white/80" />
           </button>
         )}

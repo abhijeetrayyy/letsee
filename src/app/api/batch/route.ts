@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { ensureShowInMediaStatus, autoTransitionStatus } from "@/utils/tvMediaStatus";
 
 export const dynamic = "force-dynamic";
 
@@ -69,14 +70,16 @@ export async function POST(request: Request) {
           image_url: item.imageUrl ?? null,
           item_adult: item.itemAdult ?? false,
           genres: item.genres ?? [],
+          status: "watchlist",
+          updated_at: new Date().toISOString(),
         }));
-        const { data, error } = await supabase.from("user_watchlist").upsert(toInsert, {
+        const { data, error } = await supabase.from("user_media_status").upsert(toInsert, {
           onConflict: "user_id, item_id",
           ignoreDuplicates: true,
         }).select("item_id");
         if (error) throw error;
 
-        await supabase.rpc("increment_watchlist_count", { p_user_id: userId });
+        await supabase.rpc("recount_user_stats", { p_user_id: userId });
         return NextResponse.json({ success: true, count: data?.length ?? 0 });
       }
 
@@ -96,6 +99,12 @@ export async function POST(request: Request) {
           ignoreDuplicates: true,
         }).select("id");
         if (error) throw error;
+
+        const showIds = [...new Set(episodes.map((ep: BatchEpisode) => ep.showId))];
+        for (const showId of showIds) {
+          await ensureShowInMediaStatus(supabase, userId, showId);
+          await autoTransitionStatus(supabase, userId, showId);
+        }
         return NextResponse.json({ success: true, count: data?.length ?? 0 });
       }
 
@@ -105,9 +114,10 @@ export async function POST(request: Request) {
         }
         const ids = items.map((i: BatchItem) => i.itemId);
         const { error } = await supabase
-          .from("user_watchlist")
+          .from("user_media_status")
           .delete()
           .eq("user_id", userId)
+          .eq("status", "watchlist")
           .in("item_id", ids);
         if (error) throw error;
         return NextResponse.json({ success: true, count: ids.length });

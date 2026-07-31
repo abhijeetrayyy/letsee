@@ -39,52 +39,53 @@ export async function GET(req: NextRequest) {
   const showIds = watchingShows.map((s) => s.item_id);
   const { fetchTmdb } = await import("@/utils/tmdbClient");
 
-  const results: UpcomingEpisode[] = [];
+  const perShowResults = await Promise.all(
+    showIds.slice(0, 10).map(async (showId): Promise<UpcomingEpisode | null> => {
+      try {
+        const [showRes, watchedRes] = await Promise.all([
+          fetchTmdb(
+            `https://api.themoviedb.org/3/tv/${showId}?api_key=${process.env.TMDB_API_KEY}`
+          ),
+          supabase
+            .from("watched_episodes")
+            .select("season_number, episode_number")
+            .eq("user_id", userId)
+            .eq("show_id", showId),
+        ]);
 
-  for (const showId of showIds.slice(0, 10)) {
-    try {
-      const [showRes, watchedRes] = await Promise.all([
-        fetchTmdb(
-          `https://api.themoviedb.org/3/tv/${showId}?api_key=${process.env.TMDB_API_KEY}`
-        ),
-        supabase
-          .from("watched_episodes")
-          .select("season_number, episode_number")
-          .eq("user_id", userId)
-          .eq("show_id", showId),
-      ]);
+        if (!showRes.ok) return null;
+        const show = await showRes.json();
+        const watchedSet = new Set(
+          (watchedRes.data ?? []).map((r) => `${r.season_number}-${r.episode_number}`)
+        );
 
-      if (!showRes.ok) continue;
-      const show = await showRes.json();
-      const watchedSet = new Set(
-        (watchedRes.data ?? []).map((r) => `${r.season_number}-${r.episode_number}`)
-      );
+        const nextEp = show.next_episode_to_air;
+        if (!nextEp?.air_date) return null;
 
-      const nextEp = show.next_episode_to_air;
-      if (!nextEp?.air_date) continue;
+        const airDate = new Date(nextEp.air_date);
+        const now = new Date();
+        const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-      const airDate = new Date(nextEp.air_date);
-      const now = new Date();
-      const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        // Only include episodes airing within the next week
+        if (airDate < now || airDate > weekFromNow) return null;
 
-      // Only include episodes airing within the next week
-      if (airDate < now || airDate > weekFromNow) continue;
+        return {
+          show_id: showId,
+          show_name: show.name ?? "",
+          poster_path: show.poster_path ?? null,
+          season_number: nextEp.season_number,
+          episode_number: nextEp.episode_number,
+          episode_name: nextEp.name ?? `Episode ${nextEp.episode_number}`,
+          air_date: nextEp.air_date,
+          is_watched: watchedSet.has(`${nextEp.season_number}-${nextEp.episode_number}`),
+        };
+      } catch {
+        return null;
+      }
+    })
+  );
 
-      results.push({
-        show_id: showId,
-        show_name: show.name ?? "",
-        poster_path: show.poster_path ?? null,
-        season_number: nextEp.season_number,
-        episode_number: nextEp.episode_number,
-        episode_name: nextEp.name ?? `Episode ${nextEp.episode_number}`,
-        air_date: nextEp.air_date,
-        is_watched: watchedSet.has(`${nextEp.season_number}-${nextEp.episode_number}`),
-      });
-    } catch {
-      // skip failed shows
-    }
-  }
-
+  const results = perShowResults.filter((r): r is UpcomingEpisode => r !== null);
   results.sort((a, b) => a.air_date.localeCompare(b.air_date));
 
   return jsonSuccess({ episodes: results }, { maxAge: 300 });

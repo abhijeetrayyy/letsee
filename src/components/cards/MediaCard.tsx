@@ -3,7 +3,7 @@
 import Link from "next/link";
 import React, { useState } from "react";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
-import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
+import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import { Film, Tv, User, Star } from "lucide-react";
 
 const TMDB_POSTER = "https://image.tmdb.org/t/p/w342";
@@ -34,6 +34,8 @@ export type MediaCardProps = {
   style?: React.CSSProperties;
   knownFor?: string | null;
   rating?: number | null;
+  /** Optional rank number (e.g. trending position) shown as a badge. */
+  rank?: number;
 };
 
 export default function MediaCard({
@@ -53,6 +55,7 @@ export default function MediaCard({
   style,
   knownFor,
   rating,
+  rank,
 }: MediaCardProps) {
   const [tvModalOpen, setTvModalOpen] = useState(false);
   const isPerson = mediaType === "person";
@@ -65,7 +68,6 @@ export default function MediaCard({
   const detailHref = href(mediaType, id, title);
 
   const genreList = Array.isArray(genres) ? genres.filter((g): g is string => typeof g === "string") : [];
-  const tvWatchedPayload = { itemId: id, name: title, imgUrl: imageUrl ?? "", adult, genres: genreList };
   const onAddWatchedTv = mediaType === "tv" && showActions ? () => setTvModalOpen(true) : undefined;
 
   return (
@@ -102,6 +104,13 @@ export default function MediaCard({
             {rating.toFixed(1)}
           </span>
         )}
+
+        {/* Rank badge bottom-left */}
+        {rank != null && (
+          <span className="absolute bottom-2 left-2 w-5 h-5 rounded-md bg-black/70 backdrop-blur-sm flex items-center justify-center text-[10px] font-bold text-white border border-white/10">
+            {rank}
+          </span>
+        )}
       </Link>
 
       {/* Title and year */}
@@ -135,16 +144,14 @@ export default function MediaCard({
         </div>
       )}
 
-      {/* TV Watched modal */}
-      {mediaType === "tv" && showActions && (
-        <MarkTVWatchedModal
+      {/* Episode management modal */}
+      {mediaType === "tv" && showActions && tvModalOpen && (
+        <EpisodeManagementModal
           showId={String(id)}
           showName={title}
-          seasons={[]}
           isOpen={tvModalOpen}
           onClose={() => setTvModalOpen(false)}
           onSuccess={() => setTvModalOpen(false)}
-          watchedPayload={tvWatchedPayload}
         />
       )}
     </div>

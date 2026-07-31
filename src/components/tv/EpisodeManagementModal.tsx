@@ -134,14 +134,15 @@ export default function EpisodeManagementModal({
     setSelectedEpisodes(newSelected);
   }, [seasons, selectedEpisodes]);
 
-  const handleSave = async () => {
+  const handleSave = async (episodesOverride?: Set<string>) => {
+    const selected = episodesOverride ?? selectedEpisodes;
     setSaving(true);
     try {
       // Calculate diff
       const toAdd: Episode[] = [];
       const toRemove: Episode[] = [];
 
-      for (const key of selectedEpisodes) {
+      for (const key of selected) {
         if (!watchedEpisodes.has(key)) {
           const [season, episode] = key.split("-").map(Number);
           toAdd.push({ season_number: season, episode_number: episode });
@@ -149,7 +150,7 @@ export default function EpisodeManagementModal({
       }
 
       for (const key of watchedEpisodes) {
-        if (!selectedEpisodes.has(key)) {
+        if (!selected.has(key)) {
           const [season, episode] = key.split("-").map(Number);
           toRemove.push({ season_number: season, episode_number: episode });
         }
@@ -183,25 +184,14 @@ export default function EpisodeManagementModal({
   };
 
   const handleMarkComplete = async () => {
-    setSaving(true);
-    try {
-      await fetch("/api/user-media-status", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          itemId: showId,
-          name: showName,
-          itemType: "tv",
-          status: "watched",
-        }),
-      });
-      onSuccess();
-      onClose();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSaving(false);
+    const allKeys = new Set<string>();
+    for (const s of seasons) {
+      for (let ep = 1; ep <= s.episode_count; ep++) {
+        allKeys.add(`${s.season_number}-${ep}`);
+      }
     }
+    setSelectedEpisodes(allKeys);
+    await handleSave(allKeys);
   };
 
   if (!isOpen) return null;
@@ -409,7 +399,7 @@ export default function EpisodeManagementModal({
                   Cancel
                 </button>
                 <button
-                  onClick={handleSave}
+                  onClick={() => handleSave()}
                   disabled={saving || selectedCount === watchedCount}
                   className="px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-surface-950 hover:bg-brand-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                 >

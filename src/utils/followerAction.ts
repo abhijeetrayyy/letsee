@@ -1,5 +1,40 @@
 import { supabase } from "@/utils/supabase/client";
 
+/** Fire-and-forget: check/award follower-count achievements (e.g. social-butterfly) for the user who just gained a follower. */
+function checkFollowAchievements(userId: string) {
+  supabase
+    .rpc("check_achievements", { p_user_id: userId, p_action: "follow" })
+    .then(({ data }) => {
+      for (const row of data ?? []) {
+        void supabase.rpc("award_achievement", { p_user_id: userId, p_achievement_id: row.achievement_id });
+      }
+    })
+    .then(undefined, () => {});
+}
+
+/**
+ * Follows `receiverId`. Public profiles connect instantly (straight into
+ * user_connections); private profiles still go through the pending-request
+ * queue via sendFollowRequest.
+ */
+export const followUser = async (
+  senderId: string,
+  receiverId: string,
+  receiverVisibility: string
+) => {
+  if (receiverVisibility?.toLowerCase() === "public") {
+    const { data, error } = await supabase
+      .from("user_connections")
+      .insert({ follower_id: senderId, followed_id: receiverId })
+      .select()
+      .single();
+    if (!error) checkFollowAchievements(receiverId);
+    return { data, error, instant: true as const };
+  }
+  const result = await sendFollowRequest(senderId, receiverId);
+  return { ...result, instant: false as const };
+};
+
 /**
  * Sends a follow request from `senderId` to `receiverId`.
  * Ensures duplicate requests aren't inserted.
@@ -59,6 +94,8 @@ export const acceptFollowRequest = async (
     .from("user_follow_requests")
     .update({ status: "accepted" })
     .eq("id", requestId);
+
+  if (!error) checkFollowAchievements(receiverId);
 
   return { error };
 };

@@ -26,6 +26,7 @@ interface EpisodeListWithWatchedProps {
   seasonNumber: number;
   episodes: EpisodeItem[];
   allSeasons?: SeasonSummary[];
+  episodesLoading?: boolean;
 }
 
 function getWatchedInfo(
@@ -51,6 +52,7 @@ export default function EpisodeListWithWatched({
   seasonNumber,
   episodes,
   allSeasons,
+  episodesLoading = false,
 }: EpisodeListWithWatchedProps) {
   const [watched, setWatched] = useState<
     { season_number: number; episode_number: number; watched_at?: string }[]
@@ -192,6 +194,24 @@ export default function EpisodeListWithWatched({
     if (sortMode === "runtime") return (b.runtime ?? 0) - (a.runtime ?? 0);
     return a.episode_number - b.episode_number;
   });
+
+  if (episodesLoading) {
+    return (
+      <div className="mt-6 space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="glass-card rounded-xl p-4 flex gap-4 animate-pulse">
+            <div className="shrink-0 w-10 h-8 bg-surface-800 rounded" />
+            <div className="shrink-0 w-36 sm:w-44 aspect-video bg-surface-800 rounded-lg" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 bg-surface-800 rounded w-2/3" />
+              <div className="h-3 bg-surface-800 rounded w-1/3" />
+              <div className="h-3 bg-surface-800 rounded w-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   if (episodes.length === 0) {
     return (

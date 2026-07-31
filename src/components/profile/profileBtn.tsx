@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabase/client";
-import { sendFollowRequest } from "@/utils/followerAction";
+import { followUser } from "@/utils/followerAction";
 import Link from "next/link";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
@@ -10,12 +10,14 @@ interface FollowerBtnClientProps {
   profileId: string;
   currentUserId: string | null;
   initialStatus: "following" | "pending" | "follow";
+  profileVisibility: string;
 }
 
 export function FollowerBtnClient({
   profileId,
   currentUserId,
   initialStatus,
+  profileVisibility,
 }: FollowerBtnClientProps) {
   const [status, setStatus] = useState(initialStatus);
   const [isLoading, setIsLoading] = useState(false);
@@ -99,8 +101,8 @@ export function FollowerBtnClient({
         setStatus("follow");
       } else {
         if (!currentUserId) return;
-        const { error } = await sendFollowRequest(currentUserId, profileId);
-        if (!error) setStatus("pending");
+        const { error, instant } = await followUser(currentUserId, profileId, profileVisibility);
+        if (!error) setStatus(instant ? "following" : "pending");
         else console.log(error);
       }
     } catch (error) {

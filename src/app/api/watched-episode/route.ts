@@ -2,8 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { getAuthUserId } from "@/utils/apiAuth";
-
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
+import { ensureShowInMediaStatus, autoTransitionStatus } from "@/utils/tvMediaStatus";
 
 export async function POST(req: NextRequest) {
   const userId = await getAuthUserId();
@@ -74,114 +73,8 @@ export async function POST(req: NextRequest) {
   // Ensure show is in user_media_status
   await ensureShowInMediaStatus(supabase, userId, showId);
 
-  // Auto-transition status (plan_to_watch → watching, all watched → completed)
+  // Auto-transition status (watchlist → watching, all episodes watched → watched)
   await autoTransitionStatus(supabase, userId, showId);
 
   return jsonSuccess({ action: "added", message: "Episode marked as watched" }, { maxAge: 0 });
-}
-
-async function ensureShowInMediaStatus(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  showId: string,
-) {
-  const { data: existing } = await supabase
-    .from("user_media_status")
-    .select("status")
-    .eq("user_id", userId)
-    .eq("item_id", showId)
-    .maybeSingle();
-
-  if (existing) return;
-
-  if (!TMDB_API_KEY) return;
-
-  const { fetchTmdb } = await import("@/utils/tmdbClient");
-  const res = await fetchTmdb(
-    `https://api.themoviedb.org/3/tv/${showId}?api_key=${TMDB_API_KEY}`,
-  );
-  if (!res.ok) return;
-  const showData = await res.json();
-  const name = showData?.name ?? "Unknown";
-  const poster = showData?.poster_path ?? null;
-  const imgUrl = poster ? `https://image.tmdb.org/t/p/w342${poster}` : "";
-  const adult = Boolean(showData?.adult);
-  const genres = Array.isArray(showData?.genres)
-    ? (showData.genres as { name?: string }[]).map((g) => g?.name ?? "").filter(Boolean)
-    : [];
-
-  const { error } = await supabase.from("user_media_status").upsert(
-    {
-      user_id: userId,
-      item_id: showId,
-      item_type: "tv",
-      item_name: name,
-      image_url: imgUrl,
-      item_adult: adult,
-      genres,
-      status: "watching",
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,item_id" },
-  );
-  if (error) console.error("ensureShowInMediaStatus:", error);
-}
-
-async function autoTransitionStatus(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  showId: string,
-) {
-  if (!TMDB_API_KEY) return;
-
-  const [{ data: statusRow }, { count: watchedCount }, { fetchTmdb }] = await Promise.all([
-    supabase
-      .from("user_media_status")
-      .select("status")
-      .eq("user_id", userId)
-      .eq("item_id", showId)
-      .maybeSingle(),
-    supabase
-      .from("watched_episodes")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("show_id", showId),
-    import("@/utils/tmdbClient"),
-  ]);
-
-  const currentStatus = (statusRow as { status?: string } | null)?.status;
-
-  const res = await fetchTmdb(
-    `https://api.themoviedb.org/3/tv/${showId}?api_key=${TMDB_API_KEY}`,
-  );
-  if (!res.ok) return;
-  const showData = await res.json();
-  const totalEpisodes = showData?.number_of_episodes;
-
-  let newStatus: string | null = null;
-
-  if (
-    totalEpisodes > 0 &&
-    watchedCount != null &&
-    watchedCount >= totalEpisodes
-  ) {
-    if (currentStatus !== "completed") {
-      newStatus = "completed";
-    }
-  } else if (currentStatus === "watchlist" || !currentStatus) {
-    newStatus = "watching";
-  }
-
-  if (newStatus) {
-    await supabase.from("user_media_status").upsert(
-      {
-        user_id: userId,
-        item_id: showId,
-        item_type: "tv",
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,item_id" },
-    );
-  }
 }

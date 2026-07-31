@@ -9,12 +9,14 @@ import { FetchError } from "@/components/ui/FetchError";
 import ProfileAvatar from "@components/profile/ProfileAvatar";
 
 interface User {
+  id: string;
   username: string;
   about?: string;
   avatar_url?: string | null;
   watched_count: number;
   favorites_count: number;
   watchlist_count: number;
+  followsYou?: boolean;
 }
 
 type DiscoverUsersProps = { hideTitleLink?: boolean };
@@ -133,18 +135,25 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
             <>
               {users.map((item) => (
                 <Link
-                  key={item.username}
+                  key={item.id}
                   href={`/app/profile/${item.username}`}
                   className="discover-user-card group shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-surface-900/60 border border-surface-700/40 hover:border-surface-600/60 hover:bg-surface-800/80 transition-all duration-300 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-950"
                 >
                   <div className="p-5 flex flex-col items-center text-center">
-                    <ProfileAvatar
-                      src={item.avatar_url || "/avatar.svg"}
-                      alt={`${item.username} avatar`}
-                      className="w-20 h-20 rounded-full object-cover border-2 border-surface-700 group-hover:border-brand-500/30 transition-colors ring-2 ring-surface-900"
-                      width={80}
-                      height={80}
-                    />
+                    <div className="relative">
+                      <ProfileAvatar
+                        src={item.avatar_url || "/avatar.svg"}
+                        alt={`${item.username} avatar`}
+                        className="w-20 h-20 rounded-full object-cover border-2 border-surface-700 group-hover:border-brand-500/30 transition-colors ring-2 ring-surface-900"
+                        width={80}
+                        height={80}
+                      />
+                      {item.followsYou && (
+                        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-full bg-brand-500/90 text-surface-950 text-[9px] font-bold whitespace-nowrap">
+                          Follows you
+                        </span>
+                      )}
+                    </div>
                     <h3 className="mt-3 text-base font-semibold text-white group-hover:text-brand-400 transition-colors truncate w-full">
                       @{formatUsername(item.username)}
                     </h3>

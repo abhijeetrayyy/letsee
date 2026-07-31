@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/utils/supabase/client";
 import { acceptFollowRequest, rejectFollowRequest } from "@/utils/followerAction";
+import { getAvatarUrl } from "@/utils/imageUrl";
 import { Heart, UserPlus, UserCheck, Eye, MessageSquare, Star, CheckCheck, Bell, Loader2 } from "lucide-react";
 
 type ActorProfile = {
@@ -51,12 +52,7 @@ function formatDate(iso: string): string {
   }
 }
 
-function resolveAvatar(url: string | null | undefined): string {
-  if (!url?.trim()) return "/default-avatar.webp";
-  const trimmed = url.trim();
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
-  return trimmed;
-}
+const resolveAvatar = getAvatarUrl;
 
 function notificationIcon(type: string) {
   switch (type) {
@@ -66,6 +62,11 @@ function notificationIcon(type: string) {
     case "friend_watched": return <Eye className="w-4 h-4 text-amber-400" />;
     case "friend_reviewed": return <MessageSquare className="w-4 h-4 text-purple-400" />;
     case "friend_rated": return <Star className="w-4 h-4 text-accent-gold" />;
+    case "new_follower": return <UserPlus className="w-4 h-4 text-blue-400" />;
+    case "comment_reply": return <MessageSquare className="w-4 h-4 text-purple-400" />;
+    case "dm_received": return <MessageSquare className="w-4 h-4 text-brand-400" />;
+    case "friend_started_watching": return <Eye className="w-4 h-4 text-cyan-400" />;
+    case "achievement_unlocked": return <Star className="w-4 h-4 text-accent-gold" />;
     default: return <Bell className="w-4 h-4 text-surface-400" />;
   }
 }
@@ -104,6 +105,32 @@ function getNotificationText(n: NotificationItem): { text: string; href?: string
     }
     case "friend_rated":
       return { text: `${username} rated an item` };
+    case "new_follower":
+      return { text: `${username} started following you`, href: `/app/profile/${username}` };
+    case "comment_reply": {
+      const itemType = n.metadata?.item_type as string ?? "movie";
+      const itemId = n.metadata?.item_id as string ?? "";
+      return {
+        text: `${username} replied to your comment`,
+        href: itemId ? `/app/${itemType}/${itemId}` : undefined,
+      };
+    }
+    case "dm_received":
+      return { text: `${username} sent you a message`, href: `/app/messages/${n.actor_id ?? ""}` };
+    case "friend_started_watching": {
+      const name = n.metadata?.item_name as string ?? "";
+      const itemType = n.metadata?.item_type as string ?? "movie";
+      const itemId = n.metadata?.item_id as string ?? "";
+      return {
+        text: `${username} started watching ${name}`,
+        href: itemId ? `/app/${itemType}/${itemId}` : undefined,
+      };
+    }
+    case "achievement_unlocked": {
+      const name = n.metadata?.name as string ?? "an achievement";
+      const icon = n.metadata?.icon as string ?? "🏆";
+      return { text: `You unlocked ${name}! ${icon}`, href: "/app/profile" };
+    }
     default:
       return { text: `New notification from ${username}` };
   }

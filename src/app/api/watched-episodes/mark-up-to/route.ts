@@ -1,6 +1,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { fetchTmdb } from "@/utils/tmdbClient";
+import { ensureShowInMediaStatus, autoTransitionStatus } from "@/utils/tvMediaStatus";
 
 /**
  * POST /api/watched-episodes/mark-up-to
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
   }
 
   // Fetch all seasons from TMDB to know which episodes exist
-  const tmdbRes = await fetch(
+  const tmdbRes = await fetchTmdb(
     `https://api.themoviedb.org/3/tv/${showId}?api_key=${process.env.TMDB_API_KEY}`
   );
 
@@ -121,47 +123,22 @@ export async function POST(request: Request) {
     );
   }
 
-  // Update TV list status
-  const { data: tvListEntry } = await supabase
-    .from("user_tv_list")
+  await ensureShowInMediaStatus(supabase, user.id, String(showId));
+  await autoTransitionStatus(supabase, user.id, String(showId));
+
+  const { data: statusRow } = await supabase
+    .from("user_media_status")
     .select("status")
     .eq("user_id", user.id)
-    .eq("show_id", showId)
-    .single();
-
-  const currentStatus = tvListEntry?.status;
-  const { data: userPrefs } = await supabase
-    .from("users")
-    .select("default_tv_status")
-    .eq("id", user.id)
-    .single();
-
-  const defaultStatus = userPrefs?.default_tv_status || "watching";
-
-  // Auto-status logic
-  let newStatus = currentStatus || defaultStatus;
-  if (!currentStatus || currentStatus === "plan_to_watch") {
-    newStatus = "watching";
-  }
-
-  // Check if all episodes are now watched
-  const totalEpisodes = episodesToMark.length; // This is up to target, not total show
-  // For complete check, we'd need to compare with total aired episodes
-  // For now, just set to the determined status
-
-  await supabase
-    .from("user_tv_list")
-    .upsert({
-      user_id: user.id,
-      show_id: showId,
-      status: newStatus,
-    });
+    .eq("item_id", showId)
+    .eq("item_type", "tv")
+    .maybeSingle();
 
   return new Response(
     JSON.stringify({
       message: `Marked ${episodesToMark.length} episode(s) as watched up to S${seasonNumber}E${episodeNumber}`,
       count: episodesToMark.length,
-      status: newStatus,
+      status: statusRow?.status ?? "watching",
     })
   );
 }

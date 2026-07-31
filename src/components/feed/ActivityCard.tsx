@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import LikeButton from "@components/reactions/LikeButton";
+import { getPosterUrl, getAvatarUrl } from "@/utils/imageUrl";
 
 type ActivityItem = {
   id: number;
@@ -9,7 +10,7 @@ type ActivityItem = {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
-  activity_type: "watched" | "rated" | "reviewed" | "list_created" | "favored";
+  activity_type: "watched" | "rated" | "reviewed" | "list_created" | "favored" | "started_watching";
   item_id: string | null;
   item_type: string | null;
   item_name: string | null;
@@ -48,27 +49,13 @@ function getActivityLabel(type: string): string {
     case "reviewed": return "Reviewed";
     case "list_created": return "Created List";
     case "favored": return "Favorited";
+    case "started_watching": return "Started Watching";
     default: return type;
   }
 }
 
-function getPosterUrl(imageUrl: string | null | undefined): string | null {
-  if (!imageUrl?.trim()) return null;
-  const u = imageUrl.trim();
-  if (u.startsWith("http://") || u.startsWith("https://")) return u;
-  const path = u.startsWith("/") ? u.slice(1) : u;
-  return `https://image.tmdb.org/t/p/w154/${path}`;
-}
-
-function getAvatarUrl(avatarUrl: string | null | undefined): string {
-  if (!avatarUrl?.trim()) return "/default-avatar.webp";
-  const u = avatarUrl.trim();
-  if (u.startsWith("http://") || u.startsWith("https://")) return u;
-  return u;
-}
-
 export default function ActivityCard({ item }: { item: ActivityItem }) {
-  const posterUrl = getPosterUrl(item.image_url);
+  const posterUrl = item.image_url ? getPosterUrl(item.image_url, "w154") : null;
   const avatarUrl = getAvatarUrl(item.avatar_url);
   const detailHref = item.item_id && item.item_type
     ? `/app/${item.item_type}/${item.item_id}`
@@ -81,6 +68,7 @@ export default function ActivityCard({ item }: { item: ActivityItem }) {
     reviewed: "bg-blue-500/20 text-blue-300 border-blue-500/30",
     list_created: "bg-purple-500/20 text-purple-300 border-purple-500/30",
     favored: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+    started_watching: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
   };
 
   return (
@@ -174,6 +162,7 @@ export default function ActivityCard({ item }: { item: ActivityItem }) {
               <p className="text-xs text-surface-500 mt-1">
                 {item.activity_type === "rated" && "Rated an item"}
                 {item.activity_type === "list_created" && "Created a new list"}
+                {item.activity_type === "started_watching" && "Started watching"}
               </p>
             )}
           </div>

@@ -35,3 +35,36 @@ export async function getTvShowWithSeasons(showId: string): Promise<Record<strin
     { revalidate: TMDB_REVALIDATE_SEC }
   )();
 }
+
+async function fetchSeasonEpisodesUncached(
+  showId: string,
+  seasonNumber: number | string
+): Promise<Record<string, unknown> | null> {
+  const apiKey = process.env.TMDB_API_KEY;
+  if (!apiKey) return null;
+  const url = `https://api.themoviedb.org/3/tv/${showId}/season/${seasonNumber}?api_key=${apiKey}`;
+
+  try {
+    const res = await fetchTmdb(url, { revalidate: TMDB_REVALIDATE_SEC });
+    if (!res.ok) return null;
+    return (await res.json()) as Record<string, unknown>;
+  } catch (err) {
+    console.warn("tmdbTvShow: season fetch failed", showId, seasonNumber, err);
+    return null;
+  }
+}
+
+/**
+ * Fetch a single season's episode list. Cached per showId+seasonNumber.
+ * Shared by the season page and the embedded season browser on the show page.
+ */
+export async function getSeasonEpisodes(
+  showId: string,
+  seasonNumber: number | string
+): Promise<Record<string, unknown> | null> {
+  return unstable_cache(
+    () => fetchSeasonEpisodesUncached(showId, seasonNumber),
+    ["tmdb-tv-season-episodes", showId, String(seasonNumber)],
+    { revalidate: TMDB_REVALIDATE_SEC }
+  )();
+}

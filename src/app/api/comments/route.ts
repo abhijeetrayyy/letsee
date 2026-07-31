@@ -15,7 +15,33 @@ export async function GET(req: NextRequest) {
     .select("id, user_id, body, created_at, parent_id, users!comments_user_id_fkey(username, avatar_url)")
     .eq("item_id", itemId).eq("item_type", itemType).order("created_at", { ascending: true });
   if (error) return jsonError(error.message, 500);
-  return jsonSuccess(data ?? []);
+
+  const comments = data ?? [];
+  if (comments.length === 0) return jsonSuccess([]);
+
+  const commentIds = comments.map((c) => c.id);
+  const viewerId = await getAuthUserId();
+
+  const { data: reactionRows } = await supabase
+    .from("reactions")
+    .select("target_id, user_id")
+    .eq("target_type", "comment")
+    .in("target_id", commentIds);
+
+  const countByComment = new Map<number, number>();
+  const likedByViewer = new Set<number>();
+  for (const r of reactionRows ?? []) {
+    countByComment.set(r.target_id, (countByComment.get(r.target_id) ?? 0) + 1);
+    if (viewerId && r.user_id === viewerId) likedByViewer.add(r.target_id);
+  }
+
+  const withReactions = comments.map((c) => ({
+    ...c,
+    reaction_count: countByComment.get(c.id) ?? 0,
+    viewer_liked: likedByViewer.has(c.id),
+  }));
+
+  return jsonSuccess(withReactions);
 }
 
 export async function POST(req: NextRequest) {
@@ -27,7 +53,7 @@ export async function POST(req: NextRequest) {
   const { itemId, itemType, body: commentBody, parentId } = body;
   if (!itemId || !itemType || !commentBody?.trim()) return jsonError("itemId, itemType, and body required", 400);
   if (commentBody.length > 2000) return jsonError("Comment too long (max 2000 chars)", 400);
-  if (!["movie","tv","review"].includes(itemType)) return jsonError("Invalid itemType", 400);
+  if (!["movie","tv","review","episode","club_pick"].includes(itemType)) return jsonError("Invalid itemType", 400);
 
   const { data, error } = await supabase.from("comments").insert({
     user_id: userId, item_id: itemId, item_type: itemType, body: commentBody.trim(), parent_id: parentId || null,

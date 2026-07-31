@@ -69,6 +69,7 @@ export async function GET(req: NextRequest) {
             .select("status")
             .eq("user_id", userId)
             .eq("item_id", showId)
+            .eq("item_type", "tv")
             .maybeSingle(),
         ]);
 
@@ -76,8 +77,8 @@ export async function GET(req: NextRequest) {
 
         const currentStatus = statusRes?.data?.status;
 
-        // 1. Filter out dropped/completed/on_hold
-        if (["dropped", "completed", "on_hold"].includes(currentStatus || "")) {
+        // 1. Filter out dropped/watched/on_hold
+        if (["dropped", "watched", "on_hold"].includes(currentStatus || "")) {
           return null;
         }
 
@@ -139,7 +140,7 @@ export async function GET(req: NextRequest) {
 
         // Caught up logic:
         // If !nextEp, we are caught up (or it's all watched).
-        // Since we filtered "completed", this implies "Caught up / Waiting for new season".
+        // Since we filtered "watched", this implies "Caught up / Waiting for new season".
 
         const lastAir = (showData as any).last_episode_to_air;
         const nextAir = (showData as any).next_episode_to_air;

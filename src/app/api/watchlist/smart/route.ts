@@ -6,7 +6,6 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 export const dynamic = "force-dynamic";
 
 type SmartItem = {
-  id: number;
   itemId: string;
   itemName: string;
   itemType: string;
@@ -99,10 +98,11 @@ export async function GET() {
   try {
     const [watchlistResult, ratingsResult, watchedResult] = await Promise.all([
       supabase
-        .from("user_watchlist")
-        .select("id, item_id, item_name, item_type, image_url, genres, created_at")
+        .from("user_media_status")
+        .select("item_id, item_name, item_type, image_url, genres, updated_at")
         .eq("user_id", userId)
-        .order("created_at", { ascending: false }),
+        .eq("status", "watchlist")
+        .order("updated_at", { ascending: false }),
       supabase
         .from("user_ratings")
         .select("item_id, item_type, score")
@@ -126,13 +126,12 @@ export async function GET() {
     const scored: SmartItem[] = watchlist.map((item) => {
       const { rating, reason } = predictRating(item.genres, profile);
       return {
-        id: item.id,
         itemId: item.item_id,
         itemName: item.item_name,
         itemType: item.item_type,
         imageUrl: item.image_url,
         genres: item.genres,
-        addedAt: item.created_at,
+        addedAt: item.updated_at,
         predictedRating: rating,
         reason,
       };

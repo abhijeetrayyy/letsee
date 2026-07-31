@@ -53,7 +53,10 @@ export async function POST(request: Request) {
   // Initialize the query — only items currently in Watched list (is_watched = true)
   let query = supabase
     .from("watched_items")
-    .select("*", { count: "exact" })
+    .select(
+      "item_id, item_type, item_name, image_url, item_adult, genres, watched_at, review_text, public_review_text",
+      { count: "exact" },
+    )
     .eq("user_id", userID)
     .eq("is_watched", true)
     .order("watched_at", { ascending: false });
@@ -82,13 +85,16 @@ export async function POST(request: Request) {
   const totalItems = count ?? 0;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
-  // Fetch ratings for this user; then keep only those for items on this page
+  // Fetch ratings for this user, scoped to just the item_ids on this page
+  // (not the user's entire ratings history) — then keep only exact item_id+item_type matches.
   let ratingsMap: Record<string, number> = {};
   if (items?.length) {
+    const pageItemIds = Array.from(new Set((items as { item_id: string }[]).map((i) => i.item_id)));
     const { data: ratings } = await supabase
       .from("user_ratings")
       .select("item_id, item_type, score")
-      .eq("user_id", userID);
+      .eq("user_id", userID)
+      .in("item_id", pageItemIds);
     const itemSet = new Set((items as { item_id: string; item_type: string }[]).map((i) => `${i.item_id}:${i.item_type}`));
     for (const r of (ratings ?? []) as { item_id: string; item_type: string; score: number }[]) {
       if (itemSet.has(`${r.item_id}:${r.item_type}`)) {
@@ -102,12 +108,13 @@ export async function POST(request: Request) {
   const tvItemIds = (items ?? []).filter((i: { item_type: string }) => i.item_type === "tv").map((i: { item_id: string }) => i.item_id);
   if (tvItemIds.length > 0) {
     const { data: tvRows } = await supabase
-      .from("user_tv_list")
-      .select("show_id, status")
+      .from("user_media_status")
+      .select("item_id, status")
       .eq("user_id", userID)
-      .in("show_id", tvItemIds);
-    for (const r of (tvRows ?? []) as { show_id: string; status: string }[]) {
-      tvStatusMap[r.show_id] = r.status;
+      .eq("item_type", "tv")
+      .in("item_id", tvItemIds);
+    for (const r of (tvRows ?? []) as { item_id: string; status: string }[]) {
+      tvStatusMap[r.item_id] = r.status;
     }
   }
 

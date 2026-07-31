@@ -5,7 +5,6 @@ import MediaCard from "@/components/cards/MediaCard";
 import { ArrowLeft, Filter, Star, Clock, Film, Tv, Sparkles, Trash2, Check } from "lucide-react";
 
 type SmartItem = {
-  id: number;
   itemId: string;
   itemName: string;
   itemType: string;
@@ -30,12 +29,19 @@ export default async function WatchlistPage() {
   if (!user) redirect("/login");
 
   const [watchlistResult, ratingsResult, watchedResult] = await Promise.all([
-    supabase.from("user_watchlist").select("id, item_id, item_name, item_type, image_url, genres, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
+    supabase.from("user_media_status").select("item_id, item_name, item_type, image_url, genres, updated_at").eq("user_id", user.id).eq("status", "watchlist").order("updated_at", { ascending: false }),
     supabase.from("user_ratings").select("item_id, item_type, score").eq("user_id", user.id),
     supabase.from("watched_items").select("item_id, item_type, genres").eq("user_id", user.id),
   ]);
 
-  const watchlist = watchlistResult.data ?? [];
+  const watchlist = (watchlistResult.data ?? []).map((row) => ({
+    itemId: row.item_id,
+    itemName: row.item_name,
+    itemType: row.item_type,
+    imageUrl: row.image_url,
+    genres: row.genres as string[] | null,
+    addedAt: row.updated_at,
+  }));
   const ratings = ratingsResult.data ?? [];
   const watched = watchedResult.data ?? [];
 
@@ -78,8 +84,8 @@ export default async function WatchlistPage() {
   });
 
   // Stats
-  const movieCount = watchlist.filter((i) => i.item_type === "movie").length;
-  const tvCount = watchlist.filter((i) => i.item_type === "tv").length;
+  const movieCount = watchlist.filter((i) => i.itemType === "movie").length;
+  const tvCount = watchlist.filter((i) => i.itemType === "tv").length;
   const allGenres = watchlist.flatMap((i) => (i.genres as string[]) || []).filter(Boolean);
   const genreCounts: Record<string, number> = {};
   for (const g of allGenres) genreCounts[g] = (genreCounts[g] || 0) + 1;
@@ -169,7 +175,7 @@ function WatchlistClient({ initialItems, topGenres }: { initialItems: any[]; top
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {initialItems.map((item: any) => (
             <MediaCard
-              key={item.id}
+              key={item.itemId}
               id={item.itemId}
               title={item.itemName}
               mediaType={item.itemType === "tv" ? "tv" : "movie"}

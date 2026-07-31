@@ -73,11 +73,11 @@ export async function GET(request: Request) {
     ] = await Promise.all([
       supabase.from("watched_items").select("id, item_id, item_name, item_type, genres, watched_at, is_watched").eq("user_id", userId),
       supabase.from("favorite_items").select("id", { count: "exact", head: true }).eq("user_id", userId),
-      supabase.from("user_watchlist").select("id", { count: "exact", head: true }).eq("user_id", userId),
+      supabase.from("user_media_status").select("item_id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "watchlist"),
       supabase.from("user_ratings").select("item_id, item_type, score").eq("user_id", userId),
       supabase.from("watched_episodes").select("id", { count: "exact", head: true }).eq("user_id", userId),
-      supabase.from("user_tv_list").select("show_id, status").eq("user_id", userId),
-      supabase.from("user_watchlist").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("is_watching", true),
+      supabase.from("user_media_status").select("item_id, status").eq("user_id", userId).eq("item_type", "tv"),
+      supabase.from("user_media_status").select("item_id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "watching"),
     ]);
 
     const watchedItems = watchedResult.data ?? [];
@@ -231,7 +231,7 @@ export async function GET(request: Request) {
 
     let tvCompletion: DashboardData["tvCompletion"] = null;
     if (tvList.length > 0) {
-      const completed = tvList.filter((t) => t.status === "completed").length;
+      const completed = tvList.filter((t) => t.status === "watched").length;
       tvCompletion = { completed, total: tvList.length, rate: Math.round((completed / tvList.length) * 100) };
     }
 

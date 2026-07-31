@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import Link from "next/link";
 import { getHomeContent } from "@/utils/homeData";
 import { createClient } from "@/utils/supabase/server";
@@ -15,6 +14,7 @@ import AiringSoon from "@components/home/AiringSoon";
 import PeopleYouMayKnow from "@components/home/PeopleYouMayKnow";
 import DiscoverUsers from "@components/home/DiscoverUser";
 import CommunityLeaderboard from "@components/home/CommunityLeaderboard";
+import ClubPickWidget from "@components/home/ClubPickWidget";
 import { Film, TrendingUp, Compass, Tv, Sparkles, Flame } from "lucide-react";
 
 async function getUsername(): Promise<string | null> {
@@ -28,8 +28,10 @@ async function getUsername(): Promise<string | null> {
 }
 
 export default async function Home() {
-  const { content, errors } = await getHomeContent();
-  const username = await getUsername();
+  const [{ content, errors }, username] = await Promise.all([
+    getHomeContent(),
+    getUsername(),
+  ]);
   const isLoggedIn = !!username;
 
   const hour = new Date().getHours();
@@ -104,8 +106,10 @@ export default async function Home() {
               {/* Community discovery */}
               {isLoggedIn && (
                 <>
+                  <ClubPickWidget />
                   <PeopleYouMayKnow />
                   <DiscoverUsers hideTitleLink />
+                  <CommunityLeaderboard />
                 </>
               )}
             </aside>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import useSWR from "swr";
+import { swrFetcher } from "@/utils/swrFetcher";
 
 type CompatibilityData = {
   compatibility: number;
@@ -12,23 +12,13 @@ type CompatibilityData = {
 };
 
 export default function FriendCompatibility({ profileId }: { profileId: string }) {
-  const [data, setData] = useState<CompatibilityData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading } = useSWR<CompatibilityData>(
+    `/api/compatibility?userId=${encodeURIComponent(profileId)}`,
+    swrFetcher,
+  );
 
-  useEffect(() => {
-    let mounted = true;
-    fetch(`/api/compatibility?userId=${encodeURIComponent(profileId)}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (mounted && d.compatibility !== undefined) setData(d);
-      })
-      .catch(() => {})
-      .finally(() => { if (mounted) setLoading(false); });
-    return () => { mounted = false; };
-  }, [profileId]);
-
-  if (loading) return null;
-  if (!data) return null;
+  if (isLoading) return null;
+  if (!data || data.compatibility === undefined) return null;
 
   const levelColor = data.compatibility >= 60
     ? "text-green-400"

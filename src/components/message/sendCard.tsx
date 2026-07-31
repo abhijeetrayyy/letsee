@@ -89,6 +89,8 @@ interface Props {
   onClose: () => void;
   data?: Media | null; // Movie or TV show data from props (optional)
   media_type: string | null;
+  initialMessage?: string;
+  preselectedUser?: { id: string; username: string };
 }
 
 /** Catches render errors inside the share modal so the page-level error boundary doesn't show. */
@@ -148,6 +150,8 @@ const SendMessageModal: React.FC<Props> = ({
   onClose,
   data,
   media_type,
+  initialMessage,
+  preselectedUser,
 }) => {
   const [search, setSearch] = useState<string>("");
   const [users, setUsers] = useState<User[]>([]);
@@ -408,7 +412,7 @@ const SendMessageModal: React.FC<Props> = ({
     }
   }, [data, message, selectedUsers, sender, buildCardMetadata, onClose]);
 
-  // Reset feedback state when modal opens
+  // Reset feedback state when modal opens, and seed any prefilled message/recipient
   useEffect(() => {
     if (isOpen) {
       setError(null);
@@ -419,7 +423,10 @@ const SendMessageModal: React.FC<Props> = ({
         clearTimeout(copyFeedbackTimeoutRef.current);
         copyFeedbackTimeoutRef.current = null;
       }
+      if (initialMessage) setMessage(initialMessage);
+      if (preselectedUser) setSelectedUsers([preselectedUser]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   // Escape to close; clear copy timeout on unmount/close

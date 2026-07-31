@@ -1,5 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { getAuthUserId } from "@/utils/apiAuth";
+import { canViewProfile } from "@/utils/profileVisibility";
 
 /**
  * GET /api/profile/stats/years?userId=...
@@ -12,6 +14,15 @@ export async function GET(request: Request) {
 
   if (!userId) {
     return jsonError("userId is required", 400);
+  }
+
+  const viewerId = await getAuthUserId();
+  const visibility = await canViewProfile(supabase, userId, viewerId);
+  if (!visibility.allowed) {
+    return jsonError(
+      visibility.reason === "not_found" ? "User not found" : "Forbidden",
+      visibility.reason === "not_found" ? 404 : 403,
+    );
   }
 
   const { data: items, error } = await supabase

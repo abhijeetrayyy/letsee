@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import useSWR from "swr";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { swrFetcher } from "@/utils/swrFetcher";
 
 type List = {
   id: number;
@@ -34,36 +35,32 @@ export default function ListsSection({
   profileId: string;
   isOwner?: boolean;
 }) {
-  const [lists, setLists] = useState<List[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchLists = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `/api/user-lists?userId=${encodeURIComponent(profileId)}`,
-        { credentials: "include" }
-      );
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setLists(data.lists ?? []);
-    } catch (e) {
-      console.error(e);
-      setLists([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [profileId]);
-
-  useEffect(() => {
-    fetchLists();
-  }, [fetchLists]);
+  const { data, error, isLoading, mutate } = useSWR<{ lists: List[] }>(
+    `/api/user-lists?userId=${encodeURIComponent(profileId)}`,
+    swrFetcher,
+  );
+  const lists = data?.lists ?? [];
+  const loading = isLoading;
 
   if (loading) {
     return (
       <div className="rounded-xl border border-surface-700/60 bg-surface-900/40 p-6 flex flex-col items-center justify-center gap-3 min-h-[200px]">
         <LoadingSpinner size="md" className="border-t-white shrink-0" />
         <p className="text-sm text-surface-500 animate-pulse">Loading lists…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-12 text-center flex flex-col items-center gap-3">
+        <p className="text-sm text-red-300">Couldn't load lists.</p>
+        <button
+          onClick={() => mutate()}
+          className="text-xs px-3 py-1.5 rounded-full border border-red-500/30 text-red-300 hover:bg-red-500/10 transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }

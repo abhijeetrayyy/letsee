@@ -15,17 +15,20 @@ type LikeButtonProps = {
 export default function LikeButton({
   targetType,
   targetId,
-  initialCount = 0,
-  initialLiked = false,
+  initialCount: initialCountProp,
+  initialLiked: initialLikedProp,
   size = "sm",
   onToggle,
 }: LikeButtonProps) {
-  const [liked, setLiked] = useState(initialLiked);
-  const [count, setCount] = useState(initialCount);
+  const hasInitialState = initialCountProp !== undefined || initialLikedProp !== undefined;
+  const [liked, setLiked] = useState(initialLikedProp ?? false);
+  const [count, setCount] = useState(initialCountProp ?? 0);
   const [loading, setLoading] = useState(false);
-  const [initDone, setInitDone] = useState(false);
+  const [initDone, setInitDone] = useState(hasInitialState);
 
-  // Fetch initial state on mount
+  // Fetch initial state on mount — skipped entirely when the caller already
+  // provided initialCount/initialLiked (e.g. batched from a list endpoint),
+  // so a page rendering many LikeButtons doesn't fire one GET per button.
   const fetchState = useCallback(async () => {
     try {
       const res = await fetch(
@@ -43,8 +46,9 @@ export default function LikeButton({
   }, [targetType, targetId]);
 
   useEffect(() => {
+    if (hasInitialState) return;
     fetchState();
-  }, [fetchState]);
+  }, [fetchState, hasInitialState]);
 
   const toggle = async () => {
     if (loading) return;

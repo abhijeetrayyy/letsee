@@ -1,21 +1,21 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import useSWRInfinite from "swr/infinite";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import TvShowCard from "@components/profile/TvShowCard";
 import TvCalendarView from "@components/profile/TvCalendarView";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
+import { swrFetcher, SwrFetchError } from "@/utils/swrFetcher";
 
-const INITIAL_LIMIT = 12;
-const VIEW_MORE_BATCH = 12;
+const PAGE_SIZE = 12;
 
 const TV_STATUS_LABELS: Record<string, string> = {
+  watchlist: "Watchlist",
   watching: "Watching",
-  completed: "Completed",
+  watched: "Watched",
   on_hold: "On Hold",
   dropped: "Dropped",
-  plan_to_watch: "Plan to Watch",
-  rewatching: "Rewatching",
   untagged: "Untagged",
 };
 
@@ -32,6 +32,8 @@ export type ProfileTvProgressItem = {
   tv_status: string | null;
 };
 
+type TvProgressPage = { items: ProfileTvProgressItem[]; total: number };
+
 interface ProfileTvProgressProps {
   userId: string;
   isOwner?: boolean;
@@ -41,91 +43,40 @@ export default function ProfileTvProgress({
   userId,
   isOwner = false,
 }: ProfileTvProgressProps) {
-  const [items, setItems] = useState<ProfileTvProgressItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [sortBy, setSortBy] = useState<"last_watched" | "name" | "progress">("last_watched");
   const [viewMode, setViewMode] = useState<"grid" | "list" | "calendar">("grid");
   const [editModalShowId, setEditModalShowId] = useState<string | null>(null);
   const [editModalShowName, setEditModalShowName] = useState("");
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchSlice = useCallback(
-    async (limit: number, offset: number, append: boolean, status: string = statusFilter) => {
-      const url = `/api/profile/tv-progress?userId=${encodeURIComponent(userId)}&limit=${limit}&offset=${offset}${status ? `&status=${status}` : ""}`;
-      const res = await fetch(url, { cache: "no-store" });
-      const data = await res.json().catch(() => ({}));
-      if (!data?.items) return [];
-      if (append) setItems((prev) => [...prev, ...data.items]);
-      else setItems(data.items);
-      if (data.total != null) setTotal(data.total);
-      return data.items;
-    },
-    [userId, statusFilter],
-  );
+  const getKey = (
+    pageIndex: number,
+    previousPageData: TvProgressPage | null,
+  ): string | null => {
+    if (previousPageData && previousPageData.items.length < PAGE_SIZE) return null;
+    const offset = pageIndex * PAGE_SIZE;
+    const statusParam = statusFilter ? `&status=${statusFilter}` : "";
+    return `/api/profile/tv-progress?userId=${encodeURIComponent(userId)}&limit=${PAGE_SIZE}&offset=${offset}${statusParam}`;
+  };
+
+  const { data, error, size, setSize, isLoading, isValidating, mutate } =
+    useSWRInfinite<TvProgressPage>(getKey, swrFetcher);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fetch(
-      `/api/profile/tv-progress?userId=${encodeURIComponent(userId)}&limit=${INITIAL_LIMIT}&offset=0${statusFilter ? `&status=${statusFilter}` : ""}`,
-      { cache: "no-store" },
-    )
-      .then((r) => r.json())
-      .then((data) => {
-        if (!cancelled) {
-          if (data?.error) {
-            setError(data.error);
-          } else {
-            if (data?.items) setItems(data.items);
-            if (data?.total != null) setTotal(data.total);
-            setError(null);
-          }
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setError("Failed to load progress details.");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [userId, statusFilter]);
+    setSize(1);
+  }, [statusFilter, setSize]);
 
-  const handleViewMore = useCallback(async () => {
-    const nextOffset = items.length;
-    const remaining = total - nextOffset;
-    if (remaining <= 0) return;
-    setLoadingMore(true);
-    try {
-      await fetchSlice(Math.min(VIEW_MORE_BATCH, remaining), nextOffset, true);
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [items.length, total, fetchSlice]);
+  const items = data ? data.flatMap((p) => p.items) : [];
+  const total = data?.[0]?.total ?? 0;
+  const loading = isLoading;
+  const loadingMore = isValidating && size > 1;
+  const remainingCount = total - items.length;
+  const hasMore = remainingCount > 0;
 
-  const refreshList = useCallback(() => {
-    setLoading(true);
-    fetch(
-      `/api/profile/tv-progress?userId=${encodeURIComponent(userId)}&limit=${Math.max(items.length, INITIAL_LIMIT)}&offset=0${statusFilter ? `&status=${statusFilter}` : ""}`,
-      { cache: "no-store" },
-    )
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.error) {
-          setError(data.error);
-        } else {
-          if (data?.items) setItems(data.items);
-          if (data?.total != null) setTotal(data.total);
-          setError(null);
-        }
-      })
-      .catch(() => setError("Failed to refresh list."))
-      .finally(() => setLoading(false));
-  }, [userId, items.length, statusFilter]);
+  const handleViewMore = () => {
+    if (hasMore && !loadingMore) setSize((prev) => prev + 1);
+  };
 
   const handleMarkNext = async (showId: string) => {
     const item = items.find((i) => i.show_id === showId);
@@ -141,7 +92,7 @@ export default function ProfileTvProgress({
           episodeNumber: item.next_episode,
         }),
       });
-      if (res.ok) refreshList();
+      if (res.ok) await mutate();
     } catch (err) {
       console.error("Failed to mark next episode:", err);
     } finally {
@@ -159,9 +110,6 @@ export default function ProfileTvProgress({
     return 0;
   });
 
-  const remainingCount = total - items.length;
-  const hasMore = remainingCount > 0;
-
   if (loading) {
     return (
       <div className="rounded-xl border border-surface-700/60 bg-surface-900/40 p-6 flex flex-col items-center justify-center gap-3 min-h-[120px]">
@@ -172,11 +120,13 @@ export default function ProfileTvProgress({
   }
 
   if (error) {
+    const message =
+      error instanceof SwrFetchError ? error.message : "Failed to load progress details.";
     return (
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-6 flex flex-col items-center gap-3">
-        <p className="text-amber-200 text-sm font-medium text-center">{error}</p>
+        <p className="text-amber-200 text-sm font-medium text-center">{message}</p>
         <button
-          onClick={refreshList}
+          onClick={() => mutate()}
           className="px-4 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 text-xs transition-colors"
         >
           Try Again
@@ -194,20 +144,15 @@ export default function ProfileTvProgress({
           {[
             { id: "", label: "All" },
             { id: "watching", label: "Watching" },
-            { id: "completed", label: "Completed" },
+            { id: "watched", label: "Watched" },
             { id: "on_hold", label: "On Hold" },
             { id: "dropped", label: "Dropped" },
-            { id: "plan_to_watch", label: "Planned" },
+            { id: "watchlist", label: "Watchlist" },
             { id: "untagged", label: "Untagged" },
           ].map((s) => (
             <button
               key={s.id}
-              onClick={() => {
-                if (statusFilter === s.id) return;
-                setLoading(true);
-                setItems([]);
-                setStatusFilter(s.id);
-              }}
+              onClick={() => setStatusFilter(s.id)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 statusFilter === s.id
                   ? "bg-surface-800 text-white shadow-sm"
@@ -321,6 +266,7 @@ export default function ProfileTvProgress({
                 isOwner={isOwner}
                 onMarkNext={handleMarkNext}
                 markingId={markingId}
+                onEpisodesChanged={() => mutate()}
               />
             ))}
           </div>
@@ -371,7 +317,7 @@ export default function ProfileTvProgress({
                       : 0;
                     const statusColor = item.tv_status === "watching"
                       ? "text-emerald-400"
-                      : item.tv_status === "completed"
+                      : item.tv_status === "watched"
                       ? "text-brand-400"
                       : item.tv_status === "dropped"
                       ? "text-red-400"
@@ -499,7 +445,7 @@ export default function ProfileTvProgress({
           onClose={() => setEditModalShowId(null)}
           onSuccess={() => {
             setEditModalShowId(null);
-            refreshList();
+            mutate();
           }}
         />
       )}

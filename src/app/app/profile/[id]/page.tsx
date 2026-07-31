@@ -16,9 +16,11 @@ import FriendCompatibility from "@components/profile/FriendCompatibility";
 import ActivityFeed from "@components/profile/ActivityFeed";
 import ProfileTvProgress from "@components/profile/ProfileTvProgress";
 import ProfileInsights from "@components/profile/ProfileInsights";
+import AchievementsShelf from "@components/profile/AchievementsShelf";
 import ShareProfileCard from "@components/profile/ShareProfileCard";
 import StatsSection from "@components/profile/StatsSection";
-import { computeTasteSummary, type TasteProfile } from "@/utils/tasteProfile";
+import DeferredSection from "@components/profile/DeferredSection";
+import { computeTasteSummary, buildTasteInsight, type TasteProfile, type TasteInsight } from "@/utils/tasteProfile";
 
 export const dynamic = "force-dynamic";
 
@@ -85,14 +87,20 @@ async function fetchProfileData(username: string | null, currentUserId: string |
   // Currently watching
   const { data: currentlyWatching } = await supabase.from("user_media_status").select("item_id, item_type, item_name, image_url, genres").eq("user_id", profileId).eq("status", "watching").order("updated_at", { ascending: false }).limit(6);
 
-  // Taste profile
+  // Taste profile + insight text (computed once here so ProfileInsights/StatsSection
+  // don't need to independently re-query watched_items/user_ratings for the same data).
   let tasteProfile: TasteProfile = { topGenres: [], loves: [], avoids: [], ratesHighest: null, totalGenresExplored: 0 };
+  let tasteInsight: TasteInsight | null = null;
   try {
     const [{ data: watchedItems }, { data: ratings }] = await Promise.all([
       supabase.from("watched_items").select("item_id, item_type, genres").eq("user_id", profileId).eq("is_watched", true).not("genres", "is", null),
       supabase.from("user_ratings").select("item_id, item_type, score").eq("user_id", profileId),
     ]);
-    if (watchedItems && ratings) tasteProfile = computeTasteSummary(watchedItems, ratings);
+    if (watchedItems && ratings) {
+      tasteProfile = computeTasteSummary(watchedItems, ratings);
+      const avgRating = ratings.length ? ratings.reduce((sum, r) => sum + r.score, 0) / ratings.length : null;
+      tasteInsight = buildTasteInsight(user.username, tasteProfile, watchedItems.length, avgRating);
+    }
   } catch {}
 
   // Featured list and pinned review
@@ -107,7 +115,7 @@ async function fetchProfileData(username: string | null, currentUserId: string |
     if (pr) pinnedReview = pr;
   }
 
-  return { user, isOwner, stats, followData, favoriteDisplay: favoriteDisplay ?? [], recentActivity: recentActivity ?? [], currentlyWatching: currentlyWatching ?? [], tasteProfile, featuredList, pinnedReview };
+  return { user, isOwner, stats, followData, favoriteDisplay: favoriteDisplay ?? [], recentActivity: recentActivity ?? [], currentlyWatching: currentlyWatching ?? [], tasteProfile, tasteInsight, featuredList, pinnedReview };
 }
 
 export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -119,7 +127,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   const profileData = await fetchProfileData(username, currentUserId);
   if (!profileData) return notFound();
 
-  const { user, isOwner, stats, followData, favoriteDisplay, recentActivity, currentlyWatching, tasteProfile, featuredList, pinnedReview } = profileData;
+  const { user, isOwner, stats, followData, favoriteDisplay, recentActivity, currentlyWatching, tasteProfile, tasteInsight, featuredList, pinnedReview } = profileData;
   if (!username && user.username) redirect(`/app/profile/${user.username}`);
 
   const visibility = String(user?.visibility ?? "public").toLowerCase();
@@ -135,7 +143,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
           username={user.username} avatarSrc={avatarSrc} bannerUrl={user.banner_url || null}
           tagline={user.tagline || null} about={user.about || null} createdAt={user.created_at || ""}
           isOwner={isOwner} followersCount={followData.followersCount} followingCount={followData.followingCount}
-          followButton={!isOwner && currentUserId ? <FollowerBtnClient profileId={user.id} currentUserId={currentUserId!} initialStatus={followData.isFollowing ? "following" : "follow"} /> : <></>}
+          followButton={!isOwner && currentUserId ? <FollowerBtnClient profileId={user.id} currentUserId={currentUserId!} initialStatus={followData.isFollowing ? "following" : "follow"} profileVisibility={visibility} /> : <></>}
           messageLink={!isOwner && currentUserId ? <Link href={`/app/messages/${user.id}`} className="inline-flex items-center px-5 py-2.5 rounded-full bg-brand-500/10 hover:bg-brand-500/15 text-brand-300 text-sm font-medium border border-brand-500/20 transition-colors">Message</Link> : <></>}
           loginPrompt={!currentUserId ? <Logornot message="Log in to follow or message." /> : <></>}
           visibilityControl={isOwner ? <Visibility /> : <></>}
@@ -151,7 +159,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             visibility={visibility}
             stats={{ watchedCount: stats.watchedCount, favoriteCount: stats.favoriteCount, watchlistCount: stats.watchlistCount, followersCount: followData.followersCount, followingCount: followData.followingCount }}
             isLoggedIn={!!currentUserId}
-            followButton={currentUserId ? <FollowerBtnClient profileId={user.id} currentUserId={currentUserId} initialStatus={followData.isFollowing ? "following" : "follow"} /> : undefined}
+            followButton={currentUserId ? <FollowerBtnClient profileId={user.id} currentUserId={currentUserId} initialStatus={followData.isFollowing ? "following" : "follow"} profileVisibility={visibility} /> : undefined}
             loginPrompt={!currentUserId ? <Logornot message="Log in to follow." /> : undefined}
           />
         ) : (
@@ -175,7 +183,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
                 {/* Profile insights */}
                 <div>
-                  <ProfileInsights username={user.username} profileId={user.id} />
+                  <ProfileInsights insight={tasteInsight} />
                 </div>
               </div>
 
@@ -194,6 +202,10 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   </div>
                 )}
                 {!isOwner && currentUserId && <FriendCompatibility profileId={user.id} />}
+              </div>
+
+              <div className="mt-4">
+                <AchievementsShelf userId={user.id} />
               </div>
             </section>
 
@@ -234,7 +246,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 <span className="w-1 h-5 rounded-full bg-emerald-500" />
                 Films
               </h2>
-              <WatchedGrid userId={user.id} isOwner={isOwner} />
+              <DeferredSection>
+                <WatchedGrid userId={user.id} isOwner={isOwner} />
+              </DeferredSection>
             </section>
 
             {/* ═══ TV PROGRESS ═══ */}
@@ -243,7 +257,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 <span className="w-1 h-5 rounded-full bg-blue-500" />
                 TV Progress
               </h2>
-              <ProfileTvProgress userId={user.id} isOwner={isOwner} />
+              <DeferredSection>
+                <ProfileTvProgress userId={user.id} isOwner={isOwner} />
+              </DeferredSection>
             </section>
 
             {/* ═══ LISTS ═══ */}
@@ -252,7 +268,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 <span className="w-1 h-5 rounded-full bg-rose-500" />
                 Lists
               </h2>
-              <ListsSection profileId={user.id} isOwner={isOwner} />
+              <DeferredSection>
+                <ListsSection profileId={user.id} isOwner={isOwner} />
+              </DeferredSection>
             </section>
 
             {/* ═══ DIARY ═══ */}
@@ -261,7 +279,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 <span className="w-1 h-5 rounded-full bg-amber-500" />
                 Film Diary
               </h2>
-              <FilmDiary userId={user.id} isOwner={isOwner} />
+              <DeferredSection>
+                <FilmDiary userId={user.id} isOwner={isOwner} />
+              </DeferredSection>
             </section>
 
             {/* ═══ REVIEWS ═══ */}
@@ -270,7 +290,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 <span className="w-1 h-5 rounded-full bg-brand-500" />
                 Reviews
               </h2>
-              <ReviewsSection userId={user.id} isOwner={isOwner} />
+              <DeferredSection>
+                <ReviewsSection userId={user.id} isOwner={isOwner} />
+              </DeferredSection>
             </section>
 
             {/* ═══ STATS ═══ */}
@@ -279,7 +301,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 <span className="w-1 h-5 rounded-full bg-accent-gold" />
                 Stats
               </h2>
-              <StatsSection userId={user.id} isOwner={isOwner} stats={{ watchedCount: stats.watchedCount, favoriteCount: stats.favoriteCount, watchlistCount: stats.watchlistCount, watchingCount: stats.watchingCount, watchedThisYear: stats.watchedThisYear, movieCount: stats.movieCount, tvCount: stats.tvCount, episodesCount: 0 }} />
+              <DeferredSection>
+                <StatsSection
+                  userId={user.id}
+                  isOwner={isOwner}
+                  stats={{ watchedCount: stats.watchedCount, favoriteCount: stats.favoriteCount, watchlistCount: stats.watchlistCount, watchingCount: stats.watchingCount, watchedThisYear: stats.watchedThisYear, movieCount: stats.movieCount, tvCount: stats.tvCount, episodesCount: 0 }}
+                  initialGenres={tasteProfile.topGenres.map((g) => ({ genre: g.genre, count: g.count }))}
+                />
+              </DeferredSection>
             </section>
 
             {/* ═══ SHARE ═══ */}

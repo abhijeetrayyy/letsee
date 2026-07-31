@@ -18,7 +18,7 @@ export type ProfileTvProgressItem = {
   next_season: number | null;
   next_episode: number | null;
   all_complete: boolean;
-  /** TV list status: watching | completed | on_hold | dropped | plan_to_watch */
+  /** user_media_status status: watchlist | watching | watched | on_hold | dropped */
   tv_status: string | null;
 };
 
@@ -79,48 +79,36 @@ export async function GET(req: NextRequest) {
       return jsonError("TMDB API key is missing", 500);
     }
 
-    // 1. Aggregate show IDs from all 4 sources
-    const [listRes, watchedEpRes, watchLaterRes, watchedItemRes] =
-      await Promise.all([
-        supabase
-          .from("user_tv_list")
-          .select("show_id, status, updated_at")
-          .eq("user_id", userId),
-        supabase
-          .from("watched_episodes")
-          .select("show_id")
-          .eq("user_id", userId),
-        supabase
-          .from("user_watchlist")
-          .select("item_id")
-          .eq("user_id", userId)
-          .eq("item_type", "tv"),
-        supabase
-          .from("watched_items")
-          .select("item_id")
-          .eq("user_id", userId)
-          .eq("item_type", "tv")
-          .eq("is_watched", true),
-      ]);
+    // 1. Aggregate show IDs from user_media_status (canonical) plus any
+    // watched_episodes rows that predate a show having a status row.
+    const [statusRes, watchedEpRes] = await Promise.all([
+      supabase
+        .from("user_media_status")
+        .select("item_id, status, updated_at")
+        .eq("user_id", userId)
+        .eq("item_type", "tv"),
+      supabase
+        .from("watched_episodes")
+        .select("show_id")
+        .eq("user_id", userId),
+    ]);
 
-    const taggedData = listRes.data ?? [];
+    const taggedData = statusRes.data ?? [];
     const statusMap = new Map<string, string>();
     const timeMap = new Map<string, string>();
     for (const item of taggedData) {
-      statusMap.set(String(item.show_id), item.status);
-      timeMap.set(String(item.show_id), item.updated_at);
+      statusMap.set(String(item.item_id), item.status);
+      timeMap.set(String(item.item_id), item.updated_at);
     }
 
     const allIds = new Set<string>();
-    taggedData.forEach((r) => allIds.add(String(r.show_id)));
+    taggedData.forEach((r) => allIds.add(String(r.item_id)));
     (watchedEpRes.data ?? []).forEach((r) => allIds.add(String(r.show_id)));
-    (watchLaterRes.data ?? []).forEach((r) => allIds.add(String(r.item_id)));
-    (watchedItemRes.data ?? []).forEach((r) => allIds.add(String(r.item_id)));
 
     let filteredIds: string[] = [];
 
     if (statusFilter === "untagged") {
-      // Only items that are NOT in user_tv_list
+      // Only items that have no user_media_status row (tracked via episodes only)
       filteredIds = Array.from(allIds).filter((id) => !statusMap.has(id));
     } else if (statusFilter) {
       // Filter by specific status
@@ -188,7 +176,7 @@ export async function GET(req: NextRequest) {
 
           for (const season of seasons) {
             const sn = Number((season as any).season_number);
-            if (sn < 0 || Number.isNaN(sn)) continue;
+            if (sn <= 0 || Number.isNaN(sn)) continue; // Skip specials (season 0)
             const count = Number((season as any).episode_count) || 0;
             seasonCounts.set(sn, count);
             for (let ep = 1; ep <= count; ep++) {

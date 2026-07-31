@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 import { MessageCircle, Send, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import toast from "react-hot-toast";
+import LikeButton from "@components/reactions/LikeButton";
 
-interface Comment { id: number; user_id: string; body: string; created_at: string; parent_id: number|null; users: { username: string|null; avatar_url: string|null }; }
+interface Comment { id: number; user_id: string; body: string; created_at: string; parent_id: number|null; users: { username: string|null; avatar_url: string|null }; reaction_count: number; viewer_liked: boolean; }
 
 export default function Comments({ itemId, itemType }: { itemId: string; itemType: string }) {
   const [comments, setComments] = useState<Comment[]>([]);
@@ -72,9 +73,10 @@ export default function Comments({ itemId, itemType }: { itemId: string; itemTyp
                 <span className="text-[10px] text-surface-500">{timeAgo(c.created_at)}</span>
               </div>
               <p className="text-sm text-surface-300 mt-0.5 leading-relaxed">{c.body}</p>
-              <div className="flex items-center gap-3 mt-1">
-                {isAuthenticated && <button onClick={()=>{setReplyTo(c.id);setBody("");}} className="text-[10px] text-surface-500 hover:text-brand-400">Reply</button>}
-                {isAuthenticated && <button onClick={()=>remove(c.id)} className="text-[10px] text-surface-600 hover:text-red-400 opacity-0 group-hover:opacity-100"><Trash2 className="size-3"/></button>}
+              <div className="flex items-center gap-1 mt-1">
+                <LikeButton targetType="comment" targetId={c.id} initialCount={c.reaction_count} initialLiked={c.viewer_liked} size="sm" />
+                {isAuthenticated && <button onClick={()=>{setReplyTo(c.id);setBody("");}} className="text-[10px] text-surface-500 hover:text-brand-400 px-2">Reply</button>}
+                {isAuthenticated && <button onClick={()=>remove(c.id)} className="text-[10px] text-surface-600 hover:text-red-400 opacity-0 group-hover:opacity-100 px-2"><Trash2 className="size-3"/></button>}
               </div>
               {replies(c.id).map(r => (
                 <div key={r.id} className="flex gap-2 mt-2 ml-4 pl-3 border-l-2 border-surface-800">
@@ -84,6 +86,7 @@ export default function Comments({ itemId, itemType }: { itemId: string; itemTyp
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5"><Link href={`/app/profile/${r.users?.username||""}`} className="text-[10px] font-semibold text-white">@{r.users?.username}</Link><span className="text-[9px] text-surface-500">{timeAgo(r.created_at)}</span></div>
                     <p className="text-xs text-surface-400 mt-0.5">{r.body}</p>
+                    <LikeButton targetType="comment" targetId={r.id} initialCount={r.reaction_count} initialLiked={r.viewer_liked} size="sm" />
                   </div>
                 </div>
               ))}

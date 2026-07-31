@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Share2, Camera, Download } from "lucide-react";
+import { getPosterUrl } from "@/utils/imageUrl";
 
 interface ShareProfileCardProps {
   username: string;
@@ -117,7 +118,7 @@ export default function ShareProfileCard({
                 {tasteInFour.map((item, i) => (
                   <div key={i} className="rounded-xl overflow-hidden bg-surface-800 aspect-[2/3]">
                     {item.image_url ? (
-                      <img src={item.image_url} alt={item.item_name} className="w-full h-full object-cover" />
+                      <img src={getPosterUrl(item.image_url)} alt={item.item_name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-surface-600 text-xs">
                         {item.item_name}

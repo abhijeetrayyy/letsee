@@ -61,6 +61,19 @@ export async function PUT(req: NextRequest) {
     // Non-critical, stats will be eventually consistent
   }
 
+  // Fire-and-forget: don't let achievement checks (several COUNT(*) scans) slow this response down
+  if (status === "watched") {
+    void supabase.rpc("check_achievements", { p_user_id: userId, p_action: "watch" })
+      .then(
+        ({ data }) => {
+          for (const row of data ?? []) {
+            void supabase.rpc("award_achievement", { p_user_id: userId, p_achievement_id: row.achievement_id });
+          }
+        },
+        () => {}
+      );
+  }
+
   return jsonSuccess({ ok: true, status });
 }
 

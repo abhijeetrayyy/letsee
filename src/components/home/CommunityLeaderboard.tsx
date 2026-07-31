@@ -12,7 +12,7 @@ export default function CommunityLeaderboard() {
     fetch("/api/HomeDiscover", { credentials: "include" })
       .then(r => r.json().catch(()=>({})))
       .then(d => {
-        const u = (d.users ?? []).slice(0, 10).map((u: any, i: number) => ({ rank: i+1, id: u.id??u.user_id, username: u.username??"user", avatar: u.avatar_url??null, count: u.watched_count??0, tagline: u.about??null }));
+        const u = (d.users ?? []).slice(0, 10).map((u: any, i: number) => ({ rank: i+1, id: u.id ?? u.user_id ?? u.username, username: u.username??"user", avatar: u.avatar_url??null, count: u.watched_count??0, tagline: u.about??null }));
         setUsers(u.sort((a:any,b:any) => b.count - a.count));
       }).catch(()=>{}).finally(()=>setLoading(false));
   }, []);

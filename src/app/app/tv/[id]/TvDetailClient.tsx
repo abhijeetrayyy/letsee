@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import useSWR from "swr";
 import Link from "next/link";
 import { Star, Clock, Globe, Play, Share2, Tv, Users, Tag } from "lucide-react";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
-import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
+import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import UserRating from "@components/movie/UserRating";
 import WatchedReview from "@components/movie/WatchedReview";
 import PublicReviews from "@components/movie/PublicReviews";
@@ -15,6 +16,7 @@ import EpisodeListWithWatched from "@components/tv/EpisodeListWithWatched";
 import ShareModal from "@components/social/ShareModal";
 import Comments from "@components/social/Comments";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
+import { swrFetcher } from "@/utils/swrFetcher";
 
 const LANG: Record<string, string> = {
   en: "English", es: "Spanish", fr: "French", de: "German",
@@ -26,8 +28,15 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
   const isWatched = getStatus(String(show.id)) === "watched";
   const [showTrailer, setShowTrailer] = useState(false);
   const [markWatchedOpen, setMarkWatchedOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [activeSeason, setActiveSeason] = useState<number>(1);
   const [tvStatus, setTvStatus] = useState<string | null>(null);
+
+  const { data: seasonEpisodesData, isLoading: episodesLoading } = useSWR<{ episodes: any[] }>(
+    `/api/tv-season-episodes?showId=${encodeURIComponent(show.id)}&season=${activeSeason}`,
+    swrFetcher,
+  );
+  const activeSeasonEpisodes = seasonEpisodesData?.episodes ?? [];
 
   // Fetch current TV status
   useEffect(() => {
@@ -74,15 +83,23 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
         </div>
       )}
 
-      {/* Mark TV Watched modal */}
-      <MarkTVWatchedModal
-        showId={String(show.id)}
-        showName={show.name}
-        seasons={seasons.map((s: any) => ({ season_number: s.season_number, name: s.name, episode_count: s.episode_count }))}
-        isOpen={markWatchedOpen}
-        onClose={() => setMarkWatchedOpen(false)}
-        onSuccess={() => setMarkWatchedOpen(false)}
-        watchedPayload={{ itemId: show.id, name: show.name, imgUrl: show.poster_path ? `https://image.tmdb.org/t/p/w342${show.poster_path}` : "", adult: show.adult ?? false, genres: genres.map((g: any) => g.name) }}
+      {/* Episode Management modal */}
+      {markWatchedOpen && (
+        <EpisodeManagementModal
+          showId={String(show.id)}
+          showName={show.name}
+          isOpen={markWatchedOpen}
+          onClose={() => setMarkWatchedOpen(false)}
+          onSuccess={() => setMarkWatchedOpen(false)}
+        />
+      )}
+
+      <ShareModal
+        title={show.name}
+        mediaType="tv"
+        itemId={show.id}
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
       />
 
       {/* Hero */}
@@ -161,7 +178,7 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
                     <Play className="size-4 fill-current" /> Trailer
                   </button>
                 )}
-                <button onClick={() => navigator.clipboard?.writeText(window.location.href)} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-800/60 text-surface-300 hover:text-white border border-surface-700/50 text-sm font-medium transition-colors">
+                <button onClick={() => setShareModalOpen(true)} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-800/60 text-surface-300 hover:text-white border border-surface-700/50 text-sm font-medium transition-colors">
                   <Share2 className="size-4" /> Share
                 </button>
               </div>
@@ -176,7 +193,7 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
                     className="bg-surface-800 border border-surface-700 rounded-lg px-3 py-1.5 text-sm text-surface-200"
                   >
                     <option value="watching">Watching</option>
-                    <option value="completed">Completed</option>
+                    <option value="watched">Watched</option>
                     <option value="on_hold">On Hold</option>
                     <option value="dropped">Dropped</option>
                   </select>
@@ -227,7 +244,8 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
                 <EpisodeListWithWatched
                   showId={String(show.id)}
                   seasonNumber={activeSeason}
-                  episodes={[]}
+                  episodes={activeSeasonEpisodes}
+                  episodesLoading={episodesLoading}
                   allSeasons={seasons.map((s: any) => ({ id: s.id, season_number: s.season_number, episode_count: s.episode_count }))}
                 />
               )}

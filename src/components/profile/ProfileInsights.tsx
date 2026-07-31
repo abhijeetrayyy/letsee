@@ -1,64 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Sparkles } from "lucide-react";
-
-interface TasteInsight {
-  summary: string;
-  topGenres: string[];
-  watchingStyle: string;
-  recommendation: string;
-}
+import type { TasteInsight } from "@/utils/tasteProfile";
 
 interface ProfileInsightsProps {
-  username: string;
-  profileId: string;
+  insight: TasteInsight | null;
 }
 
-export default function ProfileInsights({ username, profileId }: ProfileInsightsProps) {
-  const [insight, setInsight] = useState<TasteInsight | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Only fetch if we haven't already
-    if (insight) return;
-
-    let cancelled = false;
-    setLoading(true);
-
-    fetch(`/api/profile/ai-summary?userId=${encodeURIComponent(profileId)}`, {
-      cache: "no-store",
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error("Failed");
-        return r.json();
-      })
-      .then((data) => {
-        if (!cancelled && data.summary) {
-          setInsight(data);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setError("Couldn't load insights");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [profileId, insight]);
-
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-brand-500/10 bg-brand-500/3 p-4 animate-pulse">
-        <div className="h-3 bg-brand-500/10 rounded w-3/4 mb-2" />
-        <div className="h-3 bg-brand-500/10 rounded w-1/2" />
-      </div>
-    );
-  }
-
-  if (error || !insight) return null;
+export default function ProfileInsights({ insight }: ProfileInsightsProps) {
+  if (!insight || !insight.summary) return null;
 
   return (
     <div className="rounded-xl border border-brand-500/10 bg-brand-500/3 p-4">
@@ -80,7 +30,9 @@ export default function ProfileInsights({ username, profileId }: ProfileInsights
         ))}
       </div>
 
-      <p className="text-xs text-white/40 mt-2 italic">{insight.watchingStyle}</p>
+      {insight.watchingStyle && (
+        <p className="text-xs text-white/40 mt-2 italic">{insight.watchingStyle}</p>
+      )}
     </div>
   );
 }

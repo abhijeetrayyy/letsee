@@ -11,6 +11,7 @@ export default function StatsSection({
   userId,
   isOwner = false,
   stats,
+  initialGenres,
 }: {
   userId: string;
   isOwner?: boolean;
@@ -24,43 +25,37 @@ export default function StatsSection({
     tvCount: number;
     episodesCount: number;
   };
+  /** Genre counts already computed server-side (from the profile page's taste
+   * profile) so this component doesn't need its own /api/profile/stats/genres
+   * round trip for data the parent already has. */
+  initialGenres?: GenreStat[];
 }) {
-  const [topGenres, setTopGenres] = useState<GenreStat[]>([]);
+  const [topGenres] = useState<GenreStat[]>(initialGenres ?? []);
   const [ratingDistribution, setRatingDistribution] = useState<RatingStat[]>([]);
   const [yearlyActivity, setYearlyActivity] = useState<YearStat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
-      // Fetch genres
-      const genresRes = await fetch(
-        `/api/profile/stats/genres?userId=${encodeURIComponent(userId)}`
-      );
-      if (genresRes.ok) {
-        const genresData = await genresRes.json();
-        setTopGenres(genresData.data ?? []);
+      const [ratingsRes, yearsRes] = await Promise.all([
+        fetch(`/api/profile/stats/ratings?userId=${encodeURIComponent(userId)}`),
+        fetch(`/api/profile/stats/years?userId=${encodeURIComponent(userId)}`),
+      ]);
+
+      if (!ratingsRes.ok || !yearsRes.ok) {
+        setError(true);
+        return;
       }
 
-      // Fetch rating distribution
-      const ratingsRes = await fetch(
-        `/api/profile/stats/ratings?userId=${encodeURIComponent(userId)}`
-      );
-      if (ratingsRes.ok) {
-        const ratingsData = await ratingsRes.json();
-        setRatingDistribution(ratingsData.data ?? []);
-      }
-
-      // Fetch yearly activity
-      const yearsRes = await fetch(
-        `/api/profile/stats/years?userId=${encodeURIComponent(userId)}`
-      );
-      if (yearsRes.ok) {
-        const yearsData = await yearsRes.json();
-        setYearlyActivity(yearsData.data ?? []);
-      }
+      const [ratingsData, yearsData] = await Promise.all([ratingsRes.json(), yearsRes.json()]);
+      setRatingDistribution(ratingsData.data ?? []);
+      setYearlyActivity(yearsData.data ?? []);
     } catch (e) {
       console.error(e);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -75,6 +70,20 @@ export default function StatsSection({
       <div className="rounded-xl border border-surface-700/60 bg-surface-900/40 p-6 flex flex-col items-center justify-center gap-3 min-h-[200px]">
         <LoadingSpinner size="md" className="border-t-white shrink-0" />
         <p className="text-sm text-surface-500 animate-pulse">Loading stats…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6 flex flex-col items-center justify-center gap-3 min-h-[200px]">
+        <p className="text-sm text-red-300">Couldn't load stats.</p>
+        <button
+          onClick={() => fetchData()}
+          className="text-xs px-3 py-1.5 rounded-full border border-red-500/30 text-red-300 hover:bg-red-500/10 transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }

@@ -577,12 +577,11 @@ export default function SettingsPage() {
                   onChange={(e) => setDefaultTvStatus(e.target.value)}
                   className="w-full rounded-lg bg-surface-800 border border-surface-600 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
+                  <option value="watchlist">Watchlist</option>
                   <option value="watching">Watching</option>
-                  <option value="plan_to_watch">Plan to watch</option>
-                  <option value="completed">Completed</option>
+                  <option value="watched">Watched</option>
                   <option value="on_hold">On hold</option>
                   <option value="dropped">Dropped</option>
-                  <option value="rewatching">Rewatching</option>
                 </select>
               </div>
             </section>

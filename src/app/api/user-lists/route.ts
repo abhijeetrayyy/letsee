@@ -146,5 +146,16 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return jsonError(error.message || "Failed to create list", 500);
+
+  void supabase.rpc("check_achievements", { p_user_id: user.user.id, p_action: "list" })
+    .then(
+      ({ data }) => {
+        for (const row of data ?? []) {
+          void supabase.rpc("award_achievement", { p_user_id: user.user.id, p_achievement_id: row.achievement_id });
+        }
+      },
+      () => {}
+    );
+
   return jsonSuccess({ list: { ...list, items_count: 0 } }, { maxAge: 0 });
 }

@@ -18,10 +18,11 @@ export async function GET() {
   }
 
   const { data: watchlist } = await supabase
-    .from("user_watchlist")
+    .from("user_media_status")
     .select("item_id")
     .eq("user_id", user.user.id)
     .eq("item_type", "movie")
+    .eq("status", "watchlist")
     .limit(30);
 
   const movieIds = (watchlist ?? []).map((r) => r.item_id).filter(Boolean);

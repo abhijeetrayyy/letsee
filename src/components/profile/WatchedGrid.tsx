@@ -4,6 +4,8 @@ import MediaCard from "@/components/cards/MediaCard";
 import SendMessageModal from "@components/message/sendCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import useSWRInfinite from "swr/infinite";
+import { SwrFetchError } from "@/utils/swrFetcher";
 
 function formatWatchedDate(iso: string): string {
   try {
@@ -45,6 +47,23 @@ const genreList = [
   "War & Politics",
 ];
 
+type WatchedPage = { data: any[]; totalItems: number; totalPages: number };
+
+async function watchedPageFetcher(
+  key: [string, number, string | null, string | undefined],
+): Promise<WatchedPage> {
+  const [userID, page, genre, itemType] = key;
+  const response = await fetch(`/api/UserWatchedPagination`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userID, page, genre, itemType }),
+  });
+  if (!response.ok) {
+    throw new SwrFetchError("Failed to fetch watched items", response.status);
+  }
+  return response.json();
+}
+
 export default function WatchedGrid({
   userId,
   isOwner = false,
@@ -52,73 +71,47 @@ export default function WatchedGrid({
   userId: string;
   isOwner?: boolean;
 }) {
-  const [movies, setMovies] = useState<any[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [genreFilter, setGenreFilter] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<string | undefined>(undefined);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareCardData, setShareCardData] = useState<any>(null);
 
-  const fetchMovies = useCallback(
-    async (
-      page: number,
-      genre: string | null = null,
-      type: string | undefined = activeType,
-    ) => {
-      if (loading) return;
+  const getKey = (
+    pageIndex: number,
+    previousPageData: WatchedPage | null,
+  ): [string, number, string | null, string | undefined] | null => {
+    if (previousPageData && previousPageData.data.length === 0) return null;
+    return [userId, pageIndex + 1, genreFilter, activeType];
+  };
 
-      setLoading(true);
-
-      try {
-        const response = await fetch(`/api/UserWatchedPagination`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ userID: userId, page, genre, itemType: type }),
-        });
-
-        if (!response.ok) throw new Error("Failed to fetch");
-
-        const data = await response.json();
-
-        setMovies((prevMovies) =>
-          page === 1 ? data.data : [...prevMovies, ...data.data],
-        );
-        setTotalItems(data.totalItems);
-        setTotalPages(data.totalPages);
-      } catch (error) {
-        console.error("Error fetching watched movies:", error);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [userId, activeType],
-  );
+  const { data, error, size, setSize, isLoading, isValidating, mutate } =
+    useSWRInfinite<WatchedPage>(getKey, watchedPageFetcher);
 
   useEffect(() => {
-    fetchMovies(currentPage, genreFilter, activeType);
-  }, [currentPage, genreFilter, activeType, fetchMovies]);
+    setSize(1);
+  }, [genreFilter, activeType, setSize]);
 
-  const memoizedMovies = useMemo(() => movies, [movies]);
+  const memoizedMovies = useMemo(
+    () => (data ? data.flatMap((p) => p.data) : []),
+    [data],
+  );
+  const totalItems = data?.[0]?.totalItems ?? 0;
+  const loading = isLoading;
+  const loadingMore = isValidating && size > 1;
+  const hasMore = memoizedMovies.length < totalItems;
 
   const handlePageChange = useCallback(() => {
-    if (currentPage < totalPages && !loading) {
-      setCurrentPage((prev) => prev + 1);
+    if (hasMore && !loadingMore) {
+      setSize((prev) => prev + 1);
     }
-  }, [currentPage, totalPages, loading]);
+  }, [hasMore, loadingMore, setSize]);
 
   const handleGenreFilter = useCallback((genre: string) => {
     setGenreFilter(genre);
-    setCurrentPage(1);
   }, []);
 
   const handleClearFilter = useCallback(() => {
     setGenreFilter(null);
-    setCurrentPage(1);
   }, []);
 
   const handleShare = useCallback((item: any) => {
@@ -152,10 +145,7 @@ export default function WatchedGrid({
           ].map((type) => (
             <button
               key={type.label}
-              onClick={() => {
-                setActiveType(type.id as any);
-                setCurrentPage(1);
-              }}
+              onClick={() => setActiveType(type.id as any)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 activeType === type.id
                   ? "bg-surface-700 text-white shadow-sm"
@@ -206,20 +196,30 @@ export default function WatchedGrid({
           </p>
         </div>
       )}
-      {!loading && memoizedMovies.length === 0 ? (
+      {!loading && error && memoizedMovies.length === 0 && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-12 text-center flex flex-col items-center gap-3">
+          <p className="text-sm text-red-300">Couldn't load your watched list.</p>
+          <button
+            onClick={() => mutate()}
+            className="text-xs px-3 py-1.5 rounded-full border border-red-500/30 text-red-300 hover:bg-red-500/10 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {!loading && !error && memoizedMovies.length === 0 ? (
         <div className="w-full p-10">
           <p className="m-auto w-fit text-surface-400">No items yet.</p>
         </div>
-      ) : (
+      ) : !loading && !error ? (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
           {memoizedMovies.map((item: any) => {
             const tvStatusLabels: Record<string, string> = {
+              watchlist: "Watchlist",
               watching: "Watching",
-              completed: "Completed",
+              watched: "Watched",
               on_hold: "On hold",
               dropped: "Dropped",
-              plan_to_watch: "Plan to watch",
-              rewatching: "Rewatching",
             };
             const tvStatusLabel =
               item.item_type === "tv" && typeof item.tv_status === "string"
@@ -268,15 +268,15 @@ export default function WatchedGrid({
           })}
 
           {/* Load More */}
-          {memoizedMovies.length < totalItems && (
+          {hasMore && (
             <div>
               <button
                 className="w-full h-full min-h-[330px] flex flex-col items-center justify-center gap-2 text-surface-300 border border-surface-600 bg-surface-700/80 rounded-xl hover:bg-surface-700 hover:border-surface-500 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
                 onClick={handlePageChange}
-                disabled={loading}
-                aria-busy={loading}
+                disabled={loadingMore}
+                aria-busy={loadingMore}
               >
-                {loading ? (
+                {loadingMore ? (
                   <>
                     <LoadingSpinner size="md" className="border-t-white shrink-0" />
                     <span className="text-sm">Loading more…</span>
@@ -288,7 +288,7 @@ export default function WatchedGrid({
             </div>
           )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

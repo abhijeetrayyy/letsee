@@ -38,9 +38,10 @@ export async function checkWatchlistAvailability(): Promise<{ checked: number; a
 
   for (const userId of userIds) {
     const { data: watchlist } = await supabase
-      .from("user_watchlist")
+      .from("user_media_status")
       .select("item_id, item_type, item_name")
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .eq("status", "watchlist");
 
     if (!watchlist?.length) continue;
 

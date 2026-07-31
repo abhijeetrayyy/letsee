@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import EditTvProgressModal from "@components/tv/EditTvProgressModal";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
-import MarkTVWatchedModal from "@components/tv/MarkTVWatchedModal";
 
 type TvShowCardProps = {
   showId: string;
@@ -21,24 +19,23 @@ type TvShowCardProps = {
   isOwner: boolean;
   onMarkNext: (showId: string) => void;
   markingId: string | null;
+  onEpisodesChanged?: () => void;
 };
 
 const STATUS_COLORS: Record<string, string> = {
+  watchlist: "bg-surface-500/20 text-surface-400 border-surface-500/30",
   watching: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  completed: "bg-brand-500/20 text-brand-400 border-brand-500/30",
+  watched: "bg-brand-500/20 text-brand-400 border-brand-500/30",
   on_hold: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   dropped: "bg-red-500/20 text-red-400 border-red-500/30",
-  plan_to_watch: "bg-surface-500/20 text-surface-400 border-surface-500/30",
-  rewatching: "bg-blue-500/20 text-blue-400 border-blue-500/30",
 };
 
 const STATUS_LABELS: Record<string, string> = {
+  watchlist: "Watchlist",
   watching: "Watching",
-  completed: "Completed",
+  watched: "Watched",
   on_hold: "On Hold",
   dropped: "Dropped",
-  plan_to_watch: "Plan",
-  rewatching: "Rewatching",
 };
 
 export default function TvShowCard({
@@ -55,6 +52,7 @@ export default function TvShowCard({
   isOwner,
   onMarkNext,
   markingId,
+  onEpisodesChanged,
 }: TvShowCardProps) {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [tvModalOpen, setTvModalOpen] = useState(false);
@@ -64,7 +62,7 @@ export default function TvShowCard({
       ? Math.round((episodesWatched / totalEpisodes) * 100)
       : 0;
 
-  const statusColor = STATUS_COLORS[tvStatus ?? ""] ?? STATUS_COLORS.plan_to_watch;
+  const statusColor = STATUS_COLORS[tvStatus ?? ""] ?? STATUS_COLORS.watchlist;
   const statusLabel = STATUS_LABELS[tvStatus ?? ""] ?? "Not Started";
   const posterUrl = posterPath
     ? `https://image.tmdb.org/t/p/w185${posterPath}`
@@ -176,26 +174,20 @@ export default function TvShowCard({
           onClose={() => setEditModalOpen(false)}
           onSuccess={() => {
             setEditModalOpen(false);
-            // Trigger parent refresh
-            window.location.reload();
+            onEpisodesChanged?.();
           }}
         />
       )}
 
       {tvModalOpen && (
-        <MarkTVWatchedModal
+        <EpisodeManagementModal
           showId={showId}
           showName={showName}
-          seasons={[]}
           isOpen={tvModalOpen}
           onClose={() => setTvModalOpen(false)}
-          onSuccess={() => setTvModalOpen(false)}
-          watchedPayload={{
-            itemId: Number(showId),
-            name: showName,
-            imgUrl: posterPath ?? "",
-            adult: false,
-            genres: [],
+          onSuccess={() => {
+            setTvModalOpen(false);
+            onEpisodesChanged?.();
           }}
         />
       )}

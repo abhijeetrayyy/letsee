@@ -3,12 +3,11 @@
 import React, { useState, useEffect } from "react";
 
 const TV_STATUS_LABELS: Record<string, string> = {
+  watchlist: "Watchlist",
   watching: "Watching",
-  completed: "Completed",
+  watched: "Watched",
   on_hold: "On hold",
   dropped: "Dropped",
-  plan_to_watch: "Plan to watch",
-  rewatching: "Rewatching",
 };
 
 interface TvStatusSelectorProps {
@@ -46,7 +45,7 @@ export default function TvStatusSelector({
     setStatus(newStatus);
     try {
       const res = await fetch("/api/tv-list-status", {
-        method: "PATCH",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ showId, status: newStatus }),
       });
@@ -71,15 +70,13 @@ export default function TvStatusSelector({
           ${
             status === "watching"
               ? "text-green-400 border-green-900/50 bg-green-900/10"
-              : status === "rewatching"
-                ? "text-blue-400 border-blue-900/50 bg-blue-900/10"
-                : status === "completed"
-                  ? "text-purple-400 border-purple-900/50 bg-purple-900/10"
-                  : status === "dropped"
-                    ? "text-red-400 border-red-900/50 bg-red-900/10"
-                    : status === "on_hold"
-                      ? "text-yellow-400 border-yellow-900/50 bg-yellow-900/10"
-                      : ""
+              : status === "watched"
+                ? "text-purple-400 border-purple-900/50 bg-purple-900/10"
+                : status === "dropped"
+                  ? "text-red-400 border-red-900/50 bg-red-900/10"
+                  : status === "on_hold"
+                    ? "text-yellow-400 border-yellow-900/50 bg-yellow-900/10"
+                    : ""
           }
         `}
       >
