@@ -19,7 +19,7 @@ export type TogglePreferencePayload = {
   itemId: number;
   name: string;
   mediaType: string;
-  imgUrl: string;
+  imgUrl?: string;
   adult: boolean;
   genres: string[];
   currentState: boolean;

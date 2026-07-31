@@ -42,7 +42,7 @@ export default function ThreePrefrencebtn({
 
   const id = Number(cardId);
   const adult = cardAdult ?? false;
-  const imgUrl = cardImg ?? "";
+  const imgUrl = cardImg ?? undefined;
   const genreList = (genres ?? []).filter(
     (g): g is string => g != null && typeof g === "string",
   );

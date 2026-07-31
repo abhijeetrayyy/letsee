@@ -137,7 +137,7 @@ export default function MediaCard({
             cardType={mediaType}
             cardName={title}
             cardAdult={adult}
-            cardImg={posterPath ?? undefined}
+            cardImg={imageUrl ?? undefined}
             genres={genreList}
             onAddWatchedTv={onAddWatchedTv}
           />

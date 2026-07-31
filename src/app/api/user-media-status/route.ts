@@ -27,7 +27,8 @@ export async function PUT(req: NextRequest) {
   const itemType = body.itemType === "tv" ? "tv" : "movie";
   const status = body.status;
   const itemName = typeof body.name === "string" ? body.name : (body.itemName as string) || "";
-  const imageUrl = typeof body.imgUrl === "string" ? body.imgUrl : (body.imageUrl as string) || null;
+  const rawImageUrl = typeof body.imgUrl === "string" ? body.imgUrl : (body.imageUrl as string) || "";
+  const imageUrl = rawImageUrl.trim() || null;
   const adult = body.adult === true;
   const genres = Array.isArray(body.genres) ? (body.genres as string[]) : [];
 
@@ -40,7 +41,9 @@ export async function PUT(req: NextRequest) {
       item_id: itemId,
       item_type: itemType,
       item_name: itemName,
-      image_url: imageUrl,
+      // Omit image_url entirely when not supplied so status-only updates
+      // (e.g. the TV status dropdown) don't blank out an existing poster.
+      ...(imageUrl ? { image_url: imageUrl } : {}),
       item_adult: adult,
       genres,
       status,
@@ -57,13 +60,13 @@ export async function PUT(req: NextRequest) {
   // Mirror writes to watched_items for backward compatibility with profile/diary/reviews
   // that still read from watched_items
   if (status === "watched") {
-    await supabase.from("watched_items").upsert(
+    const { error: watchedItemsError } = await supabase.from("watched_items").upsert(
       {
         user_id: userId,
         item_id: itemId,
         item_type: itemType,
         item_name: itemName,
-        image_url: imageUrl,
+        ...(imageUrl ? { image_url: imageUrl } : {}),
         item_adult: adult,
         genres,
         is_watched: true,
@@ -71,6 +74,10 @@ export async function PUT(req: NextRequest) {
       },
       { onConflict: "user_id,item_id" }
     );
+
+    if (watchedItemsError) {
+      console.error("user-media-status watched_items mirror upsert:", watchedItemsError);
+    }
   }
 
   // Update count stats after status change

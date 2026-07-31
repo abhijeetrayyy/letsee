@@ -13,7 +13,7 @@ export interface CardMovieButtonProps {
   itemId: number;
   funcType: PreferenceType;
   mediaType: string;
-  imgUrl: string;
+  imgUrl?: string;
   adult: boolean;
   state: boolean;
   genres: string[];

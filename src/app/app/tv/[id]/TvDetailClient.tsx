@@ -54,9 +54,15 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
     await fetch("/api/user-media-status", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemId: String(show.id), itemType: "tv", status: newStatus, name: show.name }),
+      body: JSON.stringify({
+        itemId: String(show.id),
+        itemType: "tv",
+        status: newStatus,
+        name: show.name,
+        imgUrl: show.poster_path ? `https://image.tmdb.org/t/p/w342${show.poster_path}` : undefined,
+      }),
     });
-  }, [show.id, show.name]);
+  }, [show.id, show.name, show.poster_path]);
 
   const backdropUrl = show.backdrop_path ? `https://image.tmdb.org/t/p/w1280${show.backdrop_path}` : null;
   const posterUrl = show.poster_path ? `https://image.tmdb.org/t/p/w500${show.poster_path}` : "/no-photo.webp";
