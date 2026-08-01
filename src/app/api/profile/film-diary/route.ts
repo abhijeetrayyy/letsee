@@ -58,7 +58,7 @@ export async function GET(request: Request) {
   // Build date filter
   let dateFilter = supabase
     .from("watched_items")
-    .select("id, item_id, item_type, item_name, image_url, watched_at, score, review_text", { count: "exact" })
+    .select("id, item_id, item_type, item_name, image_url, watched_at, review_text", { count: "exact" })
     .eq("user_id", userId)
     .eq("is_watched", true);
 
@@ -90,10 +90,27 @@ export async function GET(request: Request) {
   const totalItems = count ?? 0;
   const totalPages = Math.ceil(totalItems / limit);
 
+  // Fetch ratings for this page's items from user_ratings (watched_items has no score column)
+  let ratingsMap: Record<string, number> = {};
+  if (items?.length) {
+    const pageItemIds = Array.from(new Set(items.map((i) => i.item_id)));
+    const { data: ratings } = await supabase
+      .from("user_ratings")
+      .select("item_id, item_type, score")
+      .eq("user_id", userId)
+      .in("item_id", pageItemIds);
+    const itemSet = new Set(items.map((i) => `${i.item_id}:${i.item_type}`));
+    for (const r of (ratings ?? []) as { item_id: string; item_type: string; score: number }[]) {
+      if (itemSet.has(`${r.item_id}:${r.item_type}`)) {
+        ratingsMap[`${r.item_id}:${r.item_type}`] = r.score;
+      }
+    }
+  }
+
   // If not owner and ratings are hidden, remove scores
   const sanitizedItems = items?.map((item) => ({
     ...item,
-    score: !isOwner && !profileShowRatings ? null : item.score,
+    score: !isOwner && !profileShowRatings ? null : ratingsMap[`${item.item_id}:${item.item_type}`] ?? null,
   })) ?? [];
 
   return new Response(
