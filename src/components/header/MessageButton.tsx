@@ -55,12 +55,13 @@ const MessageButton: React.FC<MessageButtonProps> = ({ userId, className }) => {
   return (
     <Link
       href="/app/messages"
-      className={`relative flex items-center justify-center rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-700/60 text-neutral-200 transition-colors h-10 w-10 shrink-0 ${className ?? ""}`}
+      className={`nav-icon-btn relative ${className ?? ""}`}
+      aria-label={`Messages${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
     >
-      <LuSend />
+      <LuSend className="size-4" />
       {unreadCount > 0 && (
-        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-          {unreadCount}
+        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+          {unreadCount > 99 ? "99+" : unreadCount}
         </span>
       )}
     </Link>

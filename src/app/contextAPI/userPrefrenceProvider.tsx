@@ -17,7 +17,7 @@ import UserPrefrenceContext, {
   TogglePreferenceResult,
   UserPreferenceState,
 } from "./userPrefrence";
-import { supabase } from "@/utils/supabase/client";
+import { useAuth } from "./AuthProvider";
 
 const normalizeId = (value: string | number): string => String(value);
 
@@ -127,6 +127,7 @@ function getErrorMessage(
 }
 
 const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, ready: authReady } = useAuth();
   const [userPrefrence, setUserPrefrence] = useState<UserPreferenceState>(
     defaultPreferenceState,
   );
@@ -172,64 +173,19 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
+  // Driven entirely by the shared AuthProvider — it already owns the single
+  // supabase.auth.getUser()/onAuthStateChange subscription and the
+  // tab-focus/visibility re-check, so this just reacts to its verdict.
   useEffect(() => {
-    let isMounted = true;
-    const init = async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      if (isMounted && userData?.user) {
-        await refreshPreferences();
-      } else if (isMounted) {
-        setUserPrefrence(defaultPreferenceState);
-        setUser(false);
-        setLoading(false);
-      }
-    };
-    init();
-
-    // Listen for tab focus/visibility to refresh session
-    const handleVisibilityChange = async () => {
-      if (
-        typeof document !== "undefined" &&
-        document.visibilityState === "visible"
-      ) {
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData?.user) {
-          if (!user) {
-            // If we weren't logged in but now are, refresh everything
-            await refreshPreferences();
-          }
-        } else {
-          if (user) {
-            // If we were logged in but now aren't, clear state
-            setUserPrefrence(defaultPreferenceState);
-            setUser(false);
-          }
-        }
-      }
-    };
-
-    window.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleVisibilityChange);
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        refreshPreferences();
-      } else {
-        setUserPrefrence(defaultPreferenceState);
-        setUser(false);
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-      window.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleVisibilityChange);
-    };
-  }, [refreshPreferences, user]);
+    if (!authReady) return;
+    if (isAuthenticated) {
+      refreshPreferences();
+    } else {
+      setUserPrefrence(defaultPreferenceState);
+      setUser(false);
+      setLoading(false);
+    }
+  }, [authReady, isAuthenticated, refreshPreferences]);
 
   const hasWatched = useCallback(
     (itemId: number | string) =>

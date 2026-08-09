@@ -1,7 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
-import { getAuthUserId } from "@/utils/apiAuth";
-import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -39,19 +37,20 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    return jsonError("Unauthorized", 401);
-  }
-
+  // Browsing the activity feed doesn't require login — an anonymous visitor
+  // simply has no follows, so they fall straight into the "supplement with
+  // popular users" branch below and see public trending activity instead.
   const { searchParams } = new URL(request.url);
   const cursor = searchParams.get("cursor");
   const limit = Math.min(50, Math.max(1, Number(searchParams.get("limit")) || 20));
 
   // Get users the current user follows
-  const { data: following } = await supabase
-    .from("user_connections")
-    .select("followed_id")
-    .eq("follower_id", user.id);
+  const { data: following } = user
+    ? await supabase
+        .from("user_connections")
+        .select("followed_id")
+        .eq("follower_id", user.id)
+    : { data: null };
 
   const followedIds = following?.map((f) => f.followed_id) ?? [];
 
@@ -67,7 +66,7 @@ export async function GET(request: Request) {
     if (popularUsers) {
       const popularIds = popularUsers
         .map((u) => u.user_id)
-        .filter((id) => id !== user.id && !targetUserIds.includes(id));
+        .filter((id) => id !== user?.id && !targetUserIds.includes(id));
       targetUserIds.push(...popularIds.slice(0, 10));
     }
   }

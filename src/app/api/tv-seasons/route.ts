@@ -24,5 +24,5 @@ export async function GET(req: NextRequest) {
     }))
     .sort((a, b) => a.season_number - b.season_number);
 
-  return jsonSuccess({ seasons: list });
+  return jsonSuccess({ seasons: list }, { maxAge: 3600 });
 }

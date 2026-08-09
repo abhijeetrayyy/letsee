@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Users, MessageCircle } from "lucide-react";
 import SendMessageModal from "@components/message/sendCard";
+import Avatar from "@components/ui/Avatar";
 
 type Match = {
   user_id: string;
@@ -46,7 +47,9 @@ export default function PeopleYouMayKnow() {
       <div className="space-y-3">
         {users.map((u) => (
           <div key={u.user_id} className="flex items-center gap-3 group">
-            <Link href={`/app/profile/${u.username}`} className="w-8 h-8 rounded-full overflow-hidden bg-surface-700 flex-shrink-0 ring-1 ring-surface-600">{u.avatar_url ? <img src={u.avatar_url} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-xs text-surface-400 font-bold">{u.username[0]?.toUpperCase()}</div>}</Link>
+            <Link href={`/app/profile/${u.username}`} className="shrink-0">
+              <Avatar src={u.avatar_url} name={u.username} size="sm" className="ring-1 ring-surface-600" />
+            </Link>
             <Link href={`/app/profile/${u.username}`} className="flex-1 min-w-0">
               <p className="text-xs font-medium text-surface-200 group-hover:text-white truncate">@{u.username}</p>
               <p className="text-[10px] text-surface-500 truncate">{u.icebreaker}</p>

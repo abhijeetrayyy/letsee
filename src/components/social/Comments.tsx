@@ -6,6 +6,7 @@ import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 import { MessageCircle, Send, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import toast from "react-hot-toast";
 import LikeButton from "@components/reactions/LikeButton";
+import Avatar from "@components/ui/Avatar";
 
 interface Comment { id: number; user_id: string; body: string; created_at: string; parent_id: number|null; users: { username: string|null; avatar_url: string|null }; reaction_count: number; viewer_liked: boolean; }
 
@@ -64,8 +65,8 @@ export default function Comments({ itemId, itemType }: { itemId: string; itemTyp
       {visible.map(c => (
         <div key={c.id} className="group">
           <div className="flex gap-2.5">
-            <Link href={`/app/profile/${c.users?.username||""}`} className="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-surface-700 mt-0.5">
-              {c.users?.avatar_url ? <img src={c.users.avatar_url} alt="" className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-[10px] text-surface-400 font-bold">{(c.users?.username||"?")[0]?.toUpperCase()}</div>}
+            <Link href={`/app/profile/${c.users?.username||""}`} className="shrink-0 mt-0.5">
+              <Avatar src={c.users?.avatar_url} name={c.users?.username || "?"} size={28} />
             </Link>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -80,8 +81,8 @@ export default function Comments({ itemId, itemType }: { itemId: string; itemTyp
               </div>
               {replies(c.id).map(r => (
                 <div key={r.id} className="flex gap-2 mt-2 ml-4 pl-3 border-l-2 border-surface-800">
-                  <Link href={`/app/profile/${r.users?.username||""}`} className="shrink-0 w-5 h-5 rounded-full overflow-hidden bg-surface-700 mt-0.5">
-                    {r.users?.avatar_url ? <img src={r.users.avatar_url} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-[8px] text-surface-400 font-bold">{(r.users?.username||"?")[0]}</div>}
+                  <Link href={`/app/profile/${r.users?.username||""}`} className="shrink-0 mt-0.5">
+                    <Avatar src={r.users?.avatar_url} name={r.users?.username || "?"} size={20} />
                   </Link>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5"><Link href={`/app/profile/${r.users?.username||""}`} className="text-[10px] font-semibold text-white">@{r.users?.username}</Link><span className="text-[9px] text-surface-500">{timeAgo(r.created_at)}</span></div>

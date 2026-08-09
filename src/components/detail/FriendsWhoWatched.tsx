@@ -4,7 +4,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import { Users, Eye, Star, MessageSquare } from "lucide-react";
 import { swrFetcher } from "@/utils/swrFetcher";
-import { getAvatarUrl } from "@/utils/imageUrl";
+import Avatar from "@components/ui/Avatar";
 
 type Friend = {
   userId: string;
@@ -77,10 +77,11 @@ export default function FriendsWhoWatched({
             className="group flex items-center gap-2.5 px-3 py-2 rounded-xl bg-surface-800/40 hover:bg-surface-700/50 border border-surface-700/20 hover:border-surface-600/40 transition-all"
           >
             <div className="relative shrink-0">
-              <img
-                src={getAvatarUrl(f.avatarUrl)}
-                alt={f.username}
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-surface-700 group-hover:ring-brand-500/30 transition-all"
+              <Avatar
+                src={f.avatarUrl}
+                name={f.username}
+                size="sm"
+                className="ring-2 ring-surface-700 group-hover:ring-brand-500/30 transition-all"
               />
               <span className="absolute -bottom-0.5 -right-0.5 bg-surface-900 rounded-full p-0.5 ring-2 ring-surface-900">
                 <span className="text-[10px] text-brand-400 flex">{actionIcon(f.action)}</span>

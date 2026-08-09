@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function GET(request: Request) {
@@ -19,7 +18,7 @@ export async function GET(request: Request) {
     // Fetch additional user data from the "users" table
     const { data: userData, error: dbError } = await supabase
       .from("users")
-      .select("id, username")
+      .select("id, username, avatar_url")
       .eq("id", authUser.id)
       .limit(1)
       .maybeSingle();
@@ -34,7 +33,7 @@ export async function GET(request: Request) {
           status: "needs_profile",
           user: { id: authUser.id, username: userData?.username ?? null },
         },
-        { status: 200 }
+        { status: 200, headers: { "Cache-Control": "private, no-store" } }
       );
     }
 

@@ -16,5 +16,5 @@ export async function GET(req: NextRequest) {
   }
 
   const episodes = (data.episodes as unknown[]) ?? [];
-  return jsonSuccess({ episodes });
+  return jsonSuccess({ episodes }, { maxAge: 3600 });
 }

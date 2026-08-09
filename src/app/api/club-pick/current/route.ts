@@ -17,5 +17,5 @@ export async function GET() {
 
   const pick = data && new Date(data.ends_at).getTime() > Date.now() ? data : null;
 
-  return jsonSuccess({ pick });
+  return jsonSuccess({ pick }, { maxAge: 300 });
 }

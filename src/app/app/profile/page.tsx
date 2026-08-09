@@ -1,18 +1,13 @@
 import { createClient } from "@/utils/supabase/server";
 import SearchAndFilters from "@components/profile/SearchAndFilters";
-import Link from "next/link";
 
-/** Fetch public profiles with stats. Uses avatar_url if present (migration 011). */
+/**
+ * Fetch public profiles with stats. Uses avatar_url if present (migration 011).
+ * Browsing public profiles doesn't require login — the query already scopes
+ * to visibility = "public", so it's safe to show to anonymous visitors.
+ */
 async function getPublicProfiles() {
   const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return { profiles: [], isAuthed: false };
-  }
 
   const selectWithAvatar =
     "id, username, about, avatar_url, user_cout_stats (watched_count, favorites_count, watchlist_count)";
@@ -40,7 +35,7 @@ async function getPublicProfiles() {
 
   if (result.error) {
     console.error("Error fetching profiles:", result.error);
-    return { profiles: [], isAuthed: true };
+    return { profiles: [] };
   }
 
   const rows = result.data ?? [];
@@ -91,30 +86,11 @@ async function getPublicProfiles() {
     };
   });
 
-  return { profiles, isAuthed: true };
+  return { profiles };
 }
 
 export default async function ProfileListPage() {
-  const { profiles, isAuthed } = await getPublicProfiles();
-
-  if (!isAuthed) {
-    return (
-      <div className="min-h-screen bg-neutral-950 text-neutral-200 flex items-center justify-center p-6">
-        <div className="max-w-md w-full rounded-2xl border border-neutral-700 bg-neutral-800/50 p-8 text-center">
-          <h1 className="text-xl font-semibold text-white">Sign in to discover people</h1>
-          <p className="mt-2 text-sm text-neutral-400">
-            Log in to browse profiles and find your cinema soul.
-          </p>
-          <Link
-            href="/login"
-            className="mt-6 inline-flex items-center justify-center rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-medium text-neutral-900 hover:bg-amber-400 transition-colors"
-          >
-            Log in
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const { profiles } = await getPublicProfiles();
 
   return (
     <div className="min-h-screen w-full bg-neutral-950 text-white">

@@ -12,16 +12,19 @@ import { Film } from "lucide-react";
 import SignOut from "../buttons/signOut";
 import CountrySelector from "./CountrySelector";
 import Link from "next/link";
+import Avatar from "@components/ui/Avatar";
+import type { AuthUser } from "@/app/contextAPI/AuthProvider";
 
 interface BurgerMenuProps {
   status: "loading" | "anon" | "needs_profile" | "ok";
-  username?: string | null;
+  user?: AuthUser | null;
 }
 
 const menuItemClass =
   "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-surface-300 transition-all duration-150 active:bg-surface-700 hover:bg-surface-800 hover:text-white touch-manipulation";
 
-const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, username }) => {
+const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
+  const username = user?.username ?? null;
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -124,6 +127,20 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, username }) => {
           className="flex flex-col gap-0.5 overflow-y-auto p-4"
           style={{ maxHeight: "calc(100vh - 3.5rem)" }}
         >
+          {status === "ok" && username && (
+            <Link
+              href={`/app/profile/${username}`}
+              onClick={close}
+              className="mb-2 flex items-center gap-3 rounded-xl bg-surface-800/60 px-3 py-3 active:bg-surface-700 touch-manipulation"
+            >
+              <Avatar src={user?.avatar_url} name={username} size={40} />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-white">{username}</p>
+                <p className="text-xs text-surface-500">View profile</p>
+              </div>
+            </Link>
+          )}
+
           <div className="px-4 py-2 sm:hidden">
             <CountrySelector />
           </div>
@@ -209,19 +226,6 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, username }) => {
                 className={menuItemClass}
               >
                 <LuSend className="size-5 shrink-0" aria-hidden /> Messages
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  go(
-                    username
-                      ? `/app/profile/${username}`
-                      : "/app/profile"
-                  )
-                }
-                className={menuItemClass}
-              >
-                <FaUser className="size-5 shrink-0" aria-hidden /> My profile
               </button>
               <div className="my-2 border-t border-surface-800" />
               <div className="px-2">

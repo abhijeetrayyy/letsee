@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import LikeButton from "@components/reactions/LikeButton";
-import { getPosterUrl, getAvatarUrl } from "@/utils/imageUrl";
+import { getPosterUrl } from "@/utils/imageUrl";
+import Avatar from "@components/ui/Avatar";
 
 type ActivityItem = {
   id: number;
@@ -56,7 +57,6 @@ function getActivityLabel(type: string): string {
 
 export default function ActivityCard({ item }: { item: ActivityItem }) {
   const posterUrl = item.image_url ? getPosterUrl(item.image_url, "w154") : null;
-  const avatarUrl = getAvatarUrl(item.avatar_url);
   const detailHref = item.item_id && item.item_type
     ? `/app/${item.item_type}/${item.item_id}`
     : null;
@@ -75,10 +75,11 @@ export default function ActivityCard({ item }: { item: ActivityItem }) {
     <div className="flex gap-3 p-4 rounded-xl border border-surface-700/50 bg-surface-900/30 hover:bg-surface-900/50 hover:border-surface-600/60 transition-all duration-200">
       {/* Avatar */}
       <Link href={profileHref} className="shrink-0">
-        <img
-          src={avatarUrl}
-          alt={item.username}
-          className="w-10 h-10 rounded-full object-cover border-2 border-surface-700 hover:border-brand-400/50 transition-colors"
+        <Avatar
+          src={item.avatar_url}
+          name={item.username}
+          size="md"
+          className="border-2 border-surface-700 hover:border-brand-400/50 transition-colors"
         />
       </Link>
 

@@ -9,6 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useAuth } from "./AuthProvider";
 
 export type MediaStatus = "watchlist" | "watching" | "watched" | "on_hold" | "dropped" | null;
 
@@ -90,6 +91,7 @@ async function apiCall(endpoint: string, method: string, body?: Record<string, u
 }
 
 export default function MediaInteractionProvider({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated: hasSession, ready: authReady } = useAuth();
   const [state, setState] = useState<MediaState>(defaultState);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -137,8 +139,15 @@ export default function MediaInteractionProvider({ children }: { children: React
   }, []);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (!authReady) return;
+    if (hasSession) {
+      refresh();
+    } else {
+      setState(defaultState);
+      setIsAuthenticated(false);
+      setLoading(false);
+    }
+  }, [authReady, hasSession, refresh]);
 
   const setPending = (itemId: string) => {
     pendingRef.current.add(itemId);

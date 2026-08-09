@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { SearchProvider } from "./contextAPI/searchContext";
 import { CountryProvider } from "./contextAPI/countryContext";
+import AuthProvider from "./contextAPI/AuthProvider";
 import { LogedNavbar } from "@components/header/navbar";
 import { ScrollToTop } from "@components/ui/ScrollToTop";
 import RegisterServiceWorker from "@/components/pwa/RegisterServiceWorker";
@@ -72,13 +73,15 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-surface-950 text-surface-200 min-h-screen`}
       >
         <RegisterServiceWorker />
-        <SearchProvider>
-          <CountryProvider>
-            <ScrollToTop />
-            <LogedNavbar />
-            {children}
-          </CountryProvider>
-        </SearchProvider>
+        <AuthProvider>
+          <SearchProvider>
+            <CountryProvider>
+              <ScrollToTop />
+              <LogedNavbar />
+              {children}
+            </CountryProvider>
+          </SearchProvider>
+        </AuthProvider>
       </body>
     </html>
   );

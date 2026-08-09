@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/utils/supabase/client";
 import { acceptFollowRequest, rejectFollowRequest } from "@/utils/followerAction";
-import { getAvatarUrl } from "@/utils/imageUrl";
 import { Heart, UserPlus, UserCheck, Eye, MessageSquare, Star, CheckCheck, Bell, Loader2 } from "lucide-react";
+import Avatar from "@components/ui/Avatar";
 
 type ActorProfile = {
   username: string | null;
@@ -51,8 +51,6 @@ function formatDate(iso: string): string {
     return "";
   }
 }
-
-const resolveAvatar = getAvatarUrl;
 
 function notificationIcon(type: string) {
   switch (type) {
@@ -282,10 +280,11 @@ export default function NotificationsPage() {
                 key={req.id}
                 className="flex items-center gap-3 p-3 rounded-xl border border-blue-500/20 bg-blue-500/5"
               >
-                <img
-                  src={resolveAvatar(req.sender?.avatar_url)}
-                  alt={req.sender?.username ?? "user"}
-                  className="w-10 h-10 rounded-full object-cover border-2 border-surface-700"
+                <Avatar
+                  src={req.sender?.avatar_url}
+                  name={req.sender?.username ?? "user"}
+                  size="md"
+                  className="border-2 border-surface-700"
                 />
                 <div className="flex-1 min-w-0">
                   <Link
@@ -346,10 +345,11 @@ export default function NotificationsPage() {
                 >
                   {/* Actor avatar */}
                   <div className="shrink-0 relative">
-                    <img
-                      src={resolveAvatar(n.actor?.avatar_url)}
-                      alt={n.actor?.username ?? "user"}
-                      className="w-10 h-10 rounded-full object-cover border-2 border-surface-700"
+                    <Avatar
+                      src={n.actor?.avatar_url}
+                      name={n.actor?.username ?? "user"}
+                      size="md"
+                      className="border-2 border-surface-700"
                     />
                     <span className="absolute -bottom-0.5 -right-0.5 bg-surface-900 rounded-full p-0.5">
                       {notificationIcon(n.notification_type)}
