@@ -38,25 +38,28 @@ const AuthContext = createContext<AuthContextValue>({
   refresh: async () => {},
 });
 
-/**
- * Single source of truth for "am I logged in / who am I" across the whole app.
- * Everything that needs auth state (header, preferences, media interactions)
- * should read from this instead of independently polling Supabase — that
- * duplication was the root cause of the header disagreeing with the rest of
- * the app about login state.
- */
 export function useAuth() {
   return useContext(AuthContext);
+}
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<AuthUser | null>(null);
   const fetchingRef = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryRef = useRef(0);
 
-  const fetchUser = useCallback(async () => {
-    if (fetchingRef.current) return;
+  const fetchUser = useCallback(async (retry = false) => {
+    if (fetchingRef.current && !retry) return;
     fetchingRef.current = true;
+
+    const attempt = retry ? retryRef.current : 0;
+    const isRetry = attempt > 0;
+
     try {
       const response = await fetch("/api/navbar", {
         credentials: "include",
@@ -64,15 +67,52 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       });
       if (!response.ok) throw new Error(`navbar request failed: ${response.status}`);
       const data = await response.json();
-      setStatus((data?.status ?? "anon") as AuthStatus);
+      const newStatus = (data?.status ?? "anon") as AuthStatus;
+      setStatus(newStatus);
       setUser(data?.user ?? null);
+
+      if (newStatus === "anon" && isRetry && attempt < 3) {
+        // Session cookie might not have propagated yet — retry with backoff
+        retryRef.current = attempt + 1;
+        fetchingRef.current = false;
+        const delay = [500, 1000, 2000][attempt] ?? 2000;
+        await sleep(delay);
+        await fetchUser(true);
+        return;
+      }
+      retryRef.current = 0;
     } catch {
+      if (isRetry && attempt < 3) {
+        retryRef.current = attempt + 1;
+        fetchingRef.current = false;
+        const delay = [500, 1000, 2000][attempt] ?? 2000;
+        await sleep(delay);
+        await fetchUser(true);
+        return;
+      }
       setStatus("anon");
       setUser(null);
+      retryRef.current = 0;
     } finally {
       fetchingRef.current = false;
     }
   }, []);
+
+  const refreshAuth = useCallback(async () => {
+    // Trigger the SDK's own session refresh first so the cookie gets updated
+    // before we read it via /api/navbar
+    try {
+      await supabase.auth.getSession();
+    } catch {
+      // SDK refresh might fail — proceed with navbar check anyway
+    }
+    await fetchUser();
+  }, [fetchUser]);
+
+  const debouncedRefresh = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(refreshAuth, 150);
+  }, [refreshAuth]);
 
   useEffect(() => {
     fetchUser();
@@ -80,26 +120,28 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
-      // INITIAL_SESSION fires synchronously on subscribe and would just
-      // duplicate the fetchUser() call above — skip it.
       if (event === "INITIAL_SESSION") return;
       fetchUser();
     });
 
-    // A backgrounded tab can miss a token refresh/expiry — re-check whenever
-    // the tab becomes visible/focused again so state never goes stale.
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") fetchUser();
+      if (document.visibilityState === "visible") debouncedRefresh();
     };
+    const handleFocus = () => debouncedRefresh();
+    const handleOnline = () => debouncedRefresh();
+
     window.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("focus", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("online", handleOnline);
 
     return () => {
       subscription.unsubscribe();
       window.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("focus", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("online", handleOnline);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [fetchUser]);
+  }, [fetchUser, debouncedRefresh]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -107,9 +149,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       user,
       isAuthenticated: status === "ok" || status === "needs_profile",
       ready: status !== "loading",
-      refresh: fetchUser,
+      refresh: refreshAuth,
     }),
-    [status, user, fetchUser]
+    [status, user, refreshAuth]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

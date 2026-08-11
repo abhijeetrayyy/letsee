@@ -56,7 +56,11 @@ export default function FollowingFeed() {
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
   const { data, error, size, setSize, isLoading, isValidating, mutate } =
-    useSWRInfinite<FeedResponse>(getKey, feedFetcher);
+    useSWRInfinite<FeedResponse>(getKey, feedFetcher, {
+      errorRetryCount: 3,
+      errorRetryInterval: 5000,
+      keepPreviousData: true,
+    });
 
   const items = data ? data.flatMap((p) => p.items) : [];
   const hasMore = data ? data[data.length - 1].hasMore : true;
@@ -64,6 +68,7 @@ export default function FollowingFeed() {
   const isSupplemented = data?.[0]?.isSupplemented ?? false;
   const loading = isLoading;
   const loadingMore = isValidating && size > 1;
+  const hasStaleData = items.length > 0;
 
   const handleRefresh = async () => {
     try {
@@ -75,10 +80,12 @@ export default function FollowingFeed() {
     }
   };
 
-  // Infinite scroll with IntersectionObserver
+  // Infinite scroll with IntersectionObserver — but don't autoload beyond 50 items
   useEffect(() => {
     const el = loaderRef.current;
     if (!el) return;
+
+    if (items.length >= 50) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -91,9 +98,10 @@ export default function FollowingFeed() {
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore, loadingMore, loading, setSize]);
+  }, [hasMore, loadingMore, loading, setSize, items.length]);
 
-  if (error) {
+  // Full error only when there's no data at all
+  if (error && !hasStaleData) {
     return (
       <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6 text-center">
         <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
@@ -136,6 +144,20 @@ export default function FollowingFeed() {
         </div>
       )}
 
+      {/* Stale-data warning banner */}
+      {error && hasStaleData && (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-2 flex items-center gap-2 text-xs">
+          <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span className="text-amber-300">Couldn&apos;t refresh — showing last loaded data.</span>
+          <button
+            onClick={() => mutate()}
+            className="ml-auto text-amber-400 hover:text-amber-300 underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Activity list */}
       {items.length > 0 ? (
         <>
@@ -145,18 +167,20 @@ export default function FollowingFeed() {
             ))}
           </div>
 
-          {/* Infinite scroll trigger */}
-          <div ref={loaderRef} className="py-4 flex justify-center">
-            {loadingMore && (
-              <div className="flex items-center gap-2 text-surface-500 text-xs">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                Loading more...
-              </div>
-            )}
-            {!hasMore && items.length > 10 && (
-              <p className="text-xs text-surface-600">You&apos;re all caught up!</p>
-            )}
-          </div>
+          {/* Load more trigger — hidden when already at 50+ items */}
+          {items.length < 50 && (
+            <div ref={loaderRef} className="py-4 flex justify-center">
+              {loadingMore && (
+                <div className="flex items-center gap-2 text-surface-500 text-xs">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Loading more...
+                </div>
+              )}
+              {!hasMore && items.length > 10 && (
+                <p className="text-xs text-surface-600">You&apos;re all caught up!</p>
+              )}
+            </div>
+          )}
         </>
       ) : loading ? (
         <div className="space-y-3">

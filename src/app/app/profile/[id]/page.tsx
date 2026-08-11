@@ -19,6 +19,7 @@ import ProfileInsights from "@components/profile/ProfileInsights";
 import AchievementsShelf from "@components/profile/AchievementsShelf";
 import ShareProfileCard from "@components/profile/ShareProfileCard";
 import StatsSection from "@components/profile/StatsSection";
+import FavoritesSection from "@components/profile/FavoritesSection";
 import DeferredSection from "@components/profile/DeferredSection";
 import { computeTasteSummary, buildTasteInsight, type TasteProfile, type TasteInsight } from "@/utils/tasteProfile";
 
@@ -81,14 +82,16 @@ async function fetchProfileData(username: string | null, currentUserId: string |
   // Taste in 4
   const { data: favoriteDisplay } = await supabase.from("user_favorite_display").select("position, item_id, item_type, image_url, item_name").eq("user_id", profileId).order("position", { ascending: true });
 
+  // Favorite items (for Favorites section)
+  const { data: favoriteItems } = await supabase.from("favorite_items").select("id, user_id, item_id, item_type, item_name, image_url, genres, created_at").eq("user_id", profileId).order("created_at", { ascending: false }).limit(12);
+
   // Recent activity
   const { data: recentActivity } = await supabase.from("watched_items").select("id, item_id, item_type, item_name, image_url, watched_at, review_text").eq("user_id", profileId).eq("is_watched", true).order("watched_at", { ascending: false }).limit(10);
 
   // Currently watching
   const { data: currentlyWatching } = await supabase.from("user_media_status").select("item_id, item_type, item_name, image_url, genres").eq("user_id", profileId).eq("status", "watching").order("updated_at", { ascending: false }).limit(6);
 
-  // Taste profile + insight text (computed once here so ProfileInsights/StatsSection
-  // don't need to independently re-query watched_items/user_ratings for the same data).
+  // Taste profile + insight text
   let tasteProfile: TasteProfile = { topGenres: [], loves: [], avoids: [], ratesHighest: null, totalGenresExplored: 0 };
   let tasteInsight: TasteInsight | null = null;
   try {
@@ -115,7 +118,7 @@ async function fetchProfileData(username: string | null, currentUserId: string |
     if (pr) pinnedReview = pr;
   }
 
-  return { user, isOwner, stats, followData, favoriteDisplay: favoriteDisplay ?? [], recentActivity: recentActivity ?? [], currentlyWatching: currentlyWatching ?? [], tasteProfile, tasteInsight, featuredList, pinnedReview };
+  return { user, isOwner, stats, followData, favoriteDisplay: favoriteDisplay ?? [], favoriteItems: favoriteItems ?? [], recentActivity: recentActivity ?? [], currentlyWatching: currentlyWatching ?? [], tasteProfile, tasteInsight, featuredList, pinnedReview };
 }
 
 export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -127,7 +130,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   const profileData = await fetchProfileData(username, currentUserId);
   if (!profileData) return notFound();
 
-  const { user, isOwner, stats, followData, favoriteDisplay, recentActivity, currentlyWatching, tasteProfile, tasteInsight, featuredList, pinnedReview } = profileData;
+  const { user, isOwner, stats, followData, favoriteDisplay, favoriteItems, recentActivity, currentlyWatching, tasteProfile, tasteInsight, featuredList, pinnedReview } = profileData;
   if (!username && user.username) redirect(`/app/profile/${user.username}`);
 
   const visibility = String(user?.visibility ?? "public").toLowerCase();
@@ -138,7 +141,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
     <div className="min-h-screen w-full bg-surface-950">
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
 
-        {/* ═══ HERO ═══ */}
+        {/* ═══ HERO — Who they are ═══ */}
         <ProfileHeroNew
           username={user.username} avatarSrc={avatarSrc} bannerUrl={user.banner_url || null}
           tagline={user.tagline || null} about={user.about || null} createdAt={user.created_at || ""}
@@ -164,7 +167,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
           />
         ) : (
           <>
-            {/* ═══ AT A GLANCE ═══ */}
+            {/* ═══ AT A GLANCE — Personality snapshot ═══ */}
             <section>
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                 <span className="w-1 h-5 rounded-full bg-brand-500" />
@@ -172,7 +175,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               </h2>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Taste in 4 */}
                 <div className="lg:col-span-2 rounded-xl border border-surface-800/50 bg-surface-900/30 p-5">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider">Taste in 4</h3>
@@ -180,14 +182,11 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   </div>
                   {favoriteDisplay.length > 0 ? <TasteInFourStrip items={favoriteDisplay} /> : <p className="text-surface-500 text-sm py-4">{isOwner ? "Add your 4 favorites to showcase your taste." : "No favorites added yet."}</p>}
                 </div>
-
-                {/* Profile insights */}
                 <div>
                   <ProfileInsights insight={tasteInsight} />
                 </div>
               </div>
 
-              {/* Top genres + compatibility */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
                 {tasteProfile.topGenres.length > 0 && (
                   <div className="rounded-xl border border-surface-800/50 bg-surface-900/30 p-5">
@@ -209,7 +208,23 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               </div>
             </section>
 
-            {/* ═══ CURRENTLY WATCHING ═══ */}
+            {/* ═══ FAVORITES — What they love ═══ */}
+            <section>
+              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <span className="w-1 h-5 rounded-full bg-rose-500" />
+                Favorites
+              </h2>
+              <DeferredSection>
+                <FavoritesSection
+                  userId={user.id}
+                  isOwner={isOwner}
+                  initialItems={favoriteItems}
+                  totalCount={stats.favoriteCount}
+                />
+              </DeferredSection>
+            </section>
+
+            {/* ═══ CURRENTLY WATCHING — What they're into now ═══ */}
             {currentlyWatching.length > 0 && (
               <section>
                 <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
@@ -229,7 +244,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               </section>
             )}
 
-            {/* ═══ RECENT ACTIVITY ═══ */}
+            {/* ═══ RECENT ACTIVITY — What they've been doing ═══ */}
             {recentActivity.length > 0 && (
               <section>
                 <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
@@ -240,7 +255,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               </section>
             )}
 
-            {/* ═══ FILMS GRID ═══ */}
+            {/* ═══ FILM DIARY — Their chronological watching journey ═══ */}
+            <section>
+              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <span className="w-1 h-5 rounded-full bg-accent-gold" />
+                Film Diary
+              </h2>
+              <DeferredSection>
+                <FilmDiary userId={user.id} isOwner={isOwner} />
+              </DeferredSection>
+            </section>
+
+            {/* ═══ FILMS — Their complete library ═══ */}
             <section>
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                 <span className="w-1 h-5 rounded-full bg-emerald-500" />
@@ -251,7 +277,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               </DeferredSection>
             </section>
 
-            {/* ═══ TV PROGRESS ═══ */}
+            {/* ═══ TV PROGRESS — Shows they're tracking ═══ */}
             <section>
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                 <span className="w-1 h-5 rounded-full bg-blue-500" />
@@ -262,29 +288,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               </DeferredSection>
             </section>
 
-            {/* ═══ LISTS ═══ */}
-            <section>
-              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <span className="w-1 h-5 rounded-full bg-rose-500" />
-                Lists
-              </h2>
-              <DeferredSection>
-                <ListsSection profileId={user.id} isOwner={isOwner} />
-              </DeferredSection>
-            </section>
-
-            {/* ═══ DIARY ═══ */}
-            <section>
-              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <span className="w-1 h-5 rounded-full bg-amber-500" />
-                Film Diary
-              </h2>
-              <DeferredSection>
-                <FilmDiary userId={user.id} isOwner={isOwner} />
-              </DeferredSection>
-            </section>
-
-            {/* ═══ REVIEWS ═══ */}
+            {/* ═══ REVIEWS — Their thoughts ═══ */}
             <section>
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                 <span className="w-1 h-5 rounded-full bg-brand-500" />
@@ -295,10 +299,21 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               </DeferredSection>
             </section>
 
-            {/* ═══ STATS ═══ */}
+            {/* ═══ LISTS — Their curated collections ═══ */}
             <section>
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <span className="w-1 h-5 rounded-full bg-accent-gold" />
+                <span className="w-1 h-5 rounded-full bg-rose-500" />
+                Lists
+              </h2>
+              <DeferredSection>
+                <ListsSection profileId={user.id} isOwner={isOwner} />
+              </DeferredSection>
+            </section>
+
+            {/* ═══ STATS — The numbers ═══ */}
+            <section>
+              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <span className="w-1 h-5 rounded-full bg-amber-500" />
                 Stats
               </h2>
               <DeferredSection>
