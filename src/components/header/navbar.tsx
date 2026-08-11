@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { FaMagnifyingGlass } from "react-icons/fa6";
-import { FcFilmReel } from "react-icons/fc";
-import { HiHome } from "react-icons/hi2";
+import { FiBell, FiMessageSquare, FiGlobe } from "react-icons/fi";
 import { Film } from "lucide-react";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import SignOut from "../buttons/signOut";
@@ -35,64 +34,55 @@ export function LogedNavbar() {
   }
 
   const isAuthed = status === "ok" || status === "needs_profile";
-  const isProfileReady = status === "ok";
 
   return (
     <header className="sticky top-0 z-50 w-full nav-glass">
       <nav
-        className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6"
+        className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4 sm:px-6"
         aria-label="Main"
       >
-        {/* Left: logo + nav links */}
-        <div className="flex min-w-0 items-center gap-4">
-          <Link href="/app" className="nav-logo shrink-0">
-            <Film className="w-6 h-6 text-brand-500" />
-            <span className="hidden sm:inline">LetSee</span>
-          </Link>
-          <div className="hidden items-center gap-1 sm:flex">
-            <Link href="/app" className="nav-link active">
-              <HiHome className="size-4 shrink-0" aria-hidden />
-              Home
-            </Link>
-            <Link href="/app/reel" className="nav-link">
-              <FcFilmReel className="size-4 shrink-0" aria-hidden />
-              Reels
-            </Link>
-          </div>
-        </div>
+        {/* Logo */}
+        <Link href="/app" className="nav-logo shrink-0 mr-1">
+          <Film className="w-6 h-6 text-brand-500" />
+          <span className="hidden sm:inline">LetSee</span>
+        </Link>
 
-        {/* Center: search bar (desktop) — open to everyone, not just profile-ready users */}
-        <div className="hidden md:block flex-1 max-w-md mx-4">
+        {/* Search bar — fills available space */}
+        <div className="hidden sm:flex flex-1 max-w-lg mx-auto">
           <SearchBar />
         </div>
 
-        {/* Right: actions */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Right: action icons */}
+        <div className="flex items-center gap-1">
+          {/* Country selector (compact) */}
           <div className="hidden sm:block">
             <CountrySelector />
           </div>
-          <Link href="/app/reel" className="nav-icon-btn sm:hidden" aria-label="Reels">
-            <FcFilmReel className="size-4" />
-          </Link>
-          {isProfileReady && user && (
-            <span className="hidden sm:inline-flex">
-              <MessageButton userId={user.id} />
-            </span>
-          )}
-          {isProfileReady && user && (
-            <span className="hidden sm:inline-flex">
-              <NotificationBell userId={user.id} />
-            </span>
-          )}
+
+          {/* Mobile search trigger */}
           <Link href="/app/search" className="nav-icon-btn sm:hidden" aria-label="Search">
             <FaMagnifyingGlass className="size-4" />
           </Link>
 
+          {isAuthed && (
+            <>
+              {/* Notifications */}
+              {status === "ok" && user && (
+                <NotificationBell userId={user.id} />
+              )}
+
+              {/* Messages */}
+              {status === "ok" && user && (
+                <MessageButton userId={user.id} />
+              )}
+            </>
+          )}
+
           {/* Desktop: auth or user menu */}
-          <div className="hidden items-center gap-2 md:flex">
+          <div className="hidden sm:flex items-center gap-1.5">
             {status === "anon" && (
               <>
-                <Link href="/login" className="nav-link font-medium">
+                <Link href="/login" className="nav-link font-medium text-sm">
                   Log in
                 </Link>
                 <Link
@@ -111,14 +101,13 @@ export function LogedNavbar() {
                 >
                   Complete profile
                 </Link>
-                <div className="min-w-32">
-                  <SignOut />
-                </div>
+                <SignOut />
               </>
             )}
             {status === "ok" && user && <DropdownMenu user={user} />}
           </div>
 
+          {/* Mobile burger */}
           <BurgerMenu status={status} user={user} />
         </div>
       </nav>

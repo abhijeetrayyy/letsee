@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { FaChevronDown, FaFilm, FaTv, FaUsers } from "react-icons/fa6";
+import { FiBell, FiMessageSquare, FiBookmark, FiHeart } from "react-icons/fi";
 import SignOut from "../buttons/signOut";
 import Avatar from "@components/ui/Avatar";
 import type { AuthUser } from "@/app/contextAPI/AuthProvider";
@@ -27,7 +28,9 @@ const DropdownMenu = ({ user }: { user: AuthUser }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
-  const linkClass =
+  const iconClass = "size-4 shrink-0";
+
+  const menuItem =
     "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-surface-300 transition-colors hover:bg-surface-700 hover:text-white";
 
   return (
@@ -52,6 +55,7 @@ const DropdownMenu = ({ user }: { user: AuthUser }) => {
           className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-surface-700/50 bg-surface-900 py-2 shadow-xl shadow-black/30 animate-scale-in"
           role="menu"
         >
+          {/* Profile header */}
           <Link
             href={`/app/profile/${user.username ?? ""}`}
             onClick={() => setIsOpen(false)}
@@ -68,33 +72,75 @@ const DropdownMenu = ({ user }: { user: AuthUser }) => {
           <div className="my-1 border-t border-surface-800" />
 
           <div className="flex flex-col gap-0.5 px-2">
+            {/* Core user sections */}
+            <Link
+              href="/app/watchlist"
+              onClick={() => setIsOpen(false)}
+              className={menuItem}
+              role="menuitem"
+            >
+              <FiBookmark className={`${iconClass} text-amber-400`} />
+              Watchlist
+            </Link>
+            <Link
+              href="/app/profile"
+              onClick={() => setIsOpen(false)}
+              className={menuItem}
+              role="menuitem"
+            >
+              <FiHeart className={`${iconClass} text-rose-400`} />
+              Favorites
+            </Link>
+            <Link
+              href="/app/notification"
+              onClick={() => setIsOpen(false)}
+              className={menuItem}
+              role="menuitem"
+            >
+              <FiBell className={`${iconClass} text-blue-400`} />
+              Notifications
+            </Link>
+            <Link
+              href="/app/messages"
+              onClick={() => setIsOpen(false)}
+              className={menuItem}
+              role="menuitem"
+            >
+              <FiMessageSquare className={`${iconClass} text-green-400`} />
+              Messages
+            </Link>
+
+            <div className="my-1 border-t border-surface-800" />
+
+            {/* Genres */}
             <Link
               href="/app/moviebygenre/list/16-Animation"
               onClick={() => setIsOpen(false)}
-              className={linkClass}
+              className={menuItem}
               role="menuitem"
             >
-              <FaFilm className="size-4 shrink-0 text-blue-400" />
+              <FaFilm className={`${iconClass} text-blue-400`} />
               Movie genres
             </Link>
             <Link
               href="/app/tvbygenre/list/35-Comedy"
               onClick={() => setIsOpen(false)}
-              className={linkClass}
+              className={menuItem}
               role="menuitem"
             >
-              <FaTv className="size-4 shrink-0 text-purple-400" />
+              <FaTv className={`${iconClass} text-purple-400`} />
               TV genres
             </Link>
             <Link
               href="/app/profile"
               onClick={() => setIsOpen(false)}
-              className={linkClass}
+              className={menuItem}
               role="menuitem"
             >
-              <FaUsers className="size-4 shrink-0 text-amber-400" />
+              <FaUsers className={`${iconClass} text-amber-400`} />
               Discover people
             </Link>
+
             <div className="my-1 border-t border-surface-800" />
             <div className="px-2">
               <SignOut />
