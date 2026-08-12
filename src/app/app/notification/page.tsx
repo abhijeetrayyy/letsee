@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/utils/supabase/client";
 import { acceptFollowRequest, rejectFollowRequest } from "@/utils/followerAction";
-import { Heart, UserPlus, UserCheck, Eye, MessageSquare, Star, CheckCheck, Bell, Loader2 } from "lucide-react";
+import { Heart, UserPlus, UserCheck, Eye, MessageSquare, Star, CheckCheck, Bell, Loader2, Hand } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
 
 type ActorProfile = {
@@ -65,6 +65,7 @@ function notificationIcon(type: string) {
     case "dm_received": return <MessageSquare className="w-4 h-4 text-brand-400" />;
     case "friend_started_watching": return <Eye className="w-4 h-4 text-cyan-400" />;
     case "achievement_unlocked": return <Star className="w-4 h-4 text-accent-gold" />;
+    case "wave": return <Hand className="w-4 h-4 text-amber-400" />;
     default: return <Bell className="w-4 h-4 text-surface-400" />;
   }
 }
@@ -129,6 +130,8 @@ function getNotificationText(n: NotificationItem): { text: string; href?: string
       const icon = n.metadata?.icon as string ?? "🏆";
       return { text: `You unlocked ${name}! ${icon}`, href: "/app/profile" };
     }
+    case "wave":
+      return { text: `${username} waved at you`, href: `/app/profile/${username}` };
     default:
       return { text: `New notification from ${username}` };
   }
