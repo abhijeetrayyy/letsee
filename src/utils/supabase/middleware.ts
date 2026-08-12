@@ -75,7 +75,12 @@ export async function updateSession(request: NextRequest) {
     if (pathname === "/update-password") {
       return response;
     }
-    if (pathname.startsWith("/app") && !pathname.startsWith("/app/profile/setup")) {
+    // /app/welcome and /app/profile/setup are the two places a user without a
+    // handle is allowed to be — everything else bounces them to onboarding.
+    const isOnboarding =
+      pathname.startsWith("/app/welcome") || pathname.startsWith("/app/profile/setup");
+
+    if (pathname.startsWith("/app") && !isOnboarding) {
       const { data: profile, error: profileError } = await supabase
         .from("users")
         .select("username, deleted_at")
@@ -88,7 +93,7 @@ export async function updateSession(request: NextRequest) {
       }
 
       if (!profileError && !profile?.username) {
-        return redirectWithCookies(new URL("/app/profile/setup", request.url));
+        return redirectWithCookies(new URL("/app/welcome", request.url));
       }
     }
   }

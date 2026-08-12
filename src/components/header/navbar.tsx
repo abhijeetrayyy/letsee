@@ -96,7 +96,7 @@ export function LogedNavbar() {
             {status === "needs_profile" && (
               <>
                 <Link
-                  href="/app/profile/setup"
+                  href="/app/welcome"
                   className="rounded-full px-4 py-2 text-sm font-semibold text-surface-950 bg-amber-500 hover:bg-amber-400 transition-colors"
                 >
                   Complete profile

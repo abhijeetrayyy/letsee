@@ -48,7 +48,7 @@ export default function SignupPageClient() {
       return;
     }
     if (data.session) {
-      router.push("/app/profile/setup");
+      router.push("/app/welcome");
       return;
     }
     setInfo("Check your email to confirm your account.");

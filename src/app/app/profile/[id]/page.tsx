@@ -35,7 +35,7 @@ async function fetchProfileData(username: string | null, currentUserId: string |
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (!authUser) redirect("/login");
     const { data: profile } = await supabase.from("users").select("id, username, about, visibility, avatar_url, banner_url, tagline, created_at, featured_list_id, pinned_review_id").eq("id", authUser.id).single();
-    if (!profile?.username) redirect("/app/profile/setup");
+    if (!profile?.username) redirect("/app/welcome");
     user = profile; profileId = user.id;
   } else {
     const { data } = await supabase.from("users").select("id, username, about, visibility, avatar_url, banner_url, tagline, created_at, featured_list_id, pinned_review_id").eq("username", username).single();

@@ -182,7 +182,7 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
 
           {status === "needs_profile" && (
             <>
-              <button type="button" onClick={() => go("/app/profile/setup")}
+              <button type="button" onClick={() => go("/app/welcome")}
                 className="w-full rounded-xl bg-amber-500 px-4 py-3 text-center font-medium text-surface-950 hover:bg-amber-400 transition-colors">
                 Complete profile
               </button>

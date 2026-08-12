@@ -31,8 +31,10 @@ export async function GET(req: NextRequest) {
       .eq("id", user.id)
       .maybeSingle();
 
+    // No handle yet = brand new. Send them through onboarding, which ends in
+    // a follow, rather than dumping them on the settings page.
     if (!profile?.username) {
-      return NextResponse.redirect(new URL("/app/profile/setup", req.url));
+      return NextResponse.redirect(new URL("/app/welcome", req.url));
     }
   }
 
