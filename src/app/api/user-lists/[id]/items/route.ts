@@ -28,6 +28,11 @@ export async function GET(
     .single();
   if (!list) return jsonError("List not found", 404);
   if (list.user_id !== viewerId) {
+    // A collaborator can always see a list they help maintain.
+    const { data: isEditor } = viewerId
+      ? await supabase.rpc("is_list_editor", { p_list: listId, p_user: viewerId })
+      : { data: false };
+    if (!isEditor) {
     if (list.visibility === "private") return jsonError("List is private", 403);
     if (list.visibility === "followers") {
       if (!viewerId) return jsonError("List is only visible to followers", 403);
@@ -39,20 +44,28 @@ export async function GET(
         .maybeSingle();
       if (!follow?.followed_id) return jsonError("List is only visible to followers", 403);
     }
+    }
   }
 
   const { data: items, error } = await supabase
     .from("user_list_items")
-    .select("id, item_id, item_type, item_name, image_url, item_adult, position, created_at")
+    .select("id, item_id, item_type, item_name, image_url, item_adult, position, created_at, added_by, users:added_by(username)")
     .eq("list_id", listId)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true });
 
   if (error) return jsonError("Failed to fetch items", 500);
-  return jsonSuccess({ items: items ?? [] }, { maxAge: 0 });
+  const normalized = (items ?? []).map((it) => {
+    const u = Array.isArray((it as Record<string, unknown>).users)
+      ? ((it as Record<string, unknown>).users as { username?: string }[])[0]
+      : ((it as Record<string, unknown>).users as { username?: string } | null);
+    const { users: _users, ...rest } = it as Record<string, unknown>;
+    return { ...rest, addedByUsername: u?.username ?? null };
+  });
+  return jsonSuccess({ items: normalized }, { maxAge: 0 });
 }
 
-/** POST /api/user-lists/[id]/items — add item (owner only). Body: { itemId, itemType, name, imgUrl?, adult?, genres? } */
+/** POST /api/user-lists/[id]/items — add item (owner or collaborator). Body: { itemId, itemType, name, imgUrl?, adult?, genres? } */
 export async function POST(
   request: NextRequest,
   context: RouteContext
@@ -68,12 +81,13 @@ export async function POST(
     return jsonError("Invalid list id", 400);
   }
 
-  const { data: list } = await supabase
-    .from("user_lists")
-    .select("user_id")
-    .eq("id", listId)
-    .single();
-  if (!list || list.user_id !== user.user.id) {
+  // Collaborators can edit contents too; renaming and visibility stay
+  // owner-only and live on the parent route.
+  const { data: canEdit } = await supabase.rpc("is_list_editor", {
+    p_list: listId,
+    p_user: user.user.id,
+  });
+  if (!canEdit) {
     return jsonError("List not found or access denied", 404);
   }
 
@@ -108,8 +122,9 @@ export async function POST(
       item_adult: body.adult ?? false,
       genres: body.genres ?? null,
       position,
+      added_by: user.user.id,
     })
-    .select("id, item_id, item_type, item_name, image_url, position, created_at")
+    .select("id, item_id, item_type, item_name, image_url, position, created_at, added_by")
     .single();
 
   if (error) {
@@ -119,7 +134,7 @@ export async function POST(
   return jsonSuccess({ item }, { maxAge: 0 });
 }
 
-/** DELETE /api/user-lists/[id]/items?itemId=xxx — remove item (owner only) */
+/** DELETE /api/user-lists/[id]/items?itemId=xxx — remove item (owner or collaborator) */
 export async function DELETE(
   request: NextRequest,
   context: RouteContext
@@ -138,12 +153,13 @@ export async function DELETE(
   const itemId = searchParams.get("itemId");
   if (!itemId) return jsonError("itemId query is required", 400);
 
-  const { data: list } = await supabase
-    .from("user_lists")
-    .select("user_id")
-    .eq("id", listId)
-    .single();
-  if (!list || list.user_id !== user.user.id) {
+  // Collaborators can edit contents too; renaming and visibility stay
+  // owner-only and live on the parent route.
+  const { data: canEdit } = await supabase.rpc("is_list_editor", {
+    p_list: listId,
+    p_user: user.user.id,
+  });
+  if (!canEdit) {
     return jsonError("List not found or access denied", 404);
   }
 

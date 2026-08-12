@@ -28,6 +28,7 @@ type ListItemRow = {
   item_adult: boolean;
   position: number;
   created_at: string;
+  addedByUsername?: string | null;
 };
 
 export default function ListDetail({ listId }: { listId: number }) {
@@ -192,15 +193,24 @@ export default function ListDetail({ listId }: { listId: number }) {
                 onShare={() => handleShare(item)}
                 typeLabel={item.item_type}
                 subtitle={
-                  list?.is_owner ? (
-                    <button
-                      type="button"
-                      onClick={() => handleRemove(item.item_id)}
-                      className="mt-1 text-xs text-amber-200 hover:text-amber-100 hover:bg-amber-500/20 rounded px-2 py-1 transition"
-                    >
-                      Remove from list
-                    </button>
-                  ) : undefined
+                  <>
+                    {/* Attribution is what makes a shared list feel
+                        co-authored rather than like a shared spreadsheet. */}
+                    {item.addedByUsername && (
+                      <span className="block text-xs text-surface-500">
+                        Added by @{item.addedByUsername}
+                      </span>
+                    )}
+                    {list?.is_owner && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemove(item.item_id)}
+                        className="mt-1 text-xs text-surface-400 hover:text-red-300 rounded px-2 py-1 transition"
+                      >
+                        Remove from list
+                      </button>
+                    )}
+                  </>
                 }
               />
             </div>
