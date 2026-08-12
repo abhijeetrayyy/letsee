@@ -142,7 +142,7 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
               <button type="button" onClick={() => go("/app/watchlist")} className={menuItemClass}>
                 <FiBookmark className="size-5 shrink-0 text-amber-400" /> Watchlist
               </button>
-              <button type="button" onClick={() => go("/app/profile")} className={menuItemClass}>
+              <button type="button" onClick={() => go(username ? `/app/profile/${username}` : "/app/profile")} className={menuItemClass}>
                 <FiHeart className="size-5 shrink-0 text-rose-400" /> Favorites
               </button>
               <button type="button" onClick={() => go("/app/notification")} className={menuItemClass}>

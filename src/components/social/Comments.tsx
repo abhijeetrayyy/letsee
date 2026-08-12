@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
 import { MessageCircle, Send, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import toast from "react-hot-toast";
 import LikeButton from "@components/reactions/LikeButton";
@@ -18,6 +19,8 @@ export default function Comments({ itemId, itemType }: { itemId: string; itemTyp
   const [replyTo, setReplyTo] = useState<number|null>(null);
   const [showAll, setShowAll] = useState(false);
   const { isAuthenticated } = useMediaInteraction();
+  const { user: authUser } = useAuth();
+  const authUserId = authUser?.id ?? null;
 
   const fetchComments = useCallback(async () => {
     setLoading(true);
@@ -37,8 +40,16 @@ export default function Comments({ itemId, itemType }: { itemId: string; itemTyp
   };
 
   const remove = async (id: number) => {
-    try { const r = await fetch(`/api/comments?id=${id}`, { method: "DELETE" }); if (r.ok) { setComments(p => p.filter(c => c.id !== id)); toast.success("Deleted"); } }
-    catch { toast.error("Failed"); }
+    try {
+      const r = await fetch(`/api/comments?id=${id}`, { method: "DELETE" });
+      if (r.ok) {
+        setComments(p => p.filter(c => c.id !== id));
+        toast.success("Deleted");
+      } else {
+        const e = await r.json().catch(() => ({}));
+        toast.error(e.error || "Couldn't delete that comment");
+      }
+    } catch { toast.error("Couldn't delete that comment"); }
   };
 
   const top = comments.filter(c => !c.parent_id);
@@ -76,8 +87,19 @@ export default function Comments({ itemId, itemType }: { itemId: string; itemTyp
               <p className="text-sm text-surface-300 mt-0.5 leading-relaxed">{c.body}</p>
               <div className="flex items-center gap-1 mt-1">
                 <LikeButton targetType="comment" targetId={c.id} initialCount={c.reaction_count} initialLiked={c.viewer_liked} size="sm" />
-                {isAuthenticated && <button onClick={()=>{setReplyTo(c.id);setBody("");}} className="text-[10px] text-surface-500 hover:text-brand-400 px-2">Reply</button>}
-                {isAuthenticated && <button onClick={()=>remove(c.id)} className="text-[10px] text-surface-600 hover:text-red-400 opacity-0 group-hover:opacity-100 px-2"><Trash2 className="size-3"/></button>}
+                {isAuthenticated && <button onClick={()=>{setReplyTo(c.id);setBody("");}} className="text-[10px] text-surface-500 hover:text-brand-400 px-2 py-1.5">Reply</button>}
+                {/* Only your own comments — the API rejects anything else, and
+                    offering an action that will fail is worse than hiding it.
+                    Not hover-gated: that made it unreachable on touch. */}
+                {c.user_id === authUserId && (
+                  <button
+                    onClick={()=>remove(c.id)}
+                    aria-label="Delete comment"
+                    className="inline-flex items-center justify-center min-h-[32px] min-w-[32px] text-surface-600 hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="size-3.5"/>
+                  </button>
+                )}
               </div>
               {replies(c.id).map(r => (
                 <div key={r.id} className="flex gap-2 mt-2 ml-4 pl-3 border-l-2 border-surface-800">

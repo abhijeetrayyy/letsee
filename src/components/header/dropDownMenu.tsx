@@ -83,7 +83,7 @@ const DropdownMenu = ({ user }: { user: AuthUser }) => {
               Watchlist
             </Link>
             <Link
-              href="/app/profile"
+              href={`/app/profile/${user.username ?? ""}`}
               onClick={() => setIsOpen(false)}
               className={menuItem}
               role="menuitem"

@@ -72,7 +72,17 @@ export async function DELETE(req: NextRequest) {
   const supabase = await createClient();
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return jsonError("Comment id required", 400);
-  const { error } = await supabase.from("comments").delete().eq("id", id).eq("user_id", userId);
+  // Return the deleted rows so a no-op (someone else's comment) is reported as
+  // a failure rather than a success — otherwise the client optimistically
+  // removes a comment that is still in the database.
+  const { data, error } = await supabase
+    .from("comments")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId)
+    .select("id");
+
   if (error) return jsonError(error.message, 500);
+  if (!data?.length) return jsonError("You can only delete your own comments", 403);
   return jsonSuccess({ ok: true });
 }

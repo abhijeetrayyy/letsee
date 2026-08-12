@@ -117,14 +117,14 @@ export default function HomeHero({ items }: { items: HeroItem[] }) {
         <>
           <button
             onClick={prev}
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-10 p-2.5 rounded-full bg-black/30 hover:bg-black/50 text-white/70 hover:text-white backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100"
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-10 p-2.5 rounded-full bg-black/30 hover:bg-black/50 text-white/70 hover:text-white backdrop-blur-sm transition-all hidden md:flex opacity-0 group-hover:opacity-100"
             aria-label="Previous"
           >
             <ChevronLeft className="size-5" />
           </button>
           <button
             onClick={next}
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-10 p-2.5 rounded-full bg-black/30 hover:bg-black/50 text-white/70 hover:text-white backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-10 p-2.5 rounded-full bg-black/30 hover:bg-black/50 text-white/70 hover:text-white backdrop-blur-sm transition-all hidden md:flex opacity-0 group-hover:opacity-100"
             aria-label="Next"
           >
             <ChevronRight className="size-5" />

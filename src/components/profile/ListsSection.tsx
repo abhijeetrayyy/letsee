@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import useSWR from "swr";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { swrFetcher } from "@/utils/swrFetcher";
 import LikeButton from "@components/reactions/LikeButton";
+import CreateListModal from "./CreateListModal";
 
 type List = {
   id: number;
@@ -38,6 +40,7 @@ export default function ListsSection({
   profileId: string;
   isOwner?: boolean;
 }) {
+  const [createOpen, setCreateOpen] = useState(false);
   const { data, error, isLoading, mutate } = useSWR<{ lists: List[] }>(
     `/api/user-lists?userId=${encodeURIComponent(profileId)}`,
     swrFetcher,
@@ -78,19 +81,47 @@ export default function ListsSection({
             : "No lists yet."}
         </p>
         {isOwner && (
-          <Link
-            href="/app/lists/new"
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
             className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg bg-brand-500 text-surface-950 text-sm font-medium hover:bg-brand-400 transition-colors"
           >
             Create list
-          </Link>
+          </button>
         )}
+        <CreateListModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onSuccess={() => {
+            setCreateOpen(false);
+            mutate();
+          }}
+        />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {isOwner && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500 text-surface-950 text-sm font-medium hover:bg-brand-400 transition-colors"
+          >
+            Create list
+          </button>
+        </div>
+      )}
+      <CreateListModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onSuccess={() => {
+          setCreateOpen(false);
+          mutate();
+        }}
+      />
       {/* Lists Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {lists.map((list) => (
