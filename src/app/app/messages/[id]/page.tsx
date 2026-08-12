@@ -1,444 +1,458 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useParams } from "next/navigation";
-import { supabase } from "@/utils/supabase/client";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { use } from "react";
 import Link from "next/link";
-import { FiSend, FiArrowDown } from "react-icons/fi";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { ArrowLeft, Send, Loader2, Film } from "lucide-react";
+import { supabase } from "@/utils/supabase/client";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
+import { getPosterUrl } from "@/utils/imageUrl";
+import Avatar from "@components/ui/Avatar";
 
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
-const CONTENT_MAX_LENGTH = 2000;
+const PAGE_SIZE = 40;
 
-/** Safe TMDB poster URL: accepts path (e.g. /abc or abc) or full URL. */
-function getTmdbImageUrl(path: string | null | undefined, size = "w342"): string {
-  if (!path || typeof path !== "string") return "/no-photo.webp";
-  const trimmed = path.trim();
-  if (trimmed.startsWith("http")) return trimmed;
-  const clean = trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
-  return `${TMDB_IMAGE_BASE}/${size}/${clean}`;
-}
+type CardMeta = {
+  media_type?: string;
+  media_id?: string;
+  media_name?: string;
+  media_image?: string;
+};
 
-interface Message {
-  is_read: boolean;
+type Message = {
   id: string;
   sender_id: string;
   recipient_id: string;
-  content: string;
+  content: string | null;
+  message_type: "text" | "cardmix";
+  metadata: CardMeta | null;
+  is_read: boolean;
   created_at: string;
-  message_type: string;
-  metadata?: {
-    media_id?: string;
-    media_name?: string;
-    media_image?: string;
-    media_type?: string;
-  } | null;
-}
-
-const Chat = () => {
-  const [message, setMessage] = useState<string>("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [user, setUser] = useState<any>(null);
-  const [recipient, setRecipient] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [disable, setDisable] = useState<boolean>(false);
-  const [recipientUsername, setRecipientUsername] = useState<string | null>(
-    null
-  );
-  const [isValidRecipient, setIsValidRecipient] = useState<boolean>(true);
-  const [loadingMore, setLoadingMore] = useState<boolean>(false);
-  const [newMessageCount, setNewMessageCount] = useState<number>(0);
-  const [hasMoreMessages, setHasMoreMessages] = useState<boolean>(true);
-  const [offset, setOffset] = useState<number>(0);
-  const { id } = useParams<{ id: string }>();
-  const chatRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  const isUuid = (value: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      value
-    );
-
-  const isRecipientValid = async (recipientId: string): Promise<boolean> => {
-    const { data, error } = await supabase
-      .from("users")
-      .select("id")
-      .eq("id", recipientId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error validating recipient:", error.message);
-      return false;
-    }
-    return !!data;
-  };
-
-  const fetchUsername = useCallback(
-    async (userId: string) => {
-      const { data, error } = await supabase
-        .from("users")
-        .select("username")
-        .eq("id", userId)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error fetching username:", error.message);
-        return null;
-      }
-      return data?.username || null;
-    },
-    [supabase]
-  );
-
-  const fetchMessages = useCallback(
-    async (user: any, recipientId: string, offsetValue: number) => {
-      const { data: messageData, error: messageError } = await supabase
-        .from("messages")
-        .select("*")
-        .or(
-          `and(sender_id.eq.${user.id},recipient_id.eq.${recipientId}),and(sender_id.eq.${recipientId},recipient_id.eq.${user.id})`
-        )
-        .order("created_at", { ascending: false })
-        .range(offsetValue, offsetValue + 49);
-
-      if (messageError) {
-        console.error(messageError);
-        return [];
-      }
-
-      setHasMoreMessages(messageData.length === 50);
-      return messageData.reverse();
-    },
-    [supabase]
-  );
-
-  const scrollToBottom = useCallback(() => {
-    if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
-    }
-  }, []);
-
-  const isScrolledToBottom = useCallback(() => {
-    if (chatRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = chatRef.current;
-      return Math.abs(scrollHeight - clientHeight - scrollTop) < 1;
-    }
-    return false;
-  }, []);
-
-  const loadMoreMessages = useCallback(async () => {
-    if (user && recipient && isValidRecipient) {
-      setLoadingMore(true);
-      const newOffset = offset + 50;
-      const olderMessages = await fetchMessages(user, recipient, newOffset);
-
-      setMessages((prevMessages) => [...olderMessages, ...prevMessages]);
-      setOffset(newOffset);
-      setHasMoreMessages(olderMessages.length === 50);
-      setLoadingMore(false);
-    }
-  }, [user, recipient, isValidRecipient, offset, fetchMessages]);
-
-  const sendMessage = useCallback(async () => {
-    const trimmed = message.trim();
-    if (trimmed && user && recipient && isValidRecipient) {
-      setDisable(true);
-      const content = trimmed.slice(0, CONTENT_MAX_LENGTH);
-
-      const { error } = await supabase.from("messages").insert([
-        {
-          sender_id: user.id,
-          recipient_id: recipient,
-          content,
-          message_type: "text",
-        },
-      ]);
-
-      if (error) {
-        console.error(error);
-        setDisable(false);
-      } else {
-        setMessage("");
-        setTimeout(() => {
-          inputRef.current?.focus();
-          scrollToBottom();
-        }, 0);
-      }
-    }
-  }, [message, user, recipient, isValidRecipient, supabase, scrollToBottom]);
-
-  useEffect(() => {
-    const getUserAndMessages = async () => {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError) {
-        console.error("Authentication error:", userError);
-        // Redirect to login page if the user is not authenticated
-        window.location.href = "/login";
-        return;
-      }
-
-      if (!user) {
-        console.error("No authenticated user found.");
-        window.location.href = "/login";
-        return;
-      }
-      setUser(user);
-
-      if (id) {
-        if (!isUuid(id)) {
-          setIsValidRecipient(false);
-          setLoading(false);
-          return;
-        }
-        setRecipient(id);
-        const valid = await isRecipientValid(id);
-        setIsValidRecipient(valid);
-        if (valid) {
-          const username = await fetchUsername(id);
-          setRecipientUsername(username);
-
-          const messageData = await fetchMessages(user, id, 0);
-          setMessages(messageData);
-
-          const unreadMessageIds = messageData
-            .filter(
-              (msg: Message) =>
-                msg.recipient_id === user.id && msg.is_read === false
-            )
-            .map((msg: Message) => msg.id);
-
-          if (unreadMessageIds.length > 0) {
-            await supabase
-              .from("messages")
-              .update({ is_read: true })
-              .in("id", unreadMessageIds);
-          }
-
-          setLoading(false);
-        }
-      }
-    };
-    getUserAndMessages();
-  }, [id, supabase, fetchUsername, fetchMessages]);
-
-  useEffect(() => {
-    if (!loading) {
-      scrollToBottom();
-    }
-  }, [loading, scrollToBottom]);
-
-  useEffect(() => {
-    if (user && recipient && isValidRecipient) {
-      const channel = supabase
-        .channel("public:messages")
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "messages",
-          },
-          (payload: { new: Message }) => {
-            if (
-              (payload.new.sender_id === user.id &&
-                payload.new.recipient_id === recipient) ||
-              (payload.new.sender_id === recipient &&
-                payload.new.recipient_id === user.id)
-            ) {
-              setMessages((prevMessages) => [...prevMessages, payload.new]);
-              if (payload.new.sender_id === user.id) {
-                setDisable(false);
-                scrollToBottom();
-              } else if (!isScrolledToBottom()) {
-                setNewMessageCount((prev) => prev + 1);
-              } else {
-                scrollToBottom();
-              }
-            }
-          }
-        )
-        .subscribe();
-
-      return () => {
-        channel.unsubscribe();
-      };
-    }
-  }, [
-    user,
-    recipient,
-    isValidRecipient,
-    supabase,
-    scrollToBottom,
-    isScrolledToBottom,
-  ]);
-
-  const renderMessages = useMemo(() => {
-    return messages.map((msg) => (
-      <div
-        key={msg.id}
-        className={`flex ${
-          msg.sender_id === user?.id ? "justify-end" : "justify-start"
-        } mb-4`}
-      >
-        <div
-          className={`wrap-break-word p-3 rounded-lg max-w-xs md:max-w-md lg:max-w-lg ${
-            msg.sender_id === user?.id
-              ? "bg-blue-600 text-white"
-              : "bg-gray-200 text-black"
-          }`}
-        >
-          <div className="text-xs text-gray-500 mb-1">
-            {msg.sender_id === user?.id ? (
-              <span className="text-gray-200">You</span>
-            ) : (
-              <Link href={`/app/profile/${recipientUsername}`}>
-                @{recipientUsername || "Unknown"}
-              </Link>
-            )}
-          </div>
-
-          {msg.message_type !== "cardmix" || !msg.metadata?.media_id ? (
-            <p className="text-sm whitespace-pre-wrap break-words">{msg.content || "\u00a0"}</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <Link
-                href={`/app/${msg.metadata.media_type === "tv" ? "tv" : "movie"}/${String(msg.metadata.media_id)}`}
-                className="bg-neutral-100 dark:bg-neutral-700 p-3 rounded-lg flex flex-col gap-2 hover:opacity-90 transition-opacity"
-              >
-                <img
-                  src={getTmdbImageUrl(msg.metadata.media_image)}
-                  alt={msg.metadata.media_name ?? "Media"}
-                  className="w-full h-40 object-cover rounded-lg"
-                />
-                <h3 className="text-neutral-900 dark:text-neutral-100 font-semibold truncate">
-                  {msg.metadata.media_name || "Movie / TV"}
-                </h3>
-              </Link>
-              {msg.content ? (
-                <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-              ) : null}
-            </div>
-          )}
-
-          <span className="block text-xs text-right mt-1 opacity-70">
-            {new Date(msg.created_at).toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </span>
-        </div>
-      </div>
-    ));
-  }, [messages, user, recipientUsername]);
-
-  return (
-    <div className="chat-container flex flex-col max-w-4xl w-full m-auto ">
-      <div className=" shadow-sm p-4">
-        <h2 className="text-xl font-semibold">
-          Message{" "}
-          <Link href={`/app/profile/${recipientUsername}`}>
-            @{recipientUsername}
-          </Link>
-        </h2>
-      </div>
-      {!loading ? (
-        <div className="grow flex flex-col max-h-[calc(100vh-130px)] max-w-3xl w-full m-auto">
-          <div
-            className="chat-messages grow overflow-y-auto bg-neutral-700 rounded-t-md vone-scrollbar p-4 "
-            ref={chatRef}
-          >
-            {isValidRecipient ? (
-              <>
-                {hasMoreMessages && (
-                  <button
-                    className="bg-neutral-200 hover:bg-neutral-300 text-neutral-800 font-medium py-2 px-4 rounded-full text-sm w-full max-w-xs mx-auto mb-4 flex items-center justify-center gap-2 disabled:opacity-60 transition-all duration-200 active:scale-[0.98]"
-                    onClick={loadMoreMessages}
-                    disabled={loadingMore}
-                    aria-busy={loadingMore}
-                  >
-                    {loadingMore ? (
-                      <>
-                        <LoadingSpinner size="sm" className="border-t-neutral-600 shrink-0" />
-                        <span>Loading…</span>
-                      </>
-                    ) : (
-                      "Load more messages"
-                    )}
-                  </button>
-                )}
-                {renderMessages}
-              </>
-            ) : (
-              <div className="text-red-500 text-center">
-                Invalid user. Please check the URL.
-              </div>
-            )}
-          </div>
-          {newMessageCount > 0 && (
-            <div
-              className="bg-blue-500 text-white text-center py-2 px-4 cursor-pointer flex items-center justify-center"
-              onClick={() => {
-                scrollToBottom();
-                setNewMessageCount(0);
-              }}
-            >
-              <FiArrowDown className="mr-2" />
-              {newMessageCount} new message{newMessageCount > 1 ? "s" : ""}
-            </div>
-          )}
-          <div className="chat-input p-4 bg-neutral-800 rounded-b-md shadow-lg">
-            <div className="flex items-center space-x-2 max-w-4xl mx-auto">
-              <textarea
-                ref={inputRef}
-                placeholder="Type your message..."
-                value={message}
-                onChange={(e) => {
-                  if (e.target.value.length <= CONTENT_MAX_LENGTH) {
-                    setMessage(e.target.value);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey && !disable) {
-                    e.preventDefault();
-                    sendMessage();
-                  }
-                }}
-                className="grow bg-gray-100 text-gray-800 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                style={{
-                  minHeight: "2.5rem",
-                  maxHeight: "10rem",
-                  resize: "none",
-                }}
-                onInput={(e) => {
-                  e.currentTarget.style.height = "auto";
-                  e.currentTarget.style.height = `${Math.min(
-                    e.currentTarget.scrollHeight,
-                    160
-                  )}px`;
-                }}
-              />
-              <button
-                disabled={disable || message.trim() === ""}
-                onClick={sendMessage}
-                className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full disabled:opacity-50 transition duration-150 ease-in-out"
-              >
-                <FiSend size={20} />
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="grow flex flex-col items-center justify-center gap-3">
-          <LoadingSpinner size="lg" className="border-t-white shrink-0" />
-          <p className="text-neutral-400 text-sm animate-pulse">Loading conversation…</p>
-        </div>
-      )}
-    </div>
-  );
+  /** Local-only: set while an optimistic message is in flight. */
+  pending?: boolean;
+  failed?: boolean;
 };
 
-export default Chat;
+type Recipient = { id: string; username: string; avatar_url: string | null } | null;
+
+function dayLabel(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  if (same(d, today)) return "Today";
+  if (same(d, yesterday)) return "Yesterday";
+  return d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: d.getFullYear() === today.getFullYear() ? undefined : "numeric" });
+}
+
+function clockTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+/** A shared film rendered inside the bubble — the reason most DMs start here. */
+function MediaCard({ meta }: { meta: CardMeta }) {
+  const type = meta.media_type === "tv" ? "tv" : "movie";
+  const href = meta.media_id ? `/app/${type}/${meta.media_id}` : null;
+  const body = (
+    <div className="flex items-center gap-3 rounded-xl bg-black/25 p-2 transition-colors hover:bg-black/40">
+      <img
+        src={getPosterUrl(meta.media_image ?? null, "w92")}
+        alt=""
+        className="aspect-[2/3] w-11 shrink-0 rounded-md object-cover"
+      />
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold leading-tight">
+          {meta.media_name ?? "Untitled"}
+        </p>
+        <p className="mt-0.5 flex items-center gap-1 text-[11px] opacity-70">
+          <Film className="size-3" />
+          {type === "tv" ? "TV series" : "Film"}
+        </p>
+      </div>
+    </div>
+  );
+  return href ? <Link href={href}>{body}</Link> : body;
+}
+
+export default function ChatThreadPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: recipientId } = use(params);
+  const { user, status } = useAuth();
+  const myId = user?.id ?? null;
+
+  const [recipient, setRecipient] = useState<Recipient>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    bottomRef.current?.scrollIntoView({ behavior });
+  }, []);
+
+  /* ── Load the other person ─────────────────────────────────────────────── */
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("users")
+      .select("id, username, avatar_url")
+      .eq("id", recipientId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setRecipient(data as Recipient);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [recipientId]);
+
+  /* ── Load the conversation ─────────────────────────────────────────────── */
+  const loadMessages = useCallback(
+    async (before?: string) => {
+      if (!myId) return;
+      let q = supabase
+        .from("messages")
+        .select("id, sender_id, recipient_id, content, message_type, metadata, is_read, created_at")
+        .or(
+          `and(sender_id.eq.${myId},recipient_id.eq.${recipientId}),and(sender_id.eq.${recipientId},recipient_id.eq.${myId})`,
+        )
+        .order("created_at", { ascending: false })
+        .limit(PAGE_SIZE + 1);
+
+      if (before) q = q.lt("created_at", before);
+
+      const { data } = await q;
+      const rows = (data ?? []) as Message[];
+      const more = rows.length > PAGE_SIZE;
+      const page = rows.slice(0, PAGE_SIZE).reverse(); // oldest → newest
+      setHasMore(more);
+      return page;
+    },
+    [myId, recipientId],
+  );
+
+  useEffect(() => {
+    if (!myId) return;
+    let cancelled = false;
+    setLoading(true);
+    loadMessages().then((page) => {
+      if (cancelled || !page) return;
+      setMessages(page);
+      setLoading(false);
+      requestAnimationFrame(() => scrollToBottom());
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [myId, loadMessages, scrollToBottom]);
+
+  /* ── Mark their messages read ──────────────────────────────────────────── */
+  useEffect(() => {
+    if (!myId || messages.length === 0) return;
+    const unread = messages.filter((m) => m.recipient_id === myId && !m.is_read && !m.pending);
+    if (unread.length === 0) return;
+    void supabase
+      .from("messages")
+      .update({ is_read: true })
+      .in("id", unread.map((m) => m.id));
+  }, [myId, messages]);
+
+  /* ── Realtime ──────────────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (!myId) return;
+    const channel = supabase
+      .channel(`dm-${myId}-${recipientId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          const m = payload.new as Message;
+          const inThisThread =
+            (m.sender_id === myId && m.recipient_id === recipientId) ||
+            (m.sender_id === recipientId && m.recipient_id === myId);
+          if (!inThisThread) return;
+
+          setMessages((prev) => {
+            if (prev.some((p) => p.id === m.id)) return prev;
+            // Drop the optimistic twin once the real row arrives.
+            const withoutOptimistic = prev.filter(
+              (p) => !(p.pending && p.content === m.content && p.sender_id === m.sender_id),
+            );
+            return [...withoutOptimistic, m];
+          });
+          requestAnimationFrame(() => scrollToBottom("smooth"));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [myId, recipientId, scrollToBottom]);
+
+  /* ── Send ──────────────────────────────────────────────────────────────── */
+  const send = useCallback(async () => {
+    const body = draft.trim();
+    if (!body || !myId || sending) return;
+
+    const optimisticId = `pending-${Date.now()}`;
+    const optimistic: Message = {
+      id: optimisticId,
+      sender_id: myId,
+      recipient_id: recipientId,
+      content: body,
+      message_type: "text",
+      metadata: null,
+      is_read: false,
+      created_at: new Date().toISOString(),
+      pending: true,
+    };
+
+    setMessages((prev) => [...prev, optimistic]);
+    setDraft("");
+    setSending(true);
+    requestAnimationFrame(() => scrollToBottom("smooth"));
+
+    // Take the inserted row straight back rather than waiting for the realtime
+    // echo — otherwise a slow or dropped subscription leaves the message stuck
+    // on "Sending…" forever even though it saved fine.
+    const { data: saved, error } = await supabase
+      .from("messages")
+      .insert({
+        sender_id: myId,
+        recipient_id: recipientId,
+        content: body,
+        message_type: "text",
+      })
+      .select("id, sender_id, recipient_id, content, message_type, metadata, is_read, created_at")
+      .single();
+
+    setSending(false);
+
+    setMessages((prev) => {
+      if (error || !saved) {
+        return prev.map((m) =>
+          m.id === optimisticId ? { ...m, pending: false, failed: true } : m,
+        );
+      }
+      // Realtime may have already inserted the real row; don't duplicate it.
+      const withoutDupe = prev.filter((m) => m.id !== saved.id);
+      return withoutDupe.map((m) => (m.id === optimisticId ? (saved as Message) : m));
+    });
+
+    inputRef.current?.focus();
+  }, [draft, myId, recipientId, sending, scrollToBottom]);
+
+  const loadOlder = async () => {
+    if (loadingMore || messages.length === 0) return;
+    setLoadingMore(true);
+    const el = scrollRef.current;
+    const prevHeight = el?.scrollHeight ?? 0;
+    const older = await loadMessages(messages[0].created_at);
+    if (older?.length) {
+      setMessages((prev) => [...older, ...prev]);
+      // Keep the viewport anchored where the user was reading.
+      requestAnimationFrame(() => {
+        if (el) el.scrollTop = el.scrollHeight - prevHeight;
+      });
+    }
+    setLoadingMore(false);
+  };
+
+  /* ── Group by day, then by consecutive sender ──────────────────────────── */
+  const grouped = useMemo(() => {
+    const out: { day: string; runs: { senderId: string; items: Message[] }[] }[] = [];
+    for (const m of messages) {
+      const day = dayLabel(m.created_at);
+      let dayBlock = out[out.length - 1];
+      if (!dayBlock || dayBlock.day !== day) {
+        dayBlock = { day, runs: [] };
+        out.push(dayBlock);
+      }
+      const lastRun = dayBlock.runs[dayBlock.runs.length - 1];
+      if (lastRun && lastRun.senderId === m.sender_id) lastRun.items.push(m);
+      else dayBlock.runs.push({ senderId: m.sender_id, items: [m] });
+    }
+    return out;
+  }, [messages]);
+
+  if (status === "anon") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-950 text-surface-400">
+        <Link href="/login" className="text-brand-400 hover:underline">
+          Log in to view messages
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col bg-surface-950 text-white">
+      {/* Header */}
+      <header className="flex shrink-0 items-center gap-3 border-b border-surface-800 px-4 py-3">
+        <Link
+          href="/app/messages"
+          className="nav-icon-btn shrink-0"
+          aria-label="Back to messages"
+        >
+          <ArrowLeft className="size-4" />
+        </Link>
+        {recipient ? (
+          <Link
+            href={`/app/profile/${recipient.username}`}
+            className="flex min-w-0 items-center gap-2.5"
+          >
+            <Avatar src={recipient.avatar_url} name={recipient.username} size="md" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">@{recipient.username}</p>
+              <p className="text-[11px] text-surface-500">View profile</p>
+            </div>
+          </Link>
+        ) : (
+          <div className="h-9 w-32 animate-pulse rounded-lg bg-surface-800" />
+        )}
+      </header>
+
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
+        {loading ? (
+          <div className="flex h-full items-center justify-center">
+            <Loader2 className="size-5 animate-spin text-surface-500" />
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <Avatar
+              src={recipient?.avatar_url}
+              name={recipient?.username ?? "?"}
+              size="xl"
+              className="mb-4"
+            />
+            <p className="text-base font-semibold text-white">
+              @{recipient?.username ?? "…"}
+            </p>
+            <p className="mt-2 max-w-xs text-sm text-surface-500">
+              No messages yet. Sharing a film you both love is an easier opener
+              than &ldquo;hi&rdquo;.
+            </p>
+          </div>
+        ) : (
+          <>
+            {hasMore && (
+              <div className="mb-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={loadOlder}
+                  disabled={loadingMore}
+                  className="rounded-full border border-surface-700 bg-surface-800 px-4 py-1.5 text-xs text-surface-300 hover:bg-surface-700 disabled:opacity-50"
+                >
+                  {loadingMore ? "Loading…" : "Load earlier messages"}
+                </button>
+              </div>
+            )}
+
+            {grouped.map((block) => (
+              <div key={block.day}>
+                <div className="my-4 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-surface-800" />
+                  <span className="text-[11px] font-medium text-surface-500">{block.day}</span>
+                  <div className="h-px flex-1 bg-surface-800" />
+                </div>
+
+                {block.runs.map((run, ri) => {
+                  const mine = run.senderId === myId;
+                  return (
+                    <div
+                      key={`${block.day}-${ri}`}
+                      className={`mb-3 flex items-end gap-2 ${mine ? "justify-end" : "justify-start"}`}
+                    >
+                      {!mine && (
+                        <Avatar
+                          src={recipient?.avatar_url}
+                          name={recipient?.username ?? "?"}
+                          size="xs"
+                          className="mb-0.5 shrink-0"
+                        />
+                      )}
+                      <div
+                        className={`flex max-w-[78%] flex-col gap-1 sm:max-w-[65%] ${mine ? "items-end" : "items-start"}`}
+                      >
+                        {run.items.map((m) => (
+                          <div
+                            key={m.id}
+                            className={`w-full rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+                              mine
+                                ? `bg-brand-500 text-surface-950 ${m.failed ? "opacity-60 ring-1 ring-red-400" : ""} ${m.pending ? "opacity-70" : ""}`
+                                : "bg-surface-800 text-surface-100"
+                            }`}
+                          >
+                            {m.message_type === "cardmix" && m.metadata && (
+                              <div className={m.content ? "mb-2" : ""}>
+                                <MediaCard meta={m.metadata} />
+                              </div>
+                            )}
+                            {m.content && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
+                          </div>
+                        ))}
+                        <span className="px-1 text-[10px] text-surface-600">
+                          {run.items[run.items.length - 1].failed
+                            ? "Not delivered"
+                            : run.items[run.items.length - 1].pending
+                              ? "Sending…"
+                              : clockTime(run.items[run.items.length - 1].created_at)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            <div ref={bottomRef} />
+          </>
+        )}
+      </div>
+
+      {/* Composer */}
+      <div
+        className="shrink-0 border-t border-surface-800 bg-surface-950 px-4 py-3"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void send();
+          }}
+          className="flex items-end gap-2"
+        >
+          <textarea
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void send();
+              }
+            }}
+            rows={1}
+            maxLength={2000}
+            placeholder={`Message @${recipient?.username ?? ""}…`}
+            className="max-h-32 min-h-[44px] flex-1 resize-none rounded-2xl border border-surface-700 bg-surface-800 px-4 py-3 text-sm text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+          />
+          <button
+            type="submit"
+            disabled={!draft.trim() || sending}
+            aria-label="Send message"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-500 text-surface-950 transition-colors hover:bg-brand-400 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

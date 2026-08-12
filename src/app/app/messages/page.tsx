@@ -1,180 +1,193 @@
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
-import { FiMessageSquare, FiUser } from "react-icons/fi";
+import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import { MessageSquare, Users, Film } from "lucide-react";
+import Avatar from "@components/ui/Avatar";
+import { getBlockedUserIds } from "@/utils/blocks";
 
-import { Suspense } from "react";
-import LoadingSpinner from "@/components/clientComponent/Loadingspin";
+export const dynamic = "force-dynamic";
 
-interface UserInfo {
-  id: string;
-  username: string | null;
-  email: string;
-  unreadCount: number;
-  lastMessageTime: string | null;
-  lastMessagePreview: string;
+/** How far back to look when deriving conversations. */
+const SCAN_LIMIT = 500;
+
+type Conversation = {
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+  lastMessage: string;
+  lastAt: string;
+  unread: number;
+  fromMe: boolean;
+};
+
+function preview(content: string | null, isCard: boolean): string {
+  const text = (content ?? "").trim();
+  if (isCard) return text || "Shared a film";
+  return text || "…";
 }
 
-async function fetchConversations(userId: string) {
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+async function getConversations(userId: string): Promise<Conversation[]> {
   const supabase = await createClient();
 
-  const { data: messagesData, error: messagesError } = await supabase
+  const { data: messages } = await supabase
     .from("messages")
-    .select("sender_id, recipient_id, created_at, content, message_type")
+    .select("sender_id, recipient_id, content, message_type, is_read, created_at")
     .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(SCAN_LIMIT);
 
-  if (messagesError) throw messagesError;
+  if (!messages?.length) return [];
 
-  const uniqueUserIds = Array.from(
-    new Set(
-      messagesData
-        .flatMap((msg: any) => [msg.sender_id, msg.recipient_id])
-        .filter((id: string) => id !== userId)
-    )
-  );
+  const blocked = await getBlockedUserIds(supabase, userId);
 
-  const { data: usersData, error: usersError } = await supabase
-    .from("users")
-    .select("id, username, email")
-    .in("id", uniqueUserIds);
+  // Messages arrive newest-first, so the first time we see a partner is their
+  // latest message.
+  const byPartner = new Map<string, { last: (typeof messages)[number]; unread: number }>();
+  for (const m of messages) {
+    const partner = m.sender_id === userId ? m.recipient_id : m.sender_id;
+    if (partner === userId || blocked.has(partner)) continue;
 
-  if (usersError) throw usersError;
-
-  const { data: unreadMessages, error: unreadError } = await supabase
-    .from("messages")
-    .select("sender_id")
-    .eq("recipient_id", userId)
-    .eq("is_read", false);
-
-  if (unreadError) throw unreadError;
-
-  const unreadCountMap = unreadMessages.reduce(
-    (acc: { [key: string]: number }, message: any) => {
-      acc[message.sender_id] = (acc[message.sender_id] || 0) + 1;
-      return acc;
-    },
-    {}
-  );
-
-  const lastMessageTimeMap: { [key: string]: string } = {};
-  const lastMessagePreviewMap: { [key: string]: string } = {};
-  for (const message of messagesData) {
-    const otherUserId =
-      message.sender_id === userId ? message.recipient_id : message.sender_id;
-    if (!lastMessageTimeMap[otherUserId]) {
-      lastMessageTimeMap[otherUserId] = message.created_at;
-      const content = message.content?.trim() ?? "";
-      const isCard = message.message_type === "cardmix";
-      lastMessagePreviewMap[otherUserId] = isCard
-        ? (content ? `${content.slice(0, 30)}…` : "Shared a movie or TV show")
-        : (content ? content.slice(0, 50) + (content.length > 50 ? "…" : "") : "");
+    const entry = byPartner.get(partner);
+    const isUnread = m.recipient_id === userId && !m.is_read;
+    if (!entry) {
+      byPartner.set(partner, { last: m, unread: isUnread ? 1 : 0 });
+    } else if (isUnread) {
+      entry.unread += 1;
     }
   }
 
-  return usersData.map((u: any) => ({
-    ...u,
-    unreadCount: unreadCountMap[u.id] || 0,
-    lastMessageTime: lastMessageTimeMap[u.id] || null,
-    lastMessagePreview: lastMessagePreviewMap[u.id] ?? "",
-  }));
+  const partnerIds = [...byPartner.keys()];
+  if (partnerIds.length === 0) return [];
+
+  const { data: users } = await supabase
+    .from("users")
+    .select("id, username, avatar_url")
+    .in("id", partnerIds);
+  const userById = new Map((users ?? []).map((u) => [u.id, u]));
+
+  return partnerIds
+    .map((id) => {
+      const { last, unread } = byPartner.get(id)!;
+      const u = userById.get(id);
+      return {
+        userId: id,
+        username: u?.username ?? "user",
+        avatarUrl: u?.avatar_url ?? null,
+        lastMessage: preview(last.content, last.message_type === "cardmix"),
+        lastAt: last.created_at,
+        unread,
+        fromMe: last.sender_id === userId,
+      };
+    })
+    .sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime());
 }
 
-async function ConversationsList() {
+export default async function MessagesPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-  if (!user) {
-    return (
-      <div>
-        {" "}
-        <Link
-          className="bg-blue-600 hover:bg-blue-700 rounded-md px-3 py-2 text-white text-lg font-semibold"
-          href={"/login"}
-        >
-          Log in
-        </Link>
-        in to view conversations.
-      </div>
-    );
-  }
-
-  const conversations = await fetchConversations(user.id);
-
-  const sortedConversations = [...conversations].sort((a, b) => {
-    const dateA = new Date(a.lastMessageTime || 0).getTime();
-    const dateB = new Date(b.lastMessageTime || 0).getTime();
-    return dateB - dateA;
-  });
+  const conversations = await getConversations(user.id);
+  const totalUnread = conversations.reduce((n, c) => n + c.unread, 0);
 
   return (
-    <div className="max-w-4xl w-full mx-auto bg-neutral-900 p-6 rounded-lg shadow-lg">
-      <h1 className="text-3xl font-bold mb-6 text-neutral-100">
-        Conversations
-      </h1>
-      {sortedConversations.length > 0 ? (
-        <ul className="space-y-4">
-          {sortedConversations.map((conversation) => (
-            <li key={conversation.id}>
+    <div className="min-h-screen w-full bg-surface-950 text-white">
+      <div className="mx-auto max-w-2xl px-4 py-6 sm:py-10">
+        <header className="mb-6 flex items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Messages</h1>
+            <p className="mt-1 text-sm text-surface-500">
+              {totalUnread > 0
+                ? `${totalUnread} unread`
+                : conversations.length > 0
+                  ? `${conversations.length} conversation${conversations.length === 1 ? "" : "s"}`
+                  : "No conversations yet"}
+            </p>
+          </div>
+          <Link
+            href="/app/profile"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-surface-800 border border-surface-700 px-3.5 py-2 text-xs font-medium text-surface-300 hover:bg-surface-700 hover:text-white transition-colors"
+          >
+            <Users className="size-3.5" /> Find people
+          </Link>
+        </header>
+
+        {conversations.length === 0 ? (
+          <div className="rounded-2xl border border-surface-700/60 bg-surface-900/40 p-10 text-center">
+            <MessageSquare className="mx-auto mb-4 size-10 text-surface-600" />
+            <h2 className="text-base font-semibold text-white">No messages yet</h2>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-surface-400">
+              Find someone who shares your taste and say hello — or send them a
+              film. Sharing something you both love is an easier opener than
+              &ldquo;hi&rdquo;.
+            </p>
+            <div className="mt-5 flex items-center justify-center gap-2">
               <Link
-                href={`/app/messages/${conversation.id}`}
-                className="block p-4 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition duration-150 ease-in-out"
+                href="/app/profile"
+                className="inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-surface-950 hover:bg-brand-400 transition-colors"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      <FiUser className="h-10 w-10 text-neutral-400" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-lg font-medium text-neutral-100 truncate">
-                        {conversation.username || conversation.email}
-                      </p>
-                      {conversation.lastMessagePreview ? (
-                        <p className="text-sm text-neutral-400 truncate">
-                          {conversation.lastMessagePreview}
-                        </p>
-                      ) : null}
-                      {conversation.lastMessageTime && (
-                        <p className="text-xs text-neutral-500 mt-0.5">
-                          {formatDistanceToNow(
-                            new Date(conversation.lastMessageTime),
-                            { addSuffix: true }
-                          )}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {conversation.unreadCount > 0 && (
-                    <div className="flex items-center">
-                      <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                        {conversation.unreadCount}
+                <Users className="size-4" /> Discover people
+              </Link>
+              <Link
+                href="/app"
+                className="inline-flex items-center gap-1.5 rounded-full border border-surface-700 bg-surface-800 px-4 py-2 text-sm font-medium text-surface-300 hover:bg-surface-700 transition-colors"
+              >
+                <Film className="size-4" /> Browse films
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <ul className="divide-y divide-surface-800/70 overflow-hidden rounded-2xl border border-surface-700/60 bg-surface-900/40">
+            {conversations.map((c) => (
+              <li key={c.userId}>
+                <Link
+                  href={`/app/messages/${c.userId}`}
+                  className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-surface-800/60"
+                >
+                  <Avatar src={c.avatarUrl} name={c.username} size="lg" className="size-12" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span
+                        className={`truncate text-sm ${c.unread > 0 ? "font-bold text-white" : "font-semibold text-surface-200"}`}
+                      >
+                        @{c.username}
+                      </span>
+                      <span className="shrink-0 text-[11px] text-surface-500">
+                        {relativeTime(c.lastAt)}
                       </span>
                     </div>
+                    <p
+                      className={`mt-0.5 truncate text-xs ${c.unread > 0 ? "text-surface-200" : "text-surface-500"}`}
+                    >
+                      {c.fromMe && <span className="text-surface-600">You: </span>}
+                      {c.lastMessage}
+                    </p>
+                  </div>
+                  {c.unread > 0 && (
+                    <span className="ml-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[10px] font-bold text-surface-950">
+                      {c.unread > 9 ? "9+" : c.unread}
+                    </span>
                   )}
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="text-center py-8">
-          <FiMessageSquare className="mx-auto h-12 w-12 text-neutral-400" />
-          <p className="mt-4 text-lg text-neutral-300">No conversations yet</p>
-          <p className="text-sm text-neutral-400">
-            Start chatting with someone to see your conversations here.
-          </p>
-        </div>
-      )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
-  );
-}
-
-export default function ConversationsPage() {
-  return (
-    <Suspense fallback={<LoadingSpinner />}>
-      <ConversationsList />
-    </Suspense>
   );
 }
