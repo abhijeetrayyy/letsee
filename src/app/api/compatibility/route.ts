@@ -1,115 +1,62 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
-import { getAuthUserId } from "@/utils/apiAuth";
-import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { jsonError } from "@/utils/apiResponse";
+import { getPairwiseCompatibility } from "@/utils/tasteMatch";
+import { buildGenreVector, cosineSimilarity } from "@/utils/genreVector";
 
 export const dynamic = "force-dynamic";
 
-type GenreVector = Record<string, number>;
-
-function normalize(v: GenreVector): GenreVector {
-  const mag = Math.sqrt(Object.values(v).reduce((s, x) => s + x * x, 0));
-  if (mag === 0) return v;
-  const out: GenreVector = {};
-  for (const key of Object.keys(v)) out[key] = v[key] / mag;
-  return out;
-}
-
-function cosineSimilarity(a: GenreVector, b: GenreVector): number {
-  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
-  let dot = 0;
-  for (const k of keys) dot += (a[k] ?? 0) * (b[k] ?? 0);
-  return dot;
-}
-
-function buildVector(items: { genres?: string[] | null }[]): GenreVector {
-  const v: GenreVector = {};
-  for (const item of items) {
-    if (Array.isArray(item.genres)) {
-      for (const g of item.genres) v[g] = (v[g] ?? 0) + 1;
-    }
-  }
-  return normalize(v);
-}
-
-function ratingCorrelation(
-  userRatings: Map<string, number>,
-  otherRatings: Map<string, number>,
-): number {
-  const shared: { u: number; o: number }[] = [];
-  for (const [key, score] of userRatings) {
-    const other = otherRatings.get(key);
-    if (other !== undefined) shared.push({ u: score, o: other });
-  }
-
-  if (shared.length < 3) return 0;
-
-  const meanU = shared.reduce((s, x) => s + x.u, 0) / shared.length;
-  const meanO = shared.reduce((s, x) => s + x.o, 0) / shared.length;
-
-  let num = 0, denU = 0, denO = 0;
-  for (const { u, o } of shared) {
-    const du = u - meanU;
-    const dO = o - meanO;
-    num += du * dO;
-    denU += du * du;
-    denO += dO * dO;
-  }
-
-  const den = Math.sqrt(denU) * Math.sqrt(denO);
-  return den === 0 ? 0 : num / den;
-}
-
+/**
+ * GET /api/compatibility?userId=… — taste overlap between the viewer and
+ * another user.
+ *
+ * Two numbers, deliberately:
+ *  - `sharedTitles` / `icebreaker` is the real signal (rarity-weighted title
+ *    overlap). This is what should be shown to a human.
+ *  - `genreSimilarity` is the soft 0–100 "taste overlap" figure the profile
+ *    donut renders. It's a blunt instrument — with ~20 genres most active
+ *    users land high — so it reads as flavour, not evidence.
+ */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const otherUserId = searchParams.get("userId");
-  if (!otherUserId) {
-    return jsonError("userId is required", 400);
-  }
+  if (!otherUserId) return jsonError("userId is required", 400);
 
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   const currentUserId = auth?.user?.id;
-
-  if (!currentUserId) {
-    return jsonError("Not authenticated", 401);
-  }
+  if (!currentUserId) return jsonError("Not authenticated", 401);
 
   try {
-    const [myWatched, myFavs, myRatings, otherWatched, otherFavs, otherRatings] = await Promise.all([
+    const [overlap, myWatched, myFavs, otherWatched, otherFavs] = await Promise.all([
+      getPairwiseCompatibility(supabase, currentUserId, otherUserId),
       supabase.from("watched_items").select("genres").eq("user_id", currentUserId),
       supabase.from("favorite_items").select("genres").eq("user_id", currentUserId),
-      supabase.from("user_ratings").select("item_id, item_type, score").eq("user_id", currentUserId),
       supabase.from("watched_items").select("genres").eq("user_id", otherUserId),
       supabase.from("favorite_items").select("genres").eq("user_id", otherUserId),
-      supabase.from("user_ratings").select("item_id, item_type, score").eq("user_id", otherUserId),
     ]);
 
-    const myVector = buildVector([...(myWatched.data ?? []), ...(myFavs.data ?? [])]);
-    const otherVector = buildVector([...(otherWatched.data ?? []), ...(otherFavs.data ?? [])]);
+    const genreSim = cosineSimilarity(
+      buildGenreVector([...(myWatched.data ?? []), ...(myFavs.data ?? [])]),
+      buildGenreVector([...(otherWatched.data ?? []), ...(otherFavs.data ?? [])]),
+    );
 
-    const genreSim = cosineSimilarity(myVector, otherVector);
+    return NextResponse.json(
+      {
+        // Headline evidence
+        sharedTitles: overlap.sharedTitles,
+        sharedCount: overlap.sharedCount,
+        icebreaker: overlap.icebreaker,
+        /** Ranking signal — not meaningful as a percentage. */
+        overlapScore: overlap.score,
 
-    const myRatingMap = new Map((myRatings.data ?? []).map((r) => [`${r.item_type}:${r.item_id}`, r.score]));
-    const otherRatingMap = new Map((otherRatings.data ?? []).map((r) => [`${r.item_type}:${r.item_id}`, r.score]));
-    const ratingSim = ratingCorrelation(myRatingMap, otherRatingMap);
-
-    const combined = Math.round(((genreSim * 0.6 + Math.max(0, ratingSim) * 0.4)) * 100);
-
-    const sharedItems = [...myRatingMap.keys()].filter((k) => otherRatingMap.has(k));
-    const genreMatchLevel = genreSim > 0.5 ? "high" : genreSim > 0.2 ? "medium" : "low";
-
-    return NextResponse.json({
-      compatibility: Math.min(100, Math.max(0, combined)),
-      genreSimilarity: Math.round(genreSim * 100),
-      ratingCorrelation: Math.round(ratingSim * 100),
-      sharedRatings: sharedItems.length,
-      genreMatchLevel,
-      breakdown: {
-        genreWeight: 60,
-        ratingWeight: 40,
+        // Display figure for the existing compatibility ring
+        compatibility: Math.round(Math.min(1, Math.max(0, genreSim)) * 100),
+        genreSimilarity: Math.round(genreSim * 100),
+        genreMatchLevel: genreSim > 0.5 ? "high" : genreSim > 0.2 ? "medium" : "low",
       },
-    });
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
   } catch (err) {
     console.error("Compatibility error:", err);
     return jsonError("Failed to compute compatibility", 500);

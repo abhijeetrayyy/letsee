@@ -3,12 +3,21 @@
 import useSWR from "swr";
 import { swrFetcher } from "@/utils/swrFetcher";
 
+type SharedTitle = {
+  itemId: string;
+  itemType: "movie" | "tv";
+  name: string;
+  viewers: number;
+  totalUsers: number;
+};
+
 type CompatibilityData = {
   compatibility: number;
   genreSimilarity: number;
-  ratingCorrelation: number;
-  sharedRatings: number;
   genreMatchLevel: "high" | "medium" | "low";
+  sharedTitles?: SharedTitle[];
+  sharedCount?: number;
+  icebreaker?: string;
 };
 
 export default function FriendCompatibility({ profileId }: { profileId: string }) {
@@ -50,14 +59,28 @@ export default function FriendCompatibility({ profileId }: { profileId: string }
             {data.compatibility}%
           </span>
         </div>
-        <div className="text-xs text-surface-400 space-y-0.5">
+        <div className="text-xs text-surface-400 space-y-0.5 min-w-0">
           <p className="font-medium text-surface-200">Taste compatibility</p>
           <p>{data.genreSimilarity}% genre overlap</p>
-          {data.sharedRatings > 0 && (
-            <p>{data.ratingCorrelation}% rating correlation ({data.sharedRatings} shared)</p>
+          {!!data.sharedCount && (
+            <p>
+              {data.sharedCount} title{data.sharedCount === 1 ? "" : "s"} in common
+            </p>
           )}
         </div>
       </div>
+
+      {/* The rarity evidence — a far stronger signal than the percentage. */}
+      {!!data.sharedTitles?.length && (
+        <div className="mt-3 pt-3 border-t border-white/5">
+          <p className="text-xs text-surface-300">{data.icebreaker}</p>
+          {data.sharedTitles.length > 1 && (
+            <p className="mt-1 text-[11px] text-surface-500">
+              Also both seen: {data.sharedTitles.slice(1).map((t) => t.name).join(", ")}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
