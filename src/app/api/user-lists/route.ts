@@ -3,6 +3,49 @@ import { NextRequest } from "next/server";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 import { getAuthUserId } from "@/utils/apiAuth";
 
+type ListRow = { id: number; [k: string]: unknown };
+
+/**
+ * Attach item counts and like state to a set of lists in two queries rather
+ * than one count query per list (and one LikeButton fetch per rendered card).
+ */
+async function enrichLists(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  lists: ListRow[],
+  viewerId: string | null,
+) {
+  if (lists.length === 0) return [];
+  const ids = lists.map((l) => l.id);
+
+  const [{ data: itemRows }, { data: reactionRows }] = await Promise.all([
+    supabase.from("user_list_items").select("list_id").in("list_id", ids),
+    supabase
+      .from("reactions")
+      .select("target_id, user_id")
+      .eq("target_type", "list")
+      .in("target_id", ids),
+  ]);
+
+  const itemCount = new Map<number, number>();
+  for (const r of itemRows ?? []) {
+    itemCount.set(r.list_id, (itemCount.get(r.list_id) ?? 0) + 1);
+  }
+
+  const likeCount = new Map<number, number>();
+  const likedByViewer = new Set<number>();
+  for (const r of reactionRows ?? []) {
+    likeCount.set(r.target_id, (likeCount.get(r.target_id) ?? 0) + 1);
+    if (viewerId && r.user_id === viewerId) likedByViewer.add(r.target_id);
+  }
+
+  return lists.map((list) => ({
+    ...list,
+    items_count: itemCount.get(list.id) ?? 0,
+    reaction_count: likeCount.get(list.id) ?? 0,
+    viewer_liked: likedByViewer.has(list.id),
+  }));
+}
+
 /** GET /api/user-lists — current user's lists. GET /api/user-lists?userId=xxx — lists for profile (respects visibility). Anon can view public lists only. */
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -25,15 +68,7 @@ export async function GET(request: NextRequest) {
 
     if (error) return jsonError("Failed to fetch lists", 500);
 
-    const withCounts = await Promise.all(
-      (lists ?? []).map(async (list) => {
-        const { count } = await supabase
-          .from("user_list_items")
-          .select("*", { count: "exact", head: true })
-          .eq("list_id", list.id);
-        return { ...list, items_count: count ?? 0 };
-      })
-    );
+    const withCounts = await enrichLists(supabase, lists ?? [], viewerId);
     return jsonSuccess({ lists: withCounts }, { maxAge: 0 });
   }
 
@@ -45,15 +80,7 @@ export async function GET(request: NextRequest) {
       .eq("user_id", targetUserId)
       .order("updated_at", { ascending: false });
     if (error) return jsonError("Failed to fetch lists", 500);
-    const withCounts = await Promise.all(
-      (lists ?? []).map(async (list) => {
-        const { count } = await supabase
-          .from("user_list_items")
-          .select("*", { count: "exact", head: true })
-          .eq("list_id", list.id);
-        return { ...list, items_count: count ?? 0 };
-      })
-    );
+    const withCounts = await enrichLists(supabase, lists ?? [], viewerId);
     return jsonSuccess({ lists: withCounts }, { maxAge: 0 });
   }
 
@@ -102,15 +129,7 @@ export async function GET(request: NextRequest) {
       ? lists ?? []
       : (lists ?? []).filter((l) => l.visibility === "public");
 
-  const withCounts = await Promise.all(
-    filtered.map(async (list) => {
-      const { count } = await supabase
-        .from("user_list_items")
-        .select("*", { count: "exact", head: true })
-        .eq("list_id", list.id);
-      return { ...list, items_count: count ?? 0 };
-    })
-  );
+  const withCounts = await enrichLists(supabase, filtered, viewerId);
   return jsonSuccess({ lists: withCounts }, { maxAge: 0 });
 }
 

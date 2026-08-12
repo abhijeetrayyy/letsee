@@ -4,6 +4,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { swrFetcher } from "@/utils/swrFetcher";
+import LikeButton from "@components/reactions/LikeButton";
 
 type List = {
   id: number;
@@ -14,6 +15,8 @@ type List = {
   created_at: string;
   updated_at: string;
   cover_image?: string | null;
+  reaction_count?: number;
+  viewer_liked?: boolean;
 };
 
 function formatDate(iso: string): string {
@@ -91,46 +94,56 @@ export default function ListsSection({
       {/* Lists Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {lists.map((list) => (
-          <Link
+          <div
             key={list.id}
-            href={`/app/lists/${list.id}`}
             className="group flex flex-col rounded-xl border border-surface-700/60 bg-surface-900/40 hover:border-surface-500/60 transition-all duration-300 overflow-hidden"
           >
-            {/* Cover Image (if available) */}
-            {list.cover_image ? (
-              <div className="aspect-[16/9] overflow-hidden">
-                <img
-                  src={list.cover_image}
-                  alt={list.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            <Link href={`/app/lists/${list.id}`} className="flex flex-col flex-1">
+              {/* Cover Image (if available) */}
+              {list.cover_image ? (
+                <div className="aspect-[16/9] overflow-hidden">
+                  <img
+                    src={list.cover_image}
+                    alt={list.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                </div>
+              ) : (
+                <div className="aspect-[16/9] bg-gradient-to-br from-surface-800 to-surface-900 flex items-center justify-center">
+                  <span className="text-4xl">🎬</span>
+                </div>
+              )}
+
+              {/* Content */}
+              <div className="p-4 flex-1 flex flex-col gap-2">
+                <h3 className="text-base font-semibold text-surface-100 group-hover:text-brand-400 transition-colors line-clamp-1">
+                  {list.name}
+                </h3>
+                {list.description && (
+                  <p className="text-sm text-surface-400 line-clamp-2">
+                    {list.description}
+                  </p>
+                )}
+              </div>
+            </Link>
+
+            {/* Footer sits outside the Link so the like button is its own control */}
+            <div className="mx-4 mb-4 flex items-center justify-between gap-2 pt-2 border-t border-surface-700/50">
+              <span className="text-xs text-surface-500">
+                {list.items_count} item{list.items_count !== 1 ? "s" : ""}
+              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-surface-500">{list.visibility}</span>
+                <LikeButton
+                  targetType="list"
+                  targetId={list.id}
+                  initialCount={list.reaction_count ?? 0}
+                  initialLiked={list.viewer_liked ?? false}
+                  size="sm"
                 />
               </div>
-            ) : (
-              <div className="aspect-[16/9] bg-gradient-to-br from-surface-800 to-surface-900 flex items-center justify-center">
-                <span className="text-4xl">🎬</span>
-              </div>
-            )}
-
-            {/* Content */}
-            <div className="p-4 flex-1 flex flex-col gap-2">
-              <h3 className="text-base font-semibold text-surface-100 group-hover:text-brand-400 transition-colors line-clamp-1">
-                {list.name}
-              </h3>
-              {list.description && (
-                <p className="text-sm text-surface-400 line-clamp-2">
-                  {list.description}
-                </p>
-              )}
-              <div className="flex items-center justify-between mt-auto pt-2 border-t border-surface-700/50">
-                <span className="text-xs text-surface-500">
-                  {list.items_count} item{list.items_count !== 1 ? "s" : ""}
-                </span>
-                <span className="text-xs text-surface-500">
-                  {list.visibility}
-                </span>
-              </div>
             </div>
-          </Link>
+          </div>
         ))}
       </div>
     </div>

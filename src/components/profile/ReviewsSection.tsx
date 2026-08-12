@@ -157,12 +157,12 @@ export default function ReviewsSection({
                   </p>
                 )}
 
-                {/* Read More Link */}
+                {/* The review's own page — where it can be replied to. */}
                 <Link
-                  href={href}
+                  href={`/app/review/${item.id}`}
                   className="text-xs text-brand-400 hover:text-brand-300 transition-colors mt-auto"
                 >
-                  Read full review →
+                  Read &amp; discuss →
                 </Link>
               </div>
             </div>
