@@ -5,6 +5,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { swrFetcher } from "@/utils/swrFetcher";
+import { getPosterUrl } from "@/utils/imageUrl";
 
 function slug(title: string): string {
   return title
@@ -177,9 +178,7 @@ export default function FilmDiary({
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {items.map((item) => {
           const href = detailHref(item.item_type, item.item_id, item.item_name);
-          const posterUrl = item.image_url
-            ? `https://image.tmdb.org/t/p/w185${item.image_url}`
-            : "/no-photo.webp";
+          const posterUrl = getPosterUrl(item.image_url, "w185");
 
           return (
             <div

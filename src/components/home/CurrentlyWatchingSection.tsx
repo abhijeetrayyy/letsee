@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useContext } from "react";
 import Link from "next/link";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
+import { getPosterUrl } from "@/utils/imageUrl";
 
 interface WatchingItem {
   item_id: string;
@@ -61,10 +62,7 @@ export default function CurrentlyWatchingSection() {
       </div>
       <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
         {items.map((item) => {
-          const posterUrl =
-            item.image_url && item.image_url.length > 1
-              ? `https://image.tmdb.org/t/p/w185${item.image_url}`
-              : "/no-photo.webp";
+          const posterUrl = getPosterUrl(item.image_url, "w185");
           const href =
             item.item_type === "tv"
               ? `/app/tv/${item.item_id}`

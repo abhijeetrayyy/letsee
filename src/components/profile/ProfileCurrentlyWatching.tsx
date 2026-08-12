@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
+import { getPosterUrl } from "@/utils/imageUrl";
 
 interface WatchingItem {
   item_id: string;
@@ -107,10 +108,7 @@ export default function ProfileCurrentlyWatching({
   return (
     <div className="flex gap-4 overflow-x-auto pb-4 pretty-scrollbar">
       {items.map((item) => {
-        const posterUrl =
-          item.image_url && item.image_url.length > 1
-            ? `https://image.tmdb.org/t/p/w185${item.image_url}`
-            : "/no-photo.webp";
+        const posterUrl = getPosterUrl(item.image_url, "w185");
         const href =
           item.item_type === "tv"
             ? `/app/tv/${item.item_id}`

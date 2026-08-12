@@ -2,6 +2,7 @@
 
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { useContext } from "react";
+import { getPosterUrl } from "@/utils/imageUrl";
 import { CiHeart } from "react-icons/ci";
 import { FcLike } from "react-icons/fc";
 import { MdOutlineWatchLater, MdLiveTv } from "react-icons/md";
@@ -42,7 +43,10 @@ export default function ThreePrefrencebtn({
 
   const id = Number(cardId);
   const adult = cardAdult ?? false;
-  const imgUrl = cardImg ?? undefined;
+  // cardImg may be a raw TMDB path (e.g. "/abc.jpg") or an already-resolved
+  // URL depending on the caller — normalize here so whatever gets saved to
+  // the DB (via user-media-status) is always a real, loadable URL.
+  const imgUrl = cardImg?.trim() ? getPosterUrl(cardImg, "w342") : undefined;
   const genreList = (genres ?? []).filter(
     (g): g is string => g != null && typeof g === "string",
   );

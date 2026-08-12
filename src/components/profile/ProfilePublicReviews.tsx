@@ -4,6 +4,7 @@ import MediaCard, { mediaCardHref } from "@/components/cards/MediaCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { getPosterUrl } from "@/utils/imageUrl";
 
 function formatReviewedDate(iso: string): string {
   try {
@@ -137,7 +138,7 @@ export default function ProfilePublicReviews({
                 item.item_adult
                   ? "/pixeled.webp"
                   : item.image_url
-                    ? `https://image.tmdb.org/t/p/w185/${item.image_url}`
+                    ? getPosterUrl(item.image_url, "w185")
                     : null
               }
               adult={item.item_adult}
