@@ -141,6 +141,15 @@ const DropdownMenu = ({ user }: { user: AuthUser }) => {
               <FaUsers className={`${iconClass} text-amber-400`} />
               Discover people
             </Link>
+            <Link
+              href="/app/clubs"
+              onClick={() => setIsOpen(false)}
+              className={menuItem}
+              role="menuitem"
+            >
+              <FaUsers className={`${iconClass} text-brand-400`} />
+              Clubs
+            </Link>
 
             <div className="my-1 border-t border-surface-800" />
             {/* Streaming region — a preference, so it belongs here rather
