@@ -24,6 +24,8 @@ type ProfileHeroProps = {
   ShowFollowing: React.ComponentType<{ followingCount: number; userId: string }>;
   ShowFollower: React.ComponentType<{ followerCount: number; userId: string }>;
   visibilityControl: React.ReactNode;
+  /** Block/report overflow menu. Renders nothing for your own profile. */
+  actionsMenu?: React.ReactNode;
   userId: string;
   stats: {
     watchedCount: number;
@@ -65,7 +67,7 @@ export default function ProfileHero({
   createdAt, isOwner,
   followButton, messageLink, loginPrompt,
   showFollow, showMessage, showLoginPrompt,
-  ShowFollowing, ShowFollower, visibilityControl,
+  ShowFollowing, ShowFollower, visibilityControl, actionsMenu,
   userId, followingCount, followersCount, stats, completeness,
 }: ProfileHeroProps) {
   const hasBanner = !!bannerUrl?.trim();
@@ -141,6 +143,7 @@ export default function ProfileHero({
                 <ShowFollowing followingCount={followingCount} userId={userId} />
                 <ShowFollower followerCount={followersCount} userId={userId} />
               </div>
+              {actionsMenu && <span className="ml-auto shrink-0">{actionsMenu}</span>}
             </div>
           </div>
         </div>

@@ -11,10 +11,11 @@ export async function GET(
   context: RouteContext
 ) {
   const supabase = await createClient();
-  const { data: authUser, error: authError } = await supabase.auth.getUser();
-  if (authError || !authUser?.user) {
-    return jsonError("User isn't logged in", 401);
-  }
+  // Public lists are readable signed-out — a shared list link is an acquisition
+  // path, and 401ing here dead-ends every invitee.
+  const { data: authUser } = await supabase.auth.getUser();
+  const viewerId = authUser?.user?.id ?? null;
+
   const id = (await context.params).id;
   const listId = Number(id);
   if (!Number.isInteger(listId)) {
@@ -31,15 +32,18 @@ export async function GET(
     return jsonError("List not found", 404);
   }
 
-  if (list.user_id !== authUser.user.id) {
+  if (list.user_id !== viewerId) {
     if (list.visibility === "private") {
       return jsonError("List is private", 403);
     }
     if (list.visibility === "followers") {
+      if (!viewerId) {
+        return jsonError("List is only visible to followers", 403);
+      }
       const { data: follow } = await supabase
         .from("user_connections")
         .select("followed_id")
-        .eq("follower_id", authUser.user.id)
+        .eq("follower_id", viewerId)
         .eq("followed_id", list.user_id)
         .maybeSingle();
       if (!follow?.followed_id) {
@@ -53,7 +57,7 @@ export async function GET(
     .select("*", { count: "exact", head: true })
     .eq("list_id", listId);
 
-  const isOwner = list.user_id === authUser.user.id;
+  const isOwner = !!viewerId && list.user_id === viewerId;
   return jsonSuccess(
     { list: { ...list, items_count: count ?? 0, is_owner: isOwner } },
     { maxAge: 0 }

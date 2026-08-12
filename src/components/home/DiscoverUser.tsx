@@ -7,6 +7,8 @@ import { HiArrowRight } from "react-icons/hi2";
 import { useApiFetch } from "@/hooks/useApiFetch";
 import { FetchError } from "@/components/ui/FetchError";
 import ProfileAvatar from "@components/profile/ProfileAvatar";
+import FollowButton from "@components/profile/FollowButton";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
 
 interface User {
   id: string;
@@ -30,6 +32,7 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const { user: authUser } = useAuth();
 
   const {
     data,
@@ -134,29 +137,33 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
           ) : (
             <>
               {users.map((item) => (
-                <Link
+                <div
                   key={item.id}
-                  href={`/app/profile/${item.username}`}
-                  className="discover-user-card group shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-surface-900/60 border border-surface-700/40 hover:border-surface-600/60 hover:bg-surface-800/80 transition-all duration-300 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-950"
+                  className="discover-user-card group shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-surface-900/60 border border-surface-700/40 hover:border-surface-600/60 hover:bg-surface-800/80 transition-all duration-300 overflow-hidden"
                 >
                   <div className="p-5 flex flex-col items-center text-center">
-                    <div className="relative">
-                      <ProfileAvatar
-                        src={item.avatar_url || "/avatar.svg"}
-                        alt={`${item.username} avatar`}
-                        className="w-20 h-20 rounded-full object-cover border-2 border-surface-700 group-hover:border-brand-500/30 transition-colors ring-2 ring-surface-900"
-                        width={80}
-                        height={80}
-                      />
-                      {item.followsYou && (
-                        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-full bg-brand-500/90 text-surface-950 text-[9px] font-bold whitespace-nowrap">
-                          Follows you
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="mt-3 text-base font-semibold text-white group-hover:text-brand-400 transition-colors truncate w-full">
-                      @{formatUsername(item.username)}
-                    </h3>
+                    <Link
+                      href={`/app/profile/${item.username}`}
+                      className="flex flex-col items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 rounded-xl"
+                    >
+                      <div className="relative">
+                        <ProfileAvatar
+                          src={item.avatar_url || "/avatar.svg"}
+                          alt={`${item.username} avatar`}
+                          className="w-20 h-20 rounded-full object-cover border-2 border-surface-700 group-hover:border-brand-500/30 transition-colors ring-2 ring-surface-900"
+                          width={80}
+                          height={80}
+                        />
+                        {item.followsYou && (
+                          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-full bg-brand-500/90 text-surface-950 text-[9px] font-bold whitespace-nowrap">
+                            Follows you
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="mt-3 text-base font-semibold text-white group-hover:text-brand-400 transition-colors truncate w-full">
+                        @{formatUsername(item.username)}
+                      </h3>
+                    </Link>
                     <p className="mt-1 text-xs text-surface-500 line-clamp-2 min-h-8">
                       {item.about || "Movie & TV enthusiast"}
                     </p>
@@ -174,8 +181,17 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
                         {item.watchlist_count}
                       </span>
                     </div>
+                    {/* HomeDiscover already excludes people you follow, so these
+                        are always "follow" — no per-card status query needed. */}
+                    <FollowButton
+                      targetUserId={item.id}
+                      currentUserId={authUser?.id ?? null}
+                      initialStatus="follow"
+                      size="sm"
+                      className="mt-4 w-full"
+                    />
                   </div>
-                </Link>
+                </div>
               ))}
               <Link
                 href="/app/profile"

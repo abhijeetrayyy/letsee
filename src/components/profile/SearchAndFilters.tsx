@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { FaSearch } from "react-icons/fa";
 import { PiFilmSlateBold, PiHeartBold, PiListChecksBold } from "react-icons/pi";
 import ProfileAvatar from "@components/profile/ProfileAvatar";
+import FollowButton, { type FollowStatus } from "@components/profile/FollowButton";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 type SortKey = "recent" | "watched" | "favorites" | "watchlist";
 
@@ -14,47 +17,74 @@ interface UserCoutStats {
   watchlist_count?: number;
 }
 
-interface ProfileUser {
+export interface ProfileUser {
+  id: string;
   username: string;
   about?: string | null;
   avatar_url?: string | null;
+  isFollowing?: boolean;
+  followsYou?: boolean;
   user_cout_stats?: UserCoutStats | null;
 }
 
-export default function SearchAndFilters({ users }: { users: ProfileUser[] }) {
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: "recent", label: "Recent" },
+  { key: "watched", label: "Most watched" },
+  { key: "favorites", label: "Most favorites" },
+  { key: "watchlist", label: "Most watchlist" },
+];
+
+export default function SearchAndFilters({
+  initialUsers = [],
+}: {
+  initialUsers?: ProfileUser[];
+}) {
+  const { user: authUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
+  const [users, setUsers] = useState<ProfileUser[]>(initialUsers);
+  const [loading, setLoading] = useState(false);
 
-  const filteredAndSorted = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    let list = (users ?? []).filter(
-      (u): u is ProfileUser & { username: string } => u != null && !!u.username
+  // Debounced server-side search/browse. Replaces the old approach of loading
+  // every public profile up front and filtering in the browser.
+  useEffect(() => {
+    const q = searchQuery.trim();
+    const controller = new AbortController();
+    const timer = setTimeout(
+      async () => {
+        setLoading(true);
+        try {
+          const params = new URLSearchParams({ limit: "60", sort });
+          if (q) params.set("q", q);
+          const res = await fetch(`/api/users/search?${params}`, {
+            signal: controller.signal,
+          });
+          if (!res.ok) throw new Error(`search failed: ${res.status}`);
+          const data = await res.json();
+          setUsers(data.users ?? []);
+        } catch (err) {
+          if ((err as Error).name !== "AbortError") {
+            console.error("People search failed:", err);
+            setUsers([]);
+          }
+        } finally {
+          setLoading(false);
+        }
+      },
+      q ? 250 : 0,
     );
-    if (q) {
-      list = list.filter(
-        (u) =>
-          u.username.toLowerCase().includes(q) ||
-          (typeof u.about === "string" && u.about.toLowerCase().includes(q))
-      );
-    }
-    if (sort === "watched") {
-      list = [...list].sort(
-        (a, b) =>
-          (b.user_cout_stats?.watched_count ?? 0) - (a.user_cout_stats?.watched_count ?? 0)
-      );
-    } else if (sort === "favorites") {
-      list = [...list].sort(
-        (a, b) =>
-          (b.user_cout_stats?.favorites_count ?? 0) - (a.user_cout_stats?.favorites_count ?? 0)
-      );
-    } else if (sort === "watchlist") {
-      list = [...list].sort(
-        (a, b) =>
-          (b.user_cout_stats?.watchlist_count ?? 0) - (a.user_cout_stats?.watchlist_count ?? 0)
-      );
-    }
-    return list;
-  }, [users, searchQuery, sort]);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery, sort]);
+
+  const onFollowChange = (id: string, status: FollowStatus) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, isFollowing: status === "following" } : u)),
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -67,7 +97,7 @@ export default function SearchAndFilters({ users }: { users: ProfileUser[] }) {
           />
           <input
             type="search"
-            placeholder="Search by username or bio…"
+            placeholder="Search by username…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-800/80 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-colors"
@@ -75,14 +105,7 @@ export default function SearchAndFilters({ users }: { users: ProfileUser[] }) {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          {(
-            [
-              { key: "recent" as const, label: "Recent" },
-              { key: "watched" as const, label: "Most watched" },
-              { key: "favorites" as const, label: "Most favorites" },
-              { key: "watchlist" as const, label: "Most watchlist" },
-            ] as const
-          ).map(({ key, label }) => (
+          {SORTS.map(({ key, label }) => (
             <button
               key={key}
               type="button"
@@ -101,13 +124,21 @@ export default function SearchAndFilters({ users }: { users: ProfileUser[] }) {
 
       {/* Results count */}
       <p className="text-sm text-neutral-500">
-        {filteredAndSorted.length === 0
-          ? "No profiles found"
-          : `${filteredAndSorted.length} profile${filteredAndSorted.length !== 1 ? "s" : ""}`}
+        {loading
+          ? "Searching…"
+          : users.length === 0
+            ? "No profiles found"
+            : `${users.length} profile${users.length !== 1 ? "s" : ""}`}
       </p>
 
+      {loading && users.length === 0 && (
+        <div className="py-12 flex justify-center">
+          <LoadingSpinner size="sm" />
+        </div>
+      )}
+
       {/* Empty state */}
-      {filteredAndSorted.length === 0 && (
+      {!loading && users.length === 0 && (
         <div className="rounded-2xl border border-neutral-700 bg-neutral-800/40 p-12 text-center">
           <p className="text-neutral-400">
             {searchQuery.trim()
@@ -127,16 +158,18 @@ export default function SearchAndFilters({ users }: { users: ProfileUser[] }) {
       )}
 
       {/* User grid */}
-      {filteredAndSorted.length > 0 && (
+      {users.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {filteredAndSorted.map((item) => (
-            <Link
-              key={item.username}
-              href={`/app/profile/${item.username}`}
-              className="group block rounded-2xl border border-neutral-700/60 bg-neutral-800/50 hover:bg-neutral-800 hover:border-neutral-600 transition-all duration-200 overflow-hidden active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2 focus:ring-offset-neutral-900 focus:rounded-2xl"
+          {users.map((item) => (
+            <div
+              key={item.id}
+              className="group rounded-2xl border border-neutral-700/60 bg-neutral-800/50 hover:bg-neutral-800 hover:border-neutral-600 transition-all duration-200 overflow-hidden"
             >
               <div className="p-5">
-                <div className="flex items-start gap-4">
+                <Link
+                  href={`/app/profile/${item.username}`}
+                  className="flex items-start gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 rounded-xl"
+                >
                   <ProfileAvatar
                     src={item.avatar_url || "/avatar.svg"}
                     alt={`@${item.username}`}
@@ -148,11 +181,16 @@ export default function SearchAndFilters({ users }: { users: ProfileUser[] }) {
                     <h2 className="text-lg font-semibold text-white truncate group-hover:text-amber-300 transition-colors">
                       @{item.username}
                     </h2>
+                    {item.followsYou && (
+                      <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-brand-500/15 text-brand-300 text-[10px] font-semibold">
+                        Follows you
+                      </span>
+                    )}
                     {item.about && (
                       <p className="text-sm text-neutral-400 line-clamp-2 mt-0.5">{item.about}</p>
                     )}
                   </div>
-                </div>
+                </Link>
                 <div className="mt-4 pt-4 border-t border-neutral-700/60 flex items-center gap-4 text-sm">
                   <span className="flex items-center gap-1.5 text-neutral-400" title="Watched">
                     <PiFilmSlateBold className="w-4 h-4 text-neutral-500 shrink-0" aria-hidden />
@@ -176,8 +214,16 @@ export default function SearchAndFilters({ users }: { users: ProfileUser[] }) {
                     <span className="sr-only">Watchlist</span>
                   </span>
                 </div>
+                <FollowButton
+                  targetUserId={item.id}
+                  currentUserId={authUser?.id ?? null}
+                  initialStatus={item.isFollowing ? "following" : "follow"}
+                  size="sm"
+                  className="mt-4 w-full"
+                  onStatusChange={(s) => onFollowChange(item.id, s)}
+                />
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

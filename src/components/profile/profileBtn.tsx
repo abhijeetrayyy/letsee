@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/utils/supabase/client";
-import { followUser } from "@/utils/followerAction";
 import Link from "next/link";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import FollowButton from "./FollowButton";
 
 interface FollowerBtnClientProps {
   profileId: string;
@@ -13,157 +12,19 @@ interface FollowerBtnClientProps {
   profileVisibility: string;
 }
 
+/** Profile-page follow control. Thin wrapper over the shared FollowButton. */
 export function FollowerBtnClient({
   profileId,
   currentUserId,
-  initialStatus,
   profileVisibility,
 }: FollowerBtnClientProps) {
-  const [status, setStatus] = useState(initialStatus);
-  const [isLoading, setIsLoading] = useState(false);
-  const [logedin, setLogedin] = useState(false);
-  const [modal, setModal] = useState(false);
-
-  useEffect(() => {
-    const fetchStatus = async () => {
-      setIsLoading(true);
-      if (!currentUserId) {
-        setLogedin(false);
-        setIsLoading(false);
-        return;
-      }
-      try {
-        const { data } = await supabase
-          .from("user_connections")
-          .select("id")
-          .eq("follower_id", currentUserId)
-          .eq("followed_id", profileId);
-
-        if (data?.length) {
-          setStatus("following");
-          return;
-        }
-
-        const { data: requestData } = await supabase
-          .from("user_follow_requests")
-          .select("id")
-          .eq("sender_id", currentUserId)
-          .eq("receiver_id", profileId);
-
-        setStatus(requestData?.length ? "pending" : "follow");
-      } catch (error) {
-        console.error("Error fetching follow status:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchStatus();
-
-    // Subscribe to changes for real-time updates
-    const subscription = supabase
-      .channel("follow_requests")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "user_follow_requests" },
-        fetchStatus
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, [profileId, currentUserId, supabase]);
-
-  const handleFollowClick = async () => {
-    if (isLoading) return;
-    setIsLoading(true);
-
-    if (!logedin) {
-      setModal(true);
-      return;
-    }
-
-    try {
-      if (status === "following") {
-        await supabase
-          .from("user_connections")
-          .delete()
-          .eq("follower_id", currentUserId)
-          .eq("followed_id", profileId);
-        setStatus("follow");
-      } else if (status === "pending") {
-        await supabase
-          .from("user_follow_requests")
-          .delete()
-          .eq("sender_id", currentUserId)
-          .eq("receiver_id", profileId);
-        setStatus("follow");
-      } else {
-        if (!currentUserId) return;
-        const { error, instant } = await followUser(currentUserId, profileId, profileVisibility);
-        if (!error) setStatus(instant ? "following" : "pending");
-        else console.log(error);
-      }
-    } catch (error) {
-      console.error("Error handling follow action:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
-    <>
-      {modal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-9999">
-          <div className="bg-neutral-700 w-full h-fit max-w-3xl sm:rounded-lg p-5 shadow-xl">
-            <div className="flex justify-between items-center p-4 border-b">
-              <Link
-                className="bg-blue-600 hover:bg-blue-700 rounded-md px-3 py-2 text-white text-lg font-semibold"
-                href={"/login"}
-              >
-                Log in
-              </Link>
-              <button
-                onClick={() => {
-                  setModal(false);
-                  setIsLoading(false);
-                }}
-                className="text-white hover:text-gray-300"
-              >
-                ✖
-              </button>
-            </div>
-            <div className="p-4">
-              <p className="text-white">You need to log in to follow.</p>
-            </div>
-          </div>
-        </div>
-      )}
-      <button
-        className={`flex items-center justify-center gap-2 px-4 py-2 rounded transition-all duration-200 active:scale-[0.98] disabled:opacity-70 ${
-          status === "following"
-            ? "bg-gray-500"
-            : status === "pending"
-            ? "bg-yellow-500"
-            : "bg-blue-500"
-        } text-white`}
-        onClick={handleFollowClick}
-        disabled={isLoading}
-        aria-busy={isLoading}
-      >
-        {isLoading ? (
-          <>
-            <LoadingSpinner size="sm" className="border-t-white shrink-0" />
-            <span>Loading…</span>
-          </>
-        ) : status === "following"
-          ? "Unfollow"
-          : status === "pending"
-          ? "Requested"
-          : "Follow"}
-      </button>
-    </>
+    <FollowButton
+      targetUserId={profileId}
+      currentUserId={currentUserId}
+      targetVisibility={profileVisibility}
+      watchRequests
+    />
   );
 }
 

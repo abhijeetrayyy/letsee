@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Trophy, Medal, Eye } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
+import FollowButton from "@components/profile/FollowButton";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
 
 export default function CommunityLeaderboard() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user: authUser } = useAuth();
 
   useEffect(() => {
     fetch("/api/HomeDiscover", { credentials: "include" })
@@ -28,12 +31,21 @@ export default function CommunityLeaderboard() {
       <div className="flex items-center gap-2 mb-3"><Trophy className="size-3.5 text-amber-400"/><h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider">Top Watchers</h3></div>
       <div className="space-y-1.5">
         {users.slice(0, 8).map((u: any) => (
-          <Link key={u.id} href={`/app/profile/${u.username}`} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-surface-800/50 transition-colors group">
+          <div key={u.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-surface-800/50 transition-colors group">
             <span className="w-5 text-center text-xs font-bold text-surface-500">{medals[u.rank] ?? u.rank}</span>
-            <Avatar src={u.avatar} name={u.username} size="xs" />
-            <div className="flex-1 min-w-0"><p className="text-xs font-medium text-surface-300 group-hover:text-white truncate">@{u.username}</p></div>
-            <div className="flex items-center gap-1 text-[10px] text-surface-500 tabular-nums"><Eye className="size-3 text-emerald-400"/>{u.count.toLocaleString()}</div>
-          </Link>
+            <Link href={`/app/profile/${u.username}`} className="flex items-center gap-2.5 flex-1 min-w-0">
+              <Avatar src={u.avatar} name={u.username} size="xs" />
+              <div className="flex-1 min-w-0"><p className="text-xs font-medium text-surface-300 group-hover:text-white truncate">@{u.username}</p></div>
+              <div className="flex items-center gap-1 text-[10px] text-surface-500 tabular-nums"><Eye className="size-3 text-emerald-400"/>{u.count.toLocaleString()}</div>
+            </Link>
+            <FollowButton
+              targetUserId={u.id}
+              currentUserId={authUser?.id ?? null}
+              initialStatus="follow"
+              size="sm"
+              className="shrink-0 !px-2.5 !py-1 !text-[10px]"
+            />
+          </div>
         ))}
       </div>
     </div>

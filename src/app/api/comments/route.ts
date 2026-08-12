@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { getBlockedUserIds } from "@/utils/blocks";
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -16,11 +17,14 @@ export async function GET(req: NextRequest) {
     .eq("item_id", itemId).eq("item_type", itemType).order("created_at", { ascending: true });
   if (error) return jsonError(error.message, 500);
 
-  const comments = data ?? [];
+  const viewerId = await getAuthUserId();
+
+  // Hide comments from people either side has blocked.
+  const blockedIds = await getBlockedUserIds(supabase, viewerId);
+  const comments = (data ?? []).filter((c) => !blockedIds.has(c.user_id));
   if (comments.length === 0) return jsonSuccess([]);
 
   const commentIds = comments.map((c) => c.id);
-  const viewerId = await getAuthUserId();
 
   const { data: reactionRows } = await supabase
     .from("reactions")

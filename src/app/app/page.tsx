@@ -103,15 +103,14 @@ export default async function Home() {
                 </div>
               )}
 
-              {/* Community discovery */}
-              {isLoggedIn && (
-                <>
-                  <ClubPickWidget />
-                  <PeopleYouMayKnow />
-                  <DiscoverUsers hideTitleLink />
-                  <CommunityLeaderboard />
-                </>
-              )}
+              {/* Community discovery — visible to everyone. A signed-out
+                  visitor seeing zero humans is the worst possible first
+                  impression for a community product. PeopleYouMayKnow stays
+                  gated because its matches are relative to your own taste. */}
+              <ClubPickWidget />
+              {isLoggedIn && <PeopleYouMayKnow />}
+              <DiscoverUsers hideTitleLink />
+              <CommunityLeaderboard />
             </aside>
 
             {/* ═══════ MAIN CONTENT ═══════ */}

@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
+import { getBlockedUserIds } from "@/utils/blocks";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,12 @@ export async function GET(request: Request) {
         .filter((id) => id !== user?.id && !targetUserIds.includes(id));
       targetUserIds.push(...popularIds.slice(0, 10));
     }
+  }
+
+  // Never surface activity from someone either side has blocked.
+  const blockedIds = await getBlockedUserIds(supabase, user?.id ?? null);
+  if (blockedIds.size > 0) {
+    targetUserIds = targetUserIds.filter((id) => !blockedIds.has(id));
   }
 
   if (targetUserIds.length === 0) {

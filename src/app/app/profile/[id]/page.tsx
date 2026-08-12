@@ -5,6 +5,7 @@ import { ShowFollowing, ShowFollower, FollowerBtnClient } from "@/components/pro
 import Logornot from "@components/guide/logornot";
 import VisibilityGate from "@components/profile/VisibilityGate";
 import ProfileHeroNew from "@components/profile/ProfileHeroNew";
+import ProfileActionsDropdown from "@components/profile/ProfileActionsDropdown";
 import Visibility from "@components/profile/visibility";
 import FilmDiary from "@components/profile/FilmDiary";
 import WatchedGrid from "@components/profile/WatchedGrid";
@@ -150,6 +151,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
           messageLink={!isOwner && currentUserId ? <Link href={`/app/messages/${user.id}`} className="inline-flex items-center px-5 py-2.5 rounded-full bg-brand-500/10 hover:bg-brand-500/15 text-brand-300 text-sm font-medium border border-brand-500/20 transition-colors">Message</Link> : <></>}
           loginPrompt={!currentUserId ? <Logornot message="Log in to follow or message." /> : <></>}
           visibilityControl={isOwner ? <Visibility /> : <></>}
+          actionsMenu={!isOwner && currentUserId ? <ProfileActionsDropdown profileId={user.id} currentUserId={currentUserId} /> : undefined}
           showFollow={!isOwner && !!currentUserId} showMessage={!isOwner && !!currentUserId} showLoginPrompt={!currentUserId}
           ShowFollowing={ShowFollowing} ShowFollower={ShowFollower}
           userId={user.id} stats={stats}

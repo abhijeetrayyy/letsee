@@ -11,10 +11,10 @@ export async function GET(
   context: RouteContext
 ) {
   const supabase = await createClient();
-  const { data: authUser, error: authError } = await supabase.auth.getUser();
-  if (authError || !authUser?.user) {
-    return jsonError("User isn't logged in", 401);
-  }
+  // Mirrors the parent route: public lists are readable signed-out.
+  const { data: authUser } = await supabase.auth.getUser();
+  const viewerId = authUser?.user?.id ?? null;
+
   const id = (await context.params).id;
   const listId = Number(id);
   if (!Number.isInteger(listId)) {
@@ -27,13 +27,14 @@ export async function GET(
     .eq("id", listId)
     .single();
   if (!list) return jsonError("List not found", 404);
-  if (list.user_id !== authUser.user.id) {
+  if (list.user_id !== viewerId) {
     if (list.visibility === "private") return jsonError("List is private", 403);
     if (list.visibility === "followers") {
+      if (!viewerId) return jsonError("List is only visible to followers", 403);
       const { data: follow } = await supabase
         .from("user_connections")
         .select("followed_id")
-        .eq("follower_id", authUser.user.id)
+        .eq("follower_id", viewerId)
         .eq("followed_id", list.user_id)
         .maybeSingle();
       if (!follow?.followed_id) return jsonError("List is only visible to followers", 403);

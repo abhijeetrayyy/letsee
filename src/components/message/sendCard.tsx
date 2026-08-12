@@ -289,23 +289,25 @@ const SendMessageModal: React.FC<Props> = ({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    void Promise.resolve(
-      supabase
-        .from("users")
-        .select("id, username")
-        .ilike("username", `%${searchDebounced.trim()}%`)
-        .neq("id", sender.id)
-        .limit(10)
-        .order("username", { ascending: true })
-    )
-      .then(({ data, error }) => {
+    // Use the shared search API rather than querying `users` directly — it
+    // filters blocked users and respects profile visibility, neither of which
+    // a raw client-side query does.
+    fetch(`/api/users/search?q=${encodeURIComponent(searchDebounced.trim())}&limit=10`)
+      .then(async (res) => {
         if (cancelled) return;
-        if (error) {
-          setError("Couldn't search users. Try again.");
-          setUsers([]);
-        } else {
-          setUsers(data ?? []);
-        }
+        if (!res.ok) throw new Error(`search failed: ${res.status}`);
+        const data = await res.json();
+        setUsers(
+          (data.users ?? []).map((u: { id: string; username: string }) => ({
+            id: u.id,
+            username: u.username,
+          })),
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setError("Couldn't search users. Try again.");
+        setUsers([]);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
