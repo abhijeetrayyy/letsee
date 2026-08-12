@@ -12,6 +12,13 @@ interface User {
   favorites_count: number;
   watchlist_count: number;
   followsYou: boolean;
+  /** Genre-vector cosine as a percentage. Null for anonymous or cold viewers. */
+  matchPercent: number | null;
+  /** Genres you both watch a lot of — the actual conversation starter. */
+  sharedGenres: string[];
+  /** Recent poster URLs. A card showing what someone watches beats a card
+      showing how many things they watched. */
+  recentPosters: string[];
 }
 
 const POOL_SIZE = 40;
@@ -73,6 +80,9 @@ export async function GET(request: Request) {
       pool = pool.filter((row) => !alreadyFollowed.has(String(row.id)) && !blockedIds.has(String(row.id)));
     }
 
+    const similarityById = new Map<string, number>();
+    const sharedGenresById = new Map<string, string[]>();
+
     // Re-rank by shared taste when the viewer has watched/favorited enough to have a genre vector.
     // New users with nothing watched yet fall back to the pure-recency order already applied above.
     if (viewerId && pool.length > 0) {
@@ -93,10 +103,26 @@ export async function GET(request: Request) {
           if (!itemsByUser.has(item.user_id)) itemsByUser.set(item.user_id, []);
           itemsByUser.get(item.user_id)!.push(item);
         }
-        const similarityById = new Map<string, number>();
+        // The viewer's own strongest genres, used to name the overlap.
+        const viewerTop = new Set(
+          Object.entries(viewerVector)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 8)
+            .map(([g]) => g)
+        );
+
         for (const row of pool) {
           const id = String(row.id);
-          similarityById.set(id, cosineSimilarity(viewerVector, buildGenreVector(itemsByUser.get(id) ?? [])));
+          const theirVector = buildGenreVector(itemsByUser.get(id) ?? []);
+          similarityById.set(id, cosineSimilarity(viewerVector, theirVector));
+          sharedGenresById.set(
+            id,
+            Object.entries(theirVector)
+              .filter(([g]) => viewerTop.has(g))
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 3)
+              .map(([g]) => g)
+          );
         }
         pool = [...pool].sort(
           (a, b) => (similarityById.get(String(b.id)) ?? 0) - (similarityById.get(String(a.id)) ?? 0)
@@ -104,7 +130,31 @@ export async function GET(request: Request) {
       }
     }
 
-    const users: User[] = pool.slice(0, RESULT_LIMIT).map((row) => {
+    const shortlist = pool.slice(0, RESULT_LIMIT);
+
+    // One query for the twelve cards actually rendered, not the whole pool.
+    const postersById = new Map<string, string[]>();
+    if (shortlist.length > 0) {
+      const { data: posterRows } = await supabase
+        .from("watched_items")
+        .select("user_id, image_url, watched_at")
+        .in("user_id", shortlist.map((row) => String(row.id)))
+        .eq("is_watched", true)
+        .not("image_url", "is", null)
+        .order("watched_at", { ascending: false })
+        .limit(shortlist.length * 12);
+
+      for (const row of posterRows ?? []) {
+        const id = String(row.user_id);
+        const list = postersById.get(id) ?? [];
+        if (list.length < 4 && row.image_url) {
+          list.push(String(row.image_url));
+          postersById.set(id, list);
+        }
+      }
+    }
+
+    const users: User[] = shortlist.map((row) => {
       const stats = (row.user_cout_stats as Record<string, number>) || {};
       const avatarUrl = "avatar_url" in row && row.avatar_url != null ? String(row.avatar_url) : null;
       const id = String(row.id);
@@ -117,6 +167,13 @@ export async function GET(request: Request) {
         favorites_count: Number(stats.favorites_count) || 0,
         watchlist_count: Number(stats.watchlist_count) || 0,
         followsYou: followsYouSet.has(id),
+        // Only claim a match when there's a real signal behind it — a
+        // confident-looking "3%" is worse than showing nothing.
+        matchPercent: similarityById.has(id)
+          ? Math.round((similarityById.get(id) ?? 0) * 100)
+          : null,
+        sharedGenres: sharedGenresById.get(id) ?? [],
+        recentPosters: postersById.get(id) ?? [],
       };
     });
 

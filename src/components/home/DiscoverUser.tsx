@@ -19,6 +19,9 @@ interface User {
   favorites_count: number;
   watchlist_count: number;
   followsYou?: boolean;
+  matchPercent?: number | null;
+  sharedGenres?: string[];
+  recentPosters?: string[];
 }
 
 type DiscoverUsersProps = { hideTitleLink?: boolean };
@@ -26,6 +29,35 @@ type DiscoverUsersProps = { hideTitleLink?: boolean };
 function formatUsername(username: string, maxLen = 14) {
   if (username.length <= maxLen) return username;
   return `${username.slice(0, maxLen - 1)}…`;
+}
+
+/**
+ * Poster banner across the top of a user card. Falls back to a plain gradient
+ * for people with nothing watched yet, so the card never looks broken.
+ */
+function PosterStrip({ posters }: { posters: string[] }) {
+  if (posters.length === 0) {
+    return <div className="h-24 bg-gradient-to-br from-surface-800 to-surface-900" />;
+  }
+  return (
+    <div className="relative h-24 flex gap-px bg-surface-900 overflow-hidden">
+      {posters.slice(0, 4).map((src, i) => (
+        // Plain <img>: these are TMDB URLs already stored per-item, and
+        // routing them through next/image only adds a failure mode.
+        <img
+          key={`${src}-${i}`}
+          src={src}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          className="flex-1 min-w-0 h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+        />
+      ))}
+      {/* Only darken the bottom, where the avatar and name sit — a full-height
+          scrim turned the posters into a black bar. */}
+      <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-surface-900 to-transparent" />
+    </div>
+  );
 }
 
 function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
@@ -115,15 +147,16 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
                 key={i}
                 className="discover-user-card shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-surface-800/50 border border-surface-700/40 overflow-hidden"
               >
-                <div className="p-5 flex flex-col items-center text-center">
-                  <div className="w-20 h-20 rounded-full bg-surface-700/50 animate-pulse" />
-                  <div className="mt-3 h-5 w-24 rounded bg-surface-700/50 animate-pulse" />
-                  <div className="mt-2 h-4 w-full rounded bg-surface-700/30 animate-pulse" />
-                  <div className="mt-4 flex gap-3 justify-center">
-                    <div className="h-8 w-14 rounded-lg bg-surface-700/50 animate-pulse" />
-                    <div className="h-8 w-14 rounded-lg bg-surface-700/50 animate-pulse" />
-                    <div className="h-8 w-14 rounded-lg bg-surface-700/50 animate-pulse" />
+                <div className="h-24 bg-surface-700/30 animate-pulse" />
+                <div className="p-4 pt-0">
+                  <div className="-mt-7 w-14 h-14 rounded-full bg-surface-700/50 border-2 border-surface-900 animate-pulse" />
+                  <div className="mt-2.5 h-4 w-24 rounded bg-surface-700/50 animate-pulse" />
+                  <div className="mt-2 h-8 w-full rounded bg-surface-700/30 animate-pulse" />
+                  <div className="mt-2.5 flex gap-1">
+                    <div className="h-5 w-14 rounded-md bg-surface-700/40 animate-pulse" />
+                    <div className="h-5 w-12 rounded-md bg-surface-700/40 animate-pulse" />
                   </div>
+                  <div className="mt-3 h-8 w-full rounded-lg bg-surface-700/50 animate-pulse" />
                 </div>
               </div>
             ))
@@ -139,48 +172,84 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
               {users.map((item) => (
                 <div
                   key={item.id}
-                  className="discover-user-card group shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-surface-900/60 border border-surface-700/40 hover:border-surface-600/60 hover:bg-surface-800/80 transition-all duration-300 overflow-hidden"
+                  className="discover-user-card group shrink-0 w-[260px] sm:w-[280px] rounded-2xl bg-surface-900/60 border border-surface-700/40 hover:border-surface-600/60 hover:bg-surface-800/80 transition-all duration-300 overflow-hidden flex flex-col"
                 >
-                  <div className="p-5 flex flex-col items-center text-center">
-                    <Link
-                      href={`/app/profile/${item.username}`}
-                      className="flex flex-col items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 rounded-xl"
-                    >
-                      <div className="relative">
+                  {/* What they watch, as the header. Posters say more about a
+                      stranger in one glance than any counter can. */}
+                  <PosterStrip posters={item.recentPosters ?? []} />
+
+                  <div className="p-4 pt-0 flex flex-col flex-1">
+                    {/* relative z-10: the strip's absolute scrim would
+                        otherwise paint over the overlapping avatar. */}
+                    <div className="relative z-10 flex items-start gap-3 -mt-7">
+                      <Link
+                        href={`/app/profile/${item.username}`}
+                        className="shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 rounded-full"
+                      >
                         <ProfileAvatar
                           src={item.avatar_url || "/avatar.svg"}
                           alt={`${item.username} avatar`}
-                          className="w-20 h-20 rounded-full object-cover border-2 border-surface-700 group-hover:border-brand-500/30 transition-colors ring-2 ring-surface-900"
-                          width={80}
-                          height={80}
+                          className="w-14 h-14 rounded-full object-cover border-2 border-surface-900 group-hover:border-brand-500/40 transition-colors bg-surface-800"
+                          width={56}
+                          height={56}
                         />
-                        {item.followsYou && (
-                          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-full bg-brand-500/90 text-surface-950 text-[9px] font-bold whitespace-nowrap">
-                            Follows you
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="mt-3 text-base font-semibold text-white group-hover:text-brand-400 transition-colors truncate w-full">
-                        @{formatUsername(item.username)}
+                      </Link>
+                      {typeof item.matchPercent === "number" && item.matchPercent >= 20 && (
+                        <span className="mt-8 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-500/15 text-brand-300 text-[11px] font-semibold border border-brand-500/25">
+                          {item.matchPercent}% match
+                        </span>
+                      )}
+                    </div>
+
+                    <Link
+                      href={`/app/profile/${item.username}`}
+                      className="mt-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 rounded"
+                    >
+                      <h3 className="text-[15px] font-semibold text-white group-hover:text-brand-400 transition-colors truncate">
+                        @{formatUsername(item.username, 18)}
                       </h3>
                     </Link>
-                    <p className="mt-1 text-xs text-surface-500 line-clamp-2 min-h-8">
+
+                    {item.followsYou && (
+                      <span className="mt-1 self-start px-1.5 py-0.5 rounded bg-surface-800 text-surface-400 text-[10px] font-medium">
+                        Follows you
+                      </span>
+                    )}
+
+                    <p className="mt-1.5 text-xs text-surface-500 line-clamp-2 min-h-8">
                       {item.about || "Movie & TV enthusiast"}
                     </p>
-                    <div className="mt-4 flex items-center gap-2 flex-wrap justify-center">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-800/80 text-surface-400 text-xs border border-surface-700/30">
-                        <FaEye className="text-surface-500 size-3" aria-hidden />
-                        {item.watched_count}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-800/80 text-surface-400 text-xs border border-surface-700/30">
-                        <FaHeart className="text-surface-500 size-3" aria-hidden />
-                        {item.favorites_count}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-800/80 text-surface-400 text-xs border border-surface-700/30">
-                        <FaBookmark className="text-surface-500 size-3" aria-hidden />
-                        {item.watchlist_count}
-                      </span>
-                    </div>
+
+                    {/* Named overlap beats a bare number — it's something you
+                        could open a conversation with. */}
+                    {(item.sharedGenres?.length ?? 0) > 0 ? (
+                      <div className="mt-2.5 flex flex-wrap gap-1">
+                        {item.sharedGenres!.map((g) => (
+                          <span
+                            key={g}
+                            className="px-2 py-0.5 rounded-md bg-surface-800/80 text-surface-400 text-[11px] border border-surface-700/30"
+                          >
+                            {g}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-2.5 flex items-center gap-3 text-[11px] text-surface-500">
+                        <span className="inline-flex items-center gap-1">
+                          <FaEye className="size-3" aria-hidden />
+                          {item.watched_count}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <FaHeart className="size-3" aria-hidden />
+                          {item.favorites_count}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <FaBookmark className="size-3" aria-hidden />
+                          {item.watchlist_count}
+                        </span>
+                      </div>
+                    )}
+
                     {/* HomeDiscover already excludes people you follow, so these
                         are always "follow" — no per-card status query needed. */}
                     <FollowButton
@@ -188,7 +257,7 @@ function DiscoverUsers({ hideTitleLink }: DiscoverUsersProps = {}) {
                       currentUserId={authUser?.id ?? null}
                       initialStatus="follow"
                       size="sm"
-                      className="mt-4 w-full"
+                      className="mt-auto pt-3 w-full"
                     />
                   </div>
                 </div>
