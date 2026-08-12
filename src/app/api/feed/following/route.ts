@@ -4,13 +4,23 @@ import { getBlockedUserIds } from "@/utils/blocks";
 
 export const dynamic = "force-dynamic";
 
+const SUPPLEMENT_THRESHOLD = 3;
+
+type ActivityType =
+  | "watched"
+  | "rated"
+  | "reviewed"
+  | "list_created"
+  | "favored"
+  | "started_watching";
+
 type ActivityItem = {
   id: number;
   user_id: string;
   username: string;
   display_name: string | null;
   avatar_url: string | null;
-  activity_type: "watched" | "rated" | "reviewed" | "list_created" | "favored" | "started_watching";
+  activity_type: ActivityType;
   item_id: string | null;
   item_type: string | null;
   item_name: string | null;
@@ -23,29 +33,43 @@ type ActivityItem = {
   source_id: number | null;
 };
 
-type JoinedUser = { username: string; avatar_url: string | null; about?: string | null };
+type ActivityRow = {
+  id: number;
+  user_id: string;
+  activity_type: ActivityType;
+  item_id: string | null;
+  item_type: string | null;
+  item_name: string | null;
+  image_url: string | null;
+  score: number | null;
+  review_text: string | null;
+  list_name: string | null;
+  list_id: number | null;
+  created_at: string;
+};
 
-/** Supabase returns a to-one join as an object, but as an array in some query shapes/versions — normalize both. */
-function normalizeJoinedUser(value: unknown): JoinedUser | null {
-  if (!value) return null;
-  if (Array.isArray(value)) return (value[0] as JoinedUser) ?? null;
-  return value as JoinedUser;
-}
-
+/**
+ * GET /api/feed/following — activity from people you follow.
+ *
+ * Reads a single indexed table (user_activity, which has a
+ * (user_id, created_at) index) rather than merging four live queries in
+ * memory. The previous implementation applied its cursor only to the
+ * watched_items query, so page 2+ re-returned the same ratings/lists rows and
+ * older ones were unreachable.
+ *
+ * Works signed-out: an anonymous visitor has no follows, so they fall through
+ * to the popular-users supplement and see public community activity.
+ */
 export async function GET(request: Request) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Browsing the activity feed doesn't require login — an anonymous visitor
-  // simply has no follows, so they fall straight into the "supplement with
-  // popular users" branch below and see public trending activity instead.
   const { searchParams } = new URL(request.url);
   const cursor = searchParams.get("cursor");
   const limit = Math.min(50, Math.max(1, Number(searchParams.get("limit")) || 20));
 
-  // Get users the current user follows
   const { data: following } = user
     ? await supabase
         .from("user_connections")
@@ -55,236 +79,151 @@ export async function GET(request: Request) {
 
   const followedIds = following?.map((f) => f.followed_id) ?? [];
 
-  // If user follows fewer than 3 people, supplement with popular public users
+  // Follow almost nobody? Supplement with the most active public users so the
+  // feed is never empty — this is the cold-start fallback.
   let targetUserIds = [...followedIds];
-  if (targetUserIds.length < 3) {
+  if (targetUserIds.length < SUPPLEMENT_THRESHOLD) {
     const { data: popularUsers } = await supabase
       .from("user_cout_stats")
       .select("user_id")
       .order("watched_count", { ascending: false })
       .limit(20);
 
-    if (popularUsers) {
-      const popularIds = popularUsers
-        .map((u) => u.user_id)
-        .filter((id) => id !== user?.id && !targetUserIds.includes(id));
-      targetUserIds.push(...popularIds.slice(0, 10));
-    }
+    const popularIds = (popularUsers ?? [])
+      .map((u) => u.user_id)
+      .filter((id) => id !== user?.id && !targetUserIds.includes(id));
+    targetUserIds.push(...popularIds.slice(0, 10));
   }
 
-  // Never surface activity from someone either side has blocked.
   const blockedIds = await getBlockedUserIds(supabase, user?.id ?? null);
   if (blockedIds.size > 0) {
     targetUserIds = targetUserIds.filter((id) => !blockedIds.has(id));
   }
 
+  const emptyResponse = {
+    items: [],
+    nextCursor: null,
+    hasMore: false,
+    followedCount: followedIds.length,
+    isSupplemented: followedIds.length < SUPPLEMENT_THRESHOLD,
+  };
+
   if (targetUserIds.length === 0) {
-    return NextResponse.json({ items: [], nextCursor: null, hasMore: false });
+    return NextResponse.json(emptyResponse, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
   }
 
-  // Build query for activity from watched_items
+  // Fetch one extra row to determine hasMore without a second count query.
   let query = supabase
-    .from("watched_items")
-    .select(`
-      id,
-      user_id,
-      item_id,
-      item_type,
-      item_name,
-      image_url,
-      review_text,
-      public_review_text,
-      watched_at,
-      users!inner (
-        username,
-        avatar_url,
-        about
-      )
-    `)
+    .from("user_activity")
+    .select(
+      "id, user_id, activity_type, item_id, item_type, item_name, image_url, score, review_text, list_name, list_id, created_at",
+    )
     .in("user_id", targetUserIds)
-    .order("watched_at", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(limit + 1);
 
-  if (cursor) {
-    query = query.lt("watched_at", cursor);
-  }
+  if (cursor) query = query.lt("created_at", cursor);
 
-  const { data: watchedItems, error } = await query;
+  const { data: rows, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Also fetch ratings for same users to get "rated" activity
-  const { data: ratings } = await supabase
-    .from("user_ratings")
-    .select(`
-      id,
-      user_id,
-      item_id,
-      item_type,
-      score,
-      created_at,
-      updated_at
-    `)
-    .in("user_id", targetUserIds)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const activityRows = (rows ?? []) as ActivityRow[];
+  const hasMore = activityRows.length > limit;
+  const page = activityRows.slice(0, limit);
 
-  // Also fetch recently created lists
-  const { data: lists } = await supabase
-    .from("user_lists")
-    .select(`
-      id,
-      user_id,
-      name,
-      created_at
-    `)
-    .in("user_id", targetUserIds)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  if (page.length === 0) {
+    return NextResponse.json(emptyResponse, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  }
 
-  // Also fetch "started watching" events (fires far more often than completions)
-  const { data: startedWatching } = await supabase
-    .from("user_activity")
-    .select("id, user_id, item_id, item_type, item_name, image_url, created_at")
-    .eq("activity_type", "started_watching")
-    .in("user_id", targetUserIds)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-
-  // Fetch usernames for rating/list/started-watching entries (we already have them for watched items)
-  const allUserIds = [...new Set([
-    ...(ratings?.map((r) => r.user_id) ?? []),
-    ...(lists?.map((l) => l.user_id) ?? []),
-    ...(startedWatching?.map((s) => s.user_id) ?? []),
-  ])];
-
-  const { data: users } = await supabase
+  // Author profiles
+  const authorIds = [...new Set(page.map((r) => r.user_id))];
+  const { data: authors } = await supabase
     .from("users")
     .select("id, username, avatar_url, about")
-    .in("id", allUserIds);
+    .in("id", authorIds);
+  const authorById = new Map((authors ?? []).map((a) => [a.id, a]));
 
-  const userMap = new Map(
-    (users ?? []).map((u) => [u.id, { username: u.username, avatar_url: u.avatar_url, about: u.about }])
+  // Resolve the reaction targets. user_activity stores list_id but not the
+  // review/rating row id, so look those up for just this page's items.
+  const reviewKeys = page.filter((r) => r.activity_type === "reviewed" && r.item_id);
+  const ratingKeys = page.filter((r) => r.activity_type === "rated" && r.item_id);
+
+  const [reviewRows, ratingRows] = await Promise.all([
+    reviewKeys.length
+      ? supabase
+          .from("watched_items")
+          .select("id, user_id, item_id")
+          .in("user_id", [...new Set(reviewKeys.map((r) => r.user_id))])
+          .in("item_id", [...new Set(reviewKeys.map((r) => r.item_id as string))])
+      : Promise.resolve({ data: [] as { id: number; user_id: string; item_id: string }[] }),
+    ratingKeys.length
+      ? supabase
+          .from("user_ratings")
+          .select("id, user_id, item_id")
+          .in("user_id", [...new Set(ratingKeys.map((r) => r.user_id))])
+          .in("item_id", [...new Set(ratingKeys.map((r) => r.item_id as string))])
+      : Promise.resolve({ data: [] as { id: number; user_id: string; item_id: string }[] }),
+  ]);
+
+  const reviewIdByKey = new Map(
+    (reviewRows.data ?? []).map((r) => [`${r.user_id}:${r.item_id}`, r.id]),
+  );
+  const ratingIdByKey = new Map(
+    (ratingRows.data ?? []).map((r) => [`${r.user_id}:${r.item_id}`, r.id]),
   );
 
-  // Merge all activity into a single sorted list
-  const activity: ActivityItem[] = [];
+  const items: ActivityItem[] = page.map((row) => {
+    const author = authorById.get(row.user_id);
+    const key = `${row.user_id}:${row.item_id}`;
 
-  for (const w of watchedItems ?? []) {
-    const u = normalizeJoinedUser(w.users);
-    activity.push({
-      id: -(w.id),
-      user_id: w.user_id,
-      username: u?.username ?? "user",
-      display_name: u?.about ?? null,
-      avatar_url: u?.avatar_url ?? null,
-      activity_type: w.public_review_text ? "reviewed" : "watched",
-      item_id: w.item_id,
-      item_type: w.item_type,
-      item_name: w.item_name,
-      image_url: w.image_url,
-      score: null,
-      review_text: w.public_review_text,
-      list_name: null,
-      created_at: w.watched_at,
-      source_type: w.public_review_text ? "review" : null,
-      source_id: w.id,
-    });
-  }
+    let source_type: ActivityItem["source_type"] = null;
+    let source_id: number | null = null;
+    if (row.activity_type === "reviewed") {
+      source_type = "review";
+      source_id = reviewIdByKey.get(key) ?? null;
+    } else if (row.activity_type === "rated") {
+      source_type = "rating";
+      source_id = ratingIdByKey.get(key) ?? null;
+    } else if (row.activity_type === "list_created") {
+      source_type = "list";
+      source_id = row.list_id;
+    }
 
-  for (const r of ratings ?? []) {
-    const u = userMap.get(r.user_id);
-    if (!u) continue;
-
-    // Check if this rating is already represented as a watched item
-    const exists = activity.some(
-      (a) => a.user_id === r.user_id && a.item_id === r.item_id && a.activity_type !== "rated"
-    );
-    if (exists) continue;
-
-    activity.push({
-      id: r.id,
-      user_id: r.user_id,
-      username: u.username ?? "user",
-      display_name: u.about ?? null,
-      avatar_url: u.avatar_url ?? null,
-      activity_type: "rated",
-      item_id: r.item_id,
-      item_type: r.item_type,
-      item_name: null,
-      image_url: null,
-      score: r.score,
-      review_text: null,
-      list_name: null,
-      created_at: r.created_at,
-      source_type: "rating",
-      source_id: r.id,
-    });
-  }
-
-  for (const l of lists ?? []) {
-    const u = userMap.get(l.user_id);
-    if (!u) continue;
-
-    activity.push({
-      id: l.id,
-      user_id: l.user_id,
-      username: u.username ?? "unknown",
-      display_name: u.about ?? null,
-      avatar_url: u.avatar_url ?? null,
-      activity_type: "list_created",
-      item_id: null,
-      item_type: null,
-      item_name: null,
-      image_url: null,
-      score: null,
-      review_text: null,
-      list_name: l.name,
-      created_at: l.created_at,
-      source_type: "list",
-      source_id: l.id,
-    });
-  }
-
-  for (const s of startedWatching ?? []) {
-    const u = userMap.get(s.user_id);
-    if (!u) continue;
-
-    activity.push({
-      id: s.id,
-      user_id: s.user_id,
-      username: u.username ?? "user",
-      display_name: u.about ?? null,
-      avatar_url: u.avatar_url ?? null,
-      activity_type: "started_watching",
-      item_id: s.item_id,
-      item_type: s.item_type,
-      item_name: s.item_name,
-      image_url: s.image_url,
-      score: null,
-      review_text: null,
-      list_name: null,
-      created_at: s.created_at,
-      source_type: null,
-      source_id: null,
-    });
-  }
-
-  // Sort by created_at descending
-  activity.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-  // Paginate: take limit items
-  const hasMore = activity.length > limit;
-  const items = activity.slice(0, limit);
-  const nextCursor = items.length > 0 ? items[items.length - 1].created_at : null;
-
-  return NextResponse.json({
-    items,
-    nextCursor,
-    hasMore,
-    followedCount: followedIds.length,
-    isSupplemented: followedIds.length < 3,
+    return {
+      id: row.id,
+      user_id: row.user_id,
+      username: author?.username ?? "user",
+      display_name: author?.about ?? null,
+      avatar_url: author?.avatar_url ?? null,
+      activity_type: row.activity_type,
+      item_id: row.item_id,
+      item_type: row.item_type,
+      item_name: row.item_name,
+      image_url: row.image_url,
+      score: row.score,
+      review_text: row.review_text,
+      list_name: row.list_name,
+      created_at: row.created_at,
+      source_type: source_id != null ? source_type : null,
+      source_id,
+    };
   });
+
+  return NextResponse.json(
+    {
+      items,
+      nextCursor: page[page.length - 1]?.created_at ?? null,
+      hasMore,
+      followedCount: followedIds.length,
+      isSupplemented: followedIds.length < SUPPLEMENT_THRESHOLD,
+    },
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
 }
