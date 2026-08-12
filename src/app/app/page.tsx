@@ -61,13 +61,10 @@ export default async function Home() {
               {isLoggedIn ? (
                 <>
                   <UserSidebar username={username!} />
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <PlayIcon />
-                      <h2 className="text-xs font-semibold text-surface-500 uppercase tracking-[0.2em]">Continue</h2>
-                    </div>
-                    <ContinueWatchingProgress />
-                  </div>
+                  {/* The heading lives inside the component — rendering it out
+                      here left a floating "CONTINUE" label above nothing
+                      whenever there was no progress to show. */}
+                  <ContinueWatchingProgress />
                   <AiringSoon />
                   <div className="pt-2">
                     <QuickPick />
@@ -231,10 +228,3 @@ export default async function Home() {
   );
 }
 
-function PlayIcon() {
-  return (
-    <svg className="size-4 text-brand-400" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M8 5v14l11-7z"/>
-    </svg>
-  );
-}

@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 import Link from "next/link";
 import { Play, ChevronRight, Tv } from "lucide-react";
+import EmptyState from "@components/ui/EmptyState";
 
 const continueWatchingFetcher = (url: string) =>
   fetch(url, { cache: "no-store" }).then((r) => r.json());
@@ -46,7 +47,18 @@ export default function ContinueWatchingProgress() {
     );
   }
 
-  if (!items.length) return null;
+  if (!items.length) {
+    return (
+      <EmptyState
+        icon={<Tv className="size-8" />}
+        title="Nothing in progress"
+        description="Shows you start watching will pick up here, so you always know what's next."
+        actionLabel="Find something"
+        actionHref="/app/search"
+        className="!py-8 rounded-xl border border-surface-700/40 bg-surface-900/30"
+      />
+    );
+  }
 
   return (
     <div>

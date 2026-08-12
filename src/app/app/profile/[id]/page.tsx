@@ -18,6 +18,7 @@ import ActivityFeed from "@components/profile/ActivityFeed";
 import ProfileTvProgress from "@components/profile/ProfileTvProgress";
 import ProfileInsights from "@components/profile/ProfileInsights";
 import AchievementsShelf from "@components/profile/AchievementsShelf";
+import ProfileHighlights from "@components/profile/ProfileHighlights";
 import ShareProfileCard from "@components/profile/ShareProfileCard";
 import StatsSection from "@components/profile/StatsSection";
 import FavoritesSection from "@components/profile/FavoritesSection";
@@ -210,6 +211,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
               <div className="mt-4">
                 <AchievementsShelf userId={user.id} />
+              </div>
+
+              {/* Featured list + pinned review. Both were already fetched
+                  above and then thrown away — the component existed but was
+                  never mounted. */}
+              <div className="mt-4">
+                <ProfileHighlights featuredList={featuredList} pinnedReview={pinnedReview} />
               </div>
             </section>
 

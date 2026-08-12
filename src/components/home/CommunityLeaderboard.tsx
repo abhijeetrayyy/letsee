@@ -22,7 +22,14 @@ export default function CommunityLeaderboard() {
   }, []);
 
   if (loading) return <div className="animate-pulse space-y-2">{Array(3).fill(0).map((_,i)=><div key={i} className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-surface-800"/><div className="flex-1 h-4 bg-surface-800 rounded"/></div>)}</div>;
-  if (!users.length) return null;
+  if (!users.length) {
+    return (
+      <div>
+        <div className="flex items-center gap-2 mb-3"><Trophy className="size-3.5 text-amber-400"/><h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider">Top Watchers</h3></div>
+        <p className="text-xs text-surface-500">No one to rank yet — you could be first.</p>
+      </div>
+    );
+  }
 
   const medals: Record<number, React.ReactNode> = { 1: <Trophy className="size-4 text-amber-400"/>, 2: <Medal className="size-4 text-slate-300"/>, 3: <Medal className="size-4 text-amber-700"/> };
 

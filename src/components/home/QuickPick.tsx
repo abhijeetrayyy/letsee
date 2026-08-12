@@ -3,7 +3,8 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
-import { Loader2, MonitorPlay, Shuffle, Star } from "lucide-react";
+import { Loader2, MonitorPlay, Shuffle, Star, Sparkles } from "lucide-react";
+import EmptyState from "@components/ui/EmptyState";
 import { swrFetcher } from "@/utils/swrFetcher";
 
 interface WatchlistSuggestion {
@@ -46,7 +47,18 @@ export default function QuickPick({ profileId }: QuickPickProps) {
     );
   }
 
-  if (!items.length) return null;
+  if (!items.length) {
+    return (
+      <EmptyState
+        icon={<Sparkles className="size-8" />}
+        title="No pick yet"
+        description="Add a few films to your watchlist and we'll choose one for you."
+        actionLabel="Browse films"
+        actionHref="/app/search"
+        className="!py-8 rounded-xl border border-surface-700/40 bg-surface-900/30"
+      />
+    );
+  }
 
   const sorted = [...items].sort((a, b) => b.predictedRating - a.predictedRating);
   const topPick = sorted[0];
