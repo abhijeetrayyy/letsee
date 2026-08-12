@@ -59,7 +59,7 @@ export default function TvShowCard({
 
   const percent =
     totalEpisodes > 0
-      ? Math.round((episodesWatched / totalEpisodes) * 100)
+      ? Math.min(100, Math.round((episodesWatched / totalEpisodes) * 100))
       : 0;
 
   const statusColor = STATUS_COLORS[tvStatus ?? ""] ?? STATUS_COLORS.watchlist;

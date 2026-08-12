@@ -240,7 +240,7 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
       : "POST";
     const endpoint = useNewApi
       ? payload.currentState
-        ? `/api/user-media-status?itemId=${encodeURIComponent(payload.itemId)}`
+        ? `/api/user-media-status?itemId=${encodeURIComponent(payload.itemId)}&keepData=${payload.keepData === false ? "false" : "true"}`
         : `/api/user-media-status`
       : payload.currentState
         ? API_ENDPOINTS[funcType].remove

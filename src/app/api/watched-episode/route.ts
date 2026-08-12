@@ -54,6 +54,9 @@ export async function POST(req: NextRequest) {
       console.error("watched-episode delete:", deleteError);
       return jsonError("Failed to remove episode", 500);
     }
+    // Un-marking has to re-derive status too. Skipping it here left a
+    // completed show stuck on "watched" after you removed an episode.
+    await autoTransitionStatus(supabase, userId, showId);
     return jsonSuccess({ action: "removed", message: "Episode marked as not watched" }, { maxAge: 0 });
   }
 

@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { getAuthUserId } from "@/utils/apiAuth";
+import { syncWatchedItem, fetchShowMeta } from "@/utils/tvMediaStatus";
 
 const TV_STATUSES = ["watchlist", "watching", "watched", "on_hold", "dropped"] as const;
 export type MediaStatus = (typeof TV_STATUSES)[number];
@@ -81,6 +82,11 @@ export async function PUT(req: NextRequest) {
   );
 
   if (error) return jsonError(error.message, 500);
+
+  // Keep watched_items in step, or a show marked watched from this control
+  // can't be rated or reviewed and never reaches the profile.
+  const show = await fetchShowMeta(showId);
+  await syncWatchedItem(supabase, userId, showId, status === "watched", show);
 
   return jsonSuccess({ ok: true, status });
 }

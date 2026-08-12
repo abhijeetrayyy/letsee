@@ -111,6 +111,10 @@ export async function DELETE(req: NextRequest) {
 
   const url = new URL(req.url);
   const itemId = url.searchParams.get("itemId");
+  // The confirm dialog offers "keep my rating, diary & review" vs "delete
+  // everything". Both used to do the same thing because this flag was never
+  // sent or read — the destructive option destroyed nothing.
+  const keepData = url.searchParams.get("keepData") !== "false";
 
   if (!itemId) return jsonError("itemId is required", 400);
 
@@ -123,6 +127,22 @@ export async function DELETE(req: NextRequest) {
   if (error) {
     console.error("user-media-status delete:", error);
     return jsonError(error.message, 500);
+  }
+
+  if (keepData) {
+    // Drop it out of the Films grid and diary listings, but keep the row so
+    // the rating, diary entry and public review survive.
+    await supabase
+      .from("watched_items")
+      .update({ is_watched: false })
+      .eq("user_id", userId)
+      .eq("item_id", itemId);
+  } else {
+    await Promise.all([
+      supabase.from("watched_items").delete().eq("user_id", userId).eq("item_id", itemId),
+      supabase.from("user_ratings").delete().eq("user_id", userId).eq("item_id", itemId),
+      supabase.from("watched_episodes").delete().eq("user_id", userId).eq("show_id", itemId),
+    ]);
   }
 
   try {

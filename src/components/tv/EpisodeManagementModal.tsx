@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useContext } from "react";
 import { createPortal } from "react-dom";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
+import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 
 type Season = {
   season_number: number;
@@ -36,6 +38,11 @@ export default function EpisodeManagementModal({
   const [selectedEpisodes, setSelectedEpisodes] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { refreshPreferences } = useContext(UserPrefrenceContext);
+  // Two providers hold overlapping copies of "is this watched": the prefs
+  // context gates the card eye icon, the interaction context gates Rate/Review
+  // on the detail page. Refresh both or one of them lies.
+  const { refresh: refreshInteractions } = useMediaInteraction();
   const [activeSeason, setActiveSeason] = useState<number>(1);
 
   useEffect(() => {
@@ -134,7 +141,7 @@ export default function EpisodeManagementModal({
     setSelectedEpisodes(newSelected);
   }, [seasons, selectedEpisodes]);
 
-  const handleSave = async (episodesOverride?: Set<string>) => {
+  const handleSave = async (episodesOverride?: Set<string>, force = false) => {
     const selected = episodesOverride ?? selectedEpisodes;
     setSaving(true);
     try {
@@ -174,6 +181,20 @@ export default function EpisodeManagementModal({
         });
       }
 
+      if (force && toAdd.length === 0 && toRemove.length === 0) {
+        // Everything was already ticked, so no episode write happened and
+        // autoTransitionStatus never ran. Set the status directly.
+        await fetch("/api/tv-list-status", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ showId, status: "watched" }),
+        });
+      }
+
+      // Episode writes can flip the show to "watched" server-side, so re-pull
+      // the preference state — otherwise the eye icon stays grey until reload.
+      await Promise.all([refreshPreferences(), refreshInteractions()]);
+
       onSuccess();
       onClose();
     } catch (err) {
@@ -191,7 +212,10 @@ export default function EpisodeManagementModal({
       }
     }
     setSelectedEpisodes(allKeys);
-    await handleSave(allKeys);
+    // Force the status write even when every episode is already ticked.
+    // Otherwise the diff is empty, nothing is sent, and a show sitting at
+    // 100% episodes but no "watched" status can never be marked watched.
+    await handleSave(allKeys, true);
   };
 
   if (!isOpen) return null;

@@ -82,10 +82,13 @@ export async function GET(req: NextRequest) {
           return null;
         }
 
+        // Season 0 is excluded from totalEpisodes below, so it has to be
+        // excluded here too — counting specials in the numerator only was
+        // what pushed progress bars past 100%.
         const watchedSet = new Set(
-          (watchedRes.data ?? []).map(
-            (r) => `${r.season_number},${r.episode_number}`,
-          ),
+          (watchedRes.data ?? [])
+            .filter((r) => Number(r.season_number) > 0)
+            .map((r) => `${r.season_number},${r.episode_number}`),
         );
         const episodesWatched = watchedSet.size;
         const name = (showData?.name as string) ?? "";
