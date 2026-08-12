@@ -14,7 +14,7 @@ export default function ProfileBanner({ src, className = "" }: ProfileBannerProp
   if (failed || !src || src.trim() === "") {
     return (
       <div
-        className={`absolute inset-0 bg-gradient-to-b from-neutral-800 via-neutral-800 to-neutral-900 ${className}`}
+        className={`absolute inset-0 bg-gradient-to-b from-surface-800 via-surface-800 to-surface-900 ${className}`}
         aria-hidden
       />
     );

@@ -68,7 +68,7 @@ export default function PersonPhotos({ name, profiles }: PersonPhotosProps) {
           return (
             <div
               key={`${profile.file_path}-${i}`}
-              className="shrink-0 w-40 sm:w-44 rounded-xl overflow-hidden border border-neutral-700/60 bg-neutral-800/50 aspect-[2/3]"
+              className="shrink-0 w-40 sm:w-44 rounded-xl overflow-hidden border border-surface-700/60 bg-surface-800/50 aspect-[2/3]"
             >
               <img
                 src={src}
@@ -81,12 +81,12 @@ export default function PersonPhotos({ name, profiles }: PersonPhotosProps) {
         })}
       </div>
       <div
-        className={`hidden md:block absolute top-0 left-0 bottom-2 w-10 bg-gradient-to-r from-neutral-950 to-transparent pointer-events-none transition-opacity ${
+        className={`hidden md:block absolute top-0 left-0 bottom-2 w-10 bg-gradient-to-r from-surface-950 to-transparent pointer-events-none transition-opacity ${
           canScrollLeft ? "opacity-100" : "opacity-0"
         }`}
       />
       <div
-        className={`hidden md:block absolute top-0 right-0 bottom-2 w-10 bg-gradient-to-l from-neutral-950 to-transparent pointer-events-none transition-opacity ${
+        className={`hidden md:block absolute top-0 right-0 bottom-2 w-10 bg-gradient-to-l from-surface-950 to-transparent pointer-events-none transition-opacity ${
           canScrollRight ? "opacity-100" : "opacity-0"
         }`}
       />
@@ -94,7 +94,7 @@ export default function PersonPhotos({ name, profiles }: PersonPhotosProps) {
         <button
           type="button"
           onClick={() => scroll("left")}
-          className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 items-center justify-center rounded-full bg-neutral-800/95 text-white hover:bg-neutral-700 border border-neutral-600"
+          className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 items-center justify-center rounded-full bg-surface-800/95 text-white hover:bg-surface-700 border border-surface-600"
           aria-label="Scroll left"
         >
           <FaChevronLeft className="w-4 h-4" />
@@ -104,7 +104,7 @@ export default function PersonPhotos({ name, profiles }: PersonPhotosProps) {
         <button
           type="button"
           onClick={() => scroll("right")}
-          className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 items-center justify-center rounded-full bg-neutral-800/95 text-white hover:bg-neutral-700 border border-neutral-600"
+          className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 items-center justify-center rounded-full bg-surface-800/95 text-white hover:bg-surface-700 border border-surface-600"
           aria-label="Scroll right"
         >
           <FaChevronRight className="w-4 h-4" />

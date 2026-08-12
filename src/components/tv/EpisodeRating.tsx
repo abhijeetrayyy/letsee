@@ -129,7 +129,7 @@ export default function EpisodeRating({
           </label>
         );
       })}
-      <span className="ml-2 text-sm text-neutral-400">
+      <span className="ml-2 text-sm text-surface-400">
         {rating ? `${rating}/10` : "Rate"}
       </span>
     </div>

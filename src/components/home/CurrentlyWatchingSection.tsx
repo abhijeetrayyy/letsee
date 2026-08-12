@@ -48,7 +48,7 @@ export default function CurrentlyWatchingSection() {
 
   return (
     <section
-      className="rounded-2xl border border-neutral-700/60 bg-neutral-800/50 px-4 sm:px-6 py-8 sm:py-10"
+      className="rounded-2xl border border-surface-700/60 bg-surface-800/50 px-4 sm:px-6 py-8 sm:py-10"
       aria-labelledby="currently-watching-heading"
     >
       <div className="flex items-center gap-3 mb-5">
@@ -71,7 +71,7 @@ export default function CurrentlyWatchingSection() {
             <Link
               key={item.item_id}
               href={href}
-              className="shrink-0 w-36 sm:w-40 flex flex-col rounded-xl overflow-hidden border border-neutral-700 bg-neutral-800/80 hover:border-neutral-600 hover:bg-neutral-800 transition-colors"
+              className="shrink-0 w-36 sm:w-40 flex flex-col rounded-xl overflow-hidden border border-surface-700 bg-surface-800/80 hover:border-surface-600 hover:bg-surface-800 transition-colors"
             >
               <div className="relative aspect-2/3 w-full overflow-hidden">
                 <img
@@ -80,13 +80,13 @@ export default function CurrentlyWatchingSection() {
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute top-2 left-2">
-                  <span className="px-1.5 py-0.5 rounded bg-amber-500/90 text-neutral-900 text-[10px] font-semibold uppercase tracking-wide">
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/90 text-surface-900 text-[10px] font-semibold uppercase tracking-wide">
                     {item.item_type === "tv" ? "TV" : "Movie"}
                   </span>
                 </div>
               </div>
               <div className="p-2 min-h-0">
-                <p className="text-sm font-medium text-neutral-100 line-clamp-2">
+                <p className="text-sm font-medium text-surface-100 line-clamp-2">
                   {item.item_name}
                 </p>
               </div>

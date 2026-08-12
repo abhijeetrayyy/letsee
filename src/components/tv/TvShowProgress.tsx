@@ -91,7 +91,7 @@ export default function TvShowProgress({
       : 0;
 
   return (
-    <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/40 p-5 mt-4 group">
+    <div className="rounded-xl border border-surface-700/60 bg-surface-800/40 p-5 mt-4 group">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <h3 className="text-base font-semibold text-white">Your progress</h3>
@@ -100,7 +100,7 @@ export default function TvShowProgress({
               setLoading(true);
               fetchProgress();
             }}
-            className="p-1 rounded-md text-neutral-500 hover:text-white hover:bg-white/5 transition-all"
+            className="p-1 rounded-md text-surface-500 hover:text-white hover:bg-white/5 transition-all"
             title="Refresh progress"
           >
             <svg
@@ -119,13 +119,13 @@ export default function TvShowProgress({
             </svg>
           </button>
         </div>
-        <span className="text-xs font-medium text-neutral-400 bg-neutral-700/50 px-2 py-1 rounded-md">
+        <span className="text-xs font-medium text-surface-400 bg-surface-700/50 px-2 py-1 rounded-md">
           {percent}% Complete
         </span>
       </div>
 
       {/* Progress Bar */}
-      <div className="w-full h-2 bg-neutral-700/50 rounded-full mb-4 overflow-hidden">
+      <div className="w-full h-2 bg-surface-700/50 rounded-full mb-4 overflow-hidden">
         <div
           className="h-full bg-indigo-500 rounded-full transition-all duration-500 ease-out"
           style={{ width: `${percent}%` }}
@@ -133,19 +133,19 @@ export default function TvShowProgress({
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-300">
+        <div className="flex flex-wrap items-center gap-3 text-sm text-surface-300">
           <span>
             <strong className="text-white">{progress.episodes_watched}</strong>
-            <span className="text-neutral-500">
+            <span className="text-surface-500">
               {" "}
               / {progress.total_episodes}
             </span>{" "}
             episodes
           </span>
-          <span className="text-neutral-500">·</span>
+          <span className="text-surface-500">·</span>
           {nextLabel && (
             <div className="flex items-center gap-2">
-              <span className="text-neutral-400">Next:</span>
+              <span className="text-surface-400">Next:</span>
               {nextUrl ? (
                 <Link
                   href={nextUrl}
@@ -154,7 +154,7 @@ export default function TvShowProgress({
                   {nextLabel}
                 </Link>
               ) : (
-                <span className="text-neutral-400">{nextLabel}</span>
+                <span className="text-surface-400">{nextLabel}</span>
               )}
             </div>
           )}

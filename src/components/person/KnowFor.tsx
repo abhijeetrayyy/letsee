@@ -62,7 +62,7 @@ export default function KnowFor({ castData }: KnowForProps) {
   const list = (castData ?? []).filter((item) => item && !item.adult);
   if (list.length === 0) {
     return (
-      <p className="text-neutral-500 text-sm py-6">No notable credits to show.</p>
+      <p className="text-surface-500 text-sm py-6">No notable credits to show.</p>
     );
   }
 
@@ -109,12 +109,12 @@ export default function KnowFor({ castData }: KnowForProps) {
         </div>
 
         <div
-          className={`hidden md:block absolute top-0 left-0 bottom-2 w-12 bg-gradient-to-r from-neutral-950 to-transparent pointer-events-none transition-opacity ${
+          className={`hidden md:block absolute top-0 left-0 bottom-2 w-12 bg-gradient-to-r from-surface-950 to-transparent pointer-events-none transition-opacity ${
             canScrollLeft ? "opacity-100" : "opacity-0"
           }`}
         />
         <div
-          className={`hidden md:block absolute top-0 right-0 bottom-2 w-12 bg-gradient-to-l from-neutral-950 to-transparent pointer-events-none transition-opacity ${
+          className={`hidden md:block absolute top-0 right-0 bottom-2 w-12 bg-gradient-to-l from-surface-950 to-transparent pointer-events-none transition-opacity ${
             canScrollRight ? "opacity-100" : "opacity-0"
           }`}
         />
@@ -123,7 +123,7 @@ export default function KnowFor({ castData }: KnowForProps) {
           <button
             type="button"
             onClick={() => scroll("left")}
-            className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-neutral-800/95 text-white hover:bg-neutral-700 border border-neutral-600 shadow-lg"
+            className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-surface-800/95 text-white hover:bg-surface-700 border border-surface-600 shadow-lg"
             aria-label="Scroll left"
           >
             <FaChevronLeft className="w-5 h-5" />
@@ -133,7 +133,7 @@ export default function KnowFor({ castData }: KnowForProps) {
           <button
             type="button"
             onClick={() => scroll("right")}
-            className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-neutral-800/95 text-white hover:bg-neutral-700 border border-neutral-600 shadow-lg"
+            className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-surface-800/95 text-white hover:bg-surface-700 border border-surface-600 shadow-lg"
             aria-label="Scroll right"
           >
             <FaChevronRight className="w-5 h-5" />

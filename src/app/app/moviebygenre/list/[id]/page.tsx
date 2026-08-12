@@ -34,7 +34,7 @@ const Page = async ({ params, searchParams }: PageProps) => {
 
   if (!result.data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-900 text-neutral-200 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-surface-900 text-surface-200 p-4">
         <div className="max-w-xl text-center">
           <p className="text-lg font-semibold">
             Movie genre results unavailable.
@@ -42,7 +42,7 @@ const Page = async ({ params, searchParams }: PageProps) => {
           {result.error && (
             <p className="mt-3 text-sm text-amber-200">{result.error}</p>
           )}
-          <p className="mt-3 text-sm text-neutral-400">
+          <p className="mt-3 text-sm text-surface-400">
             Try refreshing in a moment.
           </p>
         </div>

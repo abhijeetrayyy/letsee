@@ -135,7 +135,7 @@ export default function ThreePrefrencebtn({
             watching ? (
               <MdLiveTv className="text-amber-400 size-5" />
             ) : (
-              <MdLiveTv className="size-5 text-neutral-400" />
+              <MdLiveTv className="size-5 text-surface-400" />
             )
           }
         />
@@ -148,7 +148,7 @@ export default function ThreePrefrencebtn({
             watched ? (
               <PiEyeBold className="text-emerald-400 size-5" />
             ) : (
-              <RiEyeCloseLine className="size-5 text-neutral-400" />
+              <RiEyeCloseLine className="size-5 text-surface-400" />
             )
           }
         />
@@ -160,7 +160,7 @@ export default function ThreePrefrencebtn({
             favorite ? (
               <FcLike className="size-5" />
             ) : (
-              <CiHeart className="size-5 text-neutral-400" />
+              <CiHeart className="size-5 text-surface-400" />
             )
           }
         />
@@ -172,7 +172,7 @@ export default function ThreePrefrencebtn({
             watchLater ? (
               <MdOutlineWatchLater className="size-5 text-emerald-400 font-bold" />
             ) : (
-              <MdOutlineWatchLater className="size-5 text-neutral-400" />
+              <MdOutlineWatchLater className="size-5 text-surface-400" />
             )
           }
         />

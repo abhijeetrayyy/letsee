@@ -58,12 +58,12 @@ export default function CountrySelector() {
       <button
         type="button"
         onClick={() => setIsOpen((o) => !o)}
-        className="flex h-10 items-center gap-2 rounded-xl border border-neutral-700/60 bg-neutral-800 px-3 py-2 text-sm font-medium text-neutral-200 transition-colors hover:bg-neutral-700"
+        className="flex h-10 items-center gap-2 rounded-xl border border-surface-700/60 bg-surface-800 px-3 py-2 text-sm font-medium text-surface-200 transition-colors hover:bg-surface-700"
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         aria-label="Select country for streaming availability"
       >
-        <FaGlobe className="size-4 shrink-0 text-neutral-400" />
+        <FaGlobe className="size-4 shrink-0 text-surface-400" />
         <span className="hidden max-w-[80px] truncate sm:inline">
           {selectedCountry?.english_name ?? country}
         </span>
@@ -74,16 +74,16 @@ export default function CountrySelector() {
 
       {isOpen && (
         <div
-          className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-neutral-700 bg-neutral-800 shadow-xl"
+          className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-surface-700 bg-surface-800 shadow-xl"
           role="listbox"
         >
-          <div className="p-2 border-b border-neutral-700">
+          <div className="p-2 border-b border-surface-700">
             <input
               type="text"
               placeholder="Search country..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full rounded-lg border border-neutral-600 bg-neutral-900 px-3 py-2 text-sm text-white placeholder-neutral-500 outline-none focus:border-neutral-500"
+              className="w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-sm text-white placeholder-surface-500 outline-none focus:border-surface-500"
             />
           </div>
           <div
@@ -91,7 +91,7 @@ export default function CountrySelector() {
             style={{ maxHeight: DROPDOWN_HEIGHT }}
           >
             {filtered.length === 0 ? (
-              <p className="px-4 py-4 text-center text-sm text-neutral-400">
+              <p className="px-4 py-4 text-center text-sm text-surface-400">
                 No countries match
               </p>
             ) : (
@@ -106,13 +106,13 @@ export default function CountrySelector() {
                   }}
                   className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors ${
                     c.iso_3166_1 === country
-                      ? "bg-neutral-600 text-white"
-                      : "text-neutral-200 hover:bg-neutral-700 hover:text-white"
+                      ? "bg-surface-600 text-white"
+                      : "text-surface-200 hover:bg-surface-700 hover:text-white"
                   }`}
                   role="option"
                   aria-selected={c.iso_3166_1 === country}
                 >
-                  <span className="font-mono text-xs text-neutral-400">
+                  <span className="font-mono text-xs text-surface-400">
                     {c.iso_3166_1}
                   </span>
                   <span>{c.english_name}</span>
@@ -121,11 +121,11 @@ export default function CountrySelector() {
             )}
           </div>
           {platforms.length > 0 && (
-            <div className="border-t border-neutral-700 px-3 py-2">
-              <p className="text-xs text-neutral-400 mb-1">
+            <div className="border-t border-surface-700 px-3 py-2">
+              <p className="text-xs text-surface-400 mb-1">
                 Platforms in {selectedCountry?.english_name ?? country}
               </p>
-              <p className="text-xs text-neutral-300 line-clamp-2">
+              <p className="text-xs text-surface-300 line-clamp-2">
                 {platforms.join(", ")}
               </p>
             </div>

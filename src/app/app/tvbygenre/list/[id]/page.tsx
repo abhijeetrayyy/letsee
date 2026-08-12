@@ -85,7 +85,7 @@ function Page() {
       {loading ? (
         <div className="min-h-[50vh] w-full flex flex-col justify-center items-center gap-4">
           <LoadingSpinner size="lg" className="border-t-white" />
-          <p className="text-neutral-400 text-sm animate-pulse">Loading…</p>
+          <p className="text-surface-400 text-sm animate-pulse">Loading…</p>
         </div>
       ) : (
         <div>
@@ -129,7 +129,7 @@ function Page() {
         <div className="flex flex-row justify-center items-center ">
           <div className=" my-3 ">
             <button
-              className="px-4 py-2 bg-neutral-700 rounded-md hover:bg-neutral-600"
+              className="px-4 py-2 bg-surface-700 rounded-md hover:bg-surface-600"
               onClick={() => changePage(page - 1)}
               disabled={page === 1}
             >
@@ -139,7 +139,7 @@ function Page() {
               Page {page} of {Sresults.total_pages}
             </span>
             <button
-              className="px-4 py-2 bg-neutral-700 rounded-md hover:bg-neutral-600"
+              className="px-4 py-2 bg-surface-700 rounded-md hover:bg-surface-600"
               onClick={() => changePage(page + 1)}
               disabled={page === Sresults.total_pages}
             >

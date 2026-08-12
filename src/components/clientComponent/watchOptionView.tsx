@@ -92,7 +92,7 @@ export default function WatchOptionsViewer({
   if (loading) {
     return (
       <div className="w-full max-w-3xl mx-auto py-6">
-        <p className="text-neutral-400 text-center">Loading watch options...</p>
+        <p className="text-surface-400 text-center">Loading watch options...</p>
       </div>
     );
   }
@@ -107,7 +107,7 @@ export default function WatchOptionsViewer({
 
   return (
     <div className="w-full max-w-3xl mx-auto py-6 px-4">
-      <h2 className="text-lg sm:text-xl font-semibold text-neutral-100 mb-4 text-center">
+      <h2 className="text-lg sm:text-xl font-semibold text-surface-100 mb-4 text-center">
         Where to Watch
       </h2>
       {providers.length > 0 ? (
@@ -132,11 +132,11 @@ export default function WatchOptionsViewer({
                     className="rounded-md object-contain"
                   />
                 ) : (
-                  <div className="w-16 h-16 rounded-md bg-neutral-700 flex items-center justify-center text-neutral-400 text-xs text-center px-1">
+                  <div className="w-16 h-16 rounded-md bg-surface-700 flex items-center justify-center text-surface-400 text-xs text-center px-1">
                     {provider.provider_name}
                   </div>
                 )}
-                <span className="text-xs sm:text-sm text-neutral-200 text-center mt-2">
+                <span className="text-xs sm:text-sm text-surface-200 text-center mt-2">
                   {provider.provider_name}
                 </span>
               </Link>
@@ -145,12 +145,12 @@ export default function WatchOptionsViewer({
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-neutral-400 text-center">
+          <p className="text-surface-400 text-center">
             No streaming options available in your region ({country}).
           </p>
           {otherCountries.length > 0 && (
-            <div className="rounded-lg bg-neutral-800/80 border border-neutral-700 px-4 py-3">
-              <p className="text-sm text-neutral-300 mb-2">
+            <div className="rounded-lg bg-surface-800/80 border border-surface-700 px-4 py-3">
+              <p className="text-sm text-surface-300 mb-2">
                 Not in your country? Available in:
               </p>
               <div className="flex flex-wrap gap-2 justify-center">
@@ -159,20 +159,20 @@ export default function WatchOptionsViewer({
                     key={c.code}
                     type="button"
                     onClick={() => setCountry(c.code)}
-                    className="text-sm px-3 py-1.5 rounded-lg bg-neutral-700 hover:bg-neutral-600 text-amber-200 hover:text-amber-100 transition-colors"
+                    className="text-sm px-3 py-1.5 rounded-lg bg-surface-700 hover:bg-surface-600 text-amber-200 hover:text-amber-100 transition-colors"
                   >
                     {c.name ?? c.code}
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-neutral-500 mt-2 text-center">
+              <p className="text-xs text-surface-500 mt-2 text-center">
                 Click a country to switch and view providers
               </p>
             </div>
           )}
         </div>
       )}
-      <p className="text-xs text-neutral-500 text-center mt-4">
+      <p className="text-xs text-surface-500 text-center mt-4">
         Data provided by JustWatch via TMDb
       </p>
     </div>

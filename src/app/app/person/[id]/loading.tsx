@@ -8,7 +8,7 @@ export default function Loading() {
       aria-label="Loading person"
     >
       <LoadingSpinner size="lg" className="border-t-white" />
-      <p className="text-sm text-neutral-400">Loading profile…</p>
+      <p className="text-sm text-surface-400">Loading profile…</p>
     </div>
   );
 }

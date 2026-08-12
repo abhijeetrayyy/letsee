@@ -219,13 +219,13 @@ function Page() {
           value={query}
           onKeyDown={(e) => e.key == "enter" && handleSearch}
           onChange={(e) => setQuery(e.target.value)}
-          className="px-4 py-2 w-full sm:flex-1 bg-neutral-800 text-white rounded-md border-1 border-neutral-600 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-0"
+          className="px-4 py-2 w-full sm:flex-1 bg-surface-800 text-white rounded-md border-1 border-surface-600 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-0"
           placeholder="Search for movies, TV shows, or people..."
         />
         <select
           value={mediaType}
           onChange={(e) => setMediaType(e.target.value)}
-          className="px-4 py-2 bg-neutral-700 rounded-md text-white"
+          className="px-4 py-2 bg-surface-700 rounded-md text-white"
         >
           <option value="multi">All</option>
           <option value="movie">Movies</option>
@@ -253,7 +253,7 @@ function Page() {
       {loading && (
         <div className="min-h-52 w-full flex flex-col justify-center items-center gap-4">
           <LoadingSpinner size="lg" className="border-t-white" />
-          <p className="text-neutral-400 text-sm animate-pulse">Searching…</p>
+          <p className="text-surface-400 text-sm animate-pulse">Searching…</p>
         </div>
       )}
 
@@ -302,7 +302,7 @@ function Page() {
       {!loading && results.total_pages > 1 && (
         <div className="flex flex-row justify-center items-center my-6">
           <button
-            className="px-4 py-2 bg-neutral-700 rounded-md hover:bg-neutral-600 disabled:opacity-50"
+            className="px-4 py-2 bg-surface-700 rounded-md hover:bg-surface-600 disabled:opacity-50"
             onClick={() => changePage(page - 1)}
             disabled={page === 1}
           >
@@ -312,7 +312,7 @@ function Page() {
             Page {page} of {results.total_pages}
           </span>
           <button
-            className="px-4 py-2 bg-neutral-700 rounded-md hover:bg-neutral-600 disabled:opacity-50"
+            className="px-4 py-2 bg-surface-700 rounded-md hover:bg-surface-600 disabled:opacity-50"
             onClick={() => changePage(page + 1)}
             disabled={page === results.total_pages}
           >

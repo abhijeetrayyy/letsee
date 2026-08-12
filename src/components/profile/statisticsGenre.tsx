@@ -65,7 +65,7 @@ export default async function StatisticsGenre({
           <BarChart data={chartData} />
         </div>
       ) : (
-        <p className="text-neutral-500 text-sm py-8 text-center">No genres yet. Watch titles to see your top genres.</p>
+        <p className="text-surface-500 text-sm py-8 text-center">No genres yet. Watch titles to see your top genres.</p>
       )}
     </div>
   );

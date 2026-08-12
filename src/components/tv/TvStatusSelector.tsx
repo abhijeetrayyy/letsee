@@ -66,7 +66,7 @@ export default function TvStatusSelector({
         value={status ?? ""}
         onChange={(e) => handleChange(e.target.value)}
         disabled={updating}
-        className={`appearance-none cursor-pointer rounded-lg border border-neutral-700 bg-neutral-800 py-1.5 pl-3 pr-8 text-sm font-medium text-neutral-200 transition-colors hover:border-neutral-500 hover:bg-neutral-750 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:opacity-50
+        className={`appearance-none cursor-pointer rounded-lg border border-surface-700 bg-surface-800 py-1.5 pl-3 pr-8 text-sm font-medium text-surface-200 transition-colors hover:border-surface-500 hover:bg-surface-750 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:opacity-50
           ${
             status === "watching"
               ? "text-green-400 border-green-900/50 bg-green-900/10"
@@ -80,20 +80,20 @@ export default function TvStatusSelector({
           }
         `}
       >
-        <option value="" className="bg-neutral-800 text-neutral-400">
+        <option value="" className="bg-surface-800 text-surface-400">
           Add to list...
         </option>
         {Object.entries(TV_STATUS_LABELS).map(([value, label]) => (
           <option
             key={value}
             value={value}
-            className="bg-neutral-800 text-neutral-200"
+            className="bg-surface-800 text-surface-200"
           >
             {label}
           </option>
         ))}
       </select>
-      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-neutral-400">
+      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-surface-400">
         <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
           <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
         </svg>

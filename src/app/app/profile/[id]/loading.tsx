@@ -8,7 +8,7 @@ export default function ProfileLoading() {
       aria-label="Loading profile"
     >
       <LoadingSpinner size="lg" className="border-t-white shrink-0" />
-      <p className="text-sm text-neutral-400 animate-pulse">Loading profile…</p>
+      <p className="text-sm text-surface-400 animate-pulse">Loading profile…</p>
     </div>
   );
 }

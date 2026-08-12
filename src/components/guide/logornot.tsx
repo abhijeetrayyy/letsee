@@ -15,7 +15,7 @@ function logornot({ message }: pageProps) {
     <>
       {modal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[9999]">
-          <div className="bg-neutral-700 w-full h-fit max-w-3xl sm:rounded-lg p-5 shadow-xl">
+          <div className="bg-surface-700 w-full h-fit max-w-3xl sm:rounded-lg p-5 shadow-xl">
             <div className="flex justify-between items-center p-4 border-b">
               <Link
                 className="bg-blue-600 hover:bg-blue-700 rounded-md px-3 py-2 text-white text-lg font-semibold"
@@ -38,7 +38,7 @@ function logornot({ message }: pageProps) {
       )}
       <button
         onClick={onClose}
-        className="px-4 py-2 bg-neutral-700 text-white rounded-md  transition-colors"
+        className="px-4 py-2 bg-surface-700 text-white rounded-md  transition-colors"
       >
         Message
       </button>

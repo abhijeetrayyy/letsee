@@ -32,31 +32,31 @@ const STATUS_OPTIONS: StatusOption[] = [
   {
     value: "watchlist",
     label: "Want to Watch",
-    icon: <MdOutlineWatchLater className="size-5 text-neutral-400" />,
+    icon: <MdOutlineWatchLater className="size-5 text-surface-400" />,
     iconActive: <MdOutlineWatchLater className="size-5 text-emerald-400 font-bold" />,
   },
   {
     value: "watching",
     label: "Watching",
-    icon: <MdLiveTv className="size-5 text-neutral-400" />,
+    icon: <MdLiveTv className="size-5 text-surface-400" />,
     iconActive: <MdLiveTv className="size-5 text-amber-400" />,
   },
   {
     value: "watched",
     label: "Watched",
-    icon: <RiEyeCloseLine className="size-5 text-neutral-400" />,
+    icon: <RiEyeCloseLine className="size-5 text-surface-400" />,
     iconActive: <PiEyeBold className="size-5 text-emerald-400" />,
   },
   {
     value: "on_hold",
     label: "On Hold",
-    icon: <MdOutlineWatchLater className="size-5 text-neutral-400" />,
+    icon: <MdOutlineWatchLater className="size-5 text-surface-400" />,
     iconActive: <MdOutlineWatchLater className="size-5 text-yellow-400" />,
   },
   {
     value: "dropped",
     label: "Dropped",
-    icon: <RiEyeCloseLine className="size-5 text-neutral-400" />,
+    icon: <RiEyeCloseLine className="size-5 text-surface-400" />,
     iconActive: <RiEyeCloseLine className="size-5 text-red-400" />,
   },
 ];
@@ -139,7 +139,7 @@ export default function MediaActions({
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 active:scale-[0.98] disabled:opacity-50 touch-manipulation ${
                 isActive
                   ? "bg-brand-500/20 text-brand-400 border border-brand-500/40"
-                  : "bg-neutral-700/80 text-neutral-300 border border-neutral-600 hover:bg-neutral-600 hover:border-neutral-500"
+                  : "bg-surface-700/80 text-surface-300 border border-surface-600 hover:bg-surface-600 hover:border-surface-500"
               }`}
               aria-label={opt.label}
               aria-pressed={isActive}
@@ -164,7 +164,7 @@ export default function MediaActions({
           className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 active:scale-[0.98] disabled:opacity-50 touch-manipulation ${
             favorited
               ? "bg-rose-500/20 text-rose-400 border border-rose-500/40"
-              : "bg-neutral-700/80 text-neutral-300 border border-neutral-600 hover:bg-neutral-600 hover:border-neutral-500"
+              : "bg-surface-700/80 text-surface-300 border border-surface-600 hover:bg-surface-600 hover:border-surface-500"
           }`}
           aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
           aria-pressed={favorited}
@@ -182,7 +182,7 @@ export default function MediaActions({
       <div className="w-full h-12 grid grid-cols-3 gap-px bg-white/5">
         {/* Status toggle */}
         <ActionButton
-          icon={currentOption?.iconActive ?? <RiEyeCloseLine className="size-5 text-neutral-400" />}
+          icon={currentOption?.iconActive ?? <RiEyeCloseLine className="size-5 text-surface-400" />}
           active={!!status}
           pending={pending}
           onClick={() => {
@@ -197,7 +197,7 @@ export default function MediaActions({
 
         {/* Favorite */}
         <ActionButton
-          icon={favorited ? <FcLike className="size-5" /> : <CiHeart className="size-5 text-neutral-400" />}
+          icon={favorited ? <FcLike className="size-5" /> : <CiHeart className="size-5 text-surface-400" />}
           active={favorited}
           pending={pending}
           onClick={handleFavorite}
@@ -207,7 +207,7 @@ export default function MediaActions({
         {/* Rating - simple star indicator, detailed rating comes from rating component */}
         <ActionButton
           icon={
-            <svg className="size-5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="size-5 text-surface-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           }
@@ -243,7 +243,7 @@ function ActionButton({
       className={`h-full w-full min-h-[44px] flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.98] disabled:cursor-not-allowed touch-manipulation ${
         active
           ? "text-white bg-white/10 hover:bg-white/15"
-          : "text-neutral-400 hover:text-white hover:bg-white/10 active:bg-white/15"
+          : "text-surface-400 hover:text-white hover:bg-white/10 active:bg-white/15"
       } disabled:opacity-50`}
       aria-label={title}
     >

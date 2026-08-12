@@ -145,7 +145,7 @@ const ImagesSection: React.FC<ImagesSectionProps> = ({ Bimages }) => {
             {canScrollLeft && (
               <button
                 onClick={scrollLeft}
-                className="hidden md:block absolute left-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+                className="hidden md:block absolute left-2 top-1/2 transform -translate-y-1/2 bg-surface-800 text-surface-100 p-2 sm:p-3 rounded-full hover:bg-surface-700 transition-colors duration-200 z-10 shadow-md"
               >
                 <FaChevronLeft size={20} className="" />
               </button>
@@ -153,7 +153,7 @@ const ImagesSection: React.FC<ImagesSectionProps> = ({ Bimages }) => {
             {canScrollRight && (
               <button
                 onClick={scrollRight}
-                className="hidden md:block absolute right-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+                className="hidden md:block absolute right-2 top-1/2 transform -translate-y-1/2 bg-surface-800 text-surface-100 p-2 sm:p-3 rounded-full hover:bg-surface-700 transition-colors duration-200 z-10 shadow-md"
               >
                 <FaChevronRight size={20} className="" />
               </button>
@@ -165,7 +165,7 @@ const ImagesSection: React.FC<ImagesSectionProps> = ({ Bimages }) => {
       {/* Modal */}
       {isModalOpen && selectedImage && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="relative w-full max-w-5xl h-[90vh] bg-neutral-900 rounded-lg flex flex-col md:flex-row overflow-hidden">
+          <div className="relative w-full max-w-5xl h-[90vh] bg-surface-900 rounded-lg flex flex-col md:flex-row overflow-hidden">
             {/* Main Image */}
             <div className="w-full md:w-3/4 h-3/4 md:h-full flex items-center justify-center">
               <img
@@ -175,14 +175,14 @@ const ImagesSection: React.FC<ImagesSectionProps> = ({ Bimages }) => {
               />
               <button
                 onClick={closeModal}
-                className="absolute top-2 left-2 bg-neutral-800 text-white p-2 w-10 h-10 rounded-full hover:bg-neutral-700 transition-colors duration-200"
+                className="absolute top-2 left-2 bg-surface-800 text-white p-2 w-10 h-10 rounded-full hover:bg-surface-700 transition-colors duration-200"
               >
                 X
               </button>
             </div>
 
             {/* Sidebar with Thumbnails */}
-            <div className="w-full md:w-1/4 h-1/4 md:h-full bg-neutral-800 overflow-y-auto no-scrollbar">
+            <div className="w-full md:w-1/4 h-1/4 md:h-full bg-surface-800 overflow-y-auto no-scrollbar">
               <div className="flex flex-row md:flex-col gap-2 p-2">
                 {displayImages.map((item: Image, index: number) => (
                   <img

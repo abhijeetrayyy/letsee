@@ -9,7 +9,7 @@ function Biography({ biography }: any) {
   };
 
   return (
-    <div className="my-4 text-neutral-300">
+    <div className="my-4 text-surface-300">
       <p>
         {showFullOverview ? biography : biography.slice(0, 300)}
         {biography.length > 300 && !showFullOverview && "..."}

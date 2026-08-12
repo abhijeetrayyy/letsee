@@ -470,7 +470,7 @@ export default function SearchResultsPage() {
               <p className="text-sm text-surface-500">Try a different term or filters.</p>
               <Link
                 href="/app/search"
-                className="rounded-full bg-surface-700 px-4 py-2 text-sm text-surface-200 hover:bg-neutral-600"
+                className="rounded-full bg-surface-700 px-4 py-2 text-sm text-surface-200 hover:bg-surface-600"
               >
                 New search
               </Link>
@@ -488,7 +488,7 @@ export default function SearchResultsPage() {
                     key={kw.id}
                     type="button"
                     onClick={() => handleKeywordSelect(kw.id)}
-                    className="rounded-full bg-surface-700 px-4 py-2 text-sm text-surface-100 hover:bg-neutral-600"
+                    className="rounded-full bg-surface-700 px-4 py-2 text-sm text-surface-100 hover:bg-surface-600"
                   >
                     {kw.name || "Keyword"}
                   </button>
@@ -558,7 +558,7 @@ export default function SearchResultsPage() {
                   type="button"
                   onClick={() => handlePageChange(page - 1)}
                   disabled={page <= 1}
-                  className="rounded-md bg-surface-700 px-3 py-2 text-sm hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-md bg-surface-700 px-3 py-2 text-sm hover:bg-surface-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
@@ -573,7 +573,7 @@ export default function SearchResultsPage() {
                       type="button"
                       onClick={() => handlePageChange(item)}
                       className={`rounded-md px-3 py-2 text-sm ${
-                        item === page ? "bg-surface-200 text-surface-900" : "bg-surface-700 hover:bg-neutral-600"
+                        item === page ? "bg-surface-200 text-surface-900" : "bg-surface-700 hover:bg-surface-600"
                       }`}
                     >
                       {item}
@@ -584,7 +584,7 @@ export default function SearchResultsPage() {
                   type="button"
                   onClick={() => handlePageChange(page + 1)}
                   disabled={page >= results.total_pages}
-                  className="rounded-md bg-surface-700 px-3 py-2 text-sm hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-md bg-surface-700 px-3 py-2 text-sm hover:bg-surface-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
@@ -605,7 +605,7 @@ export default function SearchResultsPage() {
                   onChange={(e) => setPageInput(e.target.value)}
                   className="w-20 rounded-md bg-surface-800 px-3 py-2 text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
-                <button type="submit" className="rounded-md bg-surface-700 px-3 py-2 text-sm hover:bg-neutral-600">
+                <button type="submit" className="rounded-md bg-surface-700 px-3 py-2 text-sm hover:bg-surface-600">
                   Go
                 </button>
               </form>

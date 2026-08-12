@@ -234,12 +234,12 @@ export default function ReelViewer() {
   const moodLabel = selectedKeyword === WATCHLIST_KEY ? "Your watchlist" : selectedKeyword;
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-200 flex flex-col">
+    <div className="min-h-screen bg-surface-950 text-surface-200 flex flex-col">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(120,80,40,0.06),transparent)] pointer-events-none" />
       <SendMessageModal media_type="movie" data={cardData} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
       {/* Header: title + search + mood pills */}
-      <header className="relative z-10 shrink-0 px-4 sm:px-6 py-4 border-b border-neutral-800/80">
+      <header className="relative z-10 shrink-0 px-4 sm:px-6 py-4 border-b border-surface-800/80">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-2 text-xl font-bold text-white tracking-tight">
@@ -254,13 +254,13 @@ export default function ReelViewer() {
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
                 placeholder="Search mood..."
-                className={`w-40 sm:w-52 py-2 pl-3 pr-9 rounded-xl bg-neutral-800/80 text-white placeholder-neutral-500 text-sm border transition-all ${
-                  searchFocused ? "border-amber-500/50 ring-2 ring-amber-500/20" : "border-transparent"
+                className={`w-40 sm:w-52 py-2 pl-3 pr-9 rounded-xl bg-surface-800/80 text-white placeholder-surface-500 text-sm border transition-all ${
+                  searchFocused ? "border-brand-500/50 ring-2 ring-brand-500/20" : "border-transparent"
                 }`}
               />
               <button
                 type="submit"
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-neutral-400 hover:text-amber-400 hover:bg-neutral-700/50"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-surface-400 hover:text-amber-400 hover:bg-surface-700/50"
                 aria-label="Search"
               >
                 <FaSearch className="w-4 h-4" />
@@ -277,8 +277,8 @@ export default function ReelViewer() {
               onClick={() => handleMoodClick(WATCHLIST_KEY)}
               className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 selectedKeyword === WATCHLIST_KEY
-                  ? "bg-amber-500 text-neutral-900"
-                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white"
+                  ? "bg-brand-500 text-surface-900"
+                  : "bg-surface-800 text-surface-300 hover:bg-surface-700 hover:text-white"
               }`}
             >
               Your watchlist
@@ -290,8 +290,8 @@ export default function ReelViewer() {
                 onClick={() => handleMoodClick(mood)}
                 className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium capitalize transition-colors ${
                   selectedKeyword === mood
-                    ? "bg-amber-500 text-neutral-900"
-                    : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white"
+                    ? "bg-brand-500 text-surface-900"
+                    : "bg-surface-800 text-surface-300 hover:bg-surface-700 hover:text-white"
                 }`}
               >
                 {mood}
@@ -299,8 +299,8 @@ export default function ReelViewer() {
             ))}
           </div>
         </div>
-        <p className="mt-2 text-center sm:text-left text-xs text-neutral-500 max-w-6xl mx-auto">
-          Showing: <span className="text-neutral-300 capitalize">{moodLabel}</span>
+        <p className="mt-2 text-center sm:text-left text-xs text-surface-500 max-w-6xl mx-auto">
+          Showing: <span className="text-surface-300 capitalize">{moodLabel}</span>
           {selectedKeyword !== WATCHLIST_KEY && (
             <span className="ml-2">· Use ↑↓ or click arrows to switch reels</span>
           )}
@@ -310,13 +310,13 @@ export default function ReelViewer() {
       {/* Main: video + overlay */}
       <main className="relative flex-1 flex items-center justify-center p-4 sm:p-6 min-h-0">
         {loading ? (
-          <div className="w-full max-w-4xl aspect-video rounded-2xl bg-neutral-800/80 animate-pulse flex items-center justify-center">
-            <span className="text-neutral-500 text-sm">Loading reels…</span>
+          <div className="w-full max-w-4xl aspect-video rounded-2xl bg-surface-800/80 animate-pulse flex items-center justify-center">
+            <span className="text-surface-500 text-sm">Loading reels…</span>
           </div>
         ) : error ? (
-          <div className="text-center max-w-md mx-auto p-6 rounded-2xl bg-neutral-800/50 border border-neutral-700">
+          <div className="text-center max-w-md mx-auto p-6 rounded-2xl bg-surface-800/50 border border-surface-700">
             <p className="text-red-400 text-sm font-medium mb-2">{error}</p>
-            <p className="text-neutral-500 text-xs mb-4">
+            <p className="text-surface-500 text-xs mb-4">
               {error.includes("Log in")
                 ? "Sign in to see reels from movies in your watchlist."
                 : "Try another mood or your watchlist."}
@@ -324,7 +324,7 @@ export default function ReelViewer() {
             {error.includes("Log in") ? (
               <Link
                 href="/login"
-                className="inline-block px-4 py-2 rounded-xl bg-amber-500 text-neutral-900 text-sm font-medium hover:bg-amber-400"
+                className="inline-block px-4 py-2 rounded-xl bg-brand-500 text-surface-900 text-sm font-medium hover:bg-brand-400"
               >
                 Log in
               </Link>
@@ -332,17 +332,17 @@ export default function ReelViewer() {
               <button
                 type="button"
                 onClick={() => fetchMovies(1)}
-                className="px-4 py-2 rounded-xl bg-amber-500 text-neutral-900 text-sm font-medium hover:bg-amber-400"
+                className="px-4 py-2 rounded-xl bg-brand-500 text-surface-900 text-sm font-medium hover:bg-brand-400"
               >
                 Retry
               </button>
             )}
           </div>
         ) : movies.length === 0 ? (
-          <div className="text-center max-w-md mx-auto p-8 rounded-2xl bg-neutral-800/50 border border-neutral-700">
-            <HiOutlineFilm className="w-12 h-12 text-neutral-600 mx-auto mb-3" />
-            <p className="text-neutral-300 font-medium mb-1">No reels here</p>
-            <p className="text-neutral-500 text-sm mb-4">
+          <div className="text-center max-w-md mx-auto p-8 rounded-2xl bg-surface-800/50 border border-surface-700">
+            <HiOutlineFilm className="w-12 h-12 text-surface-600 mx-auto mb-3" />
+            <p className="text-surface-300 font-medium mb-1">No reels here</p>
+            <p className="text-surface-500 text-sm mb-4">
               {selectedKeyword === WATCHLIST_KEY
                 ? "Add movies with trailers to your watchlist to see them here."
                 : `No movies with trailers found for "${selectedKeyword}". Try another mood.`}
@@ -351,7 +351,7 @@ export default function ReelViewer() {
               <button
                 type="button"
                 onClick={() => handleMoodClick("action")}
-                className="px-4 py-2 rounded-xl bg-amber-500 text-neutral-900 text-sm font-medium hover:bg-amber-400"
+                className="px-4 py-2 rounded-xl bg-brand-500 text-surface-900 text-sm font-medium hover:bg-brand-400"
               >
                 Browse Action
               </button>
@@ -360,7 +360,7 @@ export default function ReelViewer() {
         ) : (
           <div className="w-full max-w-4xl flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
             {/* Video container with overlays */}
-            <div className="relative w-full aspect-video max-h-[70vh] rounded-2xl overflow-hidden bg-black shadow-2xl ring-1 ring-neutral-700/50">
+            <div className="relative w-full aspect-video max-h-[70vh] rounded-2xl overflow-hidden bg-black shadow-2xl ring-1 ring-surface-700/50">
               <div ref={playerRef} className="absolute inset-0 w-full h-full" />
               {/* Bottom gradient + info */}
               <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none" />
@@ -371,7 +371,7 @@ export default function ReelViewer() {
                 >
                   {currentMovie.title}
                 </Link>
-                <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-neutral-400">
+                <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-surface-400">
                   {currentMovie.imdb_id && (
                     <span className="flex items-center gap-1">
                       <span className="text-amber-400 font-medium">IMDb</span> {imdbRating}
@@ -396,7 +396,7 @@ export default function ReelViewer() {
                     <span
                       key={i}
                       className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                        i === currentIndex ? "bg-amber-400" : "bg-white/40"
+                        i === currentIndex ? "bg-brand-400" : "bg-white/40"
                       }`}
                     />
                   ))}
@@ -411,7 +411,7 @@ export default function ReelViewer() {
                   type="button"
                   onClick={prevReel}
                   disabled={!hasPrev}
-                  className="p-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="p-3 rounded-xl bg-surface-800 hover:bg-surface-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   aria-label="Previous reel"
                 >
                   <FaChevronUp className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -420,7 +420,7 @@ export default function ReelViewer() {
                   type="button"
                   onClick={nextReel}
                   disabled={!hasNext || nextLoading}
-                  className="p-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center min-w-[44px]"
+                  className="p-3 rounded-xl bg-surface-800 hover:bg-surface-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center min-w-[44px]"
                   aria-label="Next reel"
                 >
                   {nextLoading ? (
@@ -431,7 +431,7 @@ export default function ReelViewer() {
                 </button>
               </div>
               {/* Preference + Share as one card, same pill style */}
-              <div className="w-full sm:w-48 rounded-2xl border border-neutral-700/60 bg-neutral-800/80 p-3 flex flex-col gap-2">
+              <div className="w-full sm:w-48 rounded-2xl border border-surface-700/60 bg-surface-800/80 p-3 flex flex-col gap-2">
                 <div className="flex flex-col gap-2">
                   <ThreePrefrenceBtn
                     cardId={currentMovie.id}
@@ -446,7 +446,7 @@ export default function ReelViewer() {
                 <button
                   type="button"
                   onClick={() => { setCardData(currentMovie); setIsModalOpen(true); }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-neutral-200 bg-neutral-700/80 hover:bg-neutral-600 border border-neutral-600 hover:border-neutral-500 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-surface-200 bg-surface-700/80 hover:bg-surface-600 border border-surface-600 hover:border-surface-500 transition-colors"
                   aria-label="Share"
                 >
                   <LuSend className="w-4 h-4 shrink-0" />

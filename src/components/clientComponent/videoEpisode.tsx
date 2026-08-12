@@ -116,7 +116,7 @@ function Video({ videos }: VideoProps) {
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                 />
-                <p className="text-sm text-neutral-400 mt-2">{item.type}</p>
+                <p className="text-sm text-surface-400 mt-2">{item.type}</p>
               </div>
             ))}
           </div>
@@ -140,7 +140,7 @@ function Video({ videos }: VideoProps) {
           {canScrollLeft && (
             <button
               onClick={scrollLeft}
-              className="hidden md:block absolute left-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+              className="hidden md:block absolute left-2 top-1/2 transform -translate-y-1/2 bg-surface-800 text-surface-100 p-2 sm:p-3 rounded-full hover:bg-surface-700 transition-colors duration-200 z-10 shadow-md"
             >
               <FaChevronLeft size={20} className="" />
             </button>
@@ -148,7 +148,7 @@ function Video({ videos }: VideoProps) {
           {canScrollRight && (
             <button
               onClick={scrollRight}
-              className="hidden md:block absolute right-2 top-1/2 transform -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2 sm:p-3 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-md"
+              className="hidden md:block absolute right-2 top-1/2 transform -translate-y-1/2 bg-surface-800 text-surface-100 p-2 sm:p-3 rounded-full hover:bg-surface-700 transition-colors duration-200 z-10 shadow-md"
             >
               <FaChevronRight size={20} className="" />
             </button>

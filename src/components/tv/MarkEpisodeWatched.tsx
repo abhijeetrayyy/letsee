@@ -74,7 +74,7 @@ export default function MarkEpisodeWatched({
       className={`inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
         watched
           ? "bg-emerald-600/90 text-white hover:bg-emerald-600"
-          : "bg-neutral-700/80 text-neutral-200 hover:bg-neutral-600 border border-neutral-600"
+          : "bg-surface-700/80 text-surface-200 hover:bg-surface-600 border border-surface-600"
       } disabled:opacity-60`}
     >
       {toggling ? (

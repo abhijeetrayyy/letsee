@@ -52,29 +52,29 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-neutral-950 px-4 py-10">
+    <div className="min-h-screen flex flex-col justify-center items-center bg-surface-950 px-4 py-10">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link
             href="/app"
-            className="text-2xl font-bold text-white hover:text-neutral-300 transition-colors"
+            className="text-2xl font-bold text-white hover:text-surface-300 transition-colors"
           >
             Let&apos;s See
           </Link>
-          <p className="text-neutral-400 mt-1 text-sm">Social media for cinema.</p>
+          <p className="text-surface-400 mt-1 text-sm">Social media for cinema.</p>
         </div>
 
-        <div className="rounded-2xl border border-neutral-700/60 bg-neutral-900/80 p-6 sm:p-8 shadow-xl">
+        <div className="rounded-2xl border border-surface-700/60 bg-surface-900/80 p-6 sm:p-8 shadow-xl">
           <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">
             Reset password
           </h1>
-          <p className="text-neutral-400 text-sm mb-6">
+          <p className="text-surface-400 text-sm mb-6">
             Enter your email and we&apos;ll send you a link to set a new password.
           </p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
-              <label htmlFor="forgot-email" className="block text-sm font-medium text-neutral-300 mb-1.5">
+              <label htmlFor="forgot-email" className="block text-sm font-medium text-surface-300 mb-1.5">
                 Email
               </label>
               <input
@@ -86,7 +86,7 @@ export default function ForgotPasswordPage() {
                 required
                 disabled={loading || cooldown > 0}
                 placeholder="you@example.com"
-                className="w-full rounded-lg bg-neutral-800 border border-neutral-600 px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-60"
+                className="w-full rounded-lg bg-surface-800 border border-surface-600 px-4 py-3 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-60"
               />
             </div>
 
@@ -97,7 +97,7 @@ export default function ForgotPasswordPage() {
                     ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-200"
                     : message.type === "error"
                       ? "bg-red-500/10 border border-red-500/30 text-red-200"
-                      : "bg-neutral-700/50 border border-neutral-600 text-neutral-200"
+                      : "bg-surface-700/50 border border-surface-600 text-surface-200"
                 }`}
               >
                 {message.text}
@@ -107,7 +107,7 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading || cooldown > 0}
-              className="w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              className="w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-surface-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -122,7 +122,7 @@ export default function ForgotPasswordPage() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-neutral-400">
+          <p className="mt-6 text-center text-sm text-surface-400">
             Back to{" "}
             <Link href="/login" className="font-medium text-indigo-400 hover:text-indigo-300">
               Log in

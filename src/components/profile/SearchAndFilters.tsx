@@ -92,7 +92,7 @@ export default function SearchAndFilters({
       <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-md">
           <FaSearch
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500 pointer-events-none"
             aria-hidden
           />
           <input
@@ -100,7 +100,7 @@ export default function SearchAndFilters({
             placeholder="Search by username…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-800/80 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-colors"
+            className="w-full pl-10 pr-4 py-3 rounded-xl bg-surface-800/80 border border-surface-700 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-amber-500/50 transition-colors"
             aria-label="Search profiles"
           />
         </div>
@@ -110,10 +110,10 @@ export default function SearchAndFilters({
               key={key}
               type="button"
               onClick={() => setSort(key)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2 focus:ring-offset-neutral-900 ${
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-surface-900 ${
                 sort === key
-                  ? "bg-amber-500 text-neutral-900"
-                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white border border-neutral-700"
+                  ? "bg-amber-500 text-surface-900"
+                  : "bg-surface-800 text-surface-300 hover:bg-surface-700 hover:text-white border border-surface-700"
               }`}
             >
               {label}
@@ -123,7 +123,7 @@ export default function SearchAndFilters({
       </div>
 
       {/* Results count */}
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-surface-500">
         {loading
           ? "Searching…"
           : users.length === 0
@@ -139,8 +139,8 @@ export default function SearchAndFilters({
 
       {/* Empty state */}
       {!loading && users.length === 0 && (
-        <div className="rounded-2xl border border-neutral-700 bg-neutral-800/40 p-12 text-center">
-          <p className="text-neutral-400">
+        <div className="rounded-2xl border border-surface-700 bg-surface-800/40 p-12 text-center">
+          <p className="text-surface-400">
             {searchQuery.trim()
               ? "Try a different search or clear the filter."
               : "No public profiles yet."}
@@ -149,7 +149,7 @@ export default function SearchAndFilters({
             <button
               type="button"
               onClick={() => setSearchQuery("")}
-              className="mt-4 px-4 py-2 rounded-xl bg-neutral-700 text-neutral-200 text-sm font-medium hover:bg-neutral-600 transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2 focus:ring-offset-neutral-900"
+              className="mt-4 px-4 py-2 rounded-xl bg-surface-700 text-surface-200 text-sm font-medium hover:bg-surface-600 transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-surface-900"
             >
               Clear search
             </button>
@@ -163,7 +163,7 @@ export default function SearchAndFilters({
           {users.map((item) => (
             <div
               key={item.id}
-              className="group rounded-2xl border border-neutral-700/60 bg-neutral-800/50 hover:bg-neutral-800 hover:border-neutral-600 transition-all duration-200 overflow-hidden"
+              className="group rounded-2xl border border-surface-700/60 bg-surface-800/50 hover:bg-surface-800 hover:border-surface-600 transition-all duration-200 overflow-hidden"
             >
               <div className="p-5">
                 <Link
@@ -173,7 +173,7 @@ export default function SearchAndFilters({
                   <ProfileAvatar
                     src={item.avatar_url || "/avatar.svg"}
                     alt={`@${item.username}`}
-                    className="w-14 h-14 rounded-xl object-cover border border-neutral-700 shrink-0 bg-neutral-700 group-hover:border-neutral-600 transition-colors"
+                    className="w-14 h-14 rounded-xl object-cover border border-surface-700 shrink-0 bg-surface-700 group-hover:border-surface-600 transition-colors"
                     width={56}
                     height={56}
                   />
@@ -187,28 +187,28 @@ export default function SearchAndFilters({
                       </span>
                     )}
                     {item.about && (
-                      <p className="text-sm text-neutral-400 line-clamp-2 mt-0.5">{item.about}</p>
+                      <p className="text-sm text-surface-400 line-clamp-2 mt-0.5">{item.about}</p>
                     )}
                   </div>
                 </Link>
-                <div className="mt-4 pt-4 border-t border-neutral-700/60 flex items-center gap-4 text-sm">
-                  <span className="flex items-center gap-1.5 text-neutral-400" title="Watched">
-                    <PiFilmSlateBold className="w-4 h-4 text-neutral-500 shrink-0" aria-hidden />
-                    <span className="font-medium text-neutral-300 tabular-nums">
+                <div className="mt-4 pt-4 border-t border-surface-700/60 flex items-center gap-4 text-sm">
+                  <span className="flex items-center gap-1.5 text-surface-400" title="Watched">
+                    <PiFilmSlateBold className="w-4 h-4 text-surface-500 shrink-0" aria-hidden />
+                    <span className="font-medium text-surface-300 tabular-nums">
                       {item.user_cout_stats?.watched_count ?? 0}
                     </span>
                     <span className="sr-only">Watched</span>
                   </span>
-                  <span className="flex items-center gap-1.5 text-neutral-400" title="Favorites">
-                    <PiHeartBold className="w-4 h-4 text-neutral-500 shrink-0" aria-hidden />
-                    <span className="font-medium text-neutral-300 tabular-nums">
+                  <span className="flex items-center gap-1.5 text-surface-400" title="Favorites">
+                    <PiHeartBold className="w-4 h-4 text-surface-500 shrink-0" aria-hidden />
+                    <span className="font-medium text-surface-300 tabular-nums">
                       {item.user_cout_stats?.favorites_count ?? 0}
                     </span>
                     <span className="sr-only">Favorites</span>
                   </span>
-                  <span className="flex items-center gap-1.5 text-neutral-400" title="Watchlist">
-                    <PiListChecksBold className="w-4 h-4 text-neutral-500 shrink-0" aria-hidden />
-                    <span className="font-medium text-neutral-300 tabular-nums">
+                  <span className="flex items-center gap-1.5 text-surface-400" title="Watchlist">
+                    <PiListChecksBold className="w-4 h-4 text-surface-500 shrink-0" aria-hidden />
+                    <span className="font-medium text-surface-300 tabular-nums">
                       {item.user_cout_stats?.watchlist_count ?? 0}
                     </span>
                     <span className="sr-only">Watchlist</span>

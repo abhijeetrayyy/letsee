@@ -59,7 +59,7 @@ export default function EpisodeNote({
 
   return (
     <div className="mt-4">
-      <label className="block text-sm font-medium text-neutral-300 mb-2">
+      <label className="block text-sm font-medium text-surface-300 mb-2">
         Your Notes
       </label>
       <div className="relative">
@@ -69,7 +69,7 @@ export default function EpisodeNote({
             setNote(e.target.value);
             setDirty(true);
           }}
-          className="w-full bg-neutral-800 text-neutral-200 rounded-md p-3 border border-neutral-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 min-h-[100px]"
+          className="w-full bg-surface-800 text-surface-200 rounded-md p-3 border border-surface-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 min-h-[100px]"
           placeholder="Write your thoughts on this episode..."
         />
         {dirty && (

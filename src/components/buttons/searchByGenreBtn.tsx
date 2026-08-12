@@ -39,7 +39,7 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages }) => {
       <div className="flex flex-row justify-center items-center">
         <button
           type="button"
-          className="px-4 py-2 w-20 h-10 bg-neutral-700 rounded-md hover:bg-neutral-600"
+          className="px-4 py-2 w-20 h-10 bg-surface-700 rounded-md hover:bg-surface-600"
           onClick={() => LastPage(currentPage - 1)}
           disabled={currentPage === 1 || lastLoading}
         >
@@ -56,7 +56,7 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages }) => {
         </span>
         <button
           type="button"
-          className="px-4 py-2 w-20 h-10 bg-neutral-700 rounded-md hover:bg-neutral-600"
+          className="px-4 py-2 w-20 h-10 bg-surface-700 rounded-md hover:bg-surface-600"
           onClick={() => NextPage(currentPage + 1)}
           disabled={currentPage === totalPages || NextLoading}
         >

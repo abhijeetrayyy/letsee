@@ -38,9 +38,9 @@ export default function ContinueWatchingProgress() {
       <div className="flex gap-3 overflow-x-auto pb-2">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="shrink-0 w-44 animate-pulse">
-            <div className="aspect-[2/3] rounded-xl bg-neutral-800" />
-            <div className="mt-2 h-3 bg-neutral-800 rounded w-3/4" />
-            <div className="mt-1 h-2 bg-neutral-800 rounded w-full" />
+            <div className="aspect-[2/3] rounded-xl bg-surface-800" />
+            <div className="mt-2 h-3 bg-surface-800 rounded w-3/4" />
+            <div className="mt-1 h-2 bg-surface-800 rounded w-full" />
           </div>
         ))}
       </div>
@@ -74,7 +74,7 @@ export default function ContinueWatchingProgress() {
             href={`/app/tv/${item.show_id}`}
             className="shrink-0 w-44 group relative"
           >
-            <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-neutral-800">
+            <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-surface-800">
               {item.poster_path ? (
                 <img
                   src={`https://image.tmdb.org/t/p/w342${item.poster_path}`}
@@ -84,12 +84,12 @@ export default function ContinueWatchingProgress() {
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <Tv className="size-10 text-neutral-600" />
+                  <Tv className="size-10 text-surface-600" />
                 </div>
               )}
 
               {/* Progress bar at bottom */}
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-700">
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-surface-700">
                 <div
                   className="h-full bg-brand-500 transition-all"
                   style={{
@@ -114,7 +114,7 @@ export default function ContinueWatchingProgress() {
             </div>
 
             <h3 className="mt-2 text-sm font-medium text-white truncate">{item.show_name}</h3>
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-surface-400">
               {item.episodes_watched}/{item.total_episodes} episodes
               {item.is_caught_up && item.next_air_date && (
                 <span className="text-amber-400 ml-1">
@@ -128,11 +128,11 @@ export default function ContinueWatchingProgress() {
         {items.length > 8 && (
           <Link
             href="/app/profile"
-            className="shrink-0 w-44 flex items-center justify-center rounded-xl border-2 border-dashed border-neutral-700 hover:border-brand-500/50 transition-colors group"
+            className="shrink-0 w-44 flex items-center justify-center rounded-xl border-2 border-dashed border-surface-700 hover:border-brand-500/50 transition-colors group"
           >
             <div className="text-center">
-              <ChevronRight className="size-8 text-neutral-500 group-hover:text-brand-400 mx-auto transition-colors" />
-              <p className="mt-2 text-sm text-neutral-400 group-hover:text-brand-400">View all</p>
+              <ChevronRight className="size-8 text-surface-500 group-hover:text-brand-400 mx-auto transition-colors" />
+              <p className="mt-2 text-sm text-surface-400 group-hover:text-brand-400">View all</p>
             </div>
           </Link>
         )}

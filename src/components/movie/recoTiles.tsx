@@ -156,20 +156,20 @@ export default function MovieRecoTile({
               );
             })
           ) : (
-            <p className="text-neutral-400 text-sm py-8 w-full text-center">
+            <p className="text-surface-400 text-sm py-8 w-full text-center">
               No similar titles found
             </p>
           )}
         </div>
 
         <div
-          className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-20 bg-gradient-to-r from-neutral-950 to-transparent pointer-events-none transition-opacity duration-300 ${
+          className={`hidden md:block absolute top-0 left-0 h-full w-12 sm:w-20 bg-gradient-to-r from-surface-950 to-transparent pointer-events-none transition-opacity duration-300 ${
             canScrollLeft ? "opacity-100" : "opacity-0"
           }`}
           aria-hidden
         />
         <div
-          className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-20 bg-gradient-to-l from-neutral-950 to-transparent pointer-events-none transition-opacity duration-300 ${
+          className={`hidden md:block absolute top-0 right-0 h-full w-12 sm:w-20 bg-gradient-to-l from-surface-950 to-transparent pointer-events-none transition-opacity duration-300 ${
             canScrollRight ? "opacity-100" : "opacity-0"
           }`}
           aria-hidden
@@ -179,7 +179,7 @@ export default function MovieRecoTile({
           <button
             type="button"
             onClick={scrollLeft}
-            className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2.5 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-lg items-center justify-center"
+            className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-surface-800 text-surface-100 p-2.5 rounded-full hover:bg-surface-700 transition-colors duration-200 z-10 shadow-lg items-center justify-center"
             aria-label="Scroll left"
           >
             <FaChevronLeft size={18} />
@@ -189,7 +189,7 @@ export default function MovieRecoTile({
           <button
             type="button"
             onClick={scrollRight}
-            className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-neutral-800 text-neutral-100 p-2.5 rounded-full hover:bg-neutral-700 transition-colors duration-200 z-10 shadow-lg items-center justify-center"
+            className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-surface-800 text-surface-100 p-2.5 rounded-full hover:bg-surface-700 transition-colors duration-200 z-10 shadow-lg items-center justify-center"
             aria-label="Scroll right"
           >
             <FaChevronRight size={18} />

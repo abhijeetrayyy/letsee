@@ -57,11 +57,11 @@ export default function CreateListModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-      <div className="bg-neutral-800 rounded-xl border border-neutral-600 w-full max-w-md p-6">
-        <h3 className="text-xl font-semibold text-neutral-100 mb-4">Create list</h3>
+      <div className="bg-surface-800 rounded-xl border border-surface-600 w-full max-w-md p-6">
+        <h3 className="text-xl font-semibold text-surface-100 mb-4">Create list</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="list-name" className="block text-sm font-medium text-neutral-300 mb-1">
+            <label htmlFor="list-name" className="block text-sm font-medium text-surface-300 mb-1">
               Name
             </label>
             <input
@@ -70,12 +70,12 @@ export default function CreateListModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Best 2024"
-              className="w-full px-3 py-2 rounded-lg bg-neutral-700 border border-neutral-600 text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 rounded-lg bg-surface-700 border border-surface-600 text-surface-100 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               autoFocus
             />
           </div>
           <div>
-            <label htmlFor="list-desc" className="block text-sm font-medium text-neutral-300 mb-1">
+            <label htmlFor="list-desc" className="block text-sm font-medium text-surface-300 mb-1">
               Description (optional)
             </label>
             <textarea
@@ -84,15 +84,15 @@ export default function CreateListModal({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What's this list about?"
               rows={2}
-              className="w-full px-3 py-2 rounded-lg bg-neutral-700 border border-neutral-600 text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full px-3 py-2 rounded-lg bg-surface-700 border border-surface-600 text-surface-100 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-neutral-300 mb-1">Visibility</label>
+            <label className="block text-sm font-medium text-surface-300 mb-1">Visibility</label>
             <select
               value={visibility}
               onChange={(e) => setVisibility(e.target.value as "public" | "followers" | "private")}
-              className="w-full px-3 py-2 rounded-lg bg-neutral-700 border border-neutral-600 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 rounded-lg bg-surface-700 border border-surface-600 text-surface-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="public">Public</option>
               <option value="followers">Followers only</option>
@@ -104,7 +104,7 @@ export default function CreateListModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg text-neutral-300 hover:bg-neutral-700 transition"
+              className="px-4 py-2 rounded-lg text-surface-300 hover:bg-surface-700 transition"
             >
               Cancel
             </button>

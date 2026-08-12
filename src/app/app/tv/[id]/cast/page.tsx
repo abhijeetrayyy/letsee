@@ -46,7 +46,7 @@ async function page({ params }: PageProps) {
 
   if (!showResult.data || !creditsResult.data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-900 text-neutral-200 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-surface-900 text-surface-200 p-4">
         <div className="max-w-xl text-center">
           <p className="text-lg font-semibold">Cast data unavailable.</p>
           {errors.length > 0 && (
@@ -56,7 +56,7 @@ async function page({ params }: PageProps) {
               ))}
             </ul>
           )}
-          <p className="mt-3 text-sm text-neutral-400">
+          <p className="mt-3 text-sm text-surface-400">
             Try refreshing in a moment.
           </p>
         </div>
@@ -71,14 +71,14 @@ async function page({ params }: PageProps) {
       <div className="relative w-full flex flex-col  overflow-y-clip justify-center items-center min-h-[590px]">
         <div className="absolute w-full  h-full overflow-hidden">
           <div
-            className="absolute inset-0 z-10 bg-linear-to-r from-neutral-900 via-transparent to-neutral-900"
+            className="absolute inset-0 z-10 bg-linear-to-r from-surface-900 via-transparent to-surface-900"
             style={{
               background:
                 "linear-gradient(to left,  #171717, transparent 60%, #171717, #171717)",
             }}
           ></div>
           <div
-            className="absolute inset-0 z-10 bg-linear-to-l from-neutral-900 via-transparent to-neutral-900"
+            className="absolute inset-0 z-10 bg-linear-to-l from-surface-900 via-transparent to-surface-900"
             style={{
               background:
                 "linear-gradient(to right,  #171717, transparent 60%, #171717, #171717)",
@@ -118,7 +118,7 @@ async function page({ params }: PageProps) {
                 </span>
               )}
               <Link
-                className="hover:text-neutral-200 hover:underline"
+                className="hover:text-surface-200 hover:underline"
                 href={`/app/tv/${show.id}-${show.name
                   .trim()
                   .replace(/[^a-zA-Z0-9]/g, "-")
@@ -164,7 +164,7 @@ async function page({ params }: PageProps) {
           {cast?.map((item: any, index: number) => (
             <Link
               key={index}
-              className="border border-neutral-900 bg-neutral-800 py-2 px-2 rounded-md hover:border-indigo-600"
+              className="border border-surface-900 bg-surface-800 py-2 px-2 rounded-md hover:border-indigo-600"
               href={`/app/person/${item.id}-${item.name
                 .trim()
                 .replace(/[^a-zA-Z0-9]/g, "-")

@@ -113,14 +113,14 @@ class ShareModalErrorBoundary extends Component<
       return (
         <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-9999" onClick={this.props.onClose}>
           <div
-            className="bg-neutral-800 w-full max-w-md rounded-lg p-6 shadow-xl"
+            className="bg-surface-800 w-full max-w-md rounded-lg p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-white mb-4">Something went wrong loading the share dialog.</p>
             <button
               type="button"
               onClick={this.props.onClose}
-              className="w-full py-2 rounded-lg bg-neutral-600 text-white hover:bg-neutral-500"
+              className="w-full py-2 rounded-lg bg-surface-600 text-white hover:bg-surface-500"
             >
               Close
             </button>
@@ -472,7 +472,7 @@ const SendMessageModal: React.FC<Props> = ({
       aria-modal="true"
     >
       <div
-        className="bg-neutral-800 w-full h-fit max-w-3xl sm:rounded-lg p-5 shadow-xl"
+        className="bg-surface-800 w-full h-fit max-w-3xl sm:rounded-lg p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center p-4 border-b">
@@ -513,10 +513,10 @@ const SendMessageModal: React.FC<Props> = ({
       aria-labelledby="share-modal-title"
     >
       <div
-        className="bg-neutral-800 w-full max-w-3xl sm:rounded-lg p-5 shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-surface-800 w-full max-w-3xl sm:rounded-lg p-5 shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center p-4 border-b border-neutral-700 shrink-0">
+        <div className="flex justify-between items-center p-4 border-b border-surface-700 shrink-0">
           <h2 id="share-modal-title" className="text-white text-lg font-semibold truncate pr-8">
             {normalized.id != null
               ? `Share: ${normalized.displayName.slice(0, 24)}${normalized.displayName.length > 24 ? "…" : ""}`
@@ -525,7 +525,7 @@ const SendMessageModal: React.FC<Props> = ({
           <button
             type="button"
             onClick={handleClose}
-            className="absolute top-4 right-4 text-neutral-400 hover:text-white p-1 rounded"
+            className="absolute top-4 right-4 text-surface-400 hover:text-white p-1 rounded"
             aria-label="Close"
           >
             ✕
@@ -564,7 +564,7 @@ const SendMessageModal: React.FC<Props> = ({
             </button> */}
           </div>
           )}
-          <label className="text-neutral-300 text-sm">Search username</label>
+          <label className="text-surface-300 text-sm">Search username</label>
           <input
             type="text"
             placeholder="Search users..."
@@ -575,7 +575,7 @@ const SendMessageModal: React.FC<Props> = ({
 
           <div className=" max-h-40 overflow-y-auto mb-4">
             {loading ? (
-              <div className="flex items-center justify-center gap-2 py-6 text-neutral-300">
+              <div className="flex items-center justify-center gap-2 py-6 text-surface-300">
                 <LoadingSpinner size="sm" className="border-t-white shrink-0" />
                 <span className="text-sm animate-pulse">Loading users…</span>
               </div>
@@ -591,7 +591,7 @@ const SendMessageModal: React.FC<Props> = ({
                       className={`rounded-full w-20 h-20  ${
                         selectedUsers.some((u) => u.id === user.id)
                           ? "border-2 border-blue-500 text-white"
-                          : "border-2 border-neutral-600 hover:border-neutral-500"
+                          : "border-2 border-surface-600 hover:border-surface-500"
                       }`}
                       src="/avatar.svg"
                       alt={user.username}
@@ -623,14 +623,14 @@ const SendMessageModal: React.FC<Props> = ({
           {warning && <p className="text-yellow-500 text-sm mb-2">{warning}</p>}
 
           <textarea
-            className="w-full rounded-lg border border-neutral-600 bg-neutral-200 text-neutral-900 placeholder-neutral-500 p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full rounded-lg border border-surface-600 bg-surface-200 text-surface-900 placeholder-surface-500 p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             placeholder="Type your message..."
             rows={4}
             maxLength={CONTENT_MAX_LENGTH}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
           />
-          <p className="text-right text-xs text-neutral-500 mb-2">
+          <p className="text-right text-xs text-surface-500 mb-2">
             {message.length}/{CONTENT_MAX_LENGTH}
           </p>
 

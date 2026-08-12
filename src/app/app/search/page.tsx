@@ -213,13 +213,13 @@ export default function SearchLandingPage() {
       <h1 className="text-2xl sm:text-3xl font-semibold text-center mb-2">
         Search
       </h1>
-      <p className="text-neutral-400 text-center mb-8">
+      <p className="text-surface-400 text-center mb-8">
         Find movies, TV shows, people, and keywords
       </p>
 
       <form onSubmit={handleSubmit} className="relative mb-6">
         <FaSearch
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none"
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500 pointer-events-none"
           size={20}
           aria-hidden
         />
@@ -228,7 +228,7 @@ export default function SearchLandingPage() {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Search movies, TV, people, or keywords..."
-          className="w-full py-3 pl-12 pr-28 rounded-full bg-neutral-800 text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-500 text-base"
+          className="w-full py-3 pl-12 pr-28 rounded-full bg-surface-800 text-surface-100 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-surface-500 text-base"
           autoFocus
           autoComplete="off"
           aria-label="Search"
@@ -237,7 +237,7 @@ export default function SearchLandingPage() {
         <button
           type="submit"
           disabled={!isValidSearchQuery(draft.trim())}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-neutral-600 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-surface-600 px-4 py-2 text-sm font-medium text-white hover:bg-surface-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
         >
           Search
         </button>
@@ -259,13 +259,13 @@ export default function SearchLandingPage() {
       {showResults && (
         <section
           id="live-results-desc"
-          className="mb-8 rounded-2xl border border-neutral-700/80 bg-neutral-900/80 overflow-hidden"
+          className="mb-8 rounded-2xl border border-surface-700/80 bg-surface-900/80 overflow-hidden"
           aria-live="polite"
           aria-busy={isLoading}
         >
           {isLoading && (
-            <div className="flex items-center gap-2 px-4 py-3 text-neutral-400 text-sm">
-              <span className="inline-block w-4 h-4 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" aria-hidden />
+            <div className="flex items-center gap-2 px-4 py-3 text-surface-400 text-sm">
+              <span className="inline-block w-4 h-4 border-2 border-surface-500 border-t-transparent rounded-full animate-spin" aria-hidden />
               Searching for &quot;{query}&quot;…
             </div>
           )}
@@ -273,7 +273,7 @@ export default function SearchLandingPage() {
             <p className="px-4 py-3 text-amber-400/90 text-sm">{error}</p>
           )}
           {!isLoading && !error && !hasResults && (
-            <div className="px-4 py-4 text-neutral-400 text-sm space-y-2">
+            <div className="px-4 py-4 text-surface-400 text-sm space-y-2">
               <p>No results for &quot;{query}&quot;.</p>
               {didYouMean ? (
                 <p>
@@ -281,7 +281,7 @@ export default function SearchLandingPage() {
                   <button
                     type="button"
                     onClick={() => submit(didYouMean)}
-                    className="text-amber-400 hover:text-amber-300 underline font-medium"
+                    className="text-brand-400 hover:text-brand-300 underline font-medium"
                   >
                     {didYouMean}
                   </button>
@@ -293,7 +293,7 @@ export default function SearchLandingPage() {
                   <button
                     type="button"
                     onClick={() => submit(query)}
-                    className="text-amber-400 hover:text-amber-300 underline"
+                    className="text-brand-400 hover:text-brand-300 underline"
                   >
                     open full results
                   </button>
@@ -303,14 +303,14 @@ export default function SearchLandingPage() {
             </div>
           )}
           {!isLoading && !error && hasResults && (
-            <div className="divide-y divide-neutral-700/80">
+            <div className="divide-y divide-surface-700/80">
               {didYouMean && (
-                <p className="px-4 py-2 text-sm text-neutral-400">
+                <p className="px-4 py-2 text-sm text-surface-400">
                   Did you mean{" "}
                   <button
                     type="button"
                     onClick={() => submit(didYouMean)}
-                    className="text-amber-400 hover:text-amber-300 underline"
+                    className="text-brand-400 hover:text-brand-300 underline"
                   >
                     {didYouMean}
                   </button>
@@ -326,7 +326,7 @@ export default function SearchLandingPage() {
                 (section) =>
                   section.items.length > 0 && (
                     <div key={section.key} className="p-3">
-                      <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">
+                      <h3 className="text-xs font-medium text-surface-500 uppercase tracking-wider mb-2">
                         {section.label}
                       </h3>
                       <ul className="space-y-1">
@@ -341,7 +341,7 @@ export default function SearchLandingPage() {
                             <li key={`${section.key}-${item.id}`}>
                               <Link
                                 href={href}
-                                className="flex items-center gap-3 rounded-xl p-2 text-neutral-200 hover:bg-neutral-800 hover:text-white transition-colors min-h-[44px] touch-manipulation"
+                                className="flex items-center gap-3 rounded-xl p-2 text-surface-200 hover:bg-surface-800 hover:text-white transition-colors min-h-[44px] touch-manipulation"
                                 onClick={() => {
                                   const next = [query, ...recent.filter((t) => t !== query)].slice(0, MAX_RECENT);
                                   setRecent(next);
@@ -352,12 +352,12 @@ export default function SearchLandingPage() {
                                   <img
                                     src={img}
                                     alt=""
-                                    className="w-10 h-10 rounded-lg object-cover shrink-0 bg-neutral-800"
+                                    className="w-10 h-10 rounded-lg object-cover shrink-0 bg-surface-800"
                                     width={40}
                                     height={40}
                                   />
                                 ) : (
-                                  <div className="w-10 h-10 rounded-lg bg-neutral-800 shrink-0" />
+                                  <div className="w-10 h-10 rounded-lg bg-surface-800 shrink-0" />
                                 )}
                                 <span className="text-sm font-medium truncate">{title}</span>
                               </Link>
@@ -367,7 +367,7 @@ export default function SearchLandingPage() {
                       </ul>
                       <Link
                         href={buildSearchUrl({ query, mediaType: section.key as SearchMediaType, page: 1 })}
-                        className="mt-2 block text-center text-xs text-amber-400 hover:text-amber-300"
+                        className="mt-2 block text-center text-xs text-brand-400 hover:text-brand-300"
                       >
                         See all {section.label}
                       </Link>
@@ -382,13 +382,13 @@ export default function SearchLandingPage() {
       {showRecent && (
         <section className="mb-8" aria-label="Recent searches">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-medium text-neutral-400 uppercase tracking-wider">
+            <h2 className="text-sm font-medium text-surface-400 uppercase tracking-wider">
               Recent searches
             </h2>
             <button
               type="button"
               onClick={clearRecent}
-              className="text-xs text-neutral-500 hover:text-neutral-300 min-h-[44px] touch-manipulation"
+              className="text-xs text-surface-500 hover:text-surface-300 min-h-[44px] touch-manipulation"
             >
               Clear all
             </button>
@@ -399,7 +399,7 @@ export default function SearchLandingPage() {
                 key={term}
                 type="button"
                 onClick={() => submit(term)}
-                className="rounded-full bg-neutral-800 px-4 py-2.5 text-sm text-neutral-200 hover:bg-neutral-700 min-h-[44px] touch-manipulation"
+                className="rounded-full bg-surface-800 px-4 py-2.5 text-sm text-surface-200 hover:bg-surface-700 min-h-[44px] touch-manipulation"
               >
                 {term}
               </button>
@@ -408,21 +408,21 @@ export default function SearchLandingPage() {
         </section>
       )}
 
-      <section className="mt-8 pt-6 border-t border-neutral-700/50">
+      <section className="mt-8 pt-6 border-t border-surface-700/50">
         <Link
           href={buildSearchUrl({
             query: "discover",
             mediaType: "movie",
             page: 1,
           })}
-          className="inline-flex items-center gap-2 rounded-lg bg-neutral-800 px-4 py-2.5 text-sm font-medium text-neutral-200 hover:bg-neutral-700 hover:text-white transition-colors min-h-[44px] touch-manipulation"
+          className="inline-flex items-center gap-2 rounded-lg bg-surface-800 px-4 py-2.5 text-sm font-medium text-surface-200 hover:bg-surface-700 hover:text-white transition-colors min-h-[44px] touch-manipulation"
         >
           <FaFilter className="size-4" aria-hidden />
           Browse by filters (year, genre, where to watch)
         </Link>
       </section>
 
-      <section className="text-neutral-500 text-sm mt-6">
+      <section className="text-surface-500 text-sm mt-6">
         <p className="mb-2">Tip: type at least 2 characters; results update as you type.</p>
         <p>On full results: filter by type, year, language, genre, and where to watch.</p>
       </section>

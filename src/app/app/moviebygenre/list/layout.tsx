@@ -22,7 +22,7 @@ async function page({ children }: { children: React.ReactNode }) {
           <p className="text-sm text-amber-200">{result.error}</p>
         )}
         {isFallback && (
-          <p className="text-xs text-neutral-400">
+          <p className="text-xs text-surface-400">
             Showing cached genre list.
           </p>
         )}
