@@ -104,6 +104,7 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
         title={show.name}
         mediaType="tv"
         itemId={show.id}
+        posterPath={show.poster_path}
         isOpen={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
       />

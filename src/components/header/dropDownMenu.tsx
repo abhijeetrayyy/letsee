@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { FaChevronDown, FaFilm, FaTv, FaUsers } from "react-icons/fa6";
 import { FiBell, FiMessageSquare, FiBookmark, FiHeart } from "react-icons/fi";
 import SignOut from "../buttons/signOut";
+import CountrySelector from "./CountrySelector";
 import Avatar from "@components/ui/Avatar";
 import type { AuthUser } from "@/app/contextAPI/AuthProvider";
 
@@ -140,6 +141,16 @@ const DropdownMenu = ({ user }: { user: AuthUser }) => {
               <FaUsers className={`${iconClass} text-amber-400`} />
               Discover people
             </Link>
+
+            <div className="my-1 border-t border-surface-800" />
+            {/* Streaming region — a preference, so it belongs here rather
+                than taking up a slot in the header. */}
+            <div className="px-3 py-2">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-surface-500">
+                Streaming region
+              </p>
+              <CountrySelector />
+            </div>
 
             <div className="my-1 border-t border-surface-800" />
             <div className="px-2">

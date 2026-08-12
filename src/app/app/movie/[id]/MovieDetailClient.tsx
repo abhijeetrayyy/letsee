@@ -57,6 +57,7 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
         title={movie.title}
         mediaType="movie"
         itemId={movie.id}
+        posterPath={movie.poster_path}
         isOpen={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
       />

@@ -1,14 +1,45 @@
 "use client";
 
-import { Share2, X, Twitter, MessageCircle, LinkIcon, Check } from "lucide-react";
+import { Share2, X, Twitter, MessageCircle, LinkIcon, Check, Send } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import SendMessageModal from "@components/message/sendCard";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
 
-interface ShareModalProps { title: string; mediaType: string; itemId: string|number; isOpen: boolean; onClose: () => void; }
+interface ShareModalProps {
+  title: string;
+  mediaType: string;
+  itemId: string | number;
+  /** Poster path or URL, so the chat card has artwork. */
+  posterPath?: string | null;
+  isOpen: boolean;
+  onClose: () => void;
+}
 
-export default function ShareModal({ title, isOpen, onClose }: ShareModalProps) {
+export default function ShareModal({
+  title,
+  mediaType,
+  itemId,
+  posterPath,
+  isOpen,
+  onClose,
+}: ShareModalProps) {
   const [copied, setCopied] = useState(false);
-  if (!isOpen) return null;
+  const [sendOpen, setSendOpen] = useState(false);
+  const { isAuthenticated } = useAuth();
+
+  // Keep the send sheet mounted after the share sheet closes, otherwise
+  // picking "Send to a friend" would unmount it immediately.
+  if (!isOpen) {
+    return sendOpen ? (
+      <SendMessageModal
+        isOpen
+        onClose={() => setSendOpen(false)}
+        data={{ id: String(itemId), name: title, poster_path: posterPath ?? null }}
+        media_type={mediaType}
+      />
+    ) : null;
+  }
   const url = typeof window !== "undefined" ? window.location.href : "";
   const hasShare = typeof window !== "undefined" && "share" in navigator;
 
@@ -26,6 +57,19 @@ export default function ShareModal({ title, isOpen, onClose }: ShareModalProps) 
         </div>
         <p className="text-sm text-surface-400 mb-4 truncate">{title}</p>
         <div className="space-y-2">
+          {/* Sharing to someone here is the point of the product, so it leads
+              — the external options are the fallback, not the default. */}
+          {isAuthenticated && (
+            <button
+              onClick={() => {
+                setSendOpen(true);
+                onClose();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-brand-500 text-surface-950 hover:bg-brand-400 text-sm font-semibold transition-colors"
+            >
+              <Send className="size-4" /> Send to a friend
+            </button>
+          )}
           {hasShare && (
             <button onClick={async () => { try { await navigator.share({ title, url, text: `Check out ${title} on LetSee` }); } catch {} }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-brand-500/10 text-brand-400 hover:bg-brand-500/20 border border-brand-500/20 text-sm font-medium transition-colors">
               <Share2 className="size-4" /> Share via...

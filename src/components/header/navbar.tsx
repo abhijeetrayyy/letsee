@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { FaMagnifyingGlass } from "react-icons/fa6";
-import { FiBell, FiMessageSquare, FiGlobe } from "react-icons/fi";
+import { FiUsers } from "react-icons/fi";
 import { Film } from "lucide-react";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import SignOut from "../buttons/signOut";
 import BurgerMenu from "./BurgerMenu";
-import CountrySelector from "./CountrySelector";
 import DropdownMenu from "./dropDownMenu";
 import MessageButton from "./MessageButton";
 import NotificationBell from "./NotificationBell";
@@ -52,29 +51,30 @@ export function LogedNavbar() {
           <SearchBar />
         </div>
 
-        {/* Right: action icons */}
+        {/* Right: action icons — the community actions, nothing else.
+            Country is a preference, not a destination; it lives in the
+            account menu now. */}
         <div className="flex items-center gap-1">
-          {/* Country selector (compact) */}
-          <div className="hidden sm:block">
-            <CountrySelector />
-          </div>
-
           {/* Mobile search trigger */}
           <Link href="/app/search" className="nav-icon-btn sm:hidden" aria-label="Search">
             <FaMagnifyingGlass className="size-4" />
           </Link>
 
-          {isAuthed && (
-            <>
-              {/* Notifications */}
-              {status === "ok" && user && (
-                <NotificationBell userId={user.id} />
-              )}
+          {/* People — the whole point of the product, so it's top-level and
+              visible to signed-out visitors too. */}
+          <Link
+            href="/app/profile"
+            className="nav-icon-btn"
+            aria-label="Discover people"
+            title="Discover people"
+          >
+            <FiUsers className="size-4" />
+          </Link>
 
-              {/* Messages */}
-              {status === "ok" && user && (
-                <MessageButton userId={user.id} />
-              )}
+          {status === "ok" && user && (
+            <>
+              <NotificationBell userId={user.id} />
+              <MessageButton userId={user.id} />
             </>
           )}
 

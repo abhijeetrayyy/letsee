@@ -92,6 +92,9 @@ async function fetchProfileData(username: string | null, currentUserId: string |
   // Currently watching
   const { data: currentlyWatching } = await supabase.from("user_media_status").select("item_id, item_type, item_name, image_url, genres").eq("user_id", profileId).eq("status", "watching").order("updated_at", { ascending: false }).limit(6);
 
+  // Watch later — was counted in the stats strip but never actually listed anywhere.
+  const { data: watchlistItems } = await supabase.from("user_media_status").select("item_id, item_type, item_name, image_url, genres").eq("user_id", profileId).eq("status", "watchlist").order("updated_at", { ascending: false }).limit(12);
+
   // Taste profile + insight text
   let tasteProfile: TasteProfile = { topGenres: [], loves: [], avoids: [], ratesHighest: null, totalGenresExplored: 0 };
   let tasteInsight: TasteInsight | null = null;
@@ -119,7 +122,7 @@ async function fetchProfileData(username: string | null, currentUserId: string |
     if (pr) pinnedReview = pr;
   }
 
-  return { user, isOwner, stats, followData, favoriteDisplay: favoriteDisplay ?? [], favoriteItems: favoriteItems ?? [], recentActivity: recentActivity ?? [], currentlyWatching: currentlyWatching ?? [], tasteProfile, tasteInsight, featuredList, pinnedReview };
+  return { user, isOwner, stats, followData, favoriteDisplay: favoriteDisplay ?? [], favoriteItems: favoriteItems ?? [], recentActivity: recentActivity ?? [], currentlyWatching: currentlyWatching ?? [], watchlistItems: watchlistItems ?? [], tasteProfile, tasteInsight, featuredList, pinnedReview };
 }
 
 export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -131,7 +134,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   const profileData = await fetchProfileData(username, currentUserId);
   if (!profileData) return notFound();
 
-  const { user, isOwner, stats, followData, favoriteDisplay, favoriteItems, recentActivity, currentlyWatching, tasteProfile, tasteInsight, featuredList, pinnedReview } = profileData;
+  const { user, isOwner, stats, followData, favoriteDisplay, favoriteItems, recentActivity, currentlyWatching, watchlistItems, tasteProfile, tasteInsight, featuredList, pinnedReview } = profileData;
   if (!username && user.username) redirect(`/app/profile/${user.username}`);
 
   const visibility = String(user?.visibility ?? "public").toLowerCase();
@@ -237,6 +240,39 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   {currentlyWatching.map((item: any) => (
                     <Link key={item.item_id} href={`/app/${item.item_type}/${item.item_id}`} className="shrink-0 w-32 group">
                       <div className="aspect-[2/3] rounded-xl overflow-hidden bg-surface-800 border border-surface-700/30 group-hover:border-brand-500/30 transition-all">
+                        {item.image_url ? <img src={item.image_url} alt={item.item_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" /> : <div className="w-full h-full flex items-center justify-center text-surface-600 text-xs">{item.item_type}</div>}
+                      </div>
+                      <p className="mt-1.5 text-xs text-surface-300 line-clamp-2 group-hover:text-white transition-colors">{item.item_name}</p>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* ═══ WATCH LATER — What they're saving for later ═══ */}
+            {watchlistItems.length > 0 && (
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <span className="w-1 h-5 rounded-full bg-purple-500" />
+                    Watch Later
+                    <span className="text-sm font-normal text-surface-500">
+                      {stats.watchlistCount}
+                    </span>
+                  </h2>
+                  {isOwner && (
+                    <Link
+                      href="/app/watchlist"
+                      className="text-xs text-brand-400 hover:text-brand-300 transition-colors"
+                    >
+                      Manage →
+                    </Link>
+                  )}
+                </div>
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {watchlistItems.map((item: any) => (
+                    <Link key={item.item_id} href={`/app/${item.item_type}/${item.item_id}`} className="shrink-0 w-32 group">
+                      <div className="aspect-[2/3] rounded-xl overflow-hidden bg-surface-800 border border-surface-700/30 group-hover:border-purple-500/30 transition-all">
                         {item.image_url ? <img src={item.image_url} alt={item.item_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" /> : <div className="w-full h-full flex items-center justify-center text-surface-600 text-xs">{item.item_type}</div>}
                       </div>
                       <p className="mt-1.5 text-xs text-surface-300 line-clamp-2 group-hover:text-white transition-colors">{item.item_name}</p>
