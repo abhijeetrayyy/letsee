@@ -10,6 +10,8 @@ import WatchedReview from "@components/movie/WatchedReview";
 import PublicReviews from "@components/movie/PublicReviews";
 import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
 import TitleAudience from "@components/detail/TitleAudience";
+import CastRow from "@components/detail/CastRow";
+import MediaGallery from "@components/detail/MediaGallery";
 import RatingDistribution from "@components/detail/RatingDistribution";
 import WatchOptionsViewer from "@components/clientComponent/watchOptionView";
 import ShareModal from "@components/social/ShareModal";
@@ -179,21 +181,7 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
             {/* Cast */}
             {credits.cast?.length > 0 && (
               <Section title="Cast" subtitle={`${credits.cast.length} actors`}>
-                <div className="flex gap-3 overflow-x-auto pb-2">
-                  {credits.cast.slice(0, 12).map((actor: any) => (
-                    <Link key={actor.id} href={`/app/person/${actor.id}`} className="shrink-0 w-20 text-center group">
-                      <div className="w-20 h-20 rounded-full overflow-hidden bg-surface-800 mb-1.5">
-                        {actor.profile_path ? (
-                          <img src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`} alt={actor.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center"><Users className="size-6 text-surface-600" /></div>
-                        )}
-                      </div>
-                      <p className="text-xs text-surface-300 line-clamp-1 group-hover:text-white transition-colors">{actor.name}</p>
-                      <p className="text-[10px] text-surface-500 line-clamp-1">{actor.character}</p>
-                    </Link>
-                  ))}
-                </div>
+                <CastRow cast={credits.cast} />
               </Section>
             )}
 
@@ -240,15 +228,9 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
         </div>
 
         {/* Media gallery */}
-        {backdrops.length > 0 && (
-          <Section title="Gallery" subtitle={`${backdrops.length} backdrops`}>
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {backdrops.slice(0, 8).map((img: any, i: number) => (
-                <div key={i} className="shrink-0 w-64 aspect-video rounded-xl overflow-hidden bg-surface-800">
-                  <img src={`https://image.tmdb.org/t/p/w780${img.file_path}`} alt="" className="w-full h-full object-cover" loading="lazy" />
-                </div>
-              ))}
-            </div>
+        {(backdrops.length > 0 || posters.length > 0) && (
+          <Section title="Gallery" subtitle="Tap any image to view full size">
+            <MediaGallery backdrops={backdrops} posters={posters} title={movie.title} />
           </Section>
         )}
       </div>
