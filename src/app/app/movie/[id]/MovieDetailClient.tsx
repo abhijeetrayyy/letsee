@@ -9,6 +9,7 @@ import UserRating from "@components/movie/UserRating";
 import WatchedReview from "@components/movie/WatchedReview";
 import PublicReviews from "@components/movie/PublicReviews";
 import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
+import TitleAudience from "@components/detail/TitleAudience";
 import RatingDistribution from "@components/detail/RatingDistribution";
 import WatchOptionsViewer from "@components/clientComponent/watchOptionView";
 import ShareModal from "@components/social/ShareModal";
@@ -210,6 +211,7 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Friends */}
+            <TitleAudience itemId={movie.id} itemType="movie" />
             <FriendsWhoWatched itemId={String(movie.id)} itemType="movie" />
             <RatingDistribution itemId={String(movie.id)} itemType="movie" />
 

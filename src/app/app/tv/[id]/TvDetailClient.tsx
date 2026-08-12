@@ -10,6 +10,7 @@ import UserRating from "@components/movie/UserRating";
 import WatchedReview from "@components/movie/WatchedReview";
 import PublicReviews from "@components/movie/PublicReviews";
 import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
+import TitleAudience from "@components/detail/TitleAudience";
 import RatingDistribution from "@components/detail/RatingDistribution";
 import WatchOptionsViewer from "@components/clientComponent/watchOptionView";
 import EpisodeListWithWatched from "@components/tv/EpisodeListWithWatched";
@@ -307,6 +308,8 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
               <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-3">Where to Watch</h3>
               <WatchOptionsViewer mediaId={show.id} mediaType="tv" />
             </div>
+
+            <TitleAudience itemId={show.id} itemType="tv" />
 
             <FriendsWhoWatched itemId={String(show.id)} itemType="tv" />
             <RatingDistribution itemId={String(show.id)} itemType="tv" />
