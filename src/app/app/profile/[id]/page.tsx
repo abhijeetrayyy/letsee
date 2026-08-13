@@ -18,6 +18,7 @@ import ActivityFeed from "@components/profile/ActivityFeed";
 import ProfileTvProgress from "@components/profile/ProfileTvProgress";
 import ProfileInsights from "@components/profile/ProfileInsights";
 import AchievementsShelf from "@components/profile/AchievementsShelf";
+import { getUserStats } from "@/utils/userStats";
 import ProfileHighlights from "@components/profile/ProfileHighlights";
 import ShareProfileCard from "@components/profile/ShareProfileCard";
 import StatsSection from "@components/profile/StatsSection";
@@ -46,33 +47,20 @@ async function fetchProfileData(username: string | null, currentUserId: string |
 
   const isOwner = currentUserId === profileId;
 
-  // Single query for all counts from user_media_status
-  const [{ count: watchedCount }, { count: watchlistCount }, { count: watchingCount },
-    { count: movieCount }, { count: tvCount }, { count: followersCount }, { count: followingCount },
-    { data: connection }, { count: favCount }, { count: watchedThisYear }] = await Promise.all([
-    supabase.from("user_media_status").select("*", { count: "exact", head: true }).eq("user_id", profileId).eq("status", "watched"),
-    supabase.from("user_media_status").select("*", { count: "exact", head: true }).eq("user_id", profileId).eq("status", "watchlist"),
-    supabase.from("user_media_status").select("*", { count: "exact", head: true }).eq("user_id", profileId).eq("status", "watching"),
-    supabase.from("user_media_status").select("*", { count: "exact", head: true }).eq("user_id", profileId).eq("item_type", "movie").eq("status", "watched"),
-    supabase.from("user_media_status").select("*", { count: "exact", head: true }).eq("user_id", profileId).eq("item_type", "tv").eq("status", "watched"),
-    supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("followed_id", profileId),
-    supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("follower_id", profileId),
-    isOwner || !currentUserId ? { data: null } : supabase.from("user_connections").select("*").eq("follower_id", currentUserId!).eq("followed_id", profileId).single(),
-    supabase.from("favorite_items").select("*", { count: "exact", head: true }).eq("user_id", profileId),
-    supabase.from("watched_items").select("*", { count: "exact", head: true }).eq("user_id", profileId).eq("is_watched", true).gte("watched_at", new Date(new Date().getFullYear(), 0, 1).toISOString()),
-  ]);
+  // All counters come from getUserStats so the profile and the home sidebar
+  // can't drift apart — they used to compute hours from different formulas.
+  const [baseStats, { count: followersCount }, { count: followingCount }, { data: connection }] =
+    await Promise.all([
+      getUserStats(supabase, profileId),
+      supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("followed_id", profileId),
+      supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("follower_id", profileId),
+      isOwner || !currentUserId ? { data: null } : supabase.from("user_connections").select("*").eq("follower_id", currentUserId!).eq("followed_id", profileId).single(),
+    ]);
 
   const stats = {
-    watchedCount: watchedCount ?? 0,
-    favoriteCount: favCount ?? 0,
-    watchlistCount: watchlistCount ?? 0,
-    watchingCount: watchingCount ?? 0,
+    ...baseStats,
     followersCount: followersCount ?? 0,
     followingCount: followingCount ?? 0,
-    movieCount: movieCount ?? 0,
-    tvCount: tvCount ?? 0,
-    watchedThisYear: watchedThisYear ?? 0,
-    episodesCount: 0,
   };
 
   const followData = {
@@ -107,7 +95,10 @@ async function fetchProfileData(username: string | null, currentUserId: string |
     if (watchedItems && ratings) {
       tasteProfile = computeTasteSummary(watchedItems, ratings);
       const avgRating = ratings.length ? ratings.reduce((sum, r) => sum + r.score, 0) / ratings.length : null;
-      tasteInsight = buildTasteInsight(user.username, tasteProfile, watchedItems.length, avgRating);
+      // stats.watchedCount, not watchedItems.length — the legacy watched_items
+      // mirror carries rows user_media_status doesn't, so the blurb used to
+      // claim a different total than the header right above it.
+      tasteInsight = buildTasteInsight(user.username, tasteProfile, baseStats.watchedCount, avgRating);
     }
   } catch {}
 

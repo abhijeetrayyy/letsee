@@ -364,7 +364,10 @@ export default function StatusControl({
                   ? "bg-brand-500/10 text-brand-300 border-brand-500/25 hover:bg-brand-500/20"
                   : "bg-surface-800/60 text-surface-300 border-surface-700/50 hover:text-white"
               } ${className}`
-            : `h-full w-full min-h-[44px] flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 ${
+            : // Left-aligned with a label so every card's bar reads the same
+              // way. Centring a bare icon in a wide column made untracked
+              // cards look like the control had come loose.
+              `h-full w-full min-h-[44px] flex items-center justify-start gap-2 px-3 transition-colors disabled:opacity-50 ${
                 meta ? "text-surface-100 bg-white/5" : "text-surface-400"
               } hover:text-white hover:bg-white/10 ${className}`
         }
@@ -377,9 +380,9 @@ export default function StatusControl({
               {meta ? meta.icon : <MdOutlineWatchLater />}
             </span>
             {variant === "detail" && <span>{meta ? meta.label : "Add to list"}</span>}
-            {variant === "compact" && meta && (
-              <span className="text-[10px] font-medium uppercase tracking-wide hidden sm:inline">
-                {meta.label}
+            {variant === "compact" && (
+              <span className="text-[10px] font-semibold uppercase tracking-wide truncate">
+                {meta ? meta.label : "Add to list"}
               </span>
             )}
           </>

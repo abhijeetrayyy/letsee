@@ -36,6 +36,7 @@ type ProfileHeroProps = {
     movieCount: number;
     tvCount: number;
     episodesCount: number;
+    hoursWatched: number;
   };
   completeness: {
     hasAvatar: boolean;
@@ -153,7 +154,9 @@ export default function ProfileHero({
           <StatCard icon={<FaFilm className="w-3.5 h-3.5" />} value={stats.movieCount} label="Movies" accent="text-brand-400" />
           <StatCard icon={<FaTv className="w-3.5 h-3.5" />} value={stats.tvCount} label="TV Shows" accent="text-accent-gold" />
           <StatCard icon={<FaBookmark className="w-3.5 h-3.5" />} value={stats.watchedThisYear} label="This Year" accent="text-green-400" />
-          <StatCard icon={<FaClock className="w-3.5 h-3.5" />} value={`${Math.round(stats.movieCount * 2 + stats.episodesCount * 0.75)}h`} label="Hours" accent="text-accent-purple" />
+          {/* Comes from getUserStats — recomputing it here is what let the
+              profile and the home sidebar report different totals. */}
+          <StatCard icon={<FaClock className="w-3.5 h-3.5" />} value={`${stats.hoursWatched.toLocaleString()}h`} label="Hours" accent="text-accent-purple" />
         </div>
 
         {/* Completeness bar */}

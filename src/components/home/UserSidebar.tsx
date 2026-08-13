@@ -25,21 +25,24 @@ export default function UserSidebar({ username }: { username: string }) {
 
     async function fetchStats() {
       try {
-        const [prefRes, profileRes] = await Promise.all([
-          fetch("/api/userPrefrence", { credentials: "include" }),
+        // Same endpoint the profile header is built from, so the two can't
+        // disagree. This used to count list lengths from /api/userPrefrence
+        // and estimate hours as watched x 2, which ignored every episode.
+        const [statsRes, profileRes] = await Promise.all([
+          fetch("/api/profile/stats/summary", { credentials: "include", cache: "no-store" }),
           fetch(`/api/profile/settings`, { credentials: "include" }),
         ]);
 
-        const pref = prefRes.ok ? await prefRes.json().catch(() => ({})) : {};
+        const s = statsRes.ok ? await statsRes.json().catch(() => ({})) : {};
         const profile = profileRes.ok ? await profileRes.json().catch(() => ({})) : {};
 
         if (cancelled) return;
 
         setStats({
-          watchedCount: pref.watched?.length ?? 0,
-          favoriteCount: pref.favorite?.length ?? 0,
-          watchlistCount: pref.watchlater?.length ?? 0,
-          hoursEstimate: Math.round((pref.watched?.length ?? 0) * 2),
+          watchedCount: s.watchedCount ?? 0,
+          favoriteCount: s.favoriteCount ?? 0,
+          watchlistCount: s.watchlistCount ?? 0,
+          hoursEstimate: s.hoursWatched ?? 0,
           avatarUrl: profile.avatar_url ?? null,
           tagline: profile.tagline ?? null,
           followersCount: profile.followers_count ?? 0,

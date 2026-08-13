@@ -263,7 +263,10 @@ const CardMovieButton: React.FC<CardMovieButtonProps> = ({
             ? // Detail pages lay these out in a wrapping row — w-full made each
               // one its own full-width band stacked down the page.
               "inline-flex w-auto px-4 py-2.5 rounded-xl text-sm font-medium bg-surface-800/60 text-surface-300 hover:text-white border border-surface-700/50 hover:bg-surface-700 disabled:opacity-60"
-            : "h-full w-full text-surface-300 hover:text-white hover:bg-white/10 active:bg-white/15 disabled:opacity-50 disabled:bg-transparent"
+            : // px-4 matters: this sits in an `auto` grid column, so without
+              // horizontal padding the column collapses to the 20px icon and
+              // the control drops below a usable tap target.
+              "h-full w-full px-4 text-surface-300 hover:text-white hover:bg-white/10 active:bg-white/15 disabled:opacity-50 disabled:bg-transparent"
         }`}
         disabled={disabled}
         aria-busy={isThisButtonPending}
