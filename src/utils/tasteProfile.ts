@@ -1,10 +1,22 @@
 export type TasteProfile = {
-  topGenres: { genre: string; affinity: number; count: number }[];
+  topGenres: {
+    genre: string;
+    /** Rating-based affinity, or null when there aren't enough ratings to
+        claim one. Never conflate "unrated" with "rated average" — 67 watched
+        Action titles and no ratings used to render as a red "Action 0". */
+    affinity: number | null;
+    count: number;
+    /** How many of those watched titles carry a rating. */
+    ratedCount: number;
+  }[];
   loves: string[];
   avoids: string[];
   ratesHighest: string | null;
   totalGenresExplored: number;
 };
+
+/** Shrinkage constant: ratings needed before an affinity carries full weight. */
+const MIN_RATINGS_FOR_AFFINITY = 3;
 
 export function computeTasteSummary(
   watchedWithGenres: { genres?: string[] | null; item_type?: string }[],
@@ -36,19 +48,30 @@ export function computeTasteSummary(
   const entries = Object.entries(genreCounts)
     .map(([genre, count]) => {
       const scoreData = genreScores[genre];
-      const avgRating = scoreData ? scoreData.total / scoreData.count : null;
-      const normScore = avgRating !== null ? (avgRating - 5.5) / 4.5 : 0;
-      return { genre, count, affinity: Math.round(normScore * 100), avgRating };
+      const ratedCount = scoreData?.count ?? 0;
+      const avgRating = ratedCount > 0 ? scoreData!.total / ratedCount : null;
+      // A single 8/10 is not evidence of a strong preference. Pull the score
+      // toward neutral until enough ratings back it up, so one rating can't
+      // sit next to a genre with ten and claim the same confidence.
+      const shrink = ratedCount / (ratedCount + MIN_RATINGS_FOR_AFFINITY);
+      const normScore = avgRating !== null ? ((avgRating - 5.5) / 4.5) * shrink : null;
+      return {
+        genre,
+        count,
+        ratedCount,
+        affinity: normScore !== null ? Math.round(normScore * 100) : null,
+        avgRating,
+      };
     })
     .sort((a, b) => b.count - a.count);
 
   const loves = entries
-    .filter((e) => e.affinity > 20)
+    .filter((e) => e.affinity !== null && e.affinity > 20)
     .slice(0, 3)
     .map((e) => e.genre);
 
   const avoids = entries
-    .filter((e) => e.affinity < -20)
+    .filter((e) => e.affinity !== null && e.affinity < -20)
     .slice(0, 2)
     .map((e) => e.genre);
 
@@ -58,7 +81,7 @@ export function computeTasteSummary(
 
   return {
     topGenres: entries.slice(0, 6).map((e) => ({
-      genre: e.genre, affinity: e.affinity, count: e.count,
+      genre: e.genre, affinity: e.affinity, count: e.count, ratedCount: e.ratedCount,
     })),
     loves,
     avoids,

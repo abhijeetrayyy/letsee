@@ -198,11 +198,36 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   <div className="rounded-xl border border-surface-800/50 bg-surface-900/30 p-5">
                     <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-3">Top Genres</h3>
                     <div className="flex flex-wrap gap-1.5">
-                      {tasteProfile.topGenres.slice(0, 8).map((g) => (
-                        <span key={g.genre} className={`px-2.5 py-1 rounded-full text-xs font-medium border ${g.affinity > 0 ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"}`}>
-                          {g.genre} {g.affinity > 0 ? `+${g.affinity}` : g.affinity}
-                        </span>
-                      ))}
+                      {tasteProfile.topGenres.slice(0, 8).map((g) => {
+                        // Watch count is the signal everyone has; the rating
+                        // affinity is a bonus only some genres have earned.
+                        const liked = g.affinity !== null && g.affinity > 20;
+                        const disliked = g.affinity !== null && g.affinity < -20;
+                        const tone = liked
+                          ? "bg-green-500/10 text-green-400 border-green-500/20"
+                          : disliked
+                            ? "bg-red-500/10 text-red-400 border-red-500/20"
+                            : "bg-surface-800/80 text-surface-300 border-surface-700/40";
+                        return (
+                          <span
+                            key={g.genre}
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium border ${tone}`}
+                            title={
+                              g.ratedCount > 0
+                                ? `${g.count} watched · ${g.ratedCount} rated`
+                                : `${g.count} watched · none rated yet`
+                            }
+                          >
+                            {g.genre} · {g.count}
+                            {g.affinity !== null && (
+                              <span className="opacity-70">
+                                {" "}
+                                {g.affinity > 0 ? `+${g.affinity}` : g.affinity}
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
