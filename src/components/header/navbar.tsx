@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FaMagnifyingGlass } from "react-icons/fa6";
-import { FiUsers } from "react-icons/fi";
+import { FiUsers, FiPlusSquare } from "react-icons/fi";
 import { Film } from "lucide-react";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import SignOut from "../buttons/signOut";
@@ -73,6 +73,16 @@ export function LogedNavbar() {
 
           {status === "ok" && user && (
             <>
+              {/* Logging what you've seen is the thing people do most, so it
+                  gets a top-level slot rather than living inside a menu. */}
+              <Link
+                href="/app/quick-add"
+                className="nav-icon-btn"
+                aria-label="Quick add titles you've watched"
+                title="Quick add"
+              >
+                <FiPlusSquare className="size-4" />
+              </Link>
               <NotificationBell userId={user.id} />
               <MessageButton userId={user.id} />
             </>

@@ -557,6 +557,15 @@ function StepPeople({ username }: { username: string | null }) {
         <ArrowRight className="size-4" />
       </button>
 
+      {/* A brand new profile is empty, which is the least interesting version
+          of the product. Offer the fast way to fill it before they land. */}
+      <Link
+        href="/app/quick-add"
+        className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 font-medium bg-surface-800/70 text-surface-200 border border-surface-700/60 hover:bg-surface-700 transition-colors"
+      >
+        First, log what I&apos;ve already seen
+      </Link>
+
       {username && (
         <p className="mt-3 text-center text-xs text-surface-600">
           You&apos;re @{username}
