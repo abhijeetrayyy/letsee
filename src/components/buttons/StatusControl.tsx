@@ -13,6 +13,7 @@ import { FaCheck } from "react-icons/fa";
 import UserPrefrenceContext, {
   type MediaStatus,
 } from "@/app/contextAPI/userPrefrence";
+import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 
 type StatusMeta = {
   value: MediaStatus;
@@ -94,8 +95,11 @@ export default function StatusControl({
   onWatchedTv,
   className = "",
 }: StatusControlProps) {
-  const { getStatus, setStatus, user, loading, pendingActions } =
+  const { getStatus, setStatus, user, loading, pendingActions, refreshPreferences } =
     useContext(UserPrefrenceContext);
+  // Completing a series writes outside the preference provider, so both
+  // copies of "is this watched" have to be re-pulled afterwards.
+  const { refresh: refreshInteractions } = useMediaInteraction();
   const [open, setOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -162,16 +166,39 @@ export default function StatusControl({
     }
   };
 
+  /**
+   * Finishing a series means every episode, so do both writes in one call.
+   *
+   * This used to open the episode modal instead. For a show whose episodes
+   * were already all ticked the modal's diff was empty, so Save changes did
+   * nothing and the show could never leave "watching". Granular episode
+   * editing still lives behind "Manage episodes".
+   */
+  const completeSeries = async () => {
+    setOpen(false);
+    const toastId = toast.loading("Marking series watched…");
+    try {
+      const res = await fetch("/api/tv/complete-series", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ showId: itemId }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      await Promise.all([refreshPreferences(), refreshInteractions()]);
+      toast.success(`${name} → Watched`, { id: toastId });
+    } catch {
+      toast.error("Couldn't mark the series watched", { id: toastId });
+    }
+  };
+
   const choose = (next: MediaStatus) => {
     if (next === current) {
       setOpen(false);
       return;
     }
-    // Marking a series watched means "every episode", so let the episode modal
-    // own that write rather than silently claiming all of them.
-    if (next === "watched" && mediaType === "tv" && onWatchedTv) {
-      setOpen(false);
-      onWatchedTv();
+    if (next === "watched" && mediaType === "tv") {
+      void completeSeries();
       return;
     }
     void write(next);
@@ -236,6 +263,23 @@ export default function StatusControl({
             </button>
           );
         })}
+        {onWatchedTv && (
+          <>
+            <div className="my-1 h-px bg-surface-700/70" />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onWatchedTv();
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm text-surface-300 hover:bg-surface-800/70 hover:text-white transition-colors"
+            >
+              <MdLiveTv className="text-lg shrink-0" />
+              Manage episodes
+            </button>
+          </>
+        )}
         {current && (
           <>
             <div className="my-1 h-px bg-surface-700/70" />

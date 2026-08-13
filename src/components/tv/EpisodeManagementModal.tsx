@@ -141,7 +141,7 @@ export default function EpisodeManagementModal({
     setSelectedEpisodes(newSelected);
   }, [seasons, selectedEpisodes]);
 
-  const handleSave = async (episodesOverride?: Set<string>, force = false) => {
+  const handleSave = async (episodesOverride?: Set<string>) => {
     const selected = episodesOverride ?? selectedEpisodes;
     setSaving(true);
     try {
@@ -181,9 +181,11 @@ export default function EpisodeManagementModal({
         });
       }
 
-      if (force && toAdd.length === 0 && toRemove.length === 0) {
-        // Everything was already ticked, so no episode write happened and
-        // autoTransitionStatus never ran. Set the status directly.
+      // Saving with every episode already ticked produces an empty diff, so no
+      // episode write happens and autoTransitionStatus never runs — the show
+      // would sit at 100% and still say "watching". Settle the status directly.
+      const total = seasons.reduce((sum, s) => sum + s.episode_count, 0);
+      if (toAdd.length === 0 && toRemove.length === 0 && total > 0 && selected.size >= total) {
         await fetch("/api/tv-list-status", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -212,10 +214,24 @@ export default function EpisodeManagementModal({
       }
     }
     setSelectedEpisodes(allKeys);
-    // Force the status write even when every episode is already ticked.
-    // Otherwise the diff is empty, nothing is sent, and a show sitting at
-    // 100% episodes but no "watched" status can never be marked watched.
-    await handleSave(allKeys, true);
+    setSaving(true);
+    try {
+      // Same single call the status menu uses, so both routes to "I finished
+      // this" behave identically — including when every episode is already
+      // ticked and an episode diff would be empty.
+      await fetch("/api/tv/complete-series", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ showId }),
+      });
+      await Promise.all([refreshPreferences(), refreshInteractions()]);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!isOpen) return null;
