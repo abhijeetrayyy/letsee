@@ -6,6 +6,9 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 
+/** Episode checkboxes rendered per page inside one season. */
+const EPISODE_PAGE = 100;
+
 type Season = {
   season_number: number;
   name: string;
@@ -38,12 +41,15 @@ export default function EpisodeManagementModal({
   const [selectedEpisodes, setSelectedEpisodes] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [epPage, setEpPage] = useState(0);
   const { refreshPreferences } = useContext(UserPrefrenceContext);
   // Two providers hold overlapping copies of "is this watched": the prefs
   // context gates the card eye icon, the interaction context gates Rate/Review
   // on the detail page. Refresh both or one of them lies.
   const { refresh: refreshInteractions } = useMediaInteraction();
   const [activeSeason, setActiveSeason] = useState<number>(1);
+  // Reset paging when the season changes, or you land on an empty page.
+  useEffect(() => setEpPage(0), [activeSeason]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -379,11 +385,38 @@ export default function EpisodeManagementModal({
                         Toggle season
                       </button>
                     </div>
+                    {activeSeasonData.episode_count > EPISODE_PAGE && (
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
+                        <span className="text-xs text-surface-500">Jump to</span>
+                        <select
+                          value={epPage}
+                          onChange={(e) => setEpPage(Number(e.target.value))}
+                          className="bg-surface-800 border border-surface-700 rounded-lg px-2 py-1 text-xs text-surface-200"
+                        >
+                          {Array.from(
+                            { length: Math.ceil(activeSeasonData.episode_count / EPISODE_PAGE) },
+                            (_, i) => i,
+                          ).map((p) => (
+                            <option key={p} value={p}>
+                              {p * EPISODE_PAGE + 1}–
+                              {Math.min((p + 1) * EPISODE_PAGE, activeSeasonData.episode_count)}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-xs text-surface-500">
+                          of {activeSeasonData.episode_count} episodes
+                        </span>
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                       {Array.from(
                         { length: activeSeasonData.episode_count },
                         (_, i) => i + 1
-                      ).map((epNum) => {
+                      )
+                        // A 1200-episode season would otherwise render 1200
+                        // buttons at once. Page through them instead.
+                        .slice(epPage * EPISODE_PAGE, (epPage + 1) * EPISODE_PAGE)
+                        .map((epNum) => {
                         const key = `${activeSeasonData.season_number}-${epNum}`;
                         const isSelected = selectedEpisodes.has(key);
 

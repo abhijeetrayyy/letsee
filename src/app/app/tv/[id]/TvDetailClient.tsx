@@ -217,6 +217,11 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
                   episodes={activeSeasonEpisodes}
                   episodesLoading={episodesLoading}
                   allSeasons={seasons.map((s: any) => ({ id: s.id, season_number: s.season_number, episode_count: s.episode_count }))}
+                  // A detail page is a summary, not an episode browser — long
+                  // anime seasons run to four figures. The season page is the
+                  // place to go through them all.
+                  initialCount={8}
+                  seeAllHref={`/app/tv/${show.id}/season/${activeSeason}`}
                 />
               )}
             </Section>

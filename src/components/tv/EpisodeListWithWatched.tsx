@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, CheckCheck, Clock, ArrowUpDown, Star } from "lucide-react";
+import { CheckCheck, Clock, ArrowUpDown, Star, Search } from "lucide-react";
 
 export interface EpisodeItem {
   id: number;
@@ -27,7 +27,17 @@ interface EpisodeListWithWatchedProps {
   episodes: EpisodeItem[];
   allSeasons?: SeasonSummary[];
   episodesLoading?: boolean;
+  /** How many episodes to render before "Show more". Long-running anime can
+      carry 1000+ episodes in a single season, and rendering every one as a
+      card with a still image made the page unusable. */
+  initialCount?: number;
+  /** Shown when the list is truncated, so there's a way to see the lot. */
+  seeAllHref?: string;
 }
+
+const LOAD_MORE_STEP = 24;
+/** Below this, a season is short enough that searching it is pointless. */
+const SEARCH_THRESHOLD = 15;
 
 function getWatchedInfo(
   episodes: {
@@ -53,6 +63,8 @@ export default function EpisodeListWithWatched({
   episodes,
   allSeasons,
   episodesLoading = false,
+  initialCount = 24,
+  seeAllHref,
 }: EpisodeListWithWatchedProps) {
   const [watched, setWatched] = useState<
     { season_number: number; episode_number: number; watched_at?: string }[]
@@ -62,6 +74,16 @@ export default function EpisodeListWithWatched({
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("number");
   const [expandedEpisodes, setExpandedEpisodes] = useState<Set<number>>(new Set());
+  const [visibleCount, setVisibleCount] = useState(initialCount);
+  const [query, setQuery] = useState("");
+  const [hideWatched, setHideWatched] = useState(false);
+
+  // Switching season swaps the whole list out from under us.
+  useEffect(() => {
+    setVisibleCount(initialCount);
+    setQuery("");
+    setHideWatched(false);
+  }, [seasonNumber, initialCount]);
 
   const fetchWatched = useCallback(async () => {
     try {
@@ -195,6 +217,24 @@ export default function EpisodeListWithWatched({
     return a.episode_number - b.episode_number;
   });
 
+  const trimmedQuery = query.trim().toLowerCase();
+  const filteredEpisodes = sortedEpisodes.filter((e) => {
+    if (hideWatched && getWatchedInfo(watched, seasonNumber, e.episode_number).watched) {
+      return false;
+    }
+    if (!trimmedQuery) return true;
+    // Match on title or episode number, so "417" jumps straight there.
+    return (
+      e.name?.toLowerCase().includes(trimmedQuery) ||
+      String(e.episode_number) === trimmedQuery ||
+      `e${e.episode_number}` === trimmedQuery
+    );
+  });
+
+  const visibleEpisodes = filteredEpisodes.slice(0, visibleCount);
+  const remaining = filteredEpisodes.length - visibleEpisodes.length;
+  const showSearch = episodes.length > SEARCH_THRESHOLD;
+
   if (episodesLoading) {
     return (
       <div className="mt-6 space-y-3">
@@ -266,9 +306,43 @@ export default function EpisodeListWithWatched({
         </div>
       </div>
 
+      {/* Find an episode — only worth showing on a season long enough to get lost in */}
+      {showSearch && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <div className="relative flex-1 min-w-[12rem]">
+            <Search className="w-3.5 h-3.5 text-surface-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={`Search ${episodes.length} episodes by name or number…`}
+              className="w-full bg-surface-800 text-sm text-surface-200 placeholder:text-surface-500 rounded-lg pl-9 pr-3 py-2 border border-white/10 focus:border-brand-500 outline-none"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setHideWatched((v) => !v)}
+            aria-pressed={hideWatched}
+            className={`text-xs px-3 py-2 rounded-lg border transition-colors ${
+              hideWatched
+                ? "bg-brand-500/20 text-brand-400 border-brand-500/30"
+                : "bg-surface-800 text-surface-400 border-white/10 hover:text-surface-200"
+            }`}
+          >
+            Unwatched only
+          </button>
+        </div>
+      )}
+
+      {filteredEpisodes.length === 0 && (
+        <p className="text-sm text-surface-500 py-8 text-center">
+          No episodes match that filter.
+        </p>
+      )}
+
       {/* Episode List */}
       <div className="space-y-3">
-        {sortedEpisodes.map((episode) => {
+        {visibleEpisodes.map((episode) => {
           const watchedInfo = getWatchedInfo(watched, seasonNumber, episode.episode_number);
           const key = `${seasonNumber}-${episode.episode_number}`;
           const busy = toggling === key;
@@ -375,6 +449,29 @@ export default function EpisodeListWithWatched({
           );
         })}
       </div>
+
+      {remaining > 0 && (
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => setVisibleCount((n) => n + LOAD_MORE_STEP)}
+            className="px-4 py-2.5 rounded-xl bg-surface-800 text-surface-200 text-sm font-medium border border-white/10 hover:bg-surface-700 transition-colors"
+          >
+            Show {Math.min(remaining, LOAD_MORE_STEP)} more
+          </button>
+          {seeAllHref && (
+            <Link
+              href={seeAllHref}
+              className="px-4 py-2.5 rounded-xl bg-brand-500/10 text-brand-400 text-sm font-medium border border-brand-500/25 hover:bg-brand-500/20 transition-colors"
+            >
+              Open full season ({filteredEpisodes.length}) →
+            </Link>
+          )}
+          <span className="w-full text-center text-xs text-surface-500">
+            Showing {visibleEpisodes.length} of {filteredEpisodes.length}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
