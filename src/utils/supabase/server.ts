@@ -21,21 +21,18 @@ export async function createClient() {
     supabaseAnonKey,
     {
       cookies: {
-        async get(name: string) {
-          return cookieStore.get(name)?.value;
+        getAll() {
+          return cookieStore.getAll();
         },
-        async set(name: string, value: string, options: any) {
+        setAll(cookiesToSet) {
           try {
-            cookieStore.set({ name, value, ...options });
-          } catch (error) {
-            console.error("Error setting cookie:", error);
-          }
-        },
-        async remove(name: string, options: any) {
-          try {
-            cookieStore.set({ name, value: "", ...options });
-          } catch (error) {
-            console.error("Error removing cookie:", error);
+            for (const { name, value, options } of cookiesToSet) {
+              cookieStore.set(name, value, options);
+            }
+          } catch {
+            // Server Components can't write cookies. The proxy already
+            // refreshed the session for this request, so there is nothing to
+            // repair here — swallowing this is the documented behaviour.
           }
         },
       },

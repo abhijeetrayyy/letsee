@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_AUTH_ROUTES = ["/login", "/signup", "/forgot-password"];
@@ -18,9 +18,7 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Response we'll send; cookie handlers will attach refreshed session to this
-  let response = NextResponse.next({
-    request: { headers: request.headers },
-  });
+  let response = NextResponse.next({ request });
 
   if (!supabaseUrl || !supabaseAnonKey) {
     return response;
@@ -28,16 +26,18 @@ export async function updateSession(request: NextRequest) {
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      get(name: string) {
-        return request.cookies.get(name)?.value;
+      getAll() {
+        return request.cookies.getAll();
       },
-      set(name: string, value: string, options: CookieOptions) {
-        request.cookies.set({ name, value, ...options });
-        response.cookies.set({ name, value, ...options });
-      },
-      remove(name: string, options: CookieOptions) {
-        request.cookies.set({ name, value: "", ...options });
-        response.cookies.set({ name, value: "", maxAge: 0, ...options });
+      setAll(cookiesToSet) {
+        // Refreshing rotates the refresh token and revokes the old one, so the
+        // rest of this request has to see the new value. Rebuilding the
+        // response from the mutated request is the documented pattern.
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options),
+        );
       },
     },
   });
@@ -57,8 +57,11 @@ export async function updateSession(request: NextRequest) {
   /** Copy session cookies from current response onto a redirect response so browser gets refreshed tokens. */
   function redirectWithCookies(url: URL) {
     const redirectResponse = NextResponse.redirect(url);
-    response.cookies.getAll().forEach(({ name, value }) => {
-      redirectResponse.cookies.set(name, value);
+    // Spread the whole cookie, not just name/value — dropping path/maxAge/
+    // sameSite/httpOnly here produced a session cookie the browser scoped to
+    // the current path and discarded on close.
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie);
     });
     return redirectResponse;
   }

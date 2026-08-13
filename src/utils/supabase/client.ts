@@ -16,38 +16,20 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   );
 }
 
-// Custom cookie storage for client-side session persistence
-const cookieStorage = {
-  getItem: (key: string): string | null => {
-    if (typeof window === "undefined") return null;
-    const value = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith(`${key}=`))
-      ?.split("=")[1];
-    return value || null;
-  },
-  setItem: (key: string, value: string): void => {
-    if (typeof window === "undefined") return;
-    document.cookie = `${key}=${value}; path=/; max-age=31536000; Secure; SameSite=Lax`;
-  },
-  removeItem: (key: string): void => {
-    if (typeof window === "undefined") return;
-    document.cookie = `${key}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Lax`;
-  },
-};
-
-// Singleton Supabase client with typed Database
+/**
+ * createBrowserClient already stores the session in cookies, chunked and
+ * encoded in exactly the format the server client reads back.
+ *
+ * There used to be a hand-rolled `storage` adapter here. It was dead code —
+ * createBrowserClient spreads its own `storage` *after* `options.auth`, so it
+ * always won — but it was also wrong: its getItem did `.split("=")[1]`, which
+ * truncates base64 padding, and it wrote one unchunked cookie that a large
+ * session would silently blow past the 4KB browser limit. Leaving it in place
+ * meant any upstream change to that merge order would have logged everyone out.
+ */
 export const supabase: SupabaseClient = createBrowserClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
-  {
-    auth: {
-      autoRefreshToken: true, // Automatically refresh session tokens
-      persistSession: true, // Persist session across tabs and refreshes
-      detectSessionInUrl: true, // Handle OAuth redirects (e.g., login callbacks)
-      storage: cookieStorage, // Use cookies instead of localStorage for broader compatibility
-    },
-  }
 );
 
 // Utility function to get the current session with error handling

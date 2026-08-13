@@ -46,6 +46,19 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/**
+ * Is there a Supabase auth cookie in the browser at all?
+ *
+ * Lets us tell "the server said anon while a token refresh was in flight" from
+ * "this person is simply signed out". Retrying the first case avoids a false
+ * logout; retrying the second would stall every anonymous visitor. The cookies
+ * are not httpOnly — the browser client reads them the same way.
+ */
+function hasAuthCookie() {
+  if (typeof document === "undefined") return false;
+  return /(?:^|;\s*)sb-[^=]*auth-token/.test(document.cookie);
+}
+
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -58,7 +71,17 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     fetchingRef.current = true;
 
     const attempt = retry ? retryRef.current : 0;
-    const isRetry = attempt > 0;
+
+    // A single "anon" answer used to flip the navbar straight to Log in. The
+    // retry below was gated on `isRetry`, so it could only run once a retry
+    // was already underway — nothing could ever start one. A token refresh
+    // racing the request now costs a short delay instead of a false logout.
+    const retryLater = async () => {
+      retryRef.current = attempt + 1;
+      fetchingRef.current = false;
+      await sleep([400, 900, 1800][attempt] ?? 1800);
+      await fetchUser(true);
+    };
 
     try {
       const response = await fetch("/api/navbar", {
@@ -68,26 +91,20 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       if (!response.ok) throw new Error(`navbar request failed: ${response.status}`);
       const data = await response.json();
       const newStatus = (data?.status ?? "anon") as AuthStatus;
-      setStatus(newStatus);
-      setUser(data?.user ?? null);
 
-      if (newStatus === "anon" && isRetry && attempt < 3) {
-        // Session cookie might not have propagated yet — retry with backoff
-        retryRef.current = attempt + 1;
-        fetchingRef.current = false;
-        const delay = [500, 1000, 2000][attempt] ?? 2000;
-        await sleep(delay);
-        await fetchUser(true);
+      if (newStatus === "anon" && attempt < 3 && hasAuthCookie()) {
+        await retryLater();
         return;
       }
+
+      setStatus(newStatus);
+      setUser(data?.user ?? null);
       retryRef.current = 0;
     } catch {
-      if (isRetry && attempt < 3) {
-        retryRef.current = attempt + 1;
-        fetchingRef.current = false;
-        const delay = [500, 1000, 2000][attempt] ?? 2000;
-        await sleep(delay);
-        await fetchUser(true);
+      // A failed request says nothing about whether the session is valid, so
+      // this one retries regardless of cookie state.
+      if (attempt < 3) {
+        await retryLater();
         return;
       }
       setStatus("anon");
