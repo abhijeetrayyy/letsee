@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { Star, Clock, Globe, Play, Share2, Tv, Users, Tag } from "lucide-react";
@@ -27,13 +27,12 @@ const LANG: Record<string, string> = {
 };
 
 export default function TvDetailClient({ show, credits, trailer, certification, backdrops, posters, keywords, externalIds, seasons, createdBy, watchProviders, watchLink }: any) {
-  const { getStatus, refresh: refreshInteractions } = useMediaInteraction();
+  const { getStatus } = useMediaInteraction();
   const isWatched = getStatus(String(show.id)) === "watched";
   const [showTrailer, setShowTrailer] = useState(false);
   const [markWatchedOpen, setMarkWatchedOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [activeSeason, setActiveSeason] = useState<number>(1);
-  const [tvStatus, setTvStatus] = useState<string | null>(null);
 
   const { data: seasonEpisodesData, isLoading: episodesLoading } = useSWR<{ episodes: any[] }>(
     `/api/tv-season-episodes?showId=${encodeURIComponent(show.id)}&season=${activeSeason}`,
@@ -41,34 +40,9 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
   );
   const activeSeasonEpisodes = seasonEpisodesData?.episodes ?? [];
 
-  // Fetch current TV status. This used to bail unless the show was already
-  // watched, which meant a show you were *watching* showed no status control
-  // at all — the one case where you actually need it.
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/tv-list-status?showId=${encodeURIComponent(show.id)}`, { cache: "no-store" })
-      .then(r => r.json())
-      .then(d => { if (!cancelled) setTvStatus(d?.status ?? null); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [show.id, isWatched]);
-
-  const handleStatusChange = useCallback(async (newStatus: string) => {
-    setTvStatus(newStatus);
-    await fetch("/api/user-media-status", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        itemId: String(show.id),
-        itemType: "tv",
-        status: newStatus,
-        name: show.name,
-        imgUrl: show.poster_path ? `https://image.tmdb.org/t/p/w342${show.poster_path}` : undefined,
-      }),
-    });
-    // Unlocks Rate/Review immediately when switching to "watched".
-    await refreshInteractions();
-  }, [show.id, show.name, show.poster_path, refreshInteractions]);
+  // Status is owned by StatusControl in the action row — this page used to
+  // carry a second, separate <select> for it that only appeared once the show
+  // was already watched.
 
   const backdropUrl = show.backdrop_path ? `https://image.tmdb.org/t/p/w1280${show.backdrop_path}` : null;
   const posterUrl = show.poster_path ? `https://image.tmdb.org/t/p/w500${show.poster_path}` : "/no-photo.webp";
@@ -195,24 +169,6 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
                   <Share2 className="size-4" /> Share
                 </button>
               </div>
-
-              {/* TV status selector (shown once the show is tracked at all) */}
-              {tvStatus && (
-                <div className="mt-4 flex items-center gap-2">
-                  <span className="text-xs text-surface-500">Status:</span>
-                  <select
-                    value={tvStatus}
-                    onChange={e => handleStatusChange(e.target.value)}
-                    className="bg-surface-800 border border-surface-700 rounded-lg px-3 py-1.5 text-sm text-surface-200"
-                  >
-                    <option value="watchlist">Watchlist</option>
-                    <option value="watching">Watching</option>
-                    <option value="watched">Watched</option>
-                    <option value="on_hold">On Hold</option>
-                    <option value="dropped">Dropped</option>
-                  </select>
-                </div>
-              )}
 
               {/* Overview */}
               {show.overview && (

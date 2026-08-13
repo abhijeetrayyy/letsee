@@ -78,6 +78,21 @@ export async function PUT(req: NextRequest) {
     if (watchedItemsError) {
       console.error("user-media-status watched_items mirror upsert:", watchedItemsError);
     }
+  } else {
+    // Moving *away* from watched (to dropped, on_hold, watching, watchlist)
+    // has to demote the mirror too, or the title keeps showing in the profile
+    // Films grid and diary. is_watched=false rather than delete, so an
+    // existing rating, diary entry and review survive the move.
+    const { error: demoteError } = await supabase
+      .from("watched_items")
+      .update({ is_watched: false })
+      .eq("user_id", userId)
+      .eq("item_id", itemId)
+      .eq("is_watched", true);
+
+    if (demoteError) {
+      console.error("user-media-status watched_items demote:", demoteError);
+    }
   }
 
   // Update count stats after status change

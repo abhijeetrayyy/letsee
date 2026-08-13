@@ -5,10 +5,8 @@ import { useContext } from "react";
 import { getPosterUrl } from "@/utils/imageUrl";
 import { CiHeart } from "react-icons/ci";
 import { FcLike } from "react-icons/fc";
-import { MdOutlineWatchLater, MdLiveTv } from "react-icons/md";
-import { PiEyeBold } from "react-icons/pi";
-import { RiEyeCloseLine } from "react-icons/ri";
 import CardMovieButton from "./cardButtons";
+import StatusControl from "./StatusControl";
 
 export type ThreePreferenceBtnProps = {
   /** Movie/TV/person ID (number or string from DB). */
@@ -38,8 +36,8 @@ export default function ThreePrefrencebtn({
   variant = "compact",
   onAddWatchedTv,
 }: ThreePreferenceBtnProps) {
-  const { hasWatched, hasFavorite, hasWatchLater, hasWatching } =
-    useContext(UserPrefrenceContext);
+  // Status now lives in StatusControl; only favorite is read here.
+  const { hasFavorite } = useContext(UserPrefrenceContext);
 
   const id = Number(cardId);
   const adult = cardAdult ?? false;
@@ -50,10 +48,7 @@ export default function ThreePrefrencebtn({
   const genreList = (genres ?? []).filter(
     (g): g is string => g != null && typeof g === "string",
   );
-  const watched = hasWatched(cardId);
   const favorite = hasFavorite(cardId);
-  const watchLater = hasWatchLater(cardId);
-  const watching = hasWatching(cardId);
 
   const shared = {
     genres: genreList,
@@ -64,59 +59,33 @@ export default function ThreePrefrencebtn({
     imgUrl,
   };
 
+  // Watching / Watched / Watchlist are one database column, so they get one
+  // control. Favorite is a genuinely separate flag, so it keeps its own toggle
+  // and no longer clears your status when you tap it.
+  const statusProps = {
+    itemId: cardId,
+    mediaType: cardType,
+    name: cardName,
+    imgUrl,
+    adult,
+    genres: genreList,
+    onWatchedTv: cardType === "tv" ? onAddWatchedTv : undefined,
+  };
+
   if (variant === "detail") {
     return (
       <>
-        <CardMovieButton
-          {...shared}
-          state={watching}
-          funcType="watching"
-          label="Watching"
-          icon={
-            watching ? (
-              <MdLiveTv className="text-amber-400 shrink-0" />
-            ) : (
-              <MdLiveTv className="shrink-0" />
-            )
-          }
-        />
-        <CardMovieButton
-          {...shared}
-          state={watched}
-          funcType="watched"
-          label="Watched"
-          onCustomWatchedAdd={cardType === "tv" ? onAddWatchedTv : undefined}
-          icon={
-            watched ? (
-              <PiEyeBold className="text-green-500 shrink-0" />
-            ) : (
-              <RiEyeCloseLine className="shrink-0" />
-            )
-          }
-        />
+        <StatusControl {...statusProps} variant="detail" />
         <CardMovieButton
           {...shared}
           state={favorite}
           funcType="favorite"
-          label="Favorites"
+          label="Favorite"
           icon={
             favorite ? (
               <FcLike className="shrink-0" />
             ) : (
               <CiHeart className="shrink-0" />
-            )
-          }
-        />
-        <CardMovieButton
-          {...shared}
-          state={watchLater}
-          funcType="watchlater"
-          label="Watchlist"
-          icon={
-            watchLater ? (
-              <MdOutlineWatchLater className="font-bold text-green-500 shrink-0" />
-            ) : (
-              <MdOutlineWatchLater className="shrink-0" />
             )
           }
         />
@@ -126,32 +95,8 @@ export default function ThreePrefrencebtn({
 
   return (
     <div className="w-full">
-      <div className="w-full h-12 grid grid-cols-4 gap-px bg-white/5">
-        <CardMovieButton
-          {...shared}
-          state={watching}
-          funcType="watching"
-          icon={
-            watching ? (
-              <MdLiveTv className="text-amber-400 size-5" />
-            ) : (
-              <MdLiveTv className="size-5 text-surface-400" />
-            )
-          }
-        />
-        <CardMovieButton
-          {...shared}
-          state={watched}
-          funcType="watched"
-          onCustomWatchedAdd={cardType === "tv" ? onAddWatchedTv : undefined}
-          icon={
-            watched ? (
-              <PiEyeBold className="text-emerald-400 size-5" />
-            ) : (
-              <RiEyeCloseLine className="size-5 text-surface-400" />
-            )
-          }
-        />
+      <div className="w-full h-12 grid grid-cols-[1fr_auto] gap-px bg-white/5">
+        <StatusControl {...statusProps} variant="compact" />
         <CardMovieButton
           {...shared}
           state={favorite}
@@ -161,18 +106,6 @@ export default function ThreePrefrencebtn({
               <FcLike className="size-5" />
             ) : (
               <CiHeart className="size-5 text-surface-400" />
-            )
-          }
-        />
-        <CardMovieButton
-          {...shared}
-          state={watchLater}
-          funcType="watchlater"
-          icon={
-            watchLater ? (
-              <MdOutlineWatchLater className="size-5 text-emerald-400 font-bold" />
-            ) : (
-              <MdOutlineWatchLater className="size-5 text-surface-400" />
             )
           }
         />

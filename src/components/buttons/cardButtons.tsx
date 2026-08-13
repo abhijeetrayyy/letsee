@@ -258,10 +258,12 @@ const CardMovieButton: React.FC<CardMovieButtonProps> = ({
         type="button"
         onClick={user ? handleAction : handleModal}
         title={state ? `Remove from ${funcType}` : `Add to ${funcType}`}
-        className={`h-full w-full min-h-[44px] flex items-center justify-center gap-2 transition-all duration-200 ease-out active:scale-[0.98] disabled:cursor-not-allowed touch-manipulation ${
+        className={`min-h-[44px] flex items-center justify-center gap-2 transition-all duration-200 ease-out active:scale-[0.98] disabled:cursor-not-allowed touch-manipulation ${
           label
-            ? "px-4 py-3 rounded-xl text-base font-medium bg-surface-700/80 text-surface-200 hover:bg-surface-600 border border-surface-600 hover:border-surface-500 disabled:opacity-60 disabled:bg-surface-700/50"
-            : "text-surface-300 hover:text-white hover:bg-white/10 active:bg-white/15 disabled:opacity-50 disabled:bg-transparent"
+            ? // Detail pages lay these out in a wrapping row — w-full made each
+              // one its own full-width band stacked down the page.
+              "inline-flex w-auto px-4 py-2.5 rounded-xl text-sm font-medium bg-surface-800/60 text-surface-300 hover:text-white border border-surface-700/50 hover:bg-surface-700 disabled:opacity-60"
+            : "h-full w-full text-surface-300 hover:text-white hover:bg-white/10 active:bg-white/15 disabled:opacity-50 disabled:bg-transparent"
         }`}
         disabled={disabled}
         aria-busy={isThisButtonPending}

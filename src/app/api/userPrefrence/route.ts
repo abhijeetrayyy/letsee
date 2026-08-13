@@ -9,34 +9,37 @@ export const GET = async (_req: NextRequest) => {
 
   const supabase = await createClient();
 
+  // status is ONE column with five possible values, not three independent
+  // flags. Fetch it once and derive the legacy buckets from it, so on_hold and
+  // dropped stop being invisible to the client.
   const [
     { data: userFavorites, error: userFavoritesError },
-    { data: userWatched, error: userWatchedError },
-    { data: userWatchlist, error: userWatchlistError },
-    { data: userWatching, error: userWatchingError },
+    { data: statusRows, error: statusError },
   ] = await Promise.all([
     supabase.from("favorite_items").select("item_id").eq("user_id", userId),
-    supabase.from("user_media_status").select("item_id").eq("user_id", userId).eq("status", "watched"),
-    supabase.from("user_media_status").select("item_id").eq("user_id", userId).eq("status", "watchlist"),
-    supabase.from("user_media_status").select("item_id").eq("user_id", userId).eq("status", "watching"),
+    supabase.from("user_media_status").select("item_id, status").eq("user_id", userId),
   ]);
 
-  if (userFavoritesError || userWatchedError || userWatchlistError || userWatchingError) {
-    console.error("userPrefrence fetch error:", {
-      userFavoritesError,
-      userWatchedError,
-      userWatchlistError,
-      userWatchingError,
-    });
+  if (userFavoritesError || statusError) {
+    console.error("userPrefrence fetch error:", { userFavoritesError, statusError });
     return jsonError("Failed to fetch user preferences.", 500);
+  }
+
+  const statuses: Record<string, string> = {};
+  const bucket = (name: string) =>
+    (statusRows ?? []).filter((r) => r.status === name).map((r) => ({ item_id: r.item_id }));
+
+  for (const row of statusRows ?? []) {
+    statuses[String(row.item_id)] = String(row.status);
   }
 
   return jsonSuccess(
     {
       favorite: userFavorites ?? [],
-      watched: userWatched ?? [],
-      watchlater: userWatchlist ?? [],
-      watching: userWatching ?? [],
+      watched: bucket("watched"),
+      watchlater: bucket("watchlist"),
+      watching: bucket("watching"),
+      statuses,
     },
     { maxAge: 0 }
   );

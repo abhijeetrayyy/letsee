@@ -13,6 +13,8 @@ import UserPrefrenceContext, {
   type PendingActionItem,
   PreferenceItem,
   type PreferenceType,
+  type MediaStatus,
+  type SetStatusPayload,
   TogglePreferencePayload,
   TogglePreferenceResult,
   UserPreferenceState,
@@ -50,43 +52,66 @@ function applyUpdate(
     favorite: [...prev.favorite],
     watchlater: [...prev.watchlater],
     watching: [...prev.watching],
+    statuses: { ...prev.statuses },
   };
 
-  if (funcType === "watched") {
-    if (currentState) {
-      next.watched = removeFrom(next.watched);
-      next.favorite = removeFrom(next.favorite);
-    } else {
-      next.watchlater = removeFrom(next.watchlater);
-      next.watching = removeFrom(next.watching);
-      next.watched = addTo(next.watched);
-    }
-  } else if (funcType === "favorite") {
-    if (currentState) {
-      next.favorite = removeFrom(next.favorite);
-    } else {
-      next.watchlater = removeFrom(next.watchlater);
-      next.watched = removeFrom(next.watched);
-      next.watching = removeFrom(next.watching);
-      next.favorite = addTo(next.favorite);
-    }
-  } else if (funcType === "watchlater") {
-    if (currentState) {
-      next.watchlater = removeFrom(next.watchlater);
-    } else {
-      next.watched = removeFrom(next.watched);
-      next.favorite = removeFrom(next.favorite);
-      next.watching = removeFrom(next.watching);
-      next.watchlater = addTo(next.watchlater);
-    }
-  } else if (funcType === "watching") {
-    if (currentState) {
-      next.watching = removeFrom(next.watching);
-    } else {
-      next.watchlater = removeFrom(next.watchlater);
-      next.watching = addTo(next.watching);
-    }
+  // Favorite lives in its own table and is independent of status. It used to
+  // clear watched/watching/watchlist here, which made "loved it" silently
+  // erase "I watched it" until the next refresh corrected it.
+  if (funcType === "favorite") {
+    next.favorite = currentState ? removeFrom(next.favorite) : addTo(next.favorite);
+    return next;
   }
+
+  // The other three are three views of ONE column, so setting any of them
+  // clears the other two by definition.
+  const statusFor: Record<string, MediaStatus> = {
+    watched: "watched",
+    watchlater: "watchlist",
+    watching: "watching",
+  };
+
+  next.watched = removeFrom(next.watched);
+  next.watchlater = removeFrom(next.watchlater);
+  next.watching = removeFrom(next.watching);
+
+  if (currentState) {
+    delete next.statuses[key];
+  } else {
+    next.statuses[key] = statusFor[funcType]!;
+    if (funcType === "watched") next.watched = addTo(next.watched);
+    else if (funcType === "watchlater") next.watchlater = addTo(next.watchlater);
+    else next.watching = addTo(next.watching);
+  }
+
+  return next;
+}
+
+/** Rebuild the derived buckets after a direct status write. */
+function applyStatus(
+  prev: UserPreferenceState,
+  itemId: string,
+  status: MediaStatus | null,
+): UserPreferenceState {
+  const drop = (list: PreferenceItem[]) => list.filter((i) => i.item_id !== itemId);
+  const next: UserPreferenceState = {
+    watched: drop(prev.watched),
+    favorite: [...prev.favorite],
+    watchlater: drop(prev.watchlater),
+    watching: drop(prev.watching),
+    statuses: { ...prev.statuses },
+  };
+
+  if (status === null) {
+    delete next.statuses[itemId];
+    return next;
+  }
+
+  next.statuses[itemId] = status;
+  if (status === "watched") next.watched.push({ item_id: itemId });
+  else if (status === "watchlist") next.watchlater.push({ item_id: itemId });
+  else if (status === "watching") next.watching.push({ item_id: itemId });
+  // on_hold and dropped intentionally belong to no legacy bucket.
 
   return next;
 }
@@ -157,11 +182,16 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
         (items ?? []).map((item) => ({
           item_id: normalizeId(item.item_id ?? ""),
         }));
+      const statuses: Record<string, MediaStatus> = {};
+      for (const [id, status] of Object.entries(res?.statuses ?? {})) {
+        statuses[normalizeId(id)] = status as MediaStatus;
+      }
       setUserPrefrence({
         watched: normalize(res?.watched),
         favorite: normalize(res?.favorite),
         watchlater: normalize(res?.watchlater),
         watching: normalize(res?.watching),
+        statuses,
       });
       setUser(true);
     } catch (error) {
@@ -401,6 +431,77 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
     [loading, user, processQueue],
   );
 
+  const getStatus = useCallback(
+    (itemId: number | string): MediaStatus | null =>
+      userPrefrence.statuses[normalizeId(itemId)] ?? null,
+    [userPrefrence.statuses],
+  );
+
+  /**
+   * Write the status column directly. togglePreference can only express the
+   * three statuses that happen to have a button, so on_hold and dropped were
+   * unreachable from the UI even though the column accepts them.
+   */
+  const setStatus = useCallback(
+    async (payload: SetStatusPayload): Promise<TogglePreferenceResult> => {
+      if (!user) {
+        return { ok: false, message: "Please log in to perform this action." };
+      }
+      const key = normalizeId(payload.itemId);
+      const previous = userPrefrence;
+      setUserPrefrence((prev) => applyStatus(prev, key, payload.status));
+
+      const pendingItem = { itemId: Number(payload.itemId), funcType: "watched" as PreferenceType };
+      setPendingActions((prev) => [...prev, pendingItem]);
+
+      try {
+        const response =
+          payload.status === null
+            ? await fetch(
+                `/api/user-media-status?itemId=${encodeURIComponent(key)}&keepData=${
+                  payload.keepData === false ? "false" : "true"
+                }`,
+                { method: "DELETE", credentials: "include" },
+              )
+            : await fetch("/api/user-media-status", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({
+                  itemId: payload.itemId,
+                  status: payload.status,
+                  itemType: payload.mediaType,
+                  name: payload.name,
+                  imgUrl: payload.imgUrl,
+                  adult: payload.adult ?? false,
+                  genres: payload.genres ?? [],
+                }),
+              });
+
+        const data = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          message?: string;
+        } | null;
+
+        if (!response.ok) {
+          setUserPrefrence(previous);
+          return { ok: false, message: getErrorMessage(response, data, null) };
+        }
+
+        await refreshPreferences();
+        return { ok: true, message: data?.message };
+      } catch (err) {
+        setUserPrefrence(previous);
+        return { ok: false, message: getErrorMessage(null, null, err) };
+      } finally {
+        setPendingActions((prev) =>
+          prev.filter((p) => !(p.itemId === pendingItem.itemId && p.funcType === pendingItem.funcType)),
+        );
+      }
+    },
+    [user, userPrefrence, refreshPreferences],
+  );
+
   const pendingAction: PendingAction =
     pendingActions.length > 0 ? pendingActions[0]! : null;
 
@@ -414,6 +515,8 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
       user,
       refreshPreferences,
       togglePreference,
+      setStatus,
+      getStatus,
       hasWatched,
       hasFavorite,
       hasWatchLater,
@@ -427,6 +530,8 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
       user,
       refreshPreferences,
       togglePreference,
+      setStatus,
+      getStatus,
       hasWatched,
       hasFavorite,
       hasWatchLater,

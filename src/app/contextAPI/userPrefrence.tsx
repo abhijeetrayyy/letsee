@@ -10,9 +10,36 @@ export type UserPreferenceState = {
   favorite: PreferenceItem[];
   watchlater: PreferenceItem[];
   watching: PreferenceItem[];
+  /** item_id → status. The authoritative view; the buckets above are derived
+      from it and kept only for existing consumers. */
+  statuses: Record<string, MediaStatus>;
 };
 
 export type PreferenceType = "watched" | "watchlater" | "favorite" | "watching";
+
+/** The five values `user_media_status.status` can hold. */
+export const MEDIA_STATUSES = [
+  "watchlist",
+  "watching",
+  "watched",
+  "on_hold",
+  "dropped",
+] as const;
+
+export type MediaStatus = (typeof MEDIA_STATUSES)[number];
+
+export type SetStatusPayload = {
+  itemId: number | string;
+  /** null clears the status entirely (removes it from all lists). */
+  status: MediaStatus | null;
+  mediaType: string;
+  name: string;
+  imgUrl?: string;
+  adult?: boolean;
+  genres?: string[];
+  /** Only meaningful when clearing a "watched" status. */
+  keepData?: boolean;
+};
 
 export type TogglePreferencePayload = {
   funcType: PreferenceType;
@@ -62,6 +89,11 @@ export type UserPreferenceContextValue = {
   togglePreference: (
     payload: TogglePreferencePayload,
   ) => Promise<TogglePreferenceResult>;
+  /** Set or clear the single status field directly. Unlike togglePreference
+      this can reach on_hold and dropped, which have no toggle button. */
+  setStatus: (payload: SetStatusPayload) => Promise<TogglePreferenceResult>;
+  /** Current status for an item, or null if untracked. */
+  getStatus: (itemId: number | string) => MediaStatus | null;
   /** Helpers so consumers don't duplicate list checks. */
   hasWatched: (itemId: number | string) => boolean;
   hasFavorite: (itemId: number | string) => boolean;
@@ -74,6 +106,7 @@ export const defaultPreferenceState: UserPreferenceState = {
   favorite: [],
   watchlater: [],
   watching: [],
+  statuses: {},
 };
 
 const noopAsync = async (): Promise<TogglePreferenceResult> => ({ ok: false });
@@ -89,6 +122,8 @@ const UserPrefrenceContext = createContext<UserPreferenceContextValue>({
   user: false,
   refreshPreferences: async () => undefined,
   togglePreference: noopAsync,
+  setStatus: noopAsync,
+  getStatus: () => null,
   hasWatched: noopBool,
   hasFavorite: noopBool,
   hasWatchLater: noopBool,
