@@ -79,20 +79,38 @@ export async function GET(request: Request) {
 
   const followedIds = following?.map((f) => f.followed_id) ?? [];
 
-  // Follow almost nobody? Supplement with the most active public users so the
-  // feed is never empty — this is the cold-start fallback.
+  // Follow almost nobody? Supplement so the feed is never empty.
+  //
+  // This used to pick the highest watched_count and exclude the viewer, which
+  // meant someone who follows no one saw only other people's oldest-ranked
+  // accounts and never their own activity — a feed frozen months in the past
+  // while they were logging titles daily. Two changes: rank by who has been
+  // active recently rather than who has the biggest library, and include the
+  // viewer, because before you follow anyone your own history is the only
+  // thing that makes the page feel alive.
+  //
+  // RLS on user_activity is profile_visible_to_viewer(user_id), so widening
+  // the pool cannot expose a private profile's activity.
   let targetUserIds = [...followedIds];
-  if (targetUserIds.length < SUPPLEMENT_THRESHOLD) {
-    const { data: popularUsers } = await supabase
-      .from("user_cout_stats")
-      .select("user_id")
-      .order("watched_count", { ascending: false })
-      .limit(20);
+  const isSupplemented = followedIds.length < SUPPLEMENT_THRESHOLD;
 
-    const popularIds = (popularUsers ?? [])
-      .map((u) => u.user_id)
-      .filter((id) => id !== user?.id && !targetUserIds.includes(id));
-    targetUserIds.push(...popularIds.slice(0, 10));
+  if (isSupplemented) {
+    if (user?.id && !targetUserIds.includes(user.id)) targetUserIds.push(user.id);
+
+    const { data: recentActors } = await supabase
+      .from("user_activity")
+      .select("user_id")
+      .order("created_at", { ascending: false })
+      .limit(300);
+
+    const seen = new Set(targetUserIds);
+    for (const row of recentActors ?? []) {
+      const id = String(row.user_id);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      targetUserIds.push(id);
+      if (targetUserIds.length >= followedIds.length + 11) break;
+    }
   }
 
   const blockedIds = await getBlockedUserIds(supabase, user?.id ?? null);
@@ -105,7 +123,7 @@ export async function GET(request: Request) {
     nextCursor: null,
     hasMore: false,
     followedCount: followedIds.length,
-    isSupplemented: followedIds.length < SUPPLEMENT_THRESHOLD,
+    isSupplemented,
   };
 
   if (targetUserIds.length === 0) {
@@ -222,7 +240,7 @@ export async function GET(request: Request) {
       nextCursor: page[page.length - 1]?.created_at ?? null,
       hasMore,
       followedCount: followedIds.length,
-      isSupplemented: followedIds.length < SUPPLEMENT_THRESHOLD,
+      isSupplemented,
     },
     { headers: { "Cache-Control": "private, no-store" } },
   );

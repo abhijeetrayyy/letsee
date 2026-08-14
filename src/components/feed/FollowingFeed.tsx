@@ -128,11 +128,13 @@ export default function FollowingFeed() {
               From {followedCount} {followedCount === 1 ? "person" : "people"} you follow
             </span>
           ) : (
-            <span>Trending activity from the community</span>
+            // Before you follow anyone the feed is your own history plus
+            // whoever has been active lately, so don't call it the community's.
+            <span>Your activity, and others watching now</span>
           )}
           {isSupplemented && followedCount > 0 && followedCount < 3 && (
             <span className="text-surface-600">
-              · supplemented with popular users
+              · plus people active recently
             </span>
           )}
           <button
