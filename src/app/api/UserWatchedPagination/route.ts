@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
   const { data: profile, error: profileError } = await supabase
     .from("users")
-    .select("visibility, profile_show_diary, profile_show_ratings, profile_show_public_reviews")
+    .select("visibility, profile_show_ratings, profile_show_public_reviews")
     .eq("id", userID)
     .maybeSingle();
 
@@ -46,7 +46,6 @@ export async function POST(request: Request) {
 
   const safePage = Number(page) || 1;
   const isOwner = viewerId === userID;
-  const profileShowDiary = profile.profile_show_diary ?? true;
   const profileShowRatings = profile.profile_show_ratings ?? true;
   const profileShowPublicReviews = profile.profile_show_public_reviews ?? true;
 
@@ -126,7 +125,11 @@ export async function POST(request: Request) {
     const tv_status = row.item_type === "tv" ? (tvStatusMap[row.item_id] ?? null) : null;
     let out: Row & { score: number | null; tv_status?: string | null } = { ...row, score, tv_status };
     if (!isOwner) {
-      if (!profileShowDiary) out.review_text = null;
+      // review_text is the private diary note; public_review_text is the one
+      // meant for sharing. It is never a visitor's to read, so this isn't
+      // gated on a preference — a toggle defaulting to true meant the Films
+      // grid handed private notes to anyone who opened the profile.
+      out.review_text = null;
       if (!profileShowPublicReviews) out.public_review_text = null;
       if (!profileShowRatings) out.score = null;
     }

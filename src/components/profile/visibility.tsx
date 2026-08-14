@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 
 const Visibility: React.FC = () => {
   const [visibility, setVisibility] = useState<string>("public");
-  const [profileShowDiary, setProfileShowDiary] = useState(true);
   const [profileShowRatings, setProfileShowRatings] = useState(true);
   const [profileShowPublicReviews, setProfileShowPublicReviews] =
     useState(true);
@@ -19,8 +18,6 @@ const Visibility: React.FC = () => {
         if (res.ok) {
           const data = await res.json();
           if (data.visibility) setVisibility(data.visibility);
-          if (typeof data.profile_show_diary === "boolean")
-            setProfileShowDiary(data.profile_show_diary);
           if (typeof data.profile_show_ratings === "boolean")
             setProfileShowRatings(data.profile_show_ratings);
           if (typeof data.profile_show_public_reviews === "boolean")
@@ -49,7 +46,6 @@ const Visibility: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           visibility,
-          profile_show_diary: profileShowDiary,
           profile_show_ratings: profileShowRatings,
           profile_show_public_reviews: profileShowPublicReviews,
           default_tv_status: defaultTvStatus,
@@ -114,28 +110,10 @@ const Visibility: React.FC = () => {
       </div>
       <div className="space-y-4 text-sm">
         <p className="text-surface-400 text-xs max-w-md">
-          These control what appears in the &quot;Reviews, ratings &amp;
-          diary&quot; section. Diary is only ever visible to you; ratings and
-          public reviews can be shown or hidden from visitors.
+          Your private notes are never shown to anyone else. These control what
+          visitors see of your ratings and public reviews.
         </p>
         <div className="space-y-3">
-          <label className="flex items-start gap-2 cursor-pointer group">
-            <input
-              type="checkbox"
-              checked={profileShowDiary}
-              onChange={(e) => setProfileShowDiary(e.target.checked)}
-              className="rounded border-surface-600 bg-surface-800 text-brand-500 focus:ring-brand-500/50 mt-0.5 shrink-0"
-            />
-            <span className="text-white/80 group-hover:text-white">
-              Show my diary on my profile
-            </span>
-          </label>
-          <p className="text-surface-500 text-xs pl-6 -mt-1.5">
-            Diary = your private notes per title (only you see them). On = you
-            see them on your profile. Off = they stay hidden on your profile;
-            you can still add or edit diary on each title page.
-          </p>
-
           <label className="flex items-start gap-2 cursor-pointer group">
             <input
               type="checkbox"

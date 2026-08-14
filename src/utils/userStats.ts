@@ -14,107 +14,50 @@ export type UserStats = {
   watchedThisYear: number;
 };
 
-/** Rough runtimes — we don't store per-title runtime. */
-const HOURS_PER_MOVIE = 2;
-const HOURS_PER_EPISODE = 0.75;
-/** Assumed length of a series marked watched with no episodes tracked. */
-const ASSUMED_EPISODES_PER_SHOW = 8;
+const EMPTY: UserStats = {
+  watchedCount: 0, movieCount: 0, tvCount: 0, watchlistCount: 0,
+  watchingCount: 0, favoriteCount: 0, episodesCount: 0,
+  hoursWatched: 0, watchedThisYear: 0,
+};
 
 /**
  * The single source of truth for profile/home counters.
  *
- * These used to be computed independently in each place, so they disagreed:
- * the home sidebar showed hours as (everything watched x 2), the profile
- * header as (movies x 2) with episodes hardcoded to zero — 542h against 6271
- * tracked episodes — and "This Year" was counted from watched_items while
- * Movies/TV came from user_media_status, so the year total exceeded the
- * all-time total.
+ * One RPC. This used to fan out into nine queries per profile view, one of
+ * which counted every row in watched_episodes — 7,000+ for an account with a
+ * couple of long-running series — on figures that only change when the user
+ * marks something. get_user_stats reads the totals maintained on write in
+ * user_cout_stats and computes only the cheap exact counts live.
  *
- * user_media_status is authoritative: one row per title, one status column.
- * watched_items is the legacy mirror and is never counted here.
+ * Hours come from real per-title runtimes where they've been backfilled
+ * (user_media_status.runtime_minutes). The previous flat 45 minutes an episode
+ * overstated a cartoon-heavy history several times over.
  */
 export async function getUserStats(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<UserStats> {
-  const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
+  const { data, error } = await supabase
+    .rpc("get_user_stats", { p_user_id: userId })
+    .maybeSingle();
 
-  const countOf = (build: (q: any) => any) =>
-    build(
-      supabase
-        .from("user_media_status")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", userId),
-    );
+  if (error || !data) {
+    if (error) console.error("get_user_stats:", error);
+    return EMPTY;
+  }
 
-  const [
-    watched,
-    movies,
-    tv,
-    watchlist,
-    watching,
-    favorites,
-    episodes,
-    thisYear,
-    tvNoEpisodes,
-  ] = await Promise.all([
-    countOf((q: any) => q.eq("status", "watched")),
-    countOf((q: any) => q.eq("status", "watched").eq("item_type", "movie")),
-    countOf((q: any) => q.eq("status", "watched").eq("item_type", "tv")),
-    countOf((q: any) => q.eq("status", "watchlist")),
-    countOf((q: any) => q.eq("status", "watching")),
-    supabase
-      .from("favorite_items")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId),
-    // Season 0 is specials, excluded everywhere else too.
-    supabase
-      .from("watched_episodes")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .gt("season_number", 0),
-    countOf((q: any) => q.eq("status", "watched").gte("updated_at", yearStart)),
-    // Watched series and the shows that actually have episode rows, so we can
-    // tell which were marked watched without per-episode tracking. Only tens
-    // of rows per user, so no need for a dedicated aggregate.
-    Promise.all([
-      supabase
-        .from("user_media_status")
-        .select("item_id")
-        .eq("user_id", userId)
-        .eq("item_type", "tv")
-        .eq("status", "watched"),
-      supabase.from("watched_episodes").select("show_id").eq("user_id", userId),
-    ]),
-  ]);
-
-  const movieCount = movies.count ?? 0;
-  const episodesCount = episodes.count ?? 0;
-
-  const [watchedShows, episodeShows] = tvNoEpisodes;
-  const tracked = new Set(
-    (episodeShows.data ?? []).map((r: { show_id: string }) => String(r.show_id)),
-  );
-  // A series marked watched without per-episode tracking still took time.
-  const untrackedShows = (watchedShows.data ?? []).filter(
-    (r: { item_id: string }) => !tracked.has(String(r.item_id)),
-  ).length;
-
-  const hoursWatched = Math.round(
-    movieCount * HOURS_PER_MOVIE +
-      episodesCount * HOURS_PER_EPISODE +
-      untrackedShows * ASSUMED_EPISODES_PER_SHOW * HOURS_PER_EPISODE,
-  );
+  const row = data as Record<string, number | string | null>;
+  const num = (v: number | string | null | undefined) => Number(v ?? 0) || 0;
 
   return {
-    watchedCount: watched.count ?? 0,
-    movieCount,
-    tvCount: tv.count ?? 0,
-    watchlistCount: watchlist.count ?? 0,
-    watchingCount: watching.count ?? 0,
-    favoriteCount: favorites.count ?? 0,
-    episodesCount,
-    hoursWatched,
-    watchedThisYear: thisYear.count ?? 0,
+    watchedCount: num(row.watched_count),
+    movieCount: num(row.movie_count),
+    tvCount: num(row.tv_count),
+    watchlistCount: num(row.watchlist_count),
+    watchingCount: num(row.watching_count),
+    favoriteCount: num(row.favorite_count),
+    episodesCount: num(row.episodes_count),
+    hoursWatched: Math.round(num(row.minutes_watched) / 60),
+    watchedThisYear: num(row.watched_this_year),
   };
 }
