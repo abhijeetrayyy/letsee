@@ -912,3 +912,12 @@
     stroke-dashoffset: 0;
   }
 }
+
+/* Metadata rows like "2010 · Film · ★8.4". The separator belongs to the item
+   that follows it, so when the row wraps the dot travels to the next line with
+   its value instead of stranding at the end of the previous one. */
+.meta-row > * + *::before {
+  content: "·";
+  margin-right: 0.625rem;
+  color: var(--color-surface-600);
+}

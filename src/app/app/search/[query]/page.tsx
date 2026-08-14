@@ -3,6 +3,7 @@
 import { useSearch } from "@/app/contextAPI/searchContext";
 import SendMessageModal from "@components/message/sendCard";
 import MediaCard from "@components/cards/MediaCard";
+import TopResult from "@components/search/TopResult";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import {
   buildSearchUrl,
@@ -16,6 +17,13 @@ import { GenreList } from "@/staticData/genreList";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+
+/** Order the digest reads in: what people search for most, first. */
+const SECTIONS: { key: "movie" | "tv" | "person"; label: string }[] = [
+  { key: "movie", label: "Films" },
+  { key: "tv", label: "TV" },
+  { key: "person", label: "People" },
+];
 
 interface SearchResult {
   id: number;
@@ -31,6 +39,8 @@ interface SearchResult {
   profile_path?: string;
   known_for_department?: string;
   vote_average?: number;
+  vote_count?: number;
+  overview?: string;
 }
 
 interface SearchResponse {
@@ -283,6 +293,99 @@ export default function SearchResultsPage() {
     return null;
   }
 
+  // One card renderer, shared by the grouped digest and the flat grid, so the
+  // two layouts can never drift in what a result looks like.
+  const renderCard = (data: SearchResult) => {
+                const displayType =
+                  mediaType === "keyword" ? "movie" : mediaType === "multi" ? data.media_type : mediaType;
+                if (displayType === "person") {
+                  return (
+                    <MediaCard
+                      key={`person-${data.id}`}
+                      id={data.id}
+                      title={data.name || "Unknown"}
+                      mediaType="person"
+                      posterPath={data.profile_path}
+                      showActions={false}
+                      typeLabel="person"
+                      knownFor={data.known_for_department}
+                    />
+                  );
+                }
+                if (displayType === "movie" || displayType === "tv") {
+                  const dateStr = data.release_date || data.first_air_date;
+                  const year = dateStr
+                    ? String(new Date(dateStr).getFullYear())
+                    : null;
+                  const genres: string[] =
+                    data.genre_ids
+                      ?.map((id) => GenreList.genres.find((g: { id: number }) => g.id === id)?.name)
+                      .filter((n): n is string => Boolean(n)) ?? [];
+                  return (
+                    <MediaCard
+                      key={`${displayType}-${data.id}`}
+                      id={data.id}
+                      title={data.title || data.name || "Unknown"}
+                      mediaType={displayType}
+                      posterPath={data.poster_path || data.backdrop_path}
+                      adult={data.adult}
+                      genres={genres}
+                      showActions
+                      onShare={(e) => {
+                        e.preventDefault();
+                        handleCardTransfer(data);
+                      }}
+                      typeLabel={displayType}
+                      year={year}
+                      // Four films are called "Inception". Year alone doesn't
+                      // separate them; the rating is the other signal people
+                      // actually use to spot the one they meant.
+                      rating={typeof data.vote_average === "number" && data.vote_average > 0 ? data.vote_average : null}
+                    />
+                  );
+                }
+                return null;
+  };
+
+  // "All" shows a digest: the likely match stated outright, then results
+  // grouped by kind. Narrowing to a single type switches to the full grid,
+  // because at that point you are scanning a set, not identifying one thing.
+  const grouped =
+    mediaType === "multi" && page === 1 && !isKeywordList && results.total_results > 0;
+
+  const byType = {
+    movie: results.results.filter((r) => r.media_type === "movie"),
+    tv: results.results.filter((r) => r.media_type === "tv"),
+    person: results.results.filter((r) => r.media_type === "person"),
+  };
+
+  // Whichever kind the strongest hit belongs to leads. TMDB already orders by
+  // relevance, so the first row is the best answer to the query.
+  const leader = results.results[0];
+  const topItem =
+    grouped && leader
+      ? {
+          id: leader.id,
+          mediaType: (leader.media_type === "person" ? "person" : leader.media_type) as
+            | "movie"
+            | "tv"
+            | "person",
+          title: leader.title || leader.name || "Unknown",
+          posterPath: leader.media_type === "person" ? leader.profile_path : leader.poster_path,
+          year: (() => {
+            const d = leader.release_date || leader.first_air_date;
+            return d ? String(new Date(d).getFullYear()) : null;
+          })(),
+          rating: typeof leader.vote_average === "number" && leader.vote_average > 0 ? leader.vote_average : null,
+          voteCount: typeof leader.vote_count === "number" ? leader.vote_count : null,
+          overview: leader.overview ?? null,
+          knownFor: leader.known_for_department ?? null,
+          genres: (leader.genre_ids ?? [])
+            .map((id) => GenreList.genres.find((g: { id: number }) => g.id === id)?.name)
+            .filter((n): n is string => Boolean(n)),
+        }
+      : null;
+
   return (
     <div className="min-h-screen mx-auto w-full max-w-7xl px-4 py-6 text-white">
       {/* Search form and filters — always visible */}
@@ -530,60 +633,46 @@ export default function SearchResultsPage() {
             </div>
           )}
 
-          {/* Result grid */}
-          {results.total_results > 0 && !isKeywordList && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {results.results.map((data) => {
-                const displayType =
-                  mediaType === "keyword" ? "movie" : mediaType === "multi" ? data.media_type : mediaType;
-                if (displayType === "person") {
-                  return (
-                    <MediaCard
-                      key={`person-${data.id}`}
-                      id={data.id}
-                      title={data.name || "Unknown"}
-                      mediaType="person"
-                      posterPath={data.profile_path}
-                      showActions={false}
-                      typeLabel="person"
-                      knownFor={data.known_for_department}
-                    />
-                  );
-                }
-                if (displayType === "movie" || displayType === "tv") {
-                  const dateStr = data.release_date || data.first_air_date;
-                  const year = dateStr
-                    ? String(new Date(dateStr).getFullYear())
-                    : null;
-                  const genres: string[] =
-                    data.genre_ids
-                      ?.map((id) => GenreList.genres.find((g: { id: number }) => g.id === id)?.name)
-                      .filter((n): n is string => Boolean(n)) ?? [];
-                  return (
-                    <MediaCard
-                      key={`${displayType}-${data.id}`}
-                      id={data.id}
-                      title={data.title || data.name || "Unknown"}
-                      mediaType={displayType}
-                      posterPath={data.poster_path || data.backdrop_path}
-                      adult={data.adult}
-                      genres={genres}
-                      showActions
-                      onShare={(e) => {
-                        e.preventDefault();
-                        handleCardTransfer(data);
-                      }}
-                      typeLabel={displayType}
-                      year={year}
-                      // Four films are called "Inception". Year alone doesn't
-                      // separate them; the rating is the other signal people
-                      // actually use to spot the one they meant.
-                      rating={typeof data.vote_average === "number" && data.vote_average > 0 ? data.vote_average : null}
-                    />
-                  );
-                }
-                return null;
+          {/* Grouped digest for "All" */}
+          {grouped && (
+            <>
+              {topItem && <TopResult item={topItem} />}
+
+              {SECTIONS.map(({ key, label }) => {
+                const items = byType[key];
+                // The leader already has the hero; don't print it twice.
+                const rest = items.filter((r) => r.id !== leader?.id || r.media_type !== leader?.media_type);
+                if (rest.length === 0) return null;
+                return (
+                  <section key={key} className="mb-8">
+                    <div className="flex items-baseline justify-between gap-3 mb-3">
+                      <h2 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-surface-500">
+                        {label}
+                        <span className="ml-2 text-surface-600 normal-case tracking-normal font-normal">
+                          {items.length}
+                        </span>
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={() => handleFilterChange(key)}
+                        className="text-xs text-brand-400 hover:text-brand-300 transition-colors"
+                      >
+                        See all {label} →
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                      {rest.slice(0, 5).map((data) => renderCard(data))}
+                    </div>
+                  </section>
+                );
               })}
+            </>
+          )}
+
+          {/* Flat grid when narrowed to one type, or on later pages */}
+          {results.total_results > 0 && !isKeywordList && !grouped && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {results.results.map((data) => renderCard(data))}
             </div>
           )}
 
