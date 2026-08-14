@@ -894,3 +894,21 @@
     overflow: hidden;
   }
 }
+
+/* Quick add: the grease-pencil ring draws on rather than appearing, so a mark
+   reads as an act. Kept short enough not to slow down a fast run. */
+@keyframes qa-ring-draw {
+  from { stroke-dashoffset: 300; }
+  to { stroke-dashoffset: 0; }
+}
+
+.qa-ring {
+  animation: qa-ring-draw 0.28s var(--ease-out-expo, ease-out) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qa-ring {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

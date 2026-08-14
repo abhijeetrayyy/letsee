@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { Check, Heart, Clock, Search, Loader2, Sparkles } from "lucide-react";
+import { Search, Undo2, ArrowRight } from "lucide-react";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 
@@ -17,64 +17,87 @@ type Candidate = {
   genres: string[];
 };
 
-/** What a single tap does. Watched is the default because it's the common case. */
-type Mark = "watched" | "watchlist" | "favorite";
+/**
+ * One tap marks a title seen, a second marks it a favourite, a third clears it.
+ * The previous version had a mode switch at the top of the page and secondary
+ * buttons that only appeared on hover — you had to remember which mode you were
+ * in, and on a touch screen the other two actions were unreachable. Cycling on
+ * the tile itself needs no memory and behaves the same on every input.
+ */
+type Mark = "seen" | "loved";
 
-const MARKS: { key: Mark; label: string; icon: React.ReactNode; ring: string; chip: string }[] = [
-  { key: "watched", label: "Seen it", icon: <Check className="size-4" />, ring: "ring-brand-400", chip: "bg-brand-500 text-surface-950" },
-  { key: "watchlist", label: "Want to see", icon: <Clock className="size-4" />, ring: "ring-sky-400", chip: "bg-sky-500 text-surface-950" },
-  { key: "favorite", label: "Love it", icon: <Heart className="size-4" />, ring: "ring-rose-400", chip: "bg-rose-500 text-white" },
+/**
+ * A "run" is a bounded set worth working through in one sitting. Era is how
+ * people actually recall their own watching, and finishing one ends somewhere,
+ * which an endless popularity list never does.
+ */
+type Run = {
+  id: string;
+  label: string;
+  caption: string;
+  params: Record<string, string>;
+};
+
+const RUNS: Run[] = [
+  { id: "now", label: "Right now", caption: "What everyone is watching this week", params: { source: "trending" } },
+  { id: "2020s", label: "The 2020s", caption: "Released 2020 onward", params: { source: "popular", decade: "2020" } },
+  { id: "2010s", label: "The 2010s", caption: "Released 2010–2019", params: { source: "popular", decade: "2010" } },
+  { id: "2000s", label: "The 2000s", caption: "Released 2000–2009", params: { source: "popular", decade: "2000" } },
+  { id: "1990s", label: "The 1990s", caption: "Released 1990–1999", params: { source: "popular", decade: "1990" } },
+  { id: "hindi", label: "Hindi", caption: "Hindi-language cinema", params: { source: "popular", language: "hi" } },
+  { id: "korean", label: "Korean", caption: "Korean-language cinema", params: { source: "popular", language: "ko" } },
+  { id: "acclaimed", label: "Acclaimed", caption: "The highest rated of all time", params: { source: "top_rated" } },
 ];
 
-const DECADES = [2020, 2010, 2000, 1990, 1980, 1970];
-const MILESTONES = [5, 10, 25, 50, 100];
+const MILESTONES = [10, 25, 50, 100, 200];
 
 export default function QuickAddClient({ initialType = "movie" }: { initialType?: "movie" | "tv" }) {
   const { refreshPreferences } = useContext(UserPrefrenceContext);
   const { refresh: refreshInteractions } = useMediaInteraction();
 
   const [type, setType] = useState<"movie" | "tv">(initialType);
-  const [source, setSource] = useState("popular");
-  const [decade, setDecade] = useState<string>("");
+  const [runId, setRunId] = useState("2010s");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [mark, setMark] = useState<Mark>("watched");
-  const [reloadKey, setReloadKey] = useState(0);
 
   const [items, setItems] = useState<Candidate[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  /** id -> what the user marked it as, this session. */
   const [picked, setPicked] = useState<Map<string, Mark>>(new Map());
-  const [savedCount, setSavedCount] = useState(0);
-  const [saving, setSaving] = useState(false);
+  const [total, setTotal] = useState(0);
 
-  const pendingRef = useRef<Map<string, { item: Candidate; mark: Mark; remove?: boolean }>>(new Map());
-  /** Ids already written by an earlier batch, so un-picking can undo them. */
+  const pickedRef = useRef<Map<string, Mark>>(new Map());
+  const pendingRef = useRef<Map<string, { item: Candidate; mark: Mark | null }>>(new Map());
   const flushedRef = useRef<Set<string>>(new Set());
+  const historyRef = useRef<{ item: Candidate; previous: Mark | undefined }[]>([]);
   const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const milestoneRef = useRef(0);
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  const run = RUNS.find((r) => r.id === runId) ?? RUNS[0];
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(query.trim()), 350);
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 300);
     return () => clearTimeout(t);
   }, [query]);
 
   const buildUrl = useCallback(
     (p: number) => {
-      const params = new URLSearchParams({ type, source, page: String(p) });
-      if (decade) params.set("decade", decade);
-      if (debouncedQuery) params.set("query", debouncedQuery);
+      const params = new URLSearchParams({ type, page: String(p), ...run.params });
+      if (debouncedQuery) {
+        params.set("query", debouncedQuery);
+        params.delete("decade");
+        params.delete("language");
+      }
       return `/api/quick-add/feed?${params.toString()}`;
     },
-    [type, source, decade, debouncedQuery],
+    [type, run, debouncedQuery],
   );
-
-  // Reload whenever the filters change.
-  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,8 +115,6 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
         setTotalPages(d.totalPages ?? 1);
       })
       .catch(() => {
-        // Distinct from an empty result — telling someone they've logged
-        // everything because TMDB blipped would be nonsense.
         if (cancelled) return;
         setItems([]);
         setFailed(true);
@@ -118,52 +139,44 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
     }
   }, [buildUrl, page, totalPages, loadingMore]);
 
-  /**
-   * Writes are batched and flushed on a short timer, so a burst of taps costs
-   * one request. Marks are optimistic — the grid never waits on the network.
-   */
+  /** Batched so a burst of taps costs one request, never blocking the grid. */
   const flush = useCallback(async () => {
     const batch = Array.from(pendingRef.current.values());
     if (batch.length === 0) return;
     pendingRef.current.clear();
-    setSaving(true);
     try {
       const res = await fetch("/api/quick-add/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          entries: batch.map(({ item, mark: m, remove }) => ({
+          entries: batch.map(({ item, mark }) => ({
             itemId: item.id,
             itemType: item.itemType,
             name: item.name,
             imgUrl: item.posterPath ? `https://image.tmdb.org/t/p/w342${item.posterPath}` : null,
             genres: item.genres,
-            // "Love it" also counts as seen — you can't love what you haven't watched.
-            status: m === "favorite" ? "watched" : m,
-            favorite: m === "favorite",
-            remove,
+            status: "watched",
+            favorite: mark === "loved",
+            remove: mark === null,
           })),
         }),
       });
       if (!res.ok) throw new Error(String(res.status));
-      for (const { item, remove } of batch) {
-        if (remove) flushedRef.current.delete(item.id);
+      for (const { item, mark } of batch) {
+        if (mark === null) flushedRef.current.delete(item.id);
         else flushedRef.current.add(item.id);
       }
     } catch {
-      toast.error("Some picks didn't save. Check your connection.");
-    } finally {
-      setSaving(false);
+      toast.error("Some marks didn't save. Check your connection.");
     }
   }, []);
 
   const scheduleFlush = useCallback(() => {
     if (flushTimer.current) clearTimeout(flushTimer.current);
-    flushTimer.current = setTimeout(flush, 900);
+    flushTimer.current = setTimeout(flush, 800);
   }, [flush]);
 
-  // Don't lose a batch that's still queued when the user leaves.
   useEffect(() => {
     const onLeave = () => { void flush(); };
     window.addEventListener("pagehide", onLeave);
@@ -174,256 +187,329 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
     };
   }, [flush]);
 
-  // Mirrors `picked` so pick() can read the current selection without a stale
-  // closure. The state updater itself must stay pure — React invokes it twice
-  // in development, which double-counted every tap when the tally lived inside.
-  const pickedRef = useRef<Map<string, Mark>>(new Map());
-
-  const pick = useCallback(
-    (item: Candidate, m: Mark) => {
+  const commit = useCallback(
+    (item: Candidate, next: Mark | null, remember = true) => {
       const current = pickedRef.current;
-      const unpicking = current.get(item.id) === m;
-      const next = new Map(current);
+      if (remember) historyRef.current.push({ item, previous: current.get(item.id) });
 
-      if (unpicking) {
-        next.delete(item.id);
-        pendingRef.current.delete(item.id);
-        // Already saved? Queue an explicit undo rather than just forgetting it.
-        if (flushedRef.current.has(item.id)) {
-          pendingRef.current.set(item.id, { item, mark: m, remove: true });
-        }
-      } else {
-        next.set(item.id, m);
-        pendingRef.current.set(item.id, { item, mark: m });
+      const map = new Map(current);
+      if (next === null) map.delete(item.id);
+      else map.set(item.id, next);
+
+      pickedRef.current = map;
+      setPicked(map);
+      setTotal(map.size);
+
+      if (next === null && !flushedRef.current.has(item.id)) pendingRef.current.delete(item.id);
+      else pendingRef.current.set(item.id, { item, mark: next });
+
+      const hit = MILESTONES.find((m) => m === map.size);
+      if (hit && hit > milestoneRef.current) {
+        milestoneRef.current = hit;
+        toast.success(`${hit} logged`, { id: "qa-milestone" });
       }
-
-      const isNew = !current.has(item.id);
-      pickedRef.current = next;
-      setPicked(next);
-
-      const total = next.size;
-      setSavedCount(total);
-
-      if (isNew) {
-        const hit = MILESTONES.find((x) => x === total);
-        if (hit && hit > milestoneRef.current) {
-          milestoneRef.current = hit;
-          toast.success(`${hit} titles logged 🎉`, { id: "quick-add-milestone" });
-        }
-      }
-
       scheduleFlush();
     },
     [scheduleFlush],
   );
 
+  /** seen -> loved -> clear. */
+  const cycle = useCallback(
+    (item: Candidate) => {
+      const now = pickedRef.current.get(item.id);
+      commit(item, now === undefined ? "seen" : now === "seen" ? "loved" : null);
+    },
+    [commit],
+  );
+
+  const undo = useCallback(() => {
+    const last = historyRef.current.pop();
+    if (!last) return;
+    commit(last.item, last.previous ?? null, false);
+  }, [commit]);
+
+  // Desktop path: sweep the grid without leaving the keyboard. Position comes
+  // from whatever is actually focused rather than from state — tabbing into the
+  // grid doesn't go through React, so tracked state starts out wrong and the
+  // first arrow press would jump to the top-left instead of moving.
+  const onGridKeyDown = (e: React.KeyboardEvent) => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const cells = Array.from(grid.children);
+    const here = cells.findIndex((c) => c.contains(document.activeElement));
+    if (here < 0) return;
+
+    const cols = getComputedStyle(grid).gridTemplateColumns.split(" ").length || 1;
+    const max = cells.length - 1;
+    let next = here;
+    if (e.key === "ArrowRight") next = Math.min(max, here + 1);
+    else if (e.key === "ArrowLeft") next = Math.max(0, here - 1);
+    else if (e.key === "ArrowDown") next = Math.min(max, here + cols);
+    else if (e.key === "ArrowUp") next = Math.max(0, here - cols);
+    else return;
+
+    e.preventDefault();
+    (cells[next]?.querySelector("button") as HTMLElement | null)?.focus();
+  };
+
   const finish = async () => {
     if (flushTimer.current) clearTimeout(flushTimer.current);
     await flush();
     await Promise.all([refreshPreferences(), refreshInteractions()]);
-    toast.success(`Added ${savedCount} title${savedCount === 1 ? "" : "s"} to your profile`);
   };
 
+  const runProgress = useMemo(
+    () => items.filter((i) => picked.has(i.id)).length,
+    [items, picked],
+  );
+
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 pb-32">
-      <header className="pt-8 pb-5">
-        <div className="flex items-center gap-2 text-brand-400 mb-2">
-          <Sparkles className="size-4" />
-          <span className="text-xs font-semibold uppercase tracking-wider">Quick add</span>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-white">
-          Build your profile in a couple of minutes
+    <div className="min-h-screen pb-24">
+      {/* Header — states the job, then gets out of the way */}
+      <header className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-8 pb-5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-gold">
+          Quick add
+        </p>
+        <h1 className="mt-1.5 text-2xl sm:text-[2rem] font-bold tracking-tight text-white">
+          Your back catalogue
         </h1>
         <p className="mt-1.5 text-sm text-surface-400">
-          Tap everything you recognise. Nothing here is anything you&apos;ve already logged.
+          Tap the ones you&apos;ve seen. Tap again if you loved it.
         </p>
       </header>
 
-      {/* What a tap does */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        {MARKS.map((m) => (
-          <button
-            key={m.key}
-            type="button"
-            onClick={() => setMark(m.key)}
-            aria-pressed={mark === m.key}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors ${
-              mark === m.key
-                ? `${m.chip} border-transparent`
-                : "bg-surface-800/60 text-surface-300 border-surface-700/50 hover:text-white"
-            }`}
-          >
-            {m.icon}
-            {m.label}
-          </button>
-        ))}
-        <span className="text-xs text-surface-500 ml-1">← a tap marks it as this</span>
-      </div>
+      {/* Runs — a bounded set to work through, not a filter form */}
+      <div className="sticky top-14 z-30 border-y border-surface-800/70 bg-surface-950/95 backdrop-blur">
+        {/* Stacked on small screens: sharing one row squeezed the runs down to
+            two visible chips, which hid the main navigation of the page. */}
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-2.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+          <div className="flex gap-1 overflow-x-auto no-scrollbar -mx-1 px-1 flex-1">
+            {RUNS.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => { setRunId(r.id); setQuery(""); }}
+                aria-pressed={r.id === runId && !debouncedQuery}
+                className={`shrink-0 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
+                  r.id === runId && !debouncedQuery
+                    ? "bg-surface-100 text-surface-950"
+                    : "text-surface-400 hover:text-surface-100 hover:bg-surface-800/70"
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 mb-6">
-        <div className="inline-flex rounded-lg overflow-hidden border border-surface-700/50">
-          {(["movie", "tv"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setType(t)}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                type === t ? "bg-surface-700 text-white" : "bg-surface-900 text-surface-400 hover:text-surface-200"
-              }`}
-            >
-              {t === "movie" ? "Movies" : "TV"}
-            </button>
-          ))}
-        </div>
-
-        <select
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-          className="bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5 text-xs text-surface-200"
-        >
-          <option value="popular">Popular</option>
-          <option value="top_rated">Top rated</option>
-          <option value="trending">Trending now</option>
-        </select>
-
-        <select
-          value={decade}
-          onChange={(e) => setDecade(e.target.value)}
-          className="bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5 text-xs text-surface-200"
-        >
-          <option value="">Any decade</option>
-          {DECADES.map((d) => (
-            <option key={d} value={d}>{d}s</option>
-          ))}
-        </select>
-
-        <div className="relative flex-1 min-w-[12rem]">
-          <Search className="size-3.5 text-surface-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Or search for something specific…"
-            className="w-full bg-surface-800 text-sm text-surface-200 placeholder:text-surface-500 rounded-lg pl-9 pr-3 py-2 border border-surface-700 focus:border-brand-500 outline-none"
-          />
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
-          {Array.from({ length: 24 }).map((_, i) => (
-            <div key={i} className="aspect-[2/3] rounded-xl bg-surface-800/60 animate-pulse" />
-          ))}
-        </div>
-      ) : failed ? (
-        <div className="py-20 text-center">
-          <p className="text-surface-300 font-medium">Couldn&apos;t load titles</p>
-          <p className="text-sm text-surface-500 mt-1">The film database didn&apos;t respond.</p>
-          <button
-            type="button"
-            onClick={() => setReloadKey((k) => k + 1)}
-            className="mt-4 px-4 py-2 rounded-xl bg-surface-800 text-surface-200 text-sm font-medium border border-surface-700/50 hover:bg-surface-700"
-          >
-            Try again
-          </button>
-        </div>
-      ) : items.length === 0 ? (
-        <div className="py-20 text-center">
-          <p className="text-surface-300 font-medium">Nothing left here</p>
-          <p className="text-sm text-surface-500 mt-1">
-            You&apos;ve logged everything in this filter. Try another decade or switch to TV.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
-          {items.map((item) => {
-            const chosen = picked.get(item.id);
-            const meta = chosen ? MARKS.find((m) => m.key === chosen)! : null;
-            return (
-              <div key={`${item.itemType}-${item.id}`} className="group relative">
+          <div className="shrink-0 flex items-center gap-2">
+            <div className="flex rounded-lg overflow-hidden border border-surface-800">
+              {(["movie", "tv"] as const).map((t) => (
                 <button
-                  type="button"
-                  onClick={() => pick(item, mark)}
-                  aria-pressed={!!chosen}
-                  title={`${item.name}${item.year ? ` (${item.year})` : ""}`}
-                  className={`block w-full aspect-[2/3] rounded-xl overflow-hidden bg-surface-800 ring-2 transition-all ${
-                    chosen ? `${meta!.ring} scale-[0.96]` : "ring-transparent hover:ring-surface-600"
+                  key={t}
+                  onClick={() => setType(t)}
+                  aria-pressed={type === t}
+                  className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    type === t ? "bg-surface-800 text-white" : "text-surface-500 hover:text-surface-200"
                   }`}
                 >
-                  <img
-                    src={`https://image.tmdb.org/t/p/w342${item.posterPath}`}
-                    alt={item.name}
-                    loading="lazy"
-                    className={`w-full h-full object-cover transition-opacity ${chosen ? "opacity-55" : "opacity-100"}`}
-                  />
-                  {meta && (
-                    <span className={`absolute top-1.5 right-1.5 size-6 rounded-full grid place-items-center ${meta.chip}`}>
-                      {meta.icon}
-                    </span>
-                  )}
+                  {t === "movie" ? "Films" : "TV"}
                 </button>
-
-                {/* The other two marks, without switching the global mode */}
-                <div className="absolute inset-x-1.5 bottom-1.5 flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                  {MARKS.filter((m) => m.key !== mark).map((m) => (
-                    <button
-                      key={m.key}
-                      type="button"
-                      onClick={() => pick(item, m.key)}
-                      title={m.label}
-                      aria-label={`${m.label}: ${item.name}`}
-                      className="flex-1 h-7 grid place-items-center rounded-lg bg-surface-950/85 text-surface-300 hover:text-white backdrop-blur-sm"
-                    >
-                      {m.icon}
-                    </button>
-                  ))}
-                </div>
-
-                <p className="mt-1.5 text-[11px] text-surface-400 truncate" title={item.name}>
-                  {item.name}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {page < totalPages && items.length > 0 && (
-        <div className="mt-8 flex justify-center">
-          <button
-            type="button"
-            onClick={loadMore}
-            disabled={loadingMore}
-            className="px-5 py-2.5 rounded-xl bg-surface-800 text-surface-200 text-sm font-medium border border-surface-700/50 hover:bg-surface-700 disabled:opacity-60"
-          >
-            {loadingMore ? "Loading…" : "Show me more"}
-          </button>
-        </div>
-      )}
-
-      {/* Running tally — the point is watching this number climb */}
-      {savedCount > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-surface-700/60 bg-surface-950/95 backdrop-blur">
-          <div className="mx-auto max-w-7xl px-4 py-3 flex items-center gap-4">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-white">
-                {savedCount} title{savedCount === 1 ? "" : "s"} added
-                {saving && <Loader2 className="inline size-3 ml-2 animate-spin text-surface-500" />}
-              </p>
-              <p className="text-[11px] text-surface-500 truncate">
-                Saved as you go — you can stop whenever you like.
-              </p>
+              ))}
             </div>
-            <Link
-              href="/app/profile"
-              onClick={finish}
-              className="ml-auto shrink-0 px-4 py-2.5 rounded-xl bg-brand-500 text-surface-950 text-sm font-semibold hover:bg-brand-400 transition-colors"
-            >
-              Done — see my profile
-            </Link>
+            <div className="relative flex-1 sm:flex-none sm:w-56">
+              <Search className="size-3.5 text-surface-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Find a title"
+                aria-label="Search for a specific title"
+                className="w-full bg-surface-900 text-sm text-surface-200 placeholder:text-surface-600 rounded-lg pl-8 pr-2.5 py-1.5 border border-surface-800 focus:border-surface-600 outline-none"
+              />
+            </div>
           </div>
         </div>
-      )}
+      </div>
+
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-5">
+        {/* Where you are in this run */}
+        <div className="flex items-baseline justify-between gap-4 mb-3">
+          <p className="text-sm text-surface-400">
+            {debouncedQuery ? (
+              <>Results for <span className="text-surface-200">{debouncedQuery}</span></>
+            ) : (
+              run.caption
+            )}
+          </p>
+          {runProgress > 0 && (
+            <p className="shrink-0 text-sm tabular-nums text-surface-500">
+              <span className="text-accent-gold font-semibold">{runProgress}</span> marked here
+            </p>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-8 xl:grid-cols-10 gap-1.5">
+            {Array.from({ length: 30 }).map((_, i) => (
+              <div key={i} className="aspect-[2/3] rounded-md bg-surface-900 animate-pulse" />
+            ))}
+          </div>
+        ) : failed ? (
+          <div className="py-24 text-center">
+            <p className="text-surface-200 font-medium">Couldn&apos;t load titles</p>
+            <p className="text-sm text-surface-500 mt-1">The film database didn&apos;t respond.</p>
+            <button
+              type="button"
+              onClick={() => setReloadKey((k) => k + 1)}
+              className="mt-4 px-4 py-2 rounded-lg bg-surface-800 text-surface-200 text-sm font-medium hover:bg-surface-700"
+            >
+              Try again
+            </button>
+          </div>
+        ) : items.length === 0 ? (
+          <div className="py-24 text-center">
+            <p className="text-surface-200 font-medium">
+              {debouncedQuery ? "Nothing found" : `Nothing left in ${run.label}`}
+            </p>
+            <p className="text-sm text-surface-500 mt-1">
+              {debouncedQuery ? "Try a different spelling." : "You've logged all of these. Pick another run above."}
+            </p>
+          </div>
+        ) : (
+          <>
+            <div
+              ref={gridRef}
+              role="grid"
+              aria-label={`${run.label} — tap to mark as seen`}
+              onKeyDown={onGridKeyDown}
+              className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-8 xl:grid-cols-10 gap-1.5"
+            >
+              {items.map((item) => (
+                <Tile
+                  key={`${item.itemType}-${item.id}`}
+                  item={item}
+                  mark={picked.get(item.id)}
+                  onActivate={() => cycle(item)}
+                />
+              ))}
+            </div>
+
+            {page < totalPages && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="px-5 py-2.5 rounded-lg bg-surface-900 text-surface-300 text-sm font-medium border border-surface-800 hover:bg-surface-800 hover:text-white disabled:opacity-60 transition-colors"
+                >
+                  {loadingMore ? "Loading…" : "More from this run"}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </main>
+
+      {/* Always mounted, so landing the first mark doesn't shift the grid */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-surface-800 bg-surface-950/95 backdrop-blur">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
+          <p className="text-sm text-surface-300 tabular-nums">
+            <span className="text-lg font-semibold text-white">{total}</span>
+            <span className="text-surface-500"> logged this session</span>
+          </p>
+
+          <button
+            type="button"
+            onClick={undo}
+            disabled={total === 0 && historyRef.current.length === 0}
+            className="ml-auto inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-surface-400 hover:text-white hover:bg-surface-800 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+          >
+            <Undo2 className="size-4" />
+            <span className="hidden sm:inline">Undo</span>
+          </button>
+
+          <Link
+            href="/app/profile"
+            onClick={finish}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-brand-500 text-surface-950 text-sm font-semibold hover:bg-brand-400 transition-colors"
+          >
+            Done
+            <ArrowRight className="size-4" />
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The mark is a grease-pencil ring, borrowed from the chinagraph editors used
+ * to circle frames on a contact sheet. Across a dense grid a ring registers at
+ * a glance where a corner badge does not, and it makes marking feel like an act
+ * rather than ticking a form.
+ */
+function Tile({
+  item,
+  mark,
+  onActivate,
+}: {
+  item: Candidate;
+  mark: Mark | undefined;
+  onActivate: () => void;
+}) {
+  const state = mark === "loved" ? "Loved" : mark === "seen" ? "Seen" : "Not marked";
+  return (
+    <div role="gridcell" className="group relative">
+      <button
+        type="button"
+        onClick={onActivate}
+        aria-label={`${item.name}${item.year ? `, ${item.year}` : ""}. ${state}. Activate to change.`}
+        className="block w-full aspect-[2/3] rounded-md overflow-hidden bg-surface-900 relative focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-surface-950"
+      >
+        <img
+          src={`https://image.tmdb.org/t/p/w342${item.posterPath}`}
+          alt=""
+          loading="lazy"
+          className={`w-full h-full object-cover transition-[filter,transform] duration-200 ${
+            mark ? "saturate-[.35] brightness-[.55] scale-[1.02]" : "group-hover:brightness-110"
+          }`}
+        />
+
+        {mark && (
+          <svg
+            viewBox="0 0 100 150"
+            className="absolute inset-0 w-full h-full pointer-events-none text-accent-gold"
+            aria-hidden
+          >
+            {/* Deliberately imperfect: drawn by hand, not stamped */}
+            <ellipse
+              cx="50" cy="75" rx="34" ry="48"
+              fill={mark === "loved" ? "currentColor" : "none"}
+              fillOpacity={mark === "loved" ? 0.16 : 0}
+              stroke="currentColor"
+              strokeWidth={mark === "loved" ? 5 : 3.5}
+              strokeLinecap="round"
+              strokeDasharray="300"
+              transform="rotate(-4 50 75)"
+              className="qa-ring"
+            />
+            {mark === "loved" && (
+              <path
+                d="M50 96c-9-7-16-12-16-19a8 8 0 0 1 16-4 8 8 0 0 1 16 4c0 7-7 12-16 19z"
+                fill="currentColor"
+              />
+            )}
+          </svg>
+        )}
+
+        {/* Title on demand — the poster is the recognition unit, but a quiet
+            fallback matters for anything less than iconic */}
+        <span className="absolute inset-x-0 bottom-0 px-1.5 py-1 bg-gradient-to-t from-surface-950 via-surface-950/85 to-transparent opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+          <span className="block text-[10px] leading-tight text-surface-200 line-clamp-2 text-left">
+            {item.name}
+          </span>
+        </span>
+      </button>
     </div>
   );
 }

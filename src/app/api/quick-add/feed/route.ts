@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Math.min(500, Number(p.get("page") ?? 1)));
   const genre = p.get("genre");
   const decade = p.get("decade");
+  const language = p.get("language");
   const query = p.get("query")?.trim();
 
   let url: string;
@@ -54,6 +55,9 @@ export async function GET(req: NextRequest) {
       "vote_count.gte": source === "top_rated" ? "500" : "50",
     });
     if (genre) params.set("with_genres", genre);
+    // Someone's back catalogue is shaped by the cinema they grew up with, so
+    // "Hindi" or "Korean" is a far better prompt for recall than a genre.
+    if (language) params.set("with_original_language", language);
     if (decade) {
       const start = Number(decade);
       const dateField = type === "tv" ? "first_air_date" : "primary_release_date";
