@@ -17,6 +17,19 @@ import NaturalSearch from "@components/search/NaturalSearch";
 
 const MAX_RECENT = 8;
 const STORAGE_KEY = "recent_searches";
+
+/** A short, opinionated set — the full genre list is a wall, not a prompt. */
+const BROWSE_GENRES = [
+  { id: 28, name: "Action" },
+  { id: 35, name: "Comedy" },
+  { id: 18, name: "Drama" },
+  { id: 27, name: "Horror" },
+  { id: 878, name: "Sci-Fi" },
+  { id: 53, name: "Thriller" },
+  { id: 10749, name: "Romance" },
+  { id: 16, name: "Animation" },
+  { id: 99, name: "Documentary" },
+];
 const DEBOUNCE_MS = 280;
 
 interface SearchResult {
@@ -422,10 +435,28 @@ export default function SearchLandingPage() {
         </Link>
       </section>
 
-      <section className="text-surface-500 text-sm mt-6">
-        <p className="mb-2">Tip: type at least 2 characters; results update as you type.</p>
-        <p>On full results: filter by type, year, language, genre, and where to watch.</p>
-      </section>
+      {/* Somewhere to go when you haven't typed anything and have no history.
+          This screen previously ended in two lines of instructions explaining
+          how the search box works, which is a dead end for a first-time visitor
+          and tells a returning one nothing. */}
+      {!query && (
+        <section className="mt-8 pt-6 border-t border-surface-700/50">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-surface-500 mb-3">
+            Or start from a genre
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {BROWSE_GENRES.map((g) => (
+              <Link
+                key={g.id}
+                href={`/app/moviebygenre/list/${g.id}`}
+                className="px-3 py-2 rounded-lg bg-surface-800/70 text-sm text-surface-300 border border-surface-700/50 hover:text-white hover:bg-surface-700 transition-colors"
+              >
+                {g.name}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

@@ -30,6 +30,7 @@ interface SearchResult {
   adult?: boolean;
   profile_path?: string;
   known_for_department?: string;
+  vote_average?: number;
 }
 
 interface SearchResponse {
@@ -94,6 +95,14 @@ export default function SearchResultsPage() {
   const { setIsSearchLoading } = useSearch();
 
   const showMediaFilters = mediaType === "movie" || mediaType === "tv" || mediaType === "multi";
+  // Year/language/genre/provider used to sit open above every result, so the
+  // page led with a form. Searching a title needs none of them; they matter
+  // when you're browsing, so they collapse until asked for — and stay open if
+  // any are already applied, arriving from a link.
+  const activeFilterCount = [year, language, genre, keyword, watchProviders].filter(
+    (v) => typeof v === "string" && v.trim(),
+  ).length;
+  const [filtersOpen, setFiltersOpen] = useState(activeFilterCount > 0);
 
   useEffect(() => {
     if (!showMediaFilters) return;
@@ -319,10 +328,30 @@ export default function SearchResultsPage() {
           >
             {adult ? "Adult: On" : "Adult: Off"}
           </button>
+
+          {showMediaFilters && (
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((v) => !v)}
+              aria-expanded={filtersOpen}
+              className={`rounded-full px-4 py-1.5 text-sm inline-flex items-center gap-1.5 transition-colors ${
+                activeFilterCount > 0
+                  ? "bg-brand-500/15 text-brand-300 border border-brand-500/30"
+                  : "bg-surface-800 text-surface-200 hover:bg-surface-700"
+              }`}
+            >
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full bg-brand-500 text-surface-950 text-[10px] font-bold">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Year, language, genre, where to watch — only for movie/tv */}
-        {showMediaFilters && (
+        {showMediaFilters && filtersOpen && (
           <div className="flex flex-wrap gap-3 items-end pt-2 border-t border-surface-700/50">
             <div>
               <label htmlFor="filter-year" className="block text-xs font-medium text-surface-500 mb-1">
@@ -417,9 +446,19 @@ export default function SearchResultsPage() {
           </div>
         )}
 
-        <p className="text-sm text-surface-400 mt-2">
-          Results for &quot;{decodedQuery || "filters"}&quot; · {typeLabel(mediaType)} · {adult ? "Adult on" : "Safe search"}
-        </p>
+        {/* One line, not two. The old copy repeated the type and safe-search
+            state that the chips directly above already show. */}
+        {results.total_results > 0 && (
+          <p className="text-sm text-surface-400 mt-2">
+            <span className="text-surface-200 font-medium">
+              {results.total_results.toLocaleString()}
+            </span>{" "}
+            {results.total_results === 1 ? "result" : "results"} for{" "}
+            <span className="text-surface-200">
+              &ldquo;{decodedQuery || "your filters"}&rdquo;
+            </span>
+          </p>
+        )}
       </div>
 
       {mediaType !== "person" && cardData && (
@@ -455,12 +494,6 @@ export default function SearchResultsPage() {
       {/* Content only when not loading */}
       {!loading && (
         <>
-          {results.total_results > 0 && (
-            <p className="mb-4 text-surface-400">
-              {results.total_results} {results.total_results === 1 ? "result" : "results"}
-            </p>
-          )}
-
           {/* No results */}
           {results.total_results === 0 && (
             <div className="flex flex-col items-center justify-center gap-5 py-16 text-center">
@@ -542,6 +575,10 @@ export default function SearchResultsPage() {
                       }}
                       typeLabel={displayType}
                       year={year}
+                      // Four films are called "Inception". Year alone doesn't
+                      // separate them; the rating is the other signal people
+                      // actually use to spot the one they meant.
+                      rating={typeof data.vote_average === "number" && data.vote_average > 0 ? data.vote_average : null}
                     />
                   );
                 }
