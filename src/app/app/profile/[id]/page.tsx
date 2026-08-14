@@ -8,6 +8,7 @@ import ProfileHeroNew from "@components/profile/ProfileHeroNew";
 import ProfileActionsDropdown from "@components/profile/ProfileActionsDropdown";
 import Visibility from "@components/profile/visibility";
 import WatchedGrid from "@components/profile/WatchedGrid";
+import TrackedPosterCard from "@components/profile/TrackedPosterCard";
 import ReviewsSection from "@components/profile/ReviewsSection";
 import ListsSection from "@components/profile/ListsSection";
 import TasteInFourStrip from "@components/profile/TasteInFourStrip";
@@ -268,12 +269,16 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 </h2>
                 <div className="flex gap-3 overflow-x-auto pb-2">
                   {currentlyWatching.map((item: any) => (
-                    <Link key={item.item_id} href={`/app/${item.item_type}/${item.item_id}`} className="shrink-0 w-32 group">
-                      <div className="aspect-[2/3] rounded-xl overflow-hidden bg-surface-800 border border-surface-700/30 group-hover:border-brand-500/30 transition-all">
-                        {item.image_url ? <img src={item.image_url} alt={item.item_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" /> : <div className="w-full h-full flex items-center justify-center text-surface-600 text-xs">{item.item_type}</div>}
-                      </div>
-                      <p className="mt-1.5 text-xs text-surface-300 line-clamp-2 group-hover:text-white transition-colors">{item.item_name}</p>
-                    </Link>
+                    <TrackedPosterCard
+                      key={item.item_id}
+                      itemId={String(item.item_id)}
+                      itemType={item.item_type}
+                      itemName={item.item_name}
+                      imageUrl={item.image_url}
+                      genres={item.genres ?? []}
+                      accent="group-hover:border-amber-500/40"
+                      interactive={isOwner}
+                    />
                   ))}
                 </div>
               </section>
@@ -301,12 +306,16 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 </div>
                 <div className="flex gap-3 overflow-x-auto pb-2">
                   {watchlistItems.map((item: any) => (
-                    <Link key={item.item_id} href={`/app/${item.item_type}/${item.item_id}`} className="shrink-0 w-32 group">
-                      <div className="aspect-[2/3] rounded-xl overflow-hidden bg-surface-800 border border-surface-700/30 group-hover:border-purple-500/30 transition-all">
-                        {item.image_url ? <img src={item.image_url} alt={item.item_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" /> : <div className="w-full h-full flex items-center justify-center text-surface-600 text-xs">{item.item_type}</div>}
-                      </div>
-                      <p className="mt-1.5 text-xs text-surface-300 line-clamp-2 group-hover:text-white transition-colors">{item.item_name}</p>
-                    </Link>
+                    <TrackedPosterCard
+                      key={item.item_id}
+                      itemId={String(item.item_id)}
+                      itemType={item.item_type}
+                      itemName={item.item_name}
+                      imageUrl={item.image_url}
+                      genres={item.genres ?? []}
+                      accent="group-hover:border-purple-500/40"
+                      interactive={isOwner}
+                    />
                   ))}
                 </div>
               </section>
@@ -383,7 +392,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 <StatsSection
                   userId={user.id}
                   isOwner={isOwner}
-                  stats={{ watchedCount: stats.watchedCount, favoriteCount: stats.favoriteCount, watchlistCount: stats.watchlistCount, watchingCount: stats.watchingCount, watchedThisYear: stats.watchedThisYear, movieCount: stats.movieCount, tvCount: stats.tvCount, episodesCount: 0 }}
+                  // episodesCount was hardcoded to 0 here, so Stats reported no
+                  // episodes while getUserStats already had the real figure.
+                  stats={{ watchedCount: stats.watchedCount, favoriteCount: stats.favoriteCount, watchlistCount: stats.watchlistCount, watchingCount: stats.watchingCount, watchedThisYear: stats.watchedThisYear, movieCount: stats.movieCount, tvCount: stats.tvCount, episodesCount: stats.episodesCount }}
                   initialGenres={tasteProfile.topGenres.map((g) => ({ genre: g.genre, count: g.count }))}
                 />
               </DeferredSection>

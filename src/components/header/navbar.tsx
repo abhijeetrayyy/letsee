@@ -41,9 +41,12 @@ export function LogedNavbar() {
         aria-label="Main"
       >
         {/* Logo */}
+        {/* The wordmark shows on mobile too. It was hidden below sm to make
+            room for six icons; now that only three are there, the brand can be
+            what the header actually leads with. */}
         <Link href="/app" className="nav-logo shrink-0 mr-1">
           <Film className="w-6 h-6 text-brand-500" />
-          <span className="hidden sm:inline">LetSee</span>
+          <span>LetSee</span>
         </Link>
 
         {/* Search bar — fills available space */}
