@@ -40,7 +40,16 @@ export default function SignupPageClient() {
     setError("");
     setInfo("");
 
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    // Explicit emailRedirectTo: without it Supabase falls back to the
+    // project's Site URL, so a confirmation link would point at whatever that
+    // happens to be rather than the domain the person signed up on.
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/app/welcome`,
+      },
+    });
 
     if (error) {
       setError(error.message);

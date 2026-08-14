@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
+/**
+ * Exchanges a PKCE code for a session. Despite the name this is not an OAuth
+ * route — sign-in is email and password only. Supabase sends confirmation and
+ * password-reset links here with ?code=, so it stays.
+ */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/app";
 
   if (!code) {
-    return NextResponse.redirect(new URL("/login?error=oauth-failed", req.url));
+    return NextResponse.redirect(
+      new URL(
+        `/login?error=${encodeURIComponent("That link is missing its code. Request a new one.")}`,
+        req.url,
+      ),
+    );
   }
 
   const supabase = await createClient();
