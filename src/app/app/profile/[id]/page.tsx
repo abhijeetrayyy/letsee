@@ -7,7 +7,6 @@ import VisibilityGate from "@components/profile/VisibilityGate";
 import ProfileHeroNew from "@components/profile/ProfileHeroNew";
 import ProfileActionsDropdown from "@components/profile/ProfileActionsDropdown";
 import Visibility from "@components/profile/visibility";
-import FilmDiary from "@components/profile/FilmDiary";
 import WatchedGrid from "@components/profile/WatchedGrid";
 import ReviewsSection from "@components/profile/ReviewsSection";
 import ListsSection from "@components/profile/ListsSection";
@@ -75,8 +74,13 @@ async function fetchProfileData(username: string | null, currentUserId: string |
   // Favorite items (for Favorites section)
   const { data: favoriteItems } = await supabase.from("favorite_items").select("id, user_id, item_id, item_type, item_name, image_url, genres, created_at").eq("user_id", profileId).order("created_at", { ascending: false }).limit(12);
 
-  // Recent activity
-  const { data: recentActivity } = await supabase.from("watched_items").select("id, item_id, item_type, item_name, image_url, watched_at, review_text").eq("user_id", profileId).eq("is_watched", true).order("watched_at", { ascending: false }).limit(10);
+  // Recent activity. review_text is the PRIVATE diary note — public_review_text
+  // is the one meant for sharing — and ActivityFeed renders it inline, so it
+  // only ever leaves the server for the owner.
+  const { data: recentActivityRaw } = await supabase.from("watched_items").select("id, item_id, item_type, item_name, image_url, watched_at, review_text").eq("user_id", profileId).eq("is_watched", true).order("watched_at", { ascending: false }).limit(10);
+  const recentActivity = (recentActivityRaw ?? []).map((item) =>
+    isOwner ? item : { ...item, review_text: null },
+  );
 
   // Currently watching
   const { data: currentlyWatching } = await supabase.from("user_media_status").select("item_id, item_type, item_name, image_url, genres").eq("user_id", profileId).eq("status", "watching").order("updated_at", { ascending: false }).limit(6);
@@ -110,11 +114,13 @@ async function fetchProfileData(username: string | null, currentUserId: string |
     if (fl) featuredList = fl;
   }
   if (user.pinned_review_id) {
-    const { data: pr } = await supabase.from("watched_items").select("id, item_id, item_type, item_name, review_text, watched_at").eq("id", user.pinned_review_id).eq("user_id", profileId).maybeSingle();
+    // No review_text: ProfileHighlights only links to the review, and passing
+    // the private note as a prop would serialise it into the page payload.
+    const { data: pr } = await supabase.from("watched_items").select("id, item_id, item_type, item_name, watched_at").eq("id", user.pinned_review_id).eq("user_id", profileId).maybeSingle();
     if (pr) pinnedReview = pr;
   }
 
-  return { user, isOwner, stats, followData, favoriteDisplay: favoriteDisplay ?? [], favoriteItems: favoriteItems ?? [], recentActivity: recentActivity ?? [], currentlyWatching: currentlyWatching ?? [], watchlistItems: watchlistItems ?? [], tasteProfile, tasteInsight, featuredList, pinnedReview };
+  return { user, isOwner, stats, followData, favoriteDisplay: favoriteDisplay ?? [], favoriteItems: favoriteItems ?? [], recentActivity, currentlyWatching: currentlyWatching ?? [], watchlistItems: watchlistItems ?? [], tasteProfile, tasteInsight, featuredList, pinnedReview };
 }
 
 export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -317,16 +323,11 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               </section>
             )}
 
-            {/* ═══ FILM DIARY — Their chronological watching journey ═══ */}
-            <section>
-              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <span className="w-1 h-5 rounded-full bg-accent-gold" />
-                Film Diary
-              </h2>
-              <DeferredSection>
-                <FilmDiary userId={user.id} isOwner={isOwner} />
-              </DeferredSection>
-            </section>
+            {/* Film Diary lived here. It ran the same query as Films below —
+                watched_items where is_watched, newest first — with fewer
+                filters, and watched_items is UNIQUE (user_id, item_id) so it
+                could never record a rewatch, which is the only thing a diary
+                offers over a library. */}
 
             {/* ═══ FILMS — Their complete library ═══ */}
             <section>
