@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
+import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
 
 type TvShowCardProps = {
   showId: string;
@@ -56,6 +57,7 @@ export default function TvShowCard({
 }: TvShowCardProps) {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [tvModalOpen, setTvModalOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<MediaStatus | null>(null);
 
   const percent =
     totalEpisodes > 0
@@ -159,7 +161,7 @@ export default function TvShowCard({
               cardName={showName}
               cardImg={posterPath ?? undefined}
               genres={[]}
-              onAddWatchedTv={() => setTvModalOpen(true)}
+              onAddWatchedTv={(intended) => { setPendingStatus(intended); setTvModalOpen(true); }}
             />
           </div>
         </div>
@@ -184,9 +186,11 @@ export default function TvShowCard({
           showId={showId}
           showName={showName}
           isOpen={tvModalOpen}
-          onClose={() => setTvModalOpen(false)}
+          intendedStatus={pendingStatus}
+          onClose={() => { setTvModalOpen(false); setPendingStatus(null); }}
           onSuccess={() => {
             setTvModalOpen(false);
+            setPendingStatus(null);
             onEpisodesChanged?.();
           }}
         />

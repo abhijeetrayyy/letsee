@@ -22,7 +22,8 @@ export type ThreePreferenceBtnProps = {
   /** "compact" = icon-only grid (cards); "detail" = pill buttons with labels (detail pages). */
   variant?: "compact" | "detail";
   /** When set for TV, clicking "Watched" (add) opens this instead of toggling. Used for Mark TV Watched modal. */
-  onAddWatchedTv?: () => void;
+  /** Receives the status the user picked, or null for plain episode editing. */
+  onAddWatchedTv?: (intended: import("@/app/contextAPI/userPrefrence").MediaStatus | null) => void;
 };
 
 export default function ThreePrefrencebtn({

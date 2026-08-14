@@ -79,8 +79,13 @@ type StatusControlProps = {
   genres?: string[];
   /** "compact" for cards (icon only), "detail" for detail pages (icon + label). */
   variant?: "compact" | "detail";
-  /** TV only: choosing "Watched" opens the episode modal instead of writing directly. */
-  onWatchedTv?: () => void;
+  /**
+   * TV only. Called with the status the user picked so the owner can open the
+   * episode modal — where you are in a series is part of what the status
+   * means, and "on hold" or "dropped" are meaningless without it. Passing null
+   * means "just manage episodes", no status change.
+   */
+  onWatchedTv?: (intended: MediaStatus | null) => void;
   className?: string;
 };
 
@@ -197,6 +202,15 @@ export default function StatusControl({
       setOpen(false);
       return;
     }
+    // For a series, the status and the episode progress are the same
+    // statement: "watching" means up to here, "dropped" means I stopped at
+    // here. So confirm the episodes, then save both together. Watchlist is the
+    // exception — you haven't started, so there's nothing to record.
+    if (mediaType === "tv" && onWatchedTv && next !== "watchlist") {
+      setOpen(false);
+      onWatchedTv(next);
+      return;
+    }
     if (next === "watched" && mediaType === "tv") {
       void completeSeries();
       return;
@@ -271,7 +285,7 @@ export default function StatusControl({
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                onWatchedTv();
+                onWatchedTv(null);
               }}
               className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm text-surface-300 hover:bg-surface-800/70 hover:text-white transition-colors"
             >

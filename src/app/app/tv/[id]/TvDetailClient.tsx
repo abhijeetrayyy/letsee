@@ -19,6 +19,7 @@ import EpisodeListWithWatched from "@components/tv/EpisodeListWithWatched";
 import ShareModal from "@components/social/ShareModal";
 import Comments from "@components/social/Comments";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
+import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
 import { swrFetcher } from "@/utils/swrFetcher";
 
 const LANG: Record<string, string> = {
@@ -31,6 +32,8 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
   const isWatched = getStatus(String(show.id)) === "watched";
   const [showTrailer, setShowTrailer] = useState(false);
   const [markWatchedOpen, setMarkWatchedOpen] = useState(false);
+  // Status the user picked from the menu; the modal applies it on save.
+  const [pendingStatus, setPendingStatus] = useState<MediaStatus | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [activeSeason, setActiveSeason] = useState<number>(1);
 
@@ -75,8 +78,9 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
           showId={String(show.id)}
           showName={show.name}
           isOpen={markWatchedOpen}
-          onClose={() => setMarkWatchedOpen(false)}
-          onSuccess={() => setMarkWatchedOpen(false)}
+          intendedStatus={pendingStatus}
+          onClose={() => { setMarkWatchedOpen(false); setPendingStatus(null); }}
+          onSuccess={() => { setMarkWatchedOpen(false); setPendingStatus(null); }}
         />
       )}
 
@@ -158,7 +162,7 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
                   cardAdult={show.adult}
                   cardImg={show.poster_path}
                   genres={genres.map((g: any) => g.name)}
-                  onAddWatchedTv={() => setMarkWatchedOpen(true)}
+                  onAddWatchedTv={(intended) => { setPendingStatus(intended); setMarkWatchedOpen(true); }}
                 />
                 {trailer && (
                   <button onClick={() => setShowTrailer(true)} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-brand-500/10 text-brand-400 hover:bg-brand-500/20 border border-brand-500/20 text-sm font-medium transition-colors">

@@ -4,6 +4,7 @@ import Link from "next/link";
 import React, { useState } from "react";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
+import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
 import { Film, Tv, User, Star } from "lucide-react";
 
 const TMDB_POSTER = "https://image.tmdb.org/t/p/w342";
@@ -58,6 +59,7 @@ export default function MediaCard({
   rank,
 }: MediaCardProps) {
   const [tvModalOpen, setTvModalOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<MediaStatus | null>(null);
   const isPerson = mediaType === "person";
   const typeBadge = typeLabel ?? (isPerson ? "person" : mediaType);
 
@@ -68,7 +70,9 @@ export default function MediaCard({
   const detailHref = href(mediaType, id, title);
 
   const genreList = Array.isArray(genres) ? genres.filter((g): g is string => typeof g === "string") : [];
-  const onAddWatchedTv = mediaType === "tv" && showActions ? () => setTvModalOpen(true) : undefined;
+  const onAddWatchedTv = mediaType === "tv" && showActions
+    ? (intended: MediaStatus | null) => { setPendingStatus(intended); setTvModalOpen(true); }
+    : undefined;
 
   return (
     <div
@@ -150,8 +154,9 @@ export default function MediaCard({
           showId={String(id)}
           showName={title}
           isOpen={tvModalOpen}
-          onClose={() => setTvModalOpen(false)}
-          onSuccess={() => setTvModalOpen(false)}
+          intendedStatus={pendingStatus}
+          onClose={() => { setTvModalOpen(false); setPendingStatus(null); }}
+          onSuccess={() => { setTvModalOpen(false); setPendingStatus(null); }}
         />
       )}
     </div>

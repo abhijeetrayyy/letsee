@@ -3,11 +3,19 @@
 import { useState, useEffect, useCallback, useContext } from "react";
 import { createPortal } from "react-dom";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
+import UserPrefrenceContext, { type MediaStatus } from "@/app/contextAPI/userPrefrence";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 
 /** Episode checkboxes rendered per page inside one season. */
 const EPISODE_PAGE = 100;
+
+const STATUS_LABEL: Record<string, string> = {
+  watchlist: "Watchlist",
+  watching: "Watching",
+  watched: "Watched",
+  on_hold: "On hold",
+  dropped: "Dropped",
+};
 
 type Season = {
   season_number: number;
@@ -27,6 +35,13 @@ type EpisodeManagementModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  /**
+   * Set when the modal was opened by choosing a status. Saving then applies
+   * this status explicitly instead of letting it be re-derived from episode
+   * count — "dropped at episode 3" has to survive, and counting episodes
+   * would call that "watching".
+   */
+  intendedStatus?: MediaStatus | null;
 };
 
 export default function EpisodeManagementModal({
@@ -35,6 +50,7 @@ export default function EpisodeManagementModal({
   isOpen,
   onClose,
   onSuccess,
+  intendedStatus = null,
 }: EpisodeManagementModalProps) {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [watchedEpisodes, setWatchedEpisodes] = useState<Set<string>>(new Set());
@@ -72,7 +88,19 @@ export default function EpisodeManagementModal({
           watchedSet.add(`${ep.season_number}-${ep.episode_number}`);
         }
         setWatchedEpisodes(watchedSet);
-        setSelectedEpisodes(new Set(watchedSet));
+
+        // "Watched" means the whole series, so start with everything ticked
+        // and let the user uncheck. Every other status starts from where they
+        // actually are.
+        if (intendedStatus === "watched") {
+          const all = new Set<string>();
+          for (const s of (seasonsData.seasons ?? []) as Season[]) {
+            for (let ep = 1; ep <= s.episode_count; ep++) all.add(`${s.season_number}-${ep}`);
+          }
+          setSelectedEpisodes(all);
+        } else {
+          setSelectedEpisodes(new Set(watchedSet));
+        }
 
         // Set active season to first unwatched season
         const firstUnwatched = (seasonsData.seasons ?? []).find((s: Season) => {
@@ -92,7 +120,7 @@ export default function EpisodeManagementModal({
     };
 
     fetchData();
-  }, [isOpen, showId]);
+  }, [isOpen, showId, intendedStatus]);
 
   const toggleEpisode = useCallback((seasonNum: number, epNum: number) => {
     const key = `${seasonNum}-${epNum}`;
@@ -187,15 +215,23 @@ export default function EpisodeManagementModal({
         });
       }
 
-      // Saving with every episode already ticked produces an empty diff, so no
-      // episode write happens and autoTransitionStatus never runs — the show
-      // would sit at 100% and still say "watching". Settle the status directly.
+      // Status is written AFTER the episodes, so it wins over the count-based
+      // re-derivation the bulk endpoints run.
       const total = seasons.reduce((sum, s) => sum + s.episode_count, 0);
-      if (toAdd.length === 0 && toRemove.length === 0 && total > 0 && selected.size >= total) {
+      const settleStatus =
+        intendedStatus ??
+        // Saving with every episode already ticked produces an empty diff, so
+        // no episode write happens and nothing re-derives — the show would sit
+        // at 100% and still say "watching".
+        (toAdd.length === 0 && toRemove.length === 0 && total > 0 && selected.size >= total
+          ? "watched"
+          : null);
+
+      if (settleStatus) {
         await fetch("/api/tv-list-status", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ showId, status: "watched" }),
+          body: JSON.stringify({ showId, status: settleStatus }),
         });
       }
 
@@ -473,7 +509,10 @@ export default function EpisodeManagementModal({
                 </button>
                 <button
                   onClick={() => handleSave()}
-                  disabled={saving || selectedCount === watchedCount}
+                  // When a status was chosen, saving is still meaningful with
+                  // no episode change — "dropped, and my progress is already
+                  // right" has to be possible.
+                  disabled={saving || (!intendedStatus && selectedCount === watchedCount)}
                   className="px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-surface-950 hover:bg-brand-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                 >
                   {saving ? (
@@ -481,6 +520,8 @@ export default function EpisodeManagementModal({
                       <LoadingSpinner size="sm" className="border-t-surface-950" />
                       Saving…
                     </>
+                  ) : intendedStatus ? (
+                    `Save as ${STATUS_LABEL[intendedStatus]}`
                   ) : (
                     "Save changes"
                   )}
