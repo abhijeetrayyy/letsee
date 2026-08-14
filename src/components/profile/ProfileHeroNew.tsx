@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FaEdit } from "react-icons/fa";
-import { FaCalendar, FaFilm, FaTv, FaClock, FaBookmark } from "react-icons/fa6";
+import { FaCalendar, FaFilm, FaTv, FaLayerGroup, FaBookmark } from "react-icons/fa6";
 import ProfileAvatar from "@components/profile/ProfileAvatar";
 import ProfileBanner from "@components/profile/ProfileBanner";
 import ProfileCompletenessBar from "./ProfileCompletenessBar";
@@ -36,7 +36,6 @@ type ProfileHeroProps = {
     movieCount: number;
     tvCount: number;
     episodesCount: number;
-    hoursWatched: number;
   };
   completeness: {
     hasAvatar: boolean;
@@ -154,9 +153,9 @@ export default function ProfileHero({
           <StatCard icon={<FaFilm className="w-3.5 h-3.5" />} value={stats.movieCount} label="Movies" accent="text-brand-400" />
           <StatCard icon={<FaTv className="w-3.5 h-3.5" />} value={stats.tvCount} label="TV Shows" accent="text-accent-gold" />
           <StatCard icon={<FaBookmark className="w-3.5 h-3.5" />} value={stats.watchedThisYear} label="This Year" accent="text-green-400" />
-          {/* Comes from getUserStats — recomputing it here is what let the
-              profile and the home sidebar report different totals. */}
-          <StatCard icon={<FaClock className="w-3.5 h-3.5" />} value={`${stats.hoursWatched.toLocaleString()}h`} label="Hours" accent="text-accent-purple" />
+          {/* Episodes rather than an hours estimate: it's an exact count of
+              what the user recorded, not a guess built on assumed runtimes. */}
+          <StatCard icon={<FaLayerGroup className="w-3.5 h-3.5" />} value={stats.episodesCount.toLocaleString()} label="Episodes" accent="text-accent-purple" />
         </div>
 
         {/* Completeness bar */}

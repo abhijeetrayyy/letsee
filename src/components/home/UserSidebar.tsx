@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Eye, Star, Bookmark, Clock } from "lucide-react";
+import { Eye, Star, Bookmark, Layers } from "lucide-react";
 import ProfileAvatar from "@components/profile/ProfileAvatar";
 
 interface SidebarStats {
   watchedCount: number;
   favoriteCount: number;
   watchlistCount: number;
-  hoursEstimate: number;
+  episodesCount: number;
   avatarUrl: string | null;
   tagline: string | null;
   followersCount: number;
@@ -42,7 +42,7 @@ export default function UserSidebar({ username }: { username: string }) {
           watchedCount: s.watchedCount ?? 0,
           favoriteCount: s.favoriteCount ?? 0,
           watchlistCount: s.watchlistCount ?? 0,
-          hoursEstimate: s.hoursWatched ?? 0,
+          episodesCount: s.episodesCount ?? 0,
           avatarUrl: profile.avatar_url ?? null,
           tagline: profile.tagline ?? null,
           followersCount: profile.followers_count ?? 0,
@@ -91,7 +91,7 @@ export default function UserSidebar({ username }: { username: string }) {
         <StatCell icon={<Eye className="size-3.5 text-emerald-400" />} value={stats.watchedCount} label="Watched" href="/app/profile" />
         <StatCell icon={<Star className="size-3.5 text-amber-400" />} value={stats.favoriteCount} label="Favorites" href="/app/profile" />
         <StatCell icon={<Bookmark className="size-3.5 text-blue-400" />} value={stats.watchlistCount} label="Watchlist" href="/app/watchlist" />
-        <StatCell icon={<Clock className="size-3.5 text-purple-400" />} value={`${stats.hoursEstimate}h`} label="Hours" href="/app/profile" />
+        <StatCell icon={<Layers className="size-3.5 text-purple-400" />} value={stats.episodesCount.toLocaleString()} label="Episodes" href="/app/profile" />
       </div>
 
       {/* Quick links */}

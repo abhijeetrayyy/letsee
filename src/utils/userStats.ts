@@ -10,14 +10,12 @@ export type UserStats = {
   watchingCount: number;
   favoriteCount: number;
   episodesCount: number;
-  hoursWatched: number;
   watchedThisYear: number;
 };
 
 const EMPTY: UserStats = {
   watchedCount: 0, movieCount: 0, tvCount: 0, watchlistCount: 0,
-  watchingCount: 0, favoriteCount: 0, episodesCount: 0,
-  hoursWatched: 0, watchedThisYear: 0,
+  watchingCount: 0, favoriteCount: 0, episodesCount: 0, watchedThisYear: 0,
 };
 
 /**
@@ -29,9 +27,9 @@ const EMPTY: UserStats = {
  * marks something. get_user_stats reads the totals maintained on write in
  * user_cout_stats and computes only the cheap exact counts live.
  *
- * Hours come from real per-title runtimes where they've been backfilled
- * (user_media_status.runtime_minutes). The previous flat 45 minutes an episode
- * overstated a cartoon-heavy history several times over.
+ * There is deliberately no hours figure. It could only ever be an estimate
+ * built on assumptions nobody can check, and it dwarfed every exact number
+ * beside it. Episodes is a count of rows the user actually created.
  */
 export async function getUserStats(
   supabase: SupabaseClient,
@@ -57,7 +55,6 @@ export async function getUserStats(
     watchingCount: num(row.watching_count),
     favoriteCount: num(row.favorite_count),
     episodesCount: num(row.episodes_count),
-    hoursWatched: Math.round(num(row.minutes_watched) / 60),
     watchedThisYear: num(row.watched_this_year),
   };
 }
