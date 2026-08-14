@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:dump": "npx supabase db dump -f schema_from_supabase.sql -s public"
+    "db:dump": "npx supabase db dump -f schema_from_supabase.sql -s public",
+    "build:check": "NEXT_DIST_DIR=.next-build next build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
