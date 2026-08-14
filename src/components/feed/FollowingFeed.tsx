@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 import useSWRInfinite from "swr/infinite";
 import ActivityCard from "./ActivityCard";
 import { Users, RefreshCw, AlertCircle } from "lucide-react";
@@ -42,6 +42,11 @@ async function feedFetcher(url: string): Promise<FeedResponse> {
   return res.json();
 }
 
+/** Shown before the reader asks for more. */
+const INITIAL_VISIBLE = 4;
+/** How many more each press of the button reveals. */
+const REVEAL_STEP = 10;
+
 function getKey(pageIndex: number, previousPageData: FeedResponse | null) {
   if (previousPageData && !previousPageData.hasMore) return null;
   const params = new URLSearchParams();
@@ -53,7 +58,10 @@ function getKey(pageIndex: number, previousPageData: FeedResponse | null) {
 }
 
 export default function FollowingFeed() {
-  const loaderRef = useRef<HTMLDivElement | null>(null);
+  // How many the reader has asked to see. Grows only on an explicit press —
+  // the feed used to keep loading itself as you scrolled past it, which made
+  // the home page never end on mobile.
+  const [visible, setVisible] = useState(INITIAL_VISIBLE);
 
   const { data, error, size, setSize, isLoading, isValidating, mutate } =
     useSWRInfinite<FeedResponse>(getKey, feedFetcher, {
@@ -80,25 +88,18 @@ export default function FollowingFeed() {
     }
   };
 
-  // Infinite scroll with IntersectionObserver — but don't autoload beyond 50 items
-  useEffect(() => {
-    const el = loaderRef.current;
-    if (!el) return;
+  const shown = items.slice(0, visible);
+  // More to reveal from what's already fetched, or another page to fetch.
+  const canReveal = visible < items.length || hasMore;
 
-    if (items.length >= 50) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
-          setSize((prev) => prev + 1);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [hasMore, loadingMore, loading, setSize, items.length]);
+  const revealMore = () => {
+    const next = visible + REVEAL_STEP;
+    setVisible(next);
+    // Only fetch another page once the reader has nearly exhausted this one.
+    if (next >= items.length && hasMore && !loadingMore) {
+      setSize((prev) => prev + 1);
+    }
+  };
 
   // Full error only when there's no data at all
   if (error && !hasStaleData) {
@@ -162,25 +163,34 @@ export default function FollowingFeed() {
       {items.length > 0 ? (
         <>
           <div className="space-y-3">
-            {items.map((item) => (
+            {shown.map((item) => (
               <ActivityCard key={`${item.activity_type}-${item.id}`} item={item} />
             ))}
           </div>
 
-          {/* Load more trigger — hidden when already at 50+ items */}
-          {items.length < 50 && (
-            <div ref={loaderRef} className="py-4 flex justify-center">
-              {loadingMore && (
-                <div className="flex items-center gap-2 text-surface-500 text-xs">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  Loading more...
-                </div>
-              )}
-              {!hasMore && items.length > 10 && (
+          <div className="py-4 flex justify-center">
+            {canReveal ? (
+              <button
+                type="button"
+                onClick={revealMore}
+                disabled={loadingMore}
+                className="px-4 py-2.5 rounded-xl bg-surface-800 text-surface-200 text-sm font-medium border border-surface-700/50 hover:bg-surface-700 disabled:opacity-60 transition-colors"
+              >
+                {loadingMore ? (
+                  <span className="flex items-center gap-2">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Loading…
+                  </span>
+                ) : (
+                  `Show ${REVEAL_STEP} more`
+                )}
+              </button>
+            ) : (
+              items.length > INITIAL_VISIBLE && (
                 <p className="text-xs text-surface-600">You&apos;re all caught up!</p>
-              )}
-            </div>
-          )}
+              )
+            )}
+          </div>
         </>
       ) : loading ? (
         <div className="space-y-3">

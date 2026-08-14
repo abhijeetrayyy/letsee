@@ -51,10 +51,10 @@ export function LogedNavbar() {
           <SearchBar />
         </div>
 
-        {/* Right: action icons — the community actions, nothing else.
-            Country is a preference, not a destination; it lives in the
-            account menu now. */}
-        <div className="flex items-center gap-1">
+        {/* Right: action icons. On mobile only the two things you actually
+            reach for live here — everything else is already in the burger, so
+            duplicating it just crowded a 375px bar with six identical squares. */}
+        <div className="flex items-center gap-1 ml-auto">
           {/* Mobile search trigger */}
           <Link href="/app/search" className="nav-icon-btn sm:hidden" aria-label="Search">
             <FaMagnifyingGlass className="size-4" />
@@ -62,14 +62,18 @@ export function LogedNavbar() {
 
           {/* People — the whole point of the product, so it's top-level and
               visible to signed-out visitors too. */}
-          <Link
-            href="/app/profile"
-            className="nav-icon-btn"
-            aria-label="Discover people"
-            title="Discover people"
-          >
-            <FiUsers className="size-4" />
-          </Link>
+          {/* Wrapped rather than given `hidden` directly: .nav-icon-btn sets
+              display in plain CSS and would win over the utility. */}
+          <div className="hidden sm:flex">
+            <Link
+              href="/app/profile"
+              className="nav-icon-btn"
+              aria-label="Discover people"
+              title="Discover people"
+            >
+              <FiUsers className="size-4" />
+            </Link>
+          </div>
 
           {status === "ok" && user && (
             <>
@@ -83,8 +87,10 @@ export function LogedNavbar() {
               >
                 <FiPlusSquare className="size-4" />
               </Link>
-              <NotificationBell userId={user.id} />
-              <MessageButton userId={user.id} />
+              <div className="hidden sm:flex items-center gap-1">
+                <NotificationBell userId={user.id} />
+                <MessageButton userId={user.id} />
+              </div>
             </>
           )}
 

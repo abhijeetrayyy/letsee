@@ -30,6 +30,35 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
+  const [unread, setUnread] = useState(0);
+
+  // The bell and messages icons are desktop-only now, so their unread state
+  // has to surface somewhere on mobile or it's invisible until you open this.
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const res = await fetch("/api/notifications/unread-count", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setUnread(Number(data?.total ?? 0));
+      } catch {
+        // A missing badge is not worth surfacing an error for.
+      }
+    };
+
+    void load();
+    const timer = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [user?.id]);
 
   const go = useCallback(
     (path: string) => {
@@ -67,7 +96,7 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
   }, [mounted, isOpen]);
 
   const triggerClass =
-    "flex h-10 w-10 items-center justify-center rounded-xl border border-surface-700/50 bg-surface-800/80 text-surface-300 transition-all duration-150 hover:bg-surface-700 hover:text-white active:bg-surface-600 sm:hidden touch-manipulation";
+    "relative flex h-10 w-10 items-center justify-center rounded-xl border border-surface-700/50 bg-surface-800/80 text-surface-300 transition-all duration-150 hover:bg-surface-700 hover:text-white active:bg-surface-600 sm:hidden touch-manipulation";
 
   if (status === "loading") return null;
 
@@ -214,6 +243,14 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
         aria-label={isOpen ? "Close menu" : "Open menu"}
       >
         {isOpen ? <FaXmark className="size-5" /> : <FaBars className="size-5" />}
+        {!isOpen && unread > 0 && (
+          <span
+            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1"
+            aria-hidden
+          >
+            {unread > 99 ? "99+" : unread}
+          </span>
+        )}
       </button>
       {mounted && createPortal(overlayAndPanel, document.body)}
     </div>
