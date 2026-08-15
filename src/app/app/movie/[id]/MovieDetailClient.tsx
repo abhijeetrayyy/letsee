@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Star, Clock, Globe, Play, Share2, BookOpen, Film, Users, Tag, ImageIcon } from "lucide-react";
+import { Star, Clock, Globe, Play, Share2, BookOpen, Film, Users, Tag, ImageIcon, Calendar } from "lucide-react";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import UserRating from "@components/movie/UserRating";
 import WatchedReview from "@components/movie/WatchedReview";
@@ -35,13 +35,28 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
   const posterUrl = movie.poster_path
     ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
     : "/no-photo.webp";
-  const voteAvg = movie.vote_average?.toFixed(1);
+  const voteAvg = movie.vote_count > 0 ? movie.vote_average?.toFixed(1) : null;
   const year = movie.release_date ? new Date(movie.release_date).getFullYear() : null;
   const runtime = movie.runtime ? `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m` : null;
   const genres = movie.genres ?? [];
   const production = movie.production_companies?.slice(0, 3).map((c: any) => c.name).join(", ") ?? null;
   const budget = movie.budget > 0 ? `$${(movie.budget / 1_000_000).toFixed(0)}M` : null;
   const revenue = movie.revenue > 0 ? `$${(movie.revenue / 1_000_000).toFixed(0)}M` : null;
+
+  // The page showed a bare year, so a film out next December looked exactly
+  // like one from 2010. TMDB carries both the exact date and a production
+  // status, and together they answer "can I watch this yet?".
+  const releaseDate: Date | null = movie.release_date ? new Date(movie.release_date) : null;
+  const isUpcoming =
+    (releaseDate != null && releaseDate.getTime() > Date.now()) ||
+    (movie.status && movie.status !== "Released");
+  const fullReleaseDate = releaseDate
+    ? releaseDate.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })
+    : null;
+  const originalTitle =
+    movie.original_title && movie.original_title !== movie.title ? movie.original_title : null;
+  const spokenLanguage =
+    LANG[movie.original_language] ?? movie.spoken_languages?.[0]?.english_name ?? null;
 
   return (
     <div className="bg-surface-950">
@@ -98,6 +113,11 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
                 {voteAvg && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 text-sm font-semibold">
                     <Star className="size-3.5 fill-current" /> {voteAvg}
+                    {movie.vote_count > 0 && (
+                      <span className="text-amber-400/60 font-normal text-xs">
+                        ({movie.vote_count.toLocaleString()})
+                      </span>
+                    )}
                   </span>
                 )}
                 {year && <MetaChip label={String(year)} />}
@@ -105,6 +125,19 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
                 {certification && <MetaChip label={certification} />}
                 {countryNames.length > 0 && <MetaChip icon={<Globe className="size-3" />} label={countryNames[0]} />}
               </div>
+
+              {/* Not out yet — say so plainly and give the date. */}
+              {isUpcoming && (
+                <div className="mt-3 flex max-w-fit items-start gap-2 px-3 py-2 rounded-lg bg-brand-500/10 border border-brand-500/20 text-sm text-brand-300">
+                  <Calendar className="size-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    {fullReleaseDate ? `In cinemas ${fullReleaseDate}` : "Release date to be announced"}
+                    {movie.status && movie.status !== "Released" && (
+                      <span className="text-brand-300/60"> · {movie.status}</span>
+                    )}
+                  </span>
+                </div>
+              )}
 
               {/* Genres */}
               <div className="flex flex-wrap gap-1.5 mt-4">
@@ -152,6 +185,17 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
                 {production && <DetailBlock label="Studio" value={production} />}
                 {budget && <DetailBlock label="Budget" value={budget} />}
                 {revenue && <DetailBlock label="Revenue" value={revenue} />}
+                {fullReleaseDate && !isUpcoming && (
+                  <DetailBlock label="Released" value={fullReleaseDate} />
+                )}
+                {movie.status && !isUpcoming && <DetailBlock label="Status" value={movie.status} />}
+                {spokenLanguage && <DetailBlock label="Language" value={spokenLanguage} />}
+                {/* Foreign titles are often better known by their original
+                    name, which matters a lot for this app's catalogue. */}
+                {originalTitle && <DetailBlock label="Original title" value={originalTitle} />}
+                {countryNames.length > 0 && (
+                  <DetailBlock label="Country" value={countryNames.join(", ")} />
+                )}
               </div>
             </div>
           </div>

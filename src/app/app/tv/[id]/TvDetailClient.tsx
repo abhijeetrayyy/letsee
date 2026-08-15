@@ -49,7 +49,7 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
 
   const backdropUrl = show.backdrop_path ? `https://image.tmdb.org/t/p/w1280${show.backdrop_path}` : null;
   const posterUrl = show.poster_path ? `https://image.tmdb.org/t/p/w500${show.poster_path}` : "/no-photo.webp";
-  const voteAvg = show.vote_average?.toFixed(1);
+  const voteAvg = show.vote_count > 0 ? show.vote_average?.toFixed(1) : null;
   const genres = show.genres ?? [];
   const networks = show.networks ?? [];
   const firstAir = show.first_air_date;
@@ -58,6 +58,23 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
   const numEpisodes = show.number_of_episodes;
   const nextEpisode = show.next_episode_to_air;
   const activeSeasonData = seasons.find((s: any) => s.season_number === activeSeason);
+
+  // The chips carried only years. TMDB gives exact dates plus whether the show
+  // is still running, which is the thing you actually want to know before
+  // starting one.
+  const fmtDate = (d?: string | null) =>
+    d ? new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }) : null;
+  const firstAirFull = fmtDate(firstAir);
+  const lastAirFull = fmtDate(lastAir);
+  const episodeRuntime = Array.isArray(show.episode_run_time)
+    ? show.episode_run_time.find((n: number) => n > 0)
+    : null;
+  const originalName =
+    show.original_name && show.original_name !== show.name ? show.original_name : null;
+  // LANG covers the common cases; spoken_languages is the fallback for the rest.
+  const spokenLanguage =
+    LANG[show.original_language] ?? show.spoken_languages?.[0]?.english_name ?? null;
+  const notYetAired = firstAir ? new Date(firstAir).getTime() > Date.now() : false;
 
   return (
     <div className="bg-surface-950">
@@ -125,6 +142,11 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
                 {voteAvg && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 text-sm font-semibold">
                     <Star className="size-3.5 fill-current" /> {voteAvg}
+                    {show.vote_count > 0 && (
+                      <span className="text-amber-400/60 font-normal text-xs">
+                        ({show.vote_count.toLocaleString()})
+                      </span>
+                    )}
                   </span>
                 )}
                 {firstAir && <MetaChip label={firstAir?.slice(0, 4)} />}
@@ -134,6 +156,15 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
                 {show.status && <MetaChip label={show.status} />}
                 {certification && <MetaChip label={certification} />}
               </div>
+
+              {/* Hasn't started yet — the next-episode chip below only covers
+                  shows already airing. */}
+              {notYetAired && firstAirFull && (
+                <div className="mt-3 flex max-w-fit items-start gap-2 px-3 py-2 rounded-lg bg-brand-500/10 border border-brand-500/20 text-sm text-brand-300">
+                  <Clock className="size-3.5 mt-0.5 shrink-0" />
+                  <span>Premieres {firstAirFull}</span>
+                </div>
+              )}
 
               {/* Next episode alert */}
               {nextEpisode && (
@@ -188,6 +219,15 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
                 {networks.length > 0 && <DetailBlock label="Network" value={networks.map((n: any) => n.name).join(", ")} />}
                 {show.number_of_seasons && <DetailBlock label="Seasons" value={String(show.number_of_seasons)} />}
                 {show.number_of_episodes && <DetailBlock label="Episodes" value={String(show.number_of_episodes)} />}
+                {firstAirFull && <DetailBlock label="First aired" value={firstAirFull} />}
+                {lastAirFull && lastAir !== firstAir && (
+                  <DetailBlock label={show.in_production ? "Latest episode" : "Last aired"} value={lastAirFull} />
+                )}
+                {show.status && <DetailBlock label="Status" value={show.status} />}
+                {episodeRuntime && <DetailBlock label="Episode length" value={`${episodeRuntime} min`} />}
+                {show.type && <DetailBlock label="Type" value={show.type} />}
+                {spokenLanguage && <DetailBlock label="Language" value={spokenLanguage} />}
+                {originalName && <DetailBlock label="Original title" value={originalName} />}
               </div>
             </div>
           </div>
