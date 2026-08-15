@@ -165,6 +165,26 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
             <FcFilmReel className="size-5 shrink-0" /> Reels
           </button>
 
+          {/* Browsing, open to everyone. These were gated behind a signed-in
+              check, so a visitor's whole menu was Home / Search / Reels and
+              then a login wall — nothing to look at before deciding to join.
+              All of these render fine signed out; /app/lists deliberately is
+              not here, because it 404s for anonymous visitors. */}
+          <div className="my-1 border-t border-surface-800" />
+          <button type="button" onClick={() => go("/app/profile")} className={menuItemClass}>
+            <FaUsers className="size-5 shrink-0 text-amber-400" /> Discover people
+          </button>
+          <button type="button" onClick={() => go("/app/clubs")} className={menuItemClass}>
+            <FaUsers className="size-5 shrink-0 text-brand-400" /> Clubs
+          </button>
+          <button type="button" onClick={() => go("/app/moviebygenre/list/16-Animation")} className={menuItemClass}>
+            <FaFilm className="size-5 shrink-0 text-blue-400" /> Movie genres
+          </button>
+          <button type="button" onClick={() => go("/app/tvbygenre/list/35-Comedy")} className={menuItemClass}>
+            <FaTv className="size-5 shrink-0 text-purple-400" /> TV genres
+          </button>
+
+          {/* Yours — only meaningful once there's an account behind them. */}
           {status === "ok" && (
             <>
               <div className="my-1 border-t border-surface-800" />
@@ -179,16 +199,6 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
               </button>
               <button type="button" onClick={() => go("/app/messages")} className={menuItemClass}>
                 <FiMessageSquare className="size-5 shrink-0 text-green-400" /> Messages
-              </button>
-              <div className="my-1 border-t border-surface-800" />
-              <button type="button" onClick={() => go("/app/moviebygenre/list/16-Animation")} className={menuItemClass}>
-                <FaFilm className="size-5 shrink-0 text-blue-400" /> Movie genres
-              </button>
-              <button type="button" onClick={() => go("/app/tvbygenre/list/35-Comedy")} className={menuItemClass}>
-                <FaTv className="size-5 shrink-0 text-purple-400" /> TV genres
-              </button>
-              <button type="button" onClick={() => go("/app/profile")} className={menuItemClass}>
-                <FaUsers className="size-5 shrink-0 text-amber-400" /> Discover people
               </button>
             </>
           )}

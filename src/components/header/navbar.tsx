@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FaMagnifyingGlass } from "react-icons/fa6";
-import { FiUsers, FiPlusSquare } from "react-icons/fi";
+import { FiUsers, FiPlusSquare, FiFilm, FiCompass } from "react-icons/fi";
 import { Film } from "lucide-react";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import SignOut from "../buttons/signOut";
@@ -67,7 +67,10 @@ export function LogedNavbar() {
               visible to signed-out visitors too. */}
           {/* Wrapped rather than given `hidden` directly: .nav-icon-btn sets
               display in plain CSS and would win over the utility. */}
-          <div className="hidden sm:flex">
+          {/* Reel and Clubs sit alongside People for everyone, signed in or
+              not. All three are browsable without an account, and a visitor
+              who can only see a login button has no reason to want one. */}
+          <div className="hidden sm:flex items-center gap-1">
             <Link
               href="/app/profile"
               className="nav-icon-btn"
@@ -75,6 +78,22 @@ export function LogedNavbar() {
               title="Discover people"
             >
               <FiUsers className="size-4" />
+            </Link>
+            <Link
+              href="/app/reel"
+              className="nav-icon-btn"
+              aria-label="Reels"
+              title="Reels"
+            >
+              <FiFilm className="size-4" />
+            </Link>
+            <Link
+              href="/app/clubs"
+              className="nav-icon-btn"
+              aria-label="Film clubs"
+              title="Clubs"
+            >
+              <FiCompass className="size-4" />
             </Link>
           </div>
 
