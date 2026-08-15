@@ -58,7 +58,10 @@ export async function POST(request: Request) {
     )
     .eq("user_id", userID)
     .eq("is_watched", true)
-    .order("watched_at", { ascending: false });
+    // Same reasoning: watched_at alone is not a total order, so add a unique
+    // tiebreaker before paging over it.
+    .order("watched_at", { ascending: false })
+    .order("id", { ascending: false });
 
   if (genre && typeof genre === "string") {
     query = query.overlaps("genres", [genre.trim()]);

@@ -58,10 +58,18 @@ export async function POST(req: NextRequest) {
       .eq("user_id", userID);
 
     // Fetch paginated results
+    // ORDER BY is not optional here. LIMIT/OFFSET over an unordered query
+    // returns rows in whatever order the plan happens to produce, and each page
+    // is a separate query — so pages overlap. The profile renders its first 12
+    // ordered by created_at desc and this returned heap order, which meant
+    // those 12 reappeared further down the list while 12 other favourites were
+    // never reachable at all. id breaks ties so the sort is total.
     const { data, error } = await supabase
       .from("favorite_items")
       .select("*")
       .eq("user_id", userID)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(offset, offset + itemsPerPage - 1);
 
     if (error) throw error;
