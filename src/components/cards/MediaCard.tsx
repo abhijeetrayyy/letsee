@@ -46,6 +46,11 @@ export type MediaCardProps = {
   overview?: string | null;
   /** Only worth showing when it differs from `title`. */
   originalTitle?: string | null;
+  /**
+   * What this person did on this title — "Director, Screenplay" for a crew
+   * credit, the character name for an acting one. Gets its own line.
+   */
+  role?: string | null;
 };
 
 export default function MediaCard({
@@ -70,6 +75,7 @@ export default function MediaCard({
   voteCount,
   overview,
   originalTitle,
+  role,
 }: MediaCardProps) {
   const [tvModalOpen, setTvModalOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<MediaStatus | null>(null);
@@ -87,6 +93,9 @@ export default function MediaCard({
   const yearLabel = year ?? release.year;
   const altTitle = originalTitle && originalTitle !== title ? originalTitle : null;
   const hasHoverDetail = !isPerson && Boolean(overview || release.full || altTitle);
+  // knownFor was accepted and then silently dropped; it belongs in the same
+  // slot as a crew job — both answer "what is this person to this entry".
+  const roleLabel = role ?? knownFor ?? null;
 
   const genreList = Array.isArray(genres) ? genres.filter((g): g is string => typeof g === "string") : [];
   const onAddWatchedTv = mediaType === "tv" && showActions
@@ -171,6 +180,17 @@ export default function MediaCard({
             {title}
           </h3>
         </Link>
+        {/* The role used to share one line with the year, so it was clipped
+            after a few characters — "Director" and "Screenplay" looked
+            identical on a 140px card. It gets its own line now, unclamped:
+            someone who directed, shot and cut a short has six jobs listed,
+            and truncating that is the bug this is fixing. A taller row is
+            the cheaper price. */}
+        {roleLabel && (
+          <p className="mt-1 text-[10px] font-medium leading-snug text-brand-400/90">
+            {roleLabel}
+          </p>
+        )}
         <div className="flex items-center gap-2 mt-1">
           {/* An unreleased title used to look like any other: a bare year with
               no hint you can't watch it yet. This says the date outright, and

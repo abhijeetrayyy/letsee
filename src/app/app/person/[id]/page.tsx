@@ -41,8 +41,18 @@ type CastItem = {
 };
 
 function getKnownFor(cast: CastItem[]): CastItem[] {
+  // An actor credited twice on one series (two characters, or a role plus a
+  // "Self" appearance) arrived as two entries, which spent two of the twelve
+  // slots on the same show and gave React duplicate keys.
+  const seen = new Set<string>();
   return (cast ?? [])
-    .filter((item) => !item.adult)
+    .filter((item) => {
+      if (item.adult) return false;
+      const key = `${item.media_type}-${item.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .sort((a, b) => {
       const votesA = (a.vote_count ?? 0) * (a.vote_average ?? 0) + (a.popularity ?? 0) * 10;
       const votesB = (b.vote_count ?? 0) * (b.vote_average ?? 0) + (b.popularity ?? 0) * 10;

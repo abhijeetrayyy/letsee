@@ -18,6 +18,10 @@ interface CastItem {
   release_date?: string;
   first_air_date?: string;
   genre_ids?: number[];
+  character?: string;
+  overview?: string;
+  vote_average?: number;
+  vote_count?: number;
 }
 
 interface KnowForProps {
@@ -80,18 +84,15 @@ export default function KnowFor({ castData }: KnowForProps) {
           className="flex gap-4 overflow-x-auto overflow-y-hidden pb-2 snap-x snap-mandatory scroll-smooth"
           style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
         >
-          {list.map((item) => {
+          {list.map((item, idx) => {
             const displayTitle = item.title ?? item.name ?? "";
-            const year =
-              item.release_date || item.first_air_date
-                ? String(new Date((item.release_date ?? item.first_air_date) as string).getFullYear())
-                : null;
+            const releaseDate = item.release_date || item.first_air_date || null;
             const genres = (item.genre_ids ?? [])
               .map((gid) => GenreList.genres.find((g: { id: number }) => g.id === gid)?.name)
               .filter(Boolean) as string[];
 
             return (
-              <div key={`${item.media_type}-${item.id}`} className="known-for-item shrink-0 w-36 sm:w-40 md:w-44 snap-start">
+              <div key={`${item.media_type}-${item.id}-${idx}`} className="known-for-item shrink-0 w-36 sm:w-40 md:w-44 snap-start">
                 <MediaCard
                   id={Number(item.id)}
                   title={displayTitle}
@@ -101,7 +102,11 @@ export default function KnowFor({ castData }: KnowForProps) {
                   genres={genres}
                   showActions
                   onShare={() => { setCardData(item); setIsModalOpen(true); }}
-                  year={year}
+                  releaseDate={releaseDate}
+                  role={item.character ? `as ${item.character}` : null}
+                  rating={item.vote_average && item.vote_average > 0 ? item.vote_average : null}
+                  voteCount={item.vote_count}
+                  overview={item.overview}
                 />
               </div>
             );

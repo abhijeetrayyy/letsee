@@ -9,7 +9,7 @@ import { Filter, X } from "lucide-react";
 function PersonCredits({
   cast,
   crew,
-  name,
+  name: _name,
   knownFor: _knownFor,
 }: {
   cast: any[];
@@ -24,24 +24,18 @@ function PersonCredits({
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
 
-  const sortedCast = cast?.slice().sort((a: any, b: any) => {
-    const dateA = new Date(a.release_date || a.first_air_date || "1900-01-01").getTime();
-    const dateB = new Date(b.release_date || b.first_air_date || "1900-01-01").getTime();
-    return dateB - dateA;
-  });
+  // ISO dates sort correctly as strings, and skipping Date() avoids the
+  // UTC-midnight shift that can bucket a 1 January title into the year before.
+  const dateOf = (item: any): string => item.release_date || item.first_air_date || "";
+
+  const sortedCast = cast?.slice().sort((a: any, b: any) => dateOf(b).localeCompare(dateOf(a)));
 
   const timelineData = sortedCast.reduce((acc: any, item: any) => {
-    const year = new Date(item.release_date || item.first_air_date || "1900-01-01").getFullYear();
+    const year = dateOf(item).slice(0, 4) || "Unknown";
     if (!acc[year]) acc[year] = [];
     acc[year].push(item);
     return acc;
   }, {});
-
-  const filteredCast = sortedCast.filter((item: any) => {
-    const matchesMedia = mediaFilter === "all" || item.media_type === mediaFilter;
-    const matchesRole = excludeTalkShow ? item.character !== "Talk Show Host" : true;
-    return matchesMedia && matchesRole;
-  });
 
   // Get unique departments from crew
   const departments = Array.from(new Set(crew.map((c: any) => c.department).filter(Boolean))).sort();
@@ -49,6 +43,23 @@ function PersonCredits({
   const filteredCrew = crew.filter((item: any) => {
     return departmentFilter === "all" || item.department === departmentFilter;
   });
+
+  // TMDB returns one row per job, so a film someone directed, wrote and
+  // produced arrived as three identical-looking cards. One card per title,
+  // naming every job on it.
+  const groupedCrew = (() => {
+    const byTitle = new Map<string, any>();
+    for (const item of filteredCrew) {
+      const key = `${item.media_type}-${item.id}`;
+      const seen = byTitle.get(key);
+      if (seen) {
+        if (item.job && !seen.jobs.includes(item.job)) seen.jobs.push(item.job);
+      } else {
+        byTitle.set(key, { ...item, jobs: item.job ? [item.job] : [] });
+      }
+    }
+    return Array.from(byTitle.values()).sort((a, b) => dateOf(b).localeCompare(dateOf(a)));
+  })();
 
   const handleCardTransfer = (data: any) => {
     setCardData(data);
@@ -60,12 +71,14 @@ function PersonCredits({
 
   const renderCard = (data: any, isCrew: boolean = false, index: number) => {
     const title = data.title || data.name || "Unknown";
-    const year = data.release_date || data.first_air_date
-      ? String(new Date(data.release_date || data.first_air_date || "1900-01-01").getFullYear())
-      : null;
-    const subtitle = isCrew
-      ? `${name}: ${data.job} (${data.department})${data.release_date ? ` · ${data.release_date}` : ""}`
-      : data.character ? `character — ${data.character}` : undefined;
+    // The person's name and the department were repeated on every card —
+    // you are already on their page, and "Director (Directing)" says one
+    // thing twice. The job is what you came to read, so that is all it says.
+    const role = isCrew
+      ? (data.jobs?.length ? data.jobs.join(", ") : data.job) || null
+      : data.character
+        ? `as ${data.character}`
+        : null;
 
     return (
       <MediaCard
@@ -76,11 +89,17 @@ function PersonCredits({
         posterPath={data.poster_path || data.backdrop_path}
         adult={!!data.adult}
         genres={genresFromIds(data.genre_ids)}
-        showActions={!isCrew}
-        onShare={!isCrew ? () => handleCardTransfer(data) : undefined}
-        typeLabel={isCrew ? "In Prod." : data.media_type}
-        year={year}
-        subtitle={subtitle}
+        // Crew cards had no buttons at all, so a film you found by browsing a
+        // director could not be added to a list without opening it first.
+        showActions
+        onShare={() => handleCardTransfer(data)}
+        typeLabel={data.media_type}
+        releaseDate={dateOf(data) || null}
+        role={role}
+        rating={typeof data.vote_average === "number" && data.vote_average > 0 ? data.vote_average : null}
+        voteCount={data.vote_count}
+        overview={data.overview}
+        originalTitle={data.original_title || data.original_name}
         className="w-full max-w-[10rem] sm:max-w-[11rem]"
       />
     );
@@ -180,17 +199,19 @@ function PersonCredits({
       </div>
 
       {/* Crew Section */}
-      {filteredCrew.length > 0 && (
+      {groupedCrew.length > 0 && (
         <div className="mt-10">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
             <div>
               <h3 className="text-lg font-bold text-white">Crew</h3>
-              <p className="text-sm text-surface-500 mt-0.5">{filteredCrew.length} credits</p>
+              <p className="text-sm text-surface-500 mt-0.5">
+                {groupedCrew.length} title{groupedCrew.length !== 1 ? "s" : ""}
+              </p>
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {filteredCrew.map((item: any, index: number) => renderCard(item, true, index))}
+            {groupedCrew.map((item: any, index: number) => renderCard(item, true, index))}
           </div>
         </div>
       )}
