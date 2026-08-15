@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { FaBars, FaXmark } from "react-icons/fa6";
 import { HiHome } from "react-icons/hi2";
 import { FcFilmReel } from "react-icons/fc";
-import { FiBell, FiMessageSquare, FiBookmark, FiHeart, FiUser, FiSearch } from "react-icons/fi";
+import { FiBell, FiMessageSquare, FiBookmark, FiHeart, FiUser, FiSearch, FiList } from "react-icons/fi";
 import { FaFilm, FaTv, FaUsers } from "react-icons/fa6";
 import { Film } from "lucide-react";
 import SignOut from "../buttons/signOut";
@@ -168,14 +168,16 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
           {/* Browsing, open to everyone. These were gated behind a signed-in
               check, so a visitor's whole menu was Home / Search / Reels and
               then a login wall — nothing to look at before deciding to join.
-              All of these render fine signed out; /app/lists deliberately is
-              not here, because it 404s for anonymous visitors. */}
+              All of these render fine signed out. */}
           <div className="my-1 border-t border-surface-800" />
           <button type="button" onClick={() => go("/app/profile")} className={menuItemClass}>
             <FaUsers className="size-5 shrink-0 text-amber-400" /> Discover people
           </button>
           <button type="button" onClick={() => go("/app/clubs")} className={menuItemClass}>
             <FaUsers className="size-5 shrink-0 text-brand-400" /> Clubs
+          </button>
+          <button type="button" onClick={() => go("/app/lists")} className={menuItemClass}>
+            <FiList className="size-5 shrink-0 text-sky-400" /> Lists
           </button>
           <button type="button" onClick={() => go("/app/moviebygenre/list/16-Animation")} className={menuItemClass}>
             <FaFilm className="size-5 shrink-0 text-blue-400" /> Movie genres

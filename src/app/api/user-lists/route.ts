@@ -54,6 +54,29 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const targetUserId = searchParams.get("userId");
+  const scope = searchParams.get("scope");
+
+  // Browse everyone's public lists. RLS on user_lists already restricts SELECT
+  // to visibility='public' for anyone who isn't the owner, a follower or a
+  // collaborator, so this needs no auth and cannot leak a private list.
+  if (scope === "public") {
+    const limit = Math.min(60, Math.max(1, Number(searchParams.get("limit")) || 30));
+    const { data: lists, error } = await supabase
+      .from("user_lists")
+      .select("id, name, description, visibility, created_at, updated_at, user_id, users:user_id(username, avatar_url)")
+      .eq("visibility", "public")
+      .order("updated_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error("user-lists public browse:", error);
+      return jsonError("Failed to fetch lists", 500);
+    }
+
+    const withCounts = await enrichLists(supabase, lists ?? [], viewerId);
+    return jsonSuccess({ lists: withCounts }, { maxAge: 0 });
+  }
 
   if (!targetUserId) {
     // My lists only — require login
