@@ -66,7 +66,12 @@ export async function GET(request: Request) {
     .select("*", { count: "exact" })
     .eq("user_id", userId)
     .not("public_review_text", "is", null)
+    // A unique tiebreaker makes the sort total. Without it, rows sharing a
+    // timestamp can reshuffle between pages — and they do share one: the
+    // quick-add bulk endpoint stamps a single `now` across an entire batch, so
+    // logging forty titles at once creates forty rows with identical times.
     .order("watched_at", { ascending: false })
+    .order("id", { ascending: false })
     .range(from, to);
 
   if (error) {

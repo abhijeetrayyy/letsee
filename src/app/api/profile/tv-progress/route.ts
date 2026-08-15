@@ -124,7 +124,12 @@ export async function GET(req: NextRequest) {
     filteredIds.sort((a, b) => {
       const timeA = timeMap.get(a) || "0";
       const timeB = timeMap.get(b) || "0";
-      return timeB.localeCompare(timeA);
+      const byTime = timeB.localeCompare(timeA);
+      // Ties are common here — every episode-only show has no updated_at and
+      // collapses to "0" — and the ids come from two unordered queries via a
+      // Set, so tied entries had no stable order. Since this slices in memory
+      // for pagination, that let rows repeat or vanish between pages.
+      return byTime !== 0 ? byTime : a.localeCompare(b);
     });
 
     const total = filteredIds.length;
