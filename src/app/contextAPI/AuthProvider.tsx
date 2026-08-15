@@ -56,7 +56,13 @@ function sleep(ms: number) {
  */
 function hasAuthCookie() {
   if (typeof document === "undefined") return false;
-  return /(?:^|;\s*)sb-[^=]*auth-token/.test(document.cookie);
+  // Must end at the cookie name: `sb-<ref>-auth-token`, optionally chunked
+  // (`.0`, `.1`). A prefix match also caught
+  // `sb-<ref>-auth-token-code-verifier`, the short-lived PKCE cookie written
+  // when an auth flow *starts* — so a signed-out browser that had begun a
+  // sign-in looked like it held a session, and the retry and self-heal below
+  // both fired for someone who was simply logged out.
+  return /(?:^|;\s*)sb-[^=;]*auth-token(?:\.\d+)?=/.test(document.cookie);
 }
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -147,18 +153,46 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const handleFocus = () => debouncedRefresh();
     const handleOnline = () => debouncedRefresh();
 
-    window.addEventListener("visibilitychange", handleVisibility);
+    // visibilitychange is dispatched at the Document. It was registered on
+    // window, which is not the reliable form.
+    document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("focus", handleFocus);
     window.addEventListener("online", handleOnline);
 
     return () => {
       subscription.unsubscribe();
-      window.removeEventListener("visibilitychange", handleVisibility);
+      document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("online", handleOnline);
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [fetchUser, debouncedRefresh]);
+
+  /**
+   * Self-heal a false "signed out".
+   *
+   * Every other trigger here is an event — a tab switch, a focus, a token
+   * refresh. Someone sitting on an open page generates none of them, so if the
+   * client ever concluded "anon" while the cookie was still good (a request
+   * racing a token refresh will do it), nothing re-checked and the header stayed
+   * wrong until a manual reload. That is the "auth vanishes, refresh fixes it"
+   * report.
+   *
+   * This only runs while the app believes you're signed out AND a Supabase
+   * cookie is still present — a genuine sign-out clears the cookie, so it stops
+   * immediately and never polls for anonymous visitors.
+   */
+  useEffect(() => {
+    if (status !== "anon") return;
+    if (!hasAuthCookie()) return;
+
+    const timer = setInterval(() => {
+      if (!hasAuthCookie()) return;
+      void refreshAuth();
+    }, 15000);
+
+    return () => clearInterval(timer);
+  }, [status, refreshAuth]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
