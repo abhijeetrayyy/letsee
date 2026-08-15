@@ -22,5 +22,6 @@ One SQL file per task. Run only the migrations you need (e.g. if you already app
 | `018_profile_visible_to_viewer_robust.sql` | Function `profile_visible_to_viewer(uuid)`: null = public, case-insensitive. **Required so RLS allows viewing public/followers profiles.** |
 | `019_add_profile_visibility_policies.sql` | RLS SELECT policies: watched_items, favorite_items, user_watchlist, user_ratings, recommendation (profile_visible_to_viewer). Idempotent (drop + create). **Required so other users see watched/favorites/watchlist on public profiles.** |
 | `020_remove_runtime_minutes.sql` | Drops `watched_items.runtime_minutes` and `watched_episodes.runtime_minutes`. Profile stats use Movies, TV, Episodes (count on fetch); no Hours. |
+| `055_drop_default_tv_status.sql` | Drops `users.default_tv_status` (added by 021, constraint tightened by 022). Nothing ever read it; the five-status control replaced the flow it was for. |
 
 **Source of truth:** `schema.sql` is the consolidated reference schema (tables + RLS). It is kept in sync with migrations so that future prompts and tooling have a single place to see the full picture. To sync your **live** Supabase DB with the repo, see [Pulling schema from Supabase](../docs/PULL_SCHEMA_FROM_SUPABASE.md).

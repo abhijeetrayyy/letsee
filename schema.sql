@@ -285,14 +285,15 @@ create index if not exists watched_episodes_user_id_idx on public.watched_episod
 create index if not exists watched_episodes_show_id_idx on public.watched_episodes (show_id);
 create index if not exists watched_episodes_user_show_idx on public.watched_episodes (user_id, show_id);
 
--- TV list status (migration 021): users.default_tv_status + user_tv_list (Watching / Completed / On hold / Dropped / Plan to watch)
-do $$
-begin
-  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'users' and column_name = 'default_tv_status') then
-    alter table public.users add column default_tv_status text not null default 'watching'
-      check (default_tv_status in ('watching', 'completed', 'on_hold', 'dropped', 'plan_to_watch'));
-  end if;
-end $$;
+-- TV list status (migration 021).
+--
+-- users.default_tv_status was dropped by 055 and is deliberately not created
+-- here: nothing ever read it, and the flow it existed for (one "add" action
+-- with one implied status) was replaced by an explicit five-status control.
+-- Re-adding it here would resurrect the column on any fresh apply.
+--
+-- user_tv_list does not exist in the live database and no code references it.
+-- It is kept below only so this file still mirrors what 021 declared.
 create table if not exists public.user_tv_list (
   user_id uuid not null references public.users(id) on delete cascade,
   show_id text not null,
