@@ -61,7 +61,6 @@ export default function SettingsPage() {
   const [profileShowPublicReviews, setProfileShowPublicReviews] = useState(true);
 
   // Display tab
-  const [defaultTvStatus, setDefaultTvStatus] = useState<string>("watching");
   const [featuredListId, setFeaturedListId] = useState<string | number>("");
   const [pinnedReviewId, setPinnedReviewId] = useState<string | number>("");
   const [lists, setLists] = useState<{ id: number; name: string }[]>([]);
@@ -85,7 +84,7 @@ export default function SettingsPage() {
 
       const { data: profile } = await supabase
         .from("users")
-        .select("username, about, tagline, avatar_url, banner_url, visibility, profile_show_diary, profile_show_ratings, profile_show_public_reviews, default_tv_status")
+        .select("username, about, tagline, avatar_url, banner_url, visibility, profile_show_diary, profile_show_ratings, profile_show_public_reviews")
         .eq("id", authUser.id)
         .maybeSingle();
 
@@ -100,7 +99,6 @@ export default function SettingsPage() {
         setProfileShowDiary(profile.profile_show_diary ?? true);
         setProfileShowRatings(profile.profile_show_ratings ?? true);
         setProfileShowPublicReviews(profile.profile_show_public_reviews ?? true);
-        setDefaultTvStatus(profile.default_tv_status ?? "watching");
       }
 
       try {
@@ -275,7 +273,6 @@ export default function SettingsPage() {
       const { error } = await supabase
         .from("users")
         .update({
-          default_tv_status: defaultTvStatus,
           featured_list_id: featuredListId ? Number(featuredListId) : null,
           pinned_review_id: pinnedReviewId ? Number(pinnedReviewId) : null,
           updated_at: new Date().toISOString(),
@@ -564,28 +561,6 @@ export default function SettingsPage() {
 
         {activeTab === "display" && (
           <div className="space-y-6">
-            {/* Default TV Status */}
-            <section className="rounded-xl border border-surface-700/60 bg-surface-900/50 p-5 sm:p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Default TV Status</h2>
-              <div>
-                <label htmlFor="default-tv-status" className="block text-sm font-medium text-surface-300 mb-1.5">
-                  When I add a TV show to Watched, set status to
-                </label>
-                <select
-                  id="default-tv-status"
-                  value={defaultTvStatus}
-                  onChange={(e) => setDefaultTvStatus(e.target.value)}
-                  className="w-full rounded-lg bg-surface-800 border border-surface-600 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-                >
-                  <option value="watchlist">Watchlist</option>
-                  <option value="watching">Watching</option>
-                  <option value="watched">Watched</option>
-                  <option value="on_hold">On hold</option>
-                  <option value="dropped">Dropped</option>
-                </select>
-              </div>
-            </section>
-
             {/* Highlights */}
             <section className="rounded-xl border border-surface-700/60 bg-surface-900/50 p-5 sm:p-6">
               <h2 className="text-lg font-semibold text-white mb-4">Highlights</h2>

@@ -23,12 +23,15 @@ type TvShowCardProps = {
   onEpisodesChanged?: () => void;
 };
 
+// The badge sits on an arbitrary poster, so only the text and the ring carry
+// colour — the background is a near-opaque scrim. A 20%-tint chip vanished
+// over anything bright, which is most posters.
 const STATUS_COLORS: Record<string, string> = {
-  watchlist: "bg-surface-500/20 text-surface-400 border-surface-500/30",
-  watching: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  watched: "bg-brand-500/20 text-brand-400 border-brand-500/30",
-  on_hold: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  dropped: "bg-red-500/20 text-red-400 border-red-500/30",
+  watchlist: "text-surface-200 ring-surface-300/40",
+  watching: "text-emerald-300 ring-emerald-400/50",
+  watched: "text-brand-300 ring-brand-400/50",
+  on_hold: "text-amber-300 ring-amber-400/50",
+  dropped: "text-red-300 ring-red-400/50",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -83,11 +86,11 @@ export default function TvShowCard({
             alt={showName}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-surface-950/80 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/40 to-transparent" />
 
           {/* Status Badge */}
           <div className="absolute top-2 left-2">
-            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${statusColor}`}>
+            <span className={`px-2 py-0.5 rounded-md bg-surface-950/90 backdrop-blur-md ring-1 text-[10px] font-bold uppercase tracking-wider ${statusColor}`}>
               {statusLabel}
             </span>
           </div>
@@ -100,7 +103,7 @@ export default function TvShowCard({
                 style={{ width: `${percent}%` }}
               />
             </div>
-            <p className="text-xs text-white/80 font-medium">
+            <p className="text-xs text-white font-medium">
               {episodesWatched}/{totalEpisodes} eps
             </p>
           </div>

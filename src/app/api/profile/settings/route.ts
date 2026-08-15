@@ -13,7 +13,7 @@ export async function GET() {
   const [{ data, error }, { count: followersCount }, { count: followingCount }] = await Promise.all([
     supabase
       .from("users")
-      .select("visibility, profile_show_diary, profile_show_ratings, profile_show_public_reviews, default_tv_status, avatar_url, tagline")
+      .select("visibility, profile_show_diary, profile_show_ratings, profile_show_public_reviews, avatar_url, tagline")
       .eq("id", user.id)
       .maybeSingle(),
     supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("followed_id", user.id),
@@ -27,16 +27,12 @@ export async function GET() {
   if (!data) {
     return jsonError("Profile not found", 404);
   }
-  const d = data as { default_tv_status?: string } & typeof data;
   return new Response(
     JSON.stringify({
       visibility: data.visibility ?? "public",
       profile_show_diary: data.profile_show_diary ?? true,
       profile_show_ratings: data.profile_show_ratings ?? true,
       profile_show_public_reviews: data.profile_show_public_reviews ?? true,
-      default_tv_status: ["watchlist", "watching", "watched", "on_hold", "dropped"].includes(d.default_tv_status ?? "")
-        ? d.default_tv_status
-        : "watching",
       avatar_url: data.avatar_url ?? null,
       tagline: data.tagline ?? null,
       followers_count: followersCount ?? 0,
@@ -58,7 +54,6 @@ export async function PATCH(request: Request) {
     profile_show_diary?: boolean;
     profile_show_ratings?: boolean;
     profile_show_public_reviews?: boolean;
-    default_tv_status?: string;
   } = {};
   try {
     body = await request.json();
@@ -72,9 +67,6 @@ export async function PATCH(request: Request) {
   if (typeof body.profile_show_diary === "boolean") updates.profile_show_diary = body.profile_show_diary;
   if (typeof body.profile_show_ratings === "boolean") updates.profile_show_ratings = body.profile_show_ratings;
   if (typeof body.profile_show_public_reviews === "boolean") updates.profile_show_public_reviews = body.profile_show_public_reviews;
-  if (typeof body.default_tv_status === "string" && ["watchlist", "watching", "watched", "on_hold", "dropped"].includes(body.default_tv_status)) {
-    updates.default_tv_status = body.default_tv_status;
-  }
   if (Object.keys(updates).length === 0) {
     return jsonError("No valid fields to update", 400);
   }
