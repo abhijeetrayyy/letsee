@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Star, Clock, Globe, Play, Share2, BookOpen, Film, Users, Tag, ImageIcon, Calendar } from "lucide-react";
+import { releaseInfo } from "@/utils/releaseInfo";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import UserRating from "@components/movie/UserRating";
 import WatchedReview from "@components/movie/WatchedReview";
@@ -36,7 +37,7 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
     ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
     : "/no-photo.webp";
   const voteAvg = movie.vote_count > 0 ? movie.vote_average?.toFixed(1) : null;
-  const year = movie.release_date ? new Date(movie.release_date).getFullYear() : null;
+  const year = releaseInfo(movie.release_date).year;
   const runtime = movie.runtime ? `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m` : null;
   const genres = movie.genres ?? [];
   const production = movie.production_companies?.slice(0, 3).map((c: any) => c.name).join(", ") ?? null;
@@ -46,13 +47,9 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
   // The page showed a bare year, so a film out next December looked exactly
   // like one from 2010. TMDB carries both the exact date and a production
   // status, and together they answer "can I watch this yet?".
-  const releaseDate: Date | null = movie.release_date ? new Date(movie.release_date) : null;
-  const isUpcoming =
-    (releaseDate != null && releaseDate.getTime() > Date.now()) ||
-    (movie.status && movie.status !== "Released");
-  const fullReleaseDate = releaseDate
-    ? releaseDate.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })
-    : null;
+  const release = releaseInfo(movie.release_date);
+  const isUpcoming = release.isUpcoming || (movie.status && movie.status !== "Released");
+  const fullReleaseDate = release.full;
   const originalTitle =
     movie.original_title && movie.original_title !== movie.title ? movie.original_title : null;
   const spokenLanguage =

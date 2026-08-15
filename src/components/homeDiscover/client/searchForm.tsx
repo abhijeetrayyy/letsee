@@ -19,6 +19,9 @@ interface SearchResult {
   adult: boolean;
   profile_path?: string;
   known_for_department?: string;
+  vote_average?: number;
+  vote_count?: number;
+  overview?: string;
 }
 
 interface SearchResponse {
@@ -199,6 +202,10 @@ function Page() {
         onShare={!isPerson ? (e) => { e.preventDefault(); handleCardTransfer(data); } : undefined}
         typeLabel={typeLabel}
         year={year}
+        releaseDate={isPerson ? null : data.release_date || data.first_air_date}
+        rating={typeof data.vote_average === "number" && data.vote_average > 0 ? data.vote_average : null}
+        voteCount={data.vote_count}
+        overview={data.overview}
         knownFor={isPerson ? data.known_for_department : undefined}
       />
     );

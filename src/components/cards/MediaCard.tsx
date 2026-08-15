@@ -5,7 +5,8 @@ import React, { useState } from "react";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
-import { Film, Tv, User, Star } from "lucide-react";
+import { Film, Tv, User, Star, Calendar } from "lucide-react";
+import { releaseInfo, compactCount } from "@/utils/releaseInfo";
 
 const TMDB_POSTER = "https://image.tmdb.org/t/p/w342";
 const TMDB_PROFILE = "https://image.tmdb.org/t/p/h632";
@@ -37,6 +38,14 @@ export type MediaCardProps = {
   rating?: number | null;
   /** Optional rank number (e.g. trending position) shown as a badge. */
   rank?: number;
+  /** Raw TMDB date ("2026-12-16"). Drives the year and the upcoming badge. */
+  releaseDate?: string | null;
+  /** Votes behind `rating` — a 10.0 from three people is not a 10.0. */
+  voteCount?: number | null;
+  /** Shown on hover, so you can tell two same-named titles apart. */
+  overview?: string | null;
+  /** Only worth showing when it differs from `title`. */
+  originalTitle?: string | null;
 };
 
 export default function MediaCard({
@@ -57,6 +66,10 @@ export default function MediaCard({
   knownFor,
   rating,
   rank,
+  releaseDate,
+  voteCount,
+  overview,
+  originalTitle,
 }: MediaCardProps) {
   const [tvModalOpen, setTvModalOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<MediaStatus | null>(null);
@@ -68,6 +81,12 @@ export default function MediaCard({
     : null);
   const imgSrc = adult && !imageUrlProp ? "/pixeled.webp" : imageUrl ?? "/no-photo.webp";
   const detailHref = href(mediaType, id, title);
+
+  const release = releaseInfo(releaseDate);
+  // Callers that already computed a year keep theirs; the rest get it here.
+  const yearLabel = year ?? release.year;
+  const altTitle = originalTitle && originalTitle !== title ? originalTitle : null;
+  const hasHoverDetail = !isPerson && Boolean(overview || release.full || altTitle);
 
   const genreList = Array.isArray(genres) ? genres.filter((g): g is string => typeof g === "string") : [];
   const onAddWatchedTv = mediaType === "tv" && showActions
@@ -115,6 +134,34 @@ export default function MediaCard({
             {rank}
           </span>
         )}
+
+        {/* Hover detail. Desktop only: touch devices have no hover, and a
+            group-hover layer there sticks open after a tap. Everything a
+            phone needs is in the always-visible row under the poster. */}
+        {hasHoverDetail && (
+          <div className="pointer-events-none absolute inset-0 hidden sm:flex flex-col justify-end gap-1 p-2.5 bg-gradient-to-t from-black via-black/85 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            <div className="flex flex-wrap items-center gap-x-1.5 text-[10px] font-medium">
+              {rating != null && rating > 0 && (
+                <span className="inline-flex items-center gap-0.5 text-accent-gold">
+                  <Star className="size-2.5 fill-current" aria-hidden />
+                  {rating.toFixed(1)}
+                  {voteCount != null && voteCount > 0 && (
+                    <span className="text-surface-400 font-normal">({compactCount(voteCount)})</span>
+                  )}
+                </span>
+              )}
+              {release.short && (
+                <span className={release.isUpcoming ? "text-brand-400" : "text-surface-400"}>
+                  {release.short}
+                </span>
+              )}
+            </div>
+            {altTitle && <p className="text-[10px] text-surface-400 line-clamp-1">{altTitle}</p>}
+            {overview && (
+              <p className="text-[10px] leading-snug text-surface-300 line-clamp-4">{overview}</p>
+            )}
+          </div>
+        )}
       </Link>
 
       {/* Title and year */}
@@ -125,7 +172,17 @@ export default function MediaCard({
           </h3>
         </Link>
         <div className="flex items-center gap-2 mt-1">
-          {year && <span className="text-[10px] text-surface-500">{year}</span>}
+          {/* An unreleased title used to look like any other: a bare year with
+              no hint you can't watch it yet. This says the date outright, and
+              stays visible on mobile where there is no hover. */}
+          {release.isUpcoming ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-brand-400">
+              <Calendar className="size-2.5 shrink-0" aria-hidden />
+              {release.short}
+            </span>
+          ) : (
+            yearLabel && <span className="text-[10px] text-surface-500">{yearLabel}</span>
+          )}
           {subtitle && (
             <span className="text-[10px] text-surface-500 line-clamp-1">{subtitle}</span>
           )}

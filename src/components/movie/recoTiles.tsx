@@ -150,6 +150,9 @@ export default function MovieRecoTile({
                   }}
                   typeLabel={type}
                   rating={item.vote_average}
+                  voteCount={item.vote_count}
+                  overview={item.overview}
+                  releaseDate={item.release_date || item.first_air_date}
                   className="card-item image-item shrink-0"
                   style={{ width: `${itemWidth}px` }}
                 />

@@ -21,6 +21,7 @@ import Comments from "@components/social/Comments";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
 import { swrFetcher } from "@/utils/swrFetcher";
+import { releaseInfo } from "@/utils/releaseInfo";
 
 const LANG: Record<string, string> = {
   en: "English", es: "Spanish", fr: "French", de: "German",
@@ -62,10 +63,9 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
   // The chips carried only years. TMDB gives exact dates plus whether the show
   // is still running, which is the thing you actually want to know before
   // starting one.
-  const fmtDate = (d?: string | null) =>
-    d ? new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }) : null;
-  const firstAirFull = fmtDate(firstAir);
-  const lastAirFull = fmtDate(lastAir);
+  const firstAirInfo = releaseInfo(firstAir);
+  const firstAirFull = firstAirInfo.full;
+  const lastAirFull = releaseInfo(lastAir).full;
   const episodeRuntime = Array.isArray(show.episode_run_time)
     ? show.episode_run_time.find((n: number) => n > 0)
     : null;
@@ -74,7 +74,7 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
   // LANG covers the common cases; spoken_languages is the fallback for the rest.
   const spokenLanguage =
     LANG[show.original_language] ?? show.spoken_languages?.[0]?.english_name ?? null;
-  const notYetAired = firstAir ? new Date(firstAir).getTime() > Date.now() : false;
+  const notYetAired = firstAirInfo.isUpcoming;
 
   return (
     <div className="bg-surface-950">

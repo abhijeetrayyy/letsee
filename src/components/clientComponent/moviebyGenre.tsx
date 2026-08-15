@@ -16,6 +16,9 @@ interface Movie {
   media_type: string;
   adult: boolean;
   genre_ids: any;
+  vote_average?: number;
+  vote_count?: number;
+  overview?: string;
 }
 
 interface MovieByGenreProps {
@@ -71,6 +74,10 @@ function MovieByGenre({ Sresults }: MovieByGenreProps) {
                   showActions={true}
                   onShare={() => handleCardTransfer(data)}
                   year={year}
+                  releaseDate={data.release_date}
+                  rating={data.vote_average}
+                  voteCount={data.vote_count}
+                  overview={data.overview}
                 />
               );
             })}

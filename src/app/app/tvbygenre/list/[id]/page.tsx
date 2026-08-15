@@ -118,6 +118,10 @@ function Page() {
                     showActions={true}
                     onShare={() => handleCardTransfer(data)}
                     year={year}
+                    releaseDate={data.first_air_date}
+                    rating={data.vote_average}
+                    voteCount={data.vote_count}
+                    overview={data.overview}
                   />
                 );
               })}

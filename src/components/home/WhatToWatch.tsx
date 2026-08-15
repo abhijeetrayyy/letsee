@@ -15,6 +15,7 @@ type PickItem = {
   mediaType: string;
   posterUrl: string | null;
   year: string;
+  releaseDate: string | null;
   overview: string;
   voteAverage: number;
   genreIds: number[];
@@ -454,6 +455,9 @@ export default function WhatToWatch() {
                         genres={[]}
                         showActions={true}
                         typeLabel={pick.mediaType}
+                        releaseDate={pick.releaseDate}
+                        year={pick.year || null}
+                        overview={pick.overview}
                       />
 
                       {/* Match reason badge */}

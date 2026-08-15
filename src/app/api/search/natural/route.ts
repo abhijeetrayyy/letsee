@@ -360,6 +360,7 @@ export async function GET(request: Request) {
       posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : null,
       backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/w780${item.backdrop_path}` : null,
       year: (item.release_date ?? item.first_air_date ?? "").substring(0, 4),
+      releaseDate: item.release_date ?? item.first_air_date ?? null,
       overview: item.overview ?? "",
       voteAverage: item.vote_average ?? 0,
       voteCount: item.vote_count ?? 0,

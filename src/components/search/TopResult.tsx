@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Star } from "lucide-react";
+import { Star, Calendar } from "lucide-react";
+import { releaseInfo } from "@/utils/releaseInfo";
 import StatusControl from "@components/buttons/StatusControl";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
@@ -13,6 +14,8 @@ export type TopResultItem = {
   title: string;
   posterPath?: string | null;
   year?: string | null;
+  /** Raw TMDB date. Preferred over `year` — it can say "not out yet". */
+  releaseDate?: string | null;
   rating?: number | null;
   voteCount?: number | null;
   overview?: string | null;
@@ -39,6 +42,7 @@ export default function TopResult({ item }: { item: TopResultItem }) {
   const [pendingStatus, setPendingStatus] = useState<MediaStatus | null>(null);
 
   const href = `/app/${item.mediaType}/${item.id}${item.title ? `-${slug(item.title)}` : ""}`;
+  const release = releaseInfo(item.releaseDate);
   const img = item.posterPath
     ? `https://image.tmdb.org/t/p/${item.mediaType === "person" ? "h632" : "w342"}${item.posterPath}`
     : null;
@@ -77,7 +81,9 @@ export default function TopResult({ item }: { item: TopResultItem }) {
               strands at the end of a wrapped line and a missing year (people
               have none) can't leave a leading one. */}
           <div className="meta-row mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-surface-400">
-            {item.year && <span className="tabular-nums">{item.year}</span>}
+            {(item.year ?? release.year) && (
+              <span className="tabular-nums">{item.year ?? release.year}</span>
+            )}
             <span>{TYPE_LABEL[item.mediaType]}</span>
             {item.rating != null && item.rating > 0 && (
               <span className="inline-flex items-center gap-1 text-accent-gold">
@@ -93,6 +99,13 @@ export default function TopResult({ item }: { item: TopResultItem }) {
             )}
             {item.knownFor && <span>{item.knownFor}</span>}
           </div>
+
+          {release.isUpcoming && (
+            <p className="mt-2 inline-flex max-w-fit items-center gap-1.5 text-sm font-medium text-brand-400">
+              <Calendar className="size-3.5 shrink-0" aria-hidden />
+              {item.mediaType === "tv" ? "Premieres" : "Out"} {release.full}
+            </p>
+          )}
 
           {item.overview && (
             <p className="mt-2.5 text-sm text-surface-400 line-clamp-2 sm:line-clamp-3">

@@ -119,6 +119,9 @@ export default function HomeContentTile({
                   }}
                   typeLabel={type === "mix" ? item.media_type : type}
                   year={year}
+                  releaseDate={item.release_date || item.first_air_date}
+                  voteCount={item.vote_count}
+                  overview={item.overview}
                   className="card-item image-item shrink-0"
                   style={{ width: itemWidth }}
                 />

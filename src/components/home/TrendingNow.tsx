@@ -10,6 +10,10 @@ interface Item {
   media_type?: string;
   poster_path?: string | null;
   vote_average?: number;
+  vote_count?: number;
+  overview?: string;
+  release_date?: string;
+  first_air_date?: string;
   adult?: boolean;
   genre_ids?: number[];
 }
@@ -44,6 +48,9 @@ export default function TrendingNow({ items }: { items: Item[]; trendingTv: Item
           adult={item.adult}
           genres={genreNames(item.genre_ids)}
           rating={item.vote_average}
+          voteCount={item.vote_count}
+          overview={item.overview}
+          releaseDate={item.release_date || item.first_air_date}
           rank={i + 1}
         />
       ))}

@@ -12,6 +12,7 @@ type SearchItem = {
   posterUrl: string | null;
   backdropUrl: string | null;
   year: string;
+  releaseDate: string | null;
   overview: string;
   voteAverage: number;
   voteCount: number;
@@ -343,6 +344,10 @@ export default function NaturalSearch() {
                     genres={[]}
                     showActions={true}
                     typeLabel={item.mediaType}
+                    releaseDate={item.releaseDate}
+                    year={item.year || null}
+                    overview={item.overview}
+                    voteCount={item.voteCount}
                   />
                   {item.voteAverage > 0 && (
                     <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-full px-2 py-0.5 text-xs font-semibold flex items-center gap-1 text-amber-400">

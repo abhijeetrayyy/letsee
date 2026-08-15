@@ -41,6 +41,8 @@ interface SearchResult {
   vote_average?: number;
   vote_count?: number;
   overview?: string;
+  original_title?: string;
+  original_name?: string;
 }
 
 interface SearchResponse {
@@ -314,9 +316,6 @@ export default function SearchResultsPage() {
                 }
                 if (displayType === "movie" || displayType === "tv") {
                   const dateStr = data.release_date || data.first_air_date;
-                  const year = dateStr
-                    ? String(new Date(dateStr).getFullYear())
-                    : null;
                   const genres: string[] =
                     data.genre_ids
                       ?.map((id) => GenreList.genres.find((g: { id: number }) => g.id === id)?.name)
@@ -336,11 +335,14 @@ export default function SearchResultsPage() {
                         handleCardTransfer(data);
                       }}
                       typeLabel={displayType}
-                      year={year}
+                      releaseDate={dateStr}
                       // Four films are called "Inception". Year alone doesn't
                       // separate them; the rating is the other signal people
                       // actually use to spot the one they meant.
                       rating={typeof data.vote_average === "number" && data.vote_average > 0 ? data.vote_average : null}
+                      voteCount={data.vote_count}
+                      overview={data.overview}
+                      originalTitle={data.original_title || data.original_name}
                     />
                   );
                 }
@@ -372,10 +374,7 @@ export default function SearchResultsPage() {
             | "person",
           title: leader.title || leader.name || "Unknown",
           posterPath: leader.media_type === "person" ? leader.profile_path : leader.poster_path,
-          year: (() => {
-            const d = leader.release_date || leader.first_air_date;
-            return d ? String(new Date(d).getFullYear()) : null;
-          })(),
+          releaseDate: leader.release_date || leader.first_air_date || null,
           rating: typeof leader.vote_average === "number" && leader.vote_average > 0 ? leader.vote_average : null,
           voteCount: typeof leader.vote_count === "number" ? leader.vote_count : null,
           overview: leader.overview ?? null,

@@ -206,6 +206,7 @@ export async function GET(request: Request) {
     mediaType: item._mediaType ?? "movie",
     posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
     year: (item.release_date ?? item.first_air_date ?? "").substring(0, 4),
+    releaseDate: item.release_date ?? item.first_air_date ?? null,
     overview: item.overview ?? "",
     voteAverage: item.vote_average ?? 0,
     genreIds: item.genre_ids ?? [],
