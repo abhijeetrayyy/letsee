@@ -28,6 +28,7 @@ import { fetchTmdbJson } from "@/utils/tmdbClient";
 import { buildGenreVector, cosineSimilarity, type GenreVector } from "@/utils/genreVector";
 import { GenreList } from "@/staticData/genreList";
 import { MOODS } from "@/staticData/moodMapping";
+import { buildEpisodeReason, findEpisodePicks, type EpisodePick } from "@/utils/tonightEpisodes";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -88,6 +89,14 @@ export type TonightProvider = {
   heldBy: string[];
 };
 
+/** Set when the answer is "the next episode", not "this title". */
+export type TonightEpisode = {
+  seasonNumber: number;
+  episodeNumber: number;
+  name: string;
+  stillPath: string | null;
+};
+
 export type TonightCandidate = {
   itemId: string;
   itemType: MediaType;
@@ -101,6 +110,7 @@ export type TonightCandidate = {
   voteAverage: number;
   providers: TonightProvider[];
   reason: string;
+  episode: TonightEpisode | null;
   /** Internal ranking figure. Never render it. */
   score: number;
 };
@@ -574,7 +584,112 @@ async function hydrate(
     voteAverage: detail.vote_average ?? entry.voteAverage,
     providers,
     reason: buildReason(reasonEntry, participants, providers, runtime),
+    episode: null,
     score: entry.score,
+  };
+}
+
+// ── Episodes ────────────────────────────────────────────────────────────────
+
+/** Below this, an evening is an episode-shaped evening, not a film-shaped one. */
+const SHORT_EVENING_MINUTES = 75;
+
+/**
+ * Score an episode pick on the same 0–1 scale as a film, so the two compete
+ * honestly for the single answer slot.
+ *
+ *   0.40  how much of the room is jointly in this show
+ *   0.25  momentum — being eight episodes deep is a stronger pull than two
+ *   0.20  taste fit, minimum across the room, same as films
+ *   0.15  shape — an episode is the right answer for a short window
+ *
+ * A show two people are genuinely deep into lands around 0.8, which beats
+ * almost any film. That's intended: when the room is mid-series with an hour
+ * free, the next episode *is* the answer, and making them hunt for it is the
+ * failure this whole feature exists to fix.
+ */
+function scoreEpisode(
+  pick: EpisodePick,
+  participants: TonightParticipant[],
+  maxRuntime: number | null,
+): number {
+  const roomShare = pick.watchedBy.length / participants.length;
+  const momentum = Math.min(pick.progress / 8, 1);
+
+  const candidateVector = buildGenreVector([{ genres: pick.genres }]);
+  let tasteFit = 1;
+  for (const p of participants) {
+    const sim = Object.keys(p.genreVector).length === 0
+      ? 0.5
+      : cosineSimilarity(p.genreVector, candidateVector);
+    tasteFit = Math.min(tasteFit, sim);
+  }
+
+  const shortWindow = maxRuntime !== null && maxRuntime <= SHORT_EVENING_MINUTES ? 1 : 0;
+
+  return 0.4 * roomShare + 0.25 * momentum + 0.2 * tasteFit + 0.15 * shortWindow;
+}
+
+/**
+ * Turn an episode pick into a candidate.
+ *
+ * Providers are attached when TMDB knows them, but unlike a film this does
+ * **not** gate on availability. Someone who is eight episodes into a series
+ * has already demonstrated they can watch it — more convincingly than a
+ * provider list can, since it misses owned copies, regional deals and
+ * whatever they were using before. Refusing to surface their next episode
+ * because TMDB has no row for it would be the tool overruling the evidence.
+ */
+async function episodeToCandidate(
+  pick: EpisodePick,
+  participants: TonightParticipant[],
+  constraints: TonightConstraints,
+  score: number,
+): Promise<TonightCandidate> {
+  const apiKey = process.env.TMDB_API_KEY;
+  let providers: TonightProvider[] = [];
+
+  if (apiKey) {
+    try {
+      const data = await fetchTmdbJson<{
+        results?: Record<
+          string,
+          { flatrate?: { provider_id: number; provider_name: string; logo_path?: string }[] }
+        >;
+      }>(`${TMDB_BASE}/tv/${pick.showId}/watch/providers?api_key=${apiKey}`, { timeoutMs: 6000 });
+
+      providers = (data.results?.[constraints.region]?.flatrate ?? []).map((p) => ({
+        id: p.provider_id,
+        name: p.provider_name,
+        logoPath: p.logo_path ?? null,
+        heldBy: participants.filter((x) => x.providerIds.has(p.provider_id)).map((x) => x.userId),
+      }));
+      providers.sort((a, b) => b.heldBy.length - a.heldBy.length);
+    } catch {
+      // Availability is decoration here, not a gate — carry on without it.
+    }
+  }
+
+  return {
+    itemId: pick.showId,
+    itemType: "tv",
+    itemName: pick.showName,
+    imageUrl: pick.posterPath,
+    backdropUrl: pick.stillPath,
+    year: null,
+    overview: pick.overview,
+    genres: pick.genres,
+    runtime: pick.runtime,
+    voteAverage: 0,
+    providers,
+    reason: buildEpisodeReason(pick, participants),
+    episode: {
+      seasonNumber: pick.seasonNumber,
+      episodeNumber: pick.episodeNumber,
+      name: pick.episodeName,
+      stillPath: pick.stillPath,
+    },
+    score,
   };
 }
 
@@ -599,9 +714,13 @@ export async function resolveTonight(
 ): Promise<ResolveResult> {
   if (participants.length === 0) return { pick: null, alternates: [] };
 
-  const [watchlist, discovered] = await Promise.all([
+  const [watchlist, discovered, episodePicks] = await Promise.all([
     watchlistPool(supabase, participants, constraints),
     discoverPool(participants, constraints),
+    // Skip the work entirely when the room has asked for a film.
+    constraints.mediaType === "movie"
+      ? Promise.resolve([])
+      : findEpisodePicks(supabase, participants, constraints.maxRuntime, rejected),
   ]);
 
   // Watchlist entries win ties on identity: they carry the watchlistedBy
@@ -642,11 +761,24 @@ export async function resolveTonight(
     await Promise.all(scored.map((entry) => hydrate(entry, participants, constraints)))
   ).filter((c): c is TonightCandidate => c !== null);
 
-  if (hydrated.length === 0) return { pick: null, alternates: [] };
+  // Episodes are built alongside films and then ranked against them on the
+  // same scale, rather than being appended after — the single answer slot has
+  // to be winnable by whichever is genuinely the better call tonight.
+  const episodes = await Promise.all(
+    episodePicks
+      .map((pick) => ({ pick, score: scoreEpisode(pick, participants, constraints.maxRuntime) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map(({ pick, score }) => episodeToCandidate(pick, participants, constraints, score)),
+  );
+
+  const all = [...hydrated, ...episodes].sort((a, b) => b.score - a.score);
+
+  if (all.length === 0) return { pick: null, alternates: [] };
 
   return {
-    pick: hydrated[0],
-    alternates: hydrated.slice(1, 1 + ALTERNATE_COUNT),
+    pick: all[0],
+    alternates: all.slice(1, 1 + ALTERNATE_COUNT),
   };
 }
 

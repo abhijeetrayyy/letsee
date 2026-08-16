@@ -1,6 +1,6 @@
 # Surpassing Letterboxd — What Needs To Be Done
 
-> **Status:** W1 (Tonight), W2 (cuts), W3 (import) and W4 (Year in Review) built — see §15. W5–W7 not started.
+> **Status:** W1 (Tonight), W2 (cuts), W3 (import), W4 (Year in Review) and W6 (TV) built — see §15. W5 and W7 not started.
 > **Written:** 2026-08-16, against `main` @ `faeb123`. Decisions resolved and W1 built the same day.
 > **Supersedes the benchmark table in** `COMPLETE_AUDIT_AND_ROADMAP.md` §2, which measures the wrong thing (see §1).
 
@@ -612,6 +612,45 @@ The card's own gradient now uses inline `rgba()`. **The pre-existing `ShareProfi
 
 **Not verified: the owner's live path** — real year data needs migration 059 applied and an account.
 
+### W6 — TV as a first-class citizen, as built
+
+All four items from §W6.
+
+| Piece | File |
+|---|---|
+| Next-episode picker | `src/utils/tonightEpisodes.ts` |
+| Episode scoring + merge | `src/utils/tonight.ts` |
+| Logging the episode on decide | `src/app/api/tonight/[id]/decide/route.ts` |
+| Season reviews schema | `migrations/060_season_reviews.sql` |
+| Season reviews API + UI | `src/app/api/season-review/route.ts`, `src/components/tv/SeasonReview.tsx` |
+| Caught-up derivation | `src/app/api/profile/tv-progress/route.ts` |
+| Caught-up UI | `src/components/profile/TvShowCard.tsx` |
+| New-episode job + schedule | `migrations/061_new_episode_notification.sql`, `src/utils/jobs/newEpisodeNotifier.ts`, `src/app/api/cron/new-episodes/route.ts`, `vercel.json` |
+
+**1. TV in Tonight.** The flagship, and the case Letterboxd structurally cannot serve.
+
+> **The rule that matters:** when two people are at different points in a show, the group's next episode is the one the person *furthest behind* hasn't seen. Watching A's next episode when B is two behind doesn't just skip B's episodes — it **spoils** them. So the episode is chosen by minimum progress across the room, the same "protect whoever is worst served" principle as taste fit.
+
+Someone in the room who hasn't started the show at all is ignored rather than dragging everyone back to the pilot. Episodes are scored on the same 0–1 scale as films and compete for the single answer slot — a show two people are deep into lands ~0.8, which beats almost any film, and that's intended.
+
+This needs a real season fetch. `/api/continue-watching` computes its next episode from season *summaries*, so it cannot tell an aired episode from an unaired one or know a runtime — and both matter when the whole question is "we've got 45 minutes".
+
+**Availability is not enforced for episode picks.** Someone eight episodes into a series has demonstrated they can watch it more convincingly than a provider list can, since TMDB misses owned copies and regional deals. Providers are shown when known; they don't gate.
+
+**2. Season reviews.** The season is the unit people actually argue about — *"season 4 is where it turns"* — and it had no home: series reviews are too coarse for a long-running show, episode notes too fine. Keeps the diary/public split from 009 and defaults to private.
+
+> One trap worth naming: 060's public-read policy exposes the whole row, `review_text` included, to a permitted viewer. The API therefore never selects `review_text` for anyone but the author — the same trap the profile page already comments on for `watched_items`.
+
+**3. Caught up is its own state.** `all_complete` asks whether every episode TMDB lists is watched, but season summaries include unaired episodes, so a show you're perfectly current on can *never* satisfy it. `last_episode_to_air` is the real waterline and arrives on the show detail already being fetched, so this costs nothing extra. An ongoing show you're current on now reads "Caught up · Next airs 4 Sep" instead of looking identical to one you abandoned.
+
+**4. New-episode notifications** — the only notification here that isn't about what another user did to you. `notified_episodes` is the job's memory; without it every daily run re-announces everything and the feature becomes the reason people turn notifications off.
+
+> This required confronting the dead queue rather than using it. It follows `checkWatchlistAvailability`'s pattern — a plain function a cron route calls directly — and **adds the first real `crons` entry `vercel.json` has ever had.**
+
+**Verified:** clean build and typecheck; season-review GET/PUT/validation behave (200 signed-out, 400 on missing params, 401 on write); the season page renders the review block; `/api/cron/new-episodes` ran end-to-end against live data and returned `{showsChecked: 1, notificationsSent: 0}` — correctly zero, since no watched show had an episode in the last 8 days.
+
+**Not verified:** the group episode pick with two real mid-show participants (needs 056/057 applied and two accounts); the notification insert path, which returned before reaching `notified_episodes` because nothing qualified; and the `caught_up` badge against a real ongoing show.
+
 ### Follow-ups this build opened
 
 1. **Group-apply with consent** (Q6 above) — the biggest gap between what shipped and what §W1 described.
@@ -621,7 +660,9 @@ The card's own gradient now uses inline `rgba()`. **The pre-existing `ShareProfi
 5. **Run the real 500-film resolution test.** The W3 acceptance criterion (>=95%) is unverified; 16 hand-picked titles is not a sample. Needs a genuine large export.
 6. **`background_jobs` (024) is dead infrastructure.** No registered handlers, no cron entries in `vercel.json`. Anything scheduled onto it silently never runs. Wire both ends up or drop the table.
 7. **Audit every other html2canvas target for `oklab`.** The Tailwind-v4-vs-html2canvas incompatibility is a whole class of bug, not two instances. Anything added to a capture target later will break it silently — worth a lint rule or a shared `<ExportableCard>` wrapper that forbids opacity utilities.
-8. **The home page has no signed-out Tonight affordance.** The banner is gated on `isLoggedIn`, so a visitor never learns the product's main idea exists. Cheapest fix is a signed-out variant that links to `/app/tonight`, which already explains itself and offers sign-in.
+8. **`/api/cron/check-availability` still has no schedule.** Written, working, never fires. Schedule it or delete it.
+9. **`CRON_SECRET` must be set in production.** All three cron routes skip their guard when it's unset — an open endpoint otherwise.
+10. **The home page has no signed-out Tonight affordance.** The banner is gated on `isLoggedIn`, so a visitor never learns the product's main idea exists. Cheapest fix is a signed-out variant that links to `/app/tonight`, which already explains itself and offers sign-in.
 
 ---
 

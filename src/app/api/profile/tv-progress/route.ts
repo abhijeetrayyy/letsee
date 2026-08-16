@@ -18,6 +18,9 @@ export type ProfileTvProgressItem = {
   next_season: number | null;
   next_episode: number | null;
   all_complete: boolean;
+  /** Everything *aired* is watched, but the show hasn't finished. */
+  caught_up: boolean;
+  next_air_date: string | null;
   /** user_media_status status: watchlist | watching | watched | on_hold | dropped */
   tv_status: string | null;
 };
@@ -204,6 +207,34 @@ export async function GET(req: NextRequest) {
             ({ s, e }) => !watchedSet.has(`${s},${e}`),
           );
 
+          /**
+           * "Caught up" is not the same as "finished", and conflating them is
+           * why an ongoing show you're current on looked identical to one you
+           * abandoned two episodes from the end.
+           *
+           * all_complete asks whether every episode TMDB lists is watched —
+           * but season summaries include episodes that haven't aired, so a
+           * show you're perfectly current on can never satisfy it.
+           * last_episode_to_air is the real waterline, and it comes back on
+           * the show detail we already fetched, so this costs nothing extra.
+           */
+          const lastAired = (showData as any)?.last_episode_to_air as
+            | { season_number?: number; episode_number?: number }
+            | null;
+          const nextToAir = (showData as any)?.next_episode_to_air as
+            | { air_date?: string }
+            | null;
+
+          let caughtUp = false;
+          if (lastAired?.season_number != null && lastAired?.episode_number != null) {
+            const ls = Number(lastAired.season_number);
+            const le = Number(lastAired.episode_number);
+            // Unwatched episode that has already aired = not caught up.
+            caughtUp = !allEpisodes.some(
+              ({ s, e }) => (s < ls || (s === ls && e <= le)) && !watchedSet.has(`${s},${e}`),
+            );
+          }
+
           return {
             show_id: showId,
             show_name: name,
@@ -214,6 +245,8 @@ export async function GET(req: NextRequest) {
             next_season: nextEp?.s ?? null,
             next_episode: nextEp?.e ?? null,
             all_complete: !nextEp,
+            caught_up: caughtUp && !!nextToAir,
+            next_air_date: nextToAir?.air_date ?? null,
             tv_status: statusMap.get(showId) ?? null,
           } as ProfileTvProgressItem;
         }),

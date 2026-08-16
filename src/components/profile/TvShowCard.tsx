@@ -16,6 +16,8 @@ type TvShowCardProps = {
   nextSeason: number | null;
   nextEpisode: number | null;
   allComplete: boolean;
+  caughtUp?: boolean;
+  nextAirDate?: string | null;
   tvStatus: string | null;
   isOwner: boolean;
   onMarkNext: (showId: string) => void;
@@ -52,6 +54,8 @@ export default function TvShowCard({
   nextSeason,
   nextEpisode,
   allComplete,
+  caughtUp = false,
+  nextAirDate = null,
   tvStatus,
   isOwner,
   onMarkNext,
@@ -95,6 +99,18 @@ export default function TvShowCard({
             </span>
           </div>
 
+          {/* Caught up is its own state, not a variant of "watching".
+              Someone current on an ongoing show has finished everything that
+              exists — the honest label is that they're waiting, not that
+              they're behind. */}
+          {caughtUp && (
+            <div className="absolute top-2 right-2">
+              <span className="px-2 py-0.5 rounded-md bg-surface-950/90 backdrop-blur-md ring-1 ring-sky-400/50 text-[10px] font-bold uppercase tracking-wider text-sky-300">
+                Caught up
+              </span>
+            </div>
+          )}
+
           {/* Progress Overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-3">
             <div className="w-full h-1 bg-surface-800/80 rounded-full overflow-hidden mb-1.5">
@@ -120,7 +136,14 @@ export default function TvShowCard({
             </Link>
 
             {/* Quick Actions */}
-            {isOwner && !allComplete && nextSeason && nextEpisode && (
+            {caughtUp ? (
+              <p className="w-full py-1.5 text-center text-xs text-sky-300/80">
+                {nextAirDate
+                  ? `Next airs ${new Date(nextAirDate).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`
+                  : "Waiting on the next episode"}
+              </p>
+            ) : null}
+            {isOwner && !caughtUp && !allComplete && nextSeason && nextEpisode && (
               <button
                 onClick={() => onMarkNext(showId)}
                 disabled={markingId === showId}

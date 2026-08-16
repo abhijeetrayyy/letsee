@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { loadSession } from "@/utils/tonightSession";
+import { autoTransitionStatus, ensureShowInMediaStatus } from "@/utils/tvMediaStatus";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const genres = Array.isArray(body.genres) ? (body.genres as unknown[]).map(String) : [];
   const runtime = Number(body.runtime);
 
+  // An episode pick carries the exact episode the room agreed on, so
+  // committing to it should log *that*, not just "still watching this show".
+  const seasonNumber = Number(body.seasonNumber);
+  const episodeNumber = Number(body.episodeNumber);
+  const isEpisode =
+    itemType === "tv" &&
+    Number.isInteger(seasonNumber) &&
+    seasonNumber >= 0 &&
+    Number.isInteger(episodeNumber) &&
+    episodeNumber >= 1;
+
   const supabase = await createClient();
   const session = await loadSession(supabase, sessionId);
   if (!session) return jsonError("Session not found", 404);
@@ -67,10 +79,42 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (error) console.error("tonight decide stamp:", error);
   }
 
+  if (isEpisode) {
+    // Reuses the same two helpers /api/watched-episode does, so an episode
+    // logged from Tonight is indistinguishable from one ticked off on the
+    // season page — including the status transition to 'watched' when this
+    // was the last one.
+    await ensureShowInMediaStatus(supabase, userId, itemId);
+
+    const { error } = await supabase.from("watched_episodes").upsert(
+      {
+        user_id: userId,
+        show_id: itemId,
+        season_number: seasonNumber,
+        episode_number: episodeNumber,
+        watched_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,show_id,season_number,episode_number", ignoreDuplicates: true },
+    );
+
+    if (error) {
+      console.error("tonight decide episode:", error);
+      return jsonError("Failed to save that", 500);
+    }
+
+    await autoTransitionStatus(supabase, userId, itemId);
+
+    try {
+      await supabase.rpc("recount_user_stats", { p_user_id: userId });
+    } catch {
+      // Non-critical — stats are eventually consistent.
+    }
+  }
+
   // A rewatch must not demote an existing 'watched' row — that would pull the
   // title out of their Films grid for the duration of the rewatch.
   const existing = me.statusByItem.get(itemId);
-  if (existing !== "watched") {
+  if (!isEpisode && existing !== "watched") {
     const { error } = await supabase.from("user_media_status").upsert(
       {
         user_id: userId,
@@ -107,7 +151,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   return jsonSuccess({
     ok: true,
-    decided: { itemId, itemType },
+    decided: { itemId, itemType, ...(isEpisode ? { seasonNumber, episodeNumber } : {}) },
     /** Participants whose own libraries were deliberately left untouched. */
     othersNotified: session.participants.filter((p) => p.userId !== userId).length,
   });

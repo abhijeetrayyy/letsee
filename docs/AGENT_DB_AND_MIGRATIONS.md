@@ -42,16 +42,23 @@ All migration files live in **`migrations/`**. Run **in numeric order** (007 →
 | **058_letterboxd_import.sql** | Creates `import_jobs`, `import_rows`, and `owns_import_job()` (SECURITY DEFINER). Self-only RLS on both, so the importing user polls their own progress without an admin client. | ⬜ **Not yet applied** | ✅ Yes (`if not exists`, `create or replace`, `drop policy if exists`) | **Required by `/app/import`.** |
 | **059_year_in_review.sql** | Creates `year_reviews` (per-user, per-year sharing opt-in). Self-write RLS plus a public read on the flag, so one year can be published without changing `users.visibility`. | ⬜ **Not yet applied** | ✅ Yes (`if not exists`, `drop policy if exists`) | **Required by `/app/profile/[id]/year/[year]`.** |
 
-> ⚠️ **056, 057, 058 and 059 are written but have not been run against the live database.** Until they are, `/app/tonight`, `/app/import` and the Year in Review page render but cannot do their work. Apply in the Supabase SQL Editor in numeric order, then re-dump `schema_from_supabase.sql`.
+| **060_season_reviews.sql** | Creates `season_reviews` (a review anchored to a season). Mirrors the diary/public split from 009. | ⬜ **Not yet applied** | ✅ Yes (`if not exists`, `drop policy if exists`) | **Required by the season page's review block.** |
+| **061_new_episode_notification.sql** | Adds the `new_episode` notification type and `notified_episodes` (the daily job's memory, so it can't re-announce). | ⬜ **Not yet applied** | ⚠️ Constraint is drop-and-recreate; table is `if not exists` | **Required by `/api/cron/new-episodes`.** Keeps `wave` and `achievement_unlocked` in the constraint so existing rows stay valid. |
+
+> ⚠️ **056 through 061 are written but have not been run against the live database.** Until they are, `/app/tonight`, `/app/import`, Year in Review and season reviews render but cannot do their work. Apply in the Supabase SQL Editor in numeric order, then re-dump `schema_from_supabase.sql`.
 
 ### A note on `background_jobs` (024)
 
-That queue is **not functional**, and 058 deliberately does not use it:
+That queue is **not functional**, and neither 058 nor 061 uses it:
 
 - Nothing anywhere calls `registerJobHandler`, so `JOB_HANDLERS` is empty and `dispatchJob` always fails with *"No handler registered for job type"*.
-- `vercel.json` declares no `crons`, so `/api/cron/run-jobs` and `/api/cron/check-availability` are never invoked.
+- `vercel.json` now declares one cron (`/api/cron/new-episodes`), but still none for `/api/cron/run-jobs`, so the queue runner is still never invoked.
 
-Anything scheduled onto it today silently never runs. Either wire both ends up or drop the table — but don't build on it as-is.
+Anything scheduled onto it today silently never runs. `/api/cron/new-episodes` and `/api/cron/check-availability` sidestep it by being plain functions a cron route calls directly, which is the pattern to follow. Either wire the queue's two ends up or drop the table — but don't build on it as-is.
+
+**`/api/cron/check-availability` still has no schedule.** It is written, working, and never fires. Add it to `vercel.json` or delete it.
+
+⚠️ **`CRON_SECRET` must be set in production.** All three cron routes skip their auth guard when the variable is unset — convenient locally, an open endpoint in production.
 
 ---
 

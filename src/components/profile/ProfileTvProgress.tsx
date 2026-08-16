@@ -29,6 +29,8 @@ export type ProfileTvProgressItem = {
   next_season: number | null;
   next_episode: number | null;
   all_complete: boolean;
+  caught_up: boolean;
+  next_air_date: string | null;
   tv_status: string | null;
 };
 
@@ -262,6 +264,8 @@ export default function ProfileTvProgress({
                 nextSeason={item.next_season}
                 nextEpisode={item.next_episode}
                 allComplete={item.all_complete}
+                caughtUp={item.caught_up}
+                nextAirDate={item.next_air_date}
                 tvStatus={item.tv_status}
                 isOwner={isOwner}
                 onMarkNext={handleMarkNext}

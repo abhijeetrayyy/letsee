@@ -21,6 +21,13 @@ type Person = { userId: string; username: string; avatarUrl: string | null; mutu
 
 type Provider = { id: number; name: string; logoPath: string | null; heldBy: string[] };
 
+type Episode = {
+  seasonNumber: number;
+  episodeNumber: number;
+  name: string;
+  stillPath: string | null;
+};
+
 type Candidate = {
   itemId: string;
   itemType: "movie" | "tv";
@@ -34,6 +41,7 @@ type Candidate = {
   voteAverage: number;
   providers: Provider[];
   reason: string;
+  episode: Episode | null;
 };
 
 type SessionResponse = {
@@ -179,6 +187,14 @@ export default function TonightRoom({ hasProviders }: { hasProviders: boolean })
           imageUrl: pick.imageUrl ? getPosterUrl(pick.imageUrl, "w342") : null,
           genres: pick.genres,
           runtime: pick.runtime,
+          // Present only for a "next episode" answer, which logs that episode
+          // rather than just re-affirming the show as in progress.
+          ...(pick.episode
+            ? {
+                seasonNumber: pick.episode.seasonNumber,
+                episodeNumber: pick.episode.episodeNumber,
+              }
+            : {}),
         }),
       });
       const data = await res.json();
@@ -397,8 +413,9 @@ function Answer({
   onNext: () => void;
   onBack: () => void;
 }) {
+  const ep = candidate.episode;
   const meta = [
-    candidate.year,
+    ep ? `Season ${ep.seasonNumber}, Episode ${ep.episodeNumber}` : candidate.year,
     candidate.runtime ? `${candidate.runtime} min` : null,
     candidate.genres.slice(0, 2).join(", ") || null,
   ].filter(Boolean);
@@ -420,13 +437,26 @@ function Answer({
 
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-400">
-            Watch this
+            {ep ? "Pick up where you left off" : "Watch this"}
           </p>
+          {/* For an episode the show is the identity and the episode is the
+              answer, so the show name leads and the episode title sits under
+              it rather than replacing it. */}
           <h1 className="mt-2 text-2xl sm:text-3xl font-bold text-white leading-tight">
             <Link href={`/app/${candidate.itemType}/${candidate.itemId}`} className="hover:text-brand-300 transition">
               {candidate.itemName}
             </Link>
           </h1>
+          {ep && (
+            <p className="mt-1 text-lg text-surface-200">
+              <Link
+                href={`/app/tv/${candidate.itemId}/season/${ep.seasonNumber}`}
+                className="hover:text-brand-300 transition"
+              >
+                {ep.name}
+              </Link>
+            </p>
+          )}
           {meta.length > 0 && (
             <p className="mt-1.5 text-sm text-surface-400">{meta.join(" · ")}</p>
           )}
@@ -480,7 +510,7 @@ function Answer({
           className="btn-primary text-base px-7 py-3 disabled:opacity-60"
         >
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-          We&apos;re watching this
+          {ep ? "Play this episode" : "We're watching this"}
         </button>
         <button
           type="button"
@@ -510,7 +540,9 @@ function Decided({ candidate, onAgain }: { candidate: Candidate; onAgain: () => 
       </div>
       <h1 className="mt-4 text-xl font-bold text-white">Enjoy {candidate.itemName}.</h1>
       <p className="mt-2 text-sm text-surface-400">
-        It&apos;s on your list as currently watching. Rate it when you&apos;re done.
+        {candidate.episode
+          ? `S${candidate.episode.seasonNumber}E${candidate.episode.episodeNumber} is marked watched. Next one's ready when you are.`
+          : "It's on your list as currently watching. Rate it when you're done."}
       </p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <Link
