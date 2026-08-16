@@ -95,7 +95,8 @@ A **social app for deciding what to watch**: who's in the room, how long you've 
 
 ## Docs
 
-- `docs/SURPASSING_LETTERBOXD.md` — **Start here.** Product strategy, the decisions behind Tonight, and what shipped vs what's next
+- `docs/SURPASSING_LETTERBOXD.md` — **Start here.** Product strategy, the decisions behind Tonight, and what shipped (W1–W7, all done)
+- `docs/EXPRESSION_AND_DISCOVERY.md` — The next plan: one place to record an opinion, and one path to find anything
 - `docs/AGENT_DB_AND_MIGRATIONS.md` — Which migrations exist, what each does, and which are applied
 - `docs/API_AUDIT_TMDB_AND_FETCH.md` — TMDB usage, India/region options, fetch patterns
 - `docs/FEATURE_RESEARCH_AND_OPTIONS.md` — Feature gaps and options (partly superseded)
