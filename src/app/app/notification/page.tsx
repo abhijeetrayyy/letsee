@@ -125,6 +125,9 @@ function getNotificationText(n: NotificationItem): { text: string; href?: string
         href: itemId ? `/app/${itemType}/${itemId}` : undefined,
       };
     }
+    // Waves and achievements were removed from the product; these two cases
+    // stay so rows already in the table keep reading correctly instead of
+    // degrading to "New notification from X". Nothing creates them any more.
     case "achievement_unlocked": {
       const name = n.metadata?.name as string ?? "an achievement";
       const icon = n.metadata?.icon as string ?? "🏆";

@@ -17,7 +17,6 @@ import FriendCompatibility from "@components/profile/FriendCompatibility";
 import ActivityFeed from "@components/profile/ActivityFeed";
 import ProfileTvProgress from "@components/profile/ProfileTvProgress";
 import ProfileInsights from "@components/profile/ProfileInsights";
-import AchievementsShelf from "@components/profile/AchievementsShelf";
 import { getUserStats } from "@/utils/userStats";
 import ProfileHighlights from "@components/profile/ProfileHighlights";
 import ShareProfileCard from "@components/profile/ShareProfileCard";
@@ -230,10 +229,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   </div>
                 )}
                 {!isOwner && currentUserId && <FriendCompatibility profileId={user.id} />}
-              </div>
-
-              <div className="mt-4">
-                <AchievementsShelf userId={user.id} />
               </div>
 
               {/* Featured list + pinned review. Both were already fetched

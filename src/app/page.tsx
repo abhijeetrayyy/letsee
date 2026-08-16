@@ -422,8 +422,8 @@ export default function HomePage() {
                 <Link href="/app" className="block text-sm text-surface-500 hover:text-brand-400 transition-colors">
                   Home
                 </Link>
-                <Link href="/app/reel" className="block text-sm text-surface-500 hover:text-brand-400 transition-colors">
-                  Reels
+                <Link href="/app/tonight" className="block text-sm text-surface-500 hover:text-brand-400 transition-colors">
+                  Tonight
                 </Link>
               </div>
             </div>

@@ -10,7 +10,6 @@ import { getPosterUrl } from "@/utils/imageUrl";
 import Avatar from "@components/ui/Avatar";
 import FollowButton from "@components/profile/FollowButton";
 import SendMessageModal from "@components/message/sendCard";
-import WaveButton from "@components/social/WaveButton";
 
 const USERNAME_MIN = 2;
 const USERNAME_MAX = 15;
@@ -519,13 +518,6 @@ function StepPeople({ username }: { username: string | null }) {
                       onStatusChange={(s) =>
                         setFollowed((c) => (s === "following" ? c + 1 : Math.max(0, c - 1)))
                       }
-                    />
-                    {/* Wave first — it costs nothing. "Say hi" opens a
-                        message box, which is a much bigger ask. */}
-                    <WaveButton
-                      targetUserId={m.userId}
-                      targetUsername={m.username}
-                      initialWaved={false}
                     />
                     <button
                       type="button"

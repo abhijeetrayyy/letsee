@@ -5,8 +5,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { FaBars, FaXmark } from "react-icons/fa6";
 import { HiHome } from "react-icons/hi2";
-import { FcFilmReel } from "react-icons/fc";
-import { FiBell, FiMessageSquare, FiBookmark, FiHeart, FiUser, FiSearch, FiList } from "react-icons/fi";
+import { FiBell, FiMessageSquare, FiBookmark, FiHeart, FiUser, FiSearch, FiList, FiPlay } from "react-icons/fi";
 import { FaFilm, FaTv, FaUsers } from "react-icons/fa6";
 import { Film } from "lucide-react";
 import SignOut from "../buttons/signOut";
@@ -158,17 +157,21 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
           <button type="button" onClick={() => go("/app")} className={menuItemClass}>
             <HiHome className="size-5 shrink-0" /> Home
           </button>
+          {/* Top of the list on mobile, because the phone is what's in your
+              hand when the question "what do we put on" actually comes up. */}
+          {status === "ok" && (
+            <button type="button" onClick={() => go("/app/tonight")} className={menuItemClass}>
+              <FiPlay className="size-5 shrink-0 text-brand-400" /> Tonight
+            </button>
+          )}
           <button type="button" onClick={() => go("/app/search")} className={menuItemClass}>
             <FiSearch className="size-5 shrink-0" /> Search
           </button>
-          <button type="button" onClick={() => go("/app/reel")} className={menuItemClass}>
-            <FcFilmReel className="size-5 shrink-0" /> Reels
-          </button>
 
           {/* Browsing, open to everyone. These were gated behind a signed-in
-              check, so a visitor's whole menu was Home / Search / Reels and
-              then a login wall — nothing to look at before deciding to join.
-              All of these render fine signed out. */}
+              check, so a visitor's whole menu was Home / Search and then a
+              login wall — nothing to look at before deciding to join. All of
+              these render fine signed out. */}
           <div className="my-1 border-t border-surface-800" />
           <button type="button" onClick={() => go("/app/profile")} className={menuItemClass}>
             <FaUsers className="size-5 shrink-0 text-amber-400" /> Discover people

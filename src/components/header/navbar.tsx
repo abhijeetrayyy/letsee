@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FaMagnifyingGlass } from "react-icons/fa6";
-import { FiUsers, FiPlusSquare, FiFilm, FiCompass } from "react-icons/fi";
+import { FiUsers, FiPlusSquare, FiCompass, FiPlay } from "react-icons/fi";
 import { Film } from "lucide-react";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import SignOut from "../buttons/signOut";
@@ -67,9 +67,9 @@ export function LogedNavbar() {
               visible to signed-out visitors too. */}
           {/* Wrapped rather than given `hidden` directly: .nav-icon-btn sets
               display in plain CSS and would win over the utility. */}
-          {/* Reel and Clubs sit alongside People for everyone, signed in or
-              not. All three are browsable without an account, and a visitor
-              who can only see a login button has no reason to want one. */}
+          {/* Clubs sits alongside People for everyone, signed in or not. Both
+              are browsable without an account, and a visitor who can only see
+              a login button has no reason to want one. */}
           <div className="hidden sm:flex items-center gap-1">
             <Link
               href="/app/profile"
@@ -78,14 +78,6 @@ export function LogedNavbar() {
               title="Discover people"
             >
               <FiUsers className="size-4" />
-            </Link>
-            <Link
-              href="/app/reel"
-              className="nav-icon-btn"
-              aria-label="Reels"
-              title="Reels"
-            >
-              <FiFilm className="size-4" />
             </Link>
             <Link
               href="/app/clubs"
@@ -99,6 +91,17 @@ export function LogedNavbar() {
 
           {status === "ok" && user && (
             <>
+              {/* Deciding what to put on is the one thing you do *before*
+                  watching, and it's the reason to open the app at 9pm. It gets
+                  a label rather than another identical icon square. */}
+              <Link
+                href="/app/tonight"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-brand-500/40 bg-brand-500/10 px-3.5 py-1.5 text-sm font-medium text-brand-300 hover:bg-brand-500/20 hover:text-brand-200 transition-colors"
+                title="Decide what to watch tonight"
+              >
+                <FiPlay className="size-3.5" />
+                Tonight
+              </Link>
               {/* Logging what you've seen is the thing people do most, so it
                   gets a top-level slot rather than living inside a menu. */}
               <Link

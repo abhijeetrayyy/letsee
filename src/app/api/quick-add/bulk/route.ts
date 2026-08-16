@@ -134,20 +134,6 @@ export async function POST(req: NextRequest) {
     // Non-critical; stats are eventually consistent.
   }
 
-  void supabase
-    .rpc("check_achievements", { p_user_id: userId, p_action: "watch" })
-    .then(
-      ({ data }) => {
-        for (const row of data ?? []) {
-          void supabase.rpc("award_achievement", {
-            p_user_id: userId,
-            p_achievement_id: row.achievement_id,
-          });
-        }
-      },
-      () => {},
-    );
-
   return jsonSuccess({
     ok: true,
     saved: statusRows.length,
