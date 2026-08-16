@@ -75,12 +75,24 @@ export async function loadSession(
   };
 }
 
-/** The shape every Tonight route returns for the room, for a stable client. */
-export function serializeParticipants(participants: TonightParticipant[]) {
+/**
+ * The shape every Tonight route returns for the room, for a stable client.
+ *
+ * `isYou` is marked here rather than inferred client-side from array order.
+ * The caller does happen to be first — POST /api/tonight prepends them — but
+ * relying on that would be a silent trap, and the copy needs the distinction:
+ * "you haven't set your services" and "Priya hasn't set hers" are different
+ * sentences and only one of them should ever be shown to Priya.
+ */
+export function serializeParticipants(
+  participants: TonightParticipant[],
+  viewerId?: string | null,
+) {
   return participants.map((p) => ({
     userId: p.userId,
     username: p.username,
     avatarUrl: p.avatarUrl,
     hasProviders: p.providerIds.size > 0,
+    isYou: p.userId === viewerId,
   }));
 }

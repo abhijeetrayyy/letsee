@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import {
+  AlertCircle,
   ArrowRight,
   Check,
   Clock,
@@ -44,9 +45,18 @@ type Candidate = {
   episode: Episode | null;
 };
 
+type Participant = {
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+  /** False when they never set their services — the API has always sent this. */
+  hasProviders: boolean;
+  isYou: boolean;
+};
+
 type SessionResponse = {
   sessionId: number;
-  participants: { userId: string; username: string; avatarUrl: string | null }[];
+  participants: Participant[];
   pick: Candidate | null;
   alternates: Candidate[];
 };
@@ -88,6 +98,15 @@ export default function TonightRoom({ hasProviders }: { hasProviders: boolean })
   const [error, setError] = useState<string | null>(null);
 
   const people = peopleData?.people ?? [];
+
+  /**
+   * Anyone in the room who never set their services. The resolver treats them
+   * as "any provider" so they don't empty the candidate pool — which means a
+   * pick can be one they personally can't play. That's a reasonable fallback
+   * and a terrible silence, so it gets said out loud on the answer.
+   */
+  const unaccounted = (session?.participants ?? []).filter((p) => !p.hasProviders);
+
   const usernameFor = useCallback(
     (userId: string) =>
       session?.participants.find((p) => p.userId === userId)?.username ??
@@ -234,6 +253,7 @@ export default function TonightRoom({ hasProviders }: { hasProviders: boolean })
         candidate={pick}
         participantCount={session?.participants.length ?? 1}
         usernameFor={usernameFor}
+        unaccounted={unaccounted}
         busy={busy}
         error={error}
         onWatch={decide}
@@ -398,6 +418,7 @@ function Answer({
   candidate,
   participantCount,
   usernameFor,
+  unaccounted,
   busy,
   error,
   onWatch,
@@ -407,6 +428,7 @@ function Answer({
   candidate: Candidate;
   participantCount: number;
   usernameFor: (userId: string) => string | null;
+  unaccounted: Participant[];
   busy: boolean;
   error: string | null;
   onWatch: () => void;
@@ -492,6 +514,23 @@ function Answer({
                 );
               })}
             </div>
+          )}
+
+          {/* The availability caveat, stated rather than swallowed. Without
+              their services we can't know whether this is on anything they
+              have, and quietly presenting it as "streamable by the room" would
+              be the tool overstating what it knows. */}
+          {unaccounted.length > 0 && (
+            <p className="mt-3 flex items-start gap-1.5 text-xs text-amber-300/90">
+              <AlertCircle className="size-3.5 shrink-0 translate-y-px" />
+              <span>
+                {unaccounted.length === 1
+                  ? unaccounted[0].isYou
+                    ? "You haven't set your services, so we couldn't check this is on anything you have."
+                    : `${unaccounted[0].username} hasn't set their services, so we couldn't check this is on anything they have.`
+                  : `${unaccounted.length} people here haven't set their services, so we couldn't check this is on anything they have.`}
+              </span>
+            </p>
           )}
 
           {candidate.overview && (

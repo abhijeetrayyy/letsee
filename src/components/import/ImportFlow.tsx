@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, FileUp, Loader2, SkipForward, Upload } from "lucide-react";
+import { Check, FileUp, Loader2, RotateCw, SkipForward, Upload, X } from "lucide-react";
 import { getPosterUrl } from "@/utils/imageUrl";
 
 type Summary = {
@@ -27,6 +27,15 @@ type UnresolvedRow = {
 
 type Phase = "idle" | "uploading" | "processing" | "done";
 
+type ExistingJob = {
+  id: number;
+  status: string;
+  total_rows: number;
+  processed_rows: number;
+  resolved_rows: number;
+  created_at: string;
+};
+
 /**
  * The import screen.
  *
@@ -45,6 +54,7 @@ export default function ImportFlow() {
   const [unresolvedTotal, setUnresolvedTotal] = useState(0);
   const [resolving, setResolving] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [resumable, setResumable] = useState<ExistingJob | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const loadUnresolved = useCallback(async (id: number) => {
@@ -82,6 +92,47 @@ export default function ImportFlow() {
       setPhase("done");
     },
     [loadUnresolved],
+  );
+
+  /**
+   * Look for an unfinished import.
+   *
+   * The screen has always told people they could leave and come back — the
+   * server genuinely supports it, since chunks are independent and resumable
+   * by design. Nothing ever asked for the list, so the promise was empty and
+   * a half-done import was unreachable except by uploading the file again.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/account/import")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.jobs) return;
+        const unfinished = (data.jobs as ExistingJob[]).find(
+          (j) => j.status !== "completed" && j.status !== "failed" && j.processed_rows < j.total_rows,
+        );
+        if (unfinished) setResumable(unfinished);
+      })
+      .catch(() => {
+        // An unavailable list just means no resume offer; the drop zone works.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const resume = useCallback(
+    async (job: ExistingJob) => {
+      setResumable(null);
+      setJobId(job.id);
+      setProgress({
+        processed: job.processed_rows,
+        total: job.total_rows,
+        resolved: job.resolved_rows,
+      });
+      await runProcessing(job.id);
+    },
+    [runProcessing],
   );
 
   const upload = useCallback(
@@ -153,6 +204,38 @@ export default function ImportFlow() {
   if (phase === "idle") {
     return (
       <div className="space-y-6">
+        {resumable && (
+          <div className="rounded-2xl border border-brand-500/25 bg-brand-500/5 p-4">
+            <p className="text-sm font-medium text-white">You have an unfinished import</p>
+            <p className="mt-1 text-sm text-surface-400">
+              {resumable.processed_rows} of {resumable.total_rows} films matched
+              {" · started "}
+              {new Date(resumable.created_at).toLocaleDateString(undefined, {
+                day: "numeric",
+                month: "short",
+              })}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void resume(resumable)}
+                className="btn-primary text-sm px-4 py-2"
+              >
+                <RotateCw className="size-3.5" />
+                Pick up where it stopped
+              </button>
+              <button
+                type="button"
+                onClick={() => setResumable(null)}
+                className="inline-flex items-center gap-1 text-sm text-surface-500 hover:text-surface-300 transition"
+              >
+                <X className="size-3.5" />
+                Start a new one instead
+              </button>
+            </div>
+          </div>
+        )}
+
         <div
           onDragOver={(e) => {
             e.preventDefault();

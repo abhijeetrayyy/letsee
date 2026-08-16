@@ -408,13 +408,37 @@ function scoreEntry(
 
   const socialProof = Math.min(1, Math.log1p(followersWatched) / Math.log(6));
 
-  const terms = { watchlistOverlap, tasteFit, quality, socialProof };
-  const score =
-    WEIGHTS.watchlistOverlap * watchlistOverlap +
-    WEIGHTS.tasteFit * tasteFit +
-    WEIGHTS.quality * quality +
-    WEIGHTS.socialProof * socialProof;
+  /**
+   * Watchlist candidates arrive with no vote data — it only turns up at
+   * hydration, which runs *after* scoring. The shrinkage above then reads
+   * `voteCount: 0` as "nobody rated this", collapsing quality to exactly 0 and
+   * scoring every watchlist title as though it were terrible.
+   *
+   * That is the wrong reading of a missing value. Not knowing something is not
+   * evidence against it, and it was landing hardest on the candidates with the
+   * strongest prior — the ones someone deliberately put on a list.
+   *
+   * So an unknown quality is dropped from the sum and its weight redistributed
+   * across the terms we *do* know, rather than being scored as zero. A
+   * watchlist title is then ranked on overlap, taste and social proof alone,
+   * which is all the evidence that actually exists about it at this point.
+   */
+  const qualityKnown = entry.voteCount > 0;
 
+  const contributions: [number, number][] = [
+    [WEIGHTS.watchlistOverlap, watchlistOverlap],
+    [WEIGHTS.tasteFit, tasteFit],
+    [WEIGHTS.socialProof, socialProof],
+    ...(qualityKnown ? ([[WEIGHTS.quality, quality]] as [number, number][]) : []),
+  ];
+
+  const totalWeight = contributions.reduce((sum, [w]) => sum + w, 0);
+  const score =
+    totalWeight > 0
+      ? contributions.reduce((sum, [w, v]) => sum + w * v, 0) / totalWeight
+      : 0;
+
+  const terms = { watchlistOverlap, tasteFit, quality, socialProof };
   return { ...entry, score, terms, followersWatched };
 }
 

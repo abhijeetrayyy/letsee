@@ -789,8 +789,8 @@ Each of the 28 criteria in §W1–W7 was re-read and verified against the shippe
 
 ### Criteria that do NOT hold
 
-**1. W1.1 — "flag it in the result copy" when a participant has no services. NOT BUILT.**
-`serializeParticipants` sends `hasProviders`, but `SessionResponse.participants` in `TonightRoom.tsx` doesn't declare the field and nothing renders it. The "treat as any provider" fallback works; the *flag* does not exist. A room containing someone who skipped the picker gets picks that person may not be able to play, with no indication anywhere.
+**1. W1.1 — "flag it in the result copy". ~~NOT BUILT~~ → FIXED.**
+`serializeParticipants` sent `hasProviders`; the client type didn't declare it and nothing rendered it, so a room containing someone who skipped the picker got picks that person might not be able to play, silently. The answer now carries the caveat directly under the provider pills. The server also marks `isYou` per participant rather than leaving the client to infer the caller from array order — "you haven't set your services" and "Priya hasn't set hers" are different sentences and only one should ever be shown to Priya.
 
 **2. W1 — "a pick in < 2s". UNACHIEVABLE AS DESIGNED.**
 A resolve issues ~33 TMDB calls (4 discover + 14 hydrate + up to 12 episode show/season + 3 episode provider). The client enforces `MIN_GAP_MS = 120`, giving a **4.0-second floor before any network latency**. The number was written before the work and never re-derived. Either the budget or the fan-out has to change; the UI currently shows an undifferentiated spinner for the whole wait.
@@ -804,11 +804,11 @@ Decided against during the build — writing to someone else's library on a frie
 **5. W3 — "≥ 95% auto-resolution on a 500-film sample". NEVER RUN.**
 16 hand-picked titles is not a sample. Still open.
 
-**6. Scoring defect — watchlist candidates always score 0 on quality.**
-`watchlistPool` seeds `voteCount: 0` because vote data only arrives at hydration, which runs *after* scoring. So `quality = (6.5/10) × (0 / (0+50)) = 0` for every watchlist entry, while discover entries carry a real value. Watchlist titles usually still win on `watchlistOverlap` (weight 0.35), so the effect is muted — but the ranking is not the one §W1 documents, and a watchlist film competes with a fifth of the scoring surface disabled.
+**6. Scoring defect — watchlist candidates always scored 0 on quality. ~~OPEN~~ → FIXED.**
+`watchlistPool` seeds `voteCount: 0` because vote data only arrives at hydration, which runs *after* scoring — so the shrinkage read a missing value as "nobody rated this" and collapsed quality to exactly 0, landing hardest on the candidates with the strongest prior. An unknown quality is now **dropped from the sum and its weight redistributed** across the terms we do know, rather than scored as zero. Measured on a film both participants watchlisted: **0.455 → 0.569**, which correctly beats a strong discover film at 0.309.
 
-**7. UX defect — the import promises a resume it cannot deliver.**
-`ImportFlow` tells the user *"You can leave this page — reopening the import picks up where it stopped."* The server genuinely supports that: chunks are independent and `GET /api/account/import` lists unfinished jobs. **Nothing in the UI ever calls it.** Reopening `/app/import` shows a fresh drop zone; a half-finished import is unreachable except by re-uploading. The copy makes a promise the interface breaks.
+**7. UX defect — the import promised a resume it could not deliver. ~~OPEN~~ → FIXED.**
+The copy said *"reopening the import picks up where it stopped"*; the server genuinely supported it and `GET /api/account/import` listed unfinished jobs, but nothing in the UI ever called it, so a half-finished import was unreachable except by re-uploading. `/app/import` now checks for an unfinished job on mount and offers **"Pick up where it stopped"** with the real counts, or starting fresh.
 
 ### Structural issue worth knowing
 
@@ -816,4 +816,6 @@ Decided against during the build — writing to someone else's library on a frie
 
 ### Honest summary
 
-The features are built and the reasoning behind them is sound. What this audit found is that **the plan document was not kept honest as decisions changed** — four criteria describe a product that was deliberately not built — plus two real defects (the quality term, the resume promise) and one unbuilt sub-requirement (the provider flag). None are architectural; all are a day's work.
+The features are built and the reasoning behind them is sound. What this audit found is that **the plan document was not kept honest as decisions changed** — four criteria describe a product that was deliberately not built — plus two real defects and one unbuilt sub-requirement.
+
+**All three of those are now fixed** (items 1, 6, 7 above). What remains open is the documentation drift (items 3 and 4, where the criteria are wrong rather than the code), the unrun 500-film test (item 5), the sub-2s budget (item 2, which needs the fan-out reduced or the number changed), and the pre-existing `(user_id, item_id)` key collision.

@@ -42,7 +42,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   return jsonSuccess({
     sessionId: session.id,
     constraints: session.constraints,
-    participants: serializeParticipants(session.participants),
+    participants: serializeParticipants(session.participants, userId),
     decided: session.decidedItemId
       ? { itemId: session.decidedItemId, itemType: session.decidedItemType }
       : null,

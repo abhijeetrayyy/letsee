@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
   return jsonSuccess({
     sessionId,
     constraints,
-    participants: serializeParticipants(participants),
+    participants: serializeParticipants(participants, userId),
     pick,
     alternates,
   });

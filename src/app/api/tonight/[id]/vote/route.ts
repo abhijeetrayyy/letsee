@@ -77,7 +77,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   return jsonSuccess({
     sessionId: session.id,
     constraints: session.constraints,
-    participants: serializeParticipants(session.participants),
+    participants: serializeParticipants(session.participants, userId),
     pick,
     alternates,
   });
