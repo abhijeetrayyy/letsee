@@ -81,6 +81,28 @@ function yearOf(result: TmdbSearchResult): number | null {
   return Number.isInteger(year) && year > 1870 ? year : null;
 }
 
+/**
+ * Token-set overlap (Jaccard) between two normalised titles.
+ *
+ * Word *order* is what article-moving changes — "Good, Bad and Ugly, The"
+ * against "The Good, the Bad and the Ugly" is a set-identical pair and a
+ * disaster for edit distance. Word *membership* is what a different film
+ * changes: "Avengers Infinity War" and "Avengers Endgame" share one token of
+ * three. So comparing sets tolerates exactly the distortion we want to forgive
+ * and catches exactly the one we must not.
+ */
+function tokenOverlap(a: string, b: string): number {
+  const A = new Set(a.split(" ").filter(Boolean));
+  const B = new Set(b.split(" ").filter(Boolean));
+  if (A.size === 0 || B.size === 0) return 0;
+  let shared = 0;
+  for (const t of A) if (B.has(t)) shared += 1;
+  return shared / (A.size + B.size - shared);
+}
+
+/** Below this, a sole result is a different film that merely contains the query. */
+const MIN_SOLE_RESULT_OVERLAP = 0.6;
+
 function yearsAgree(a: number | null, b: number | null): boolean {
   // No year on either side is not agreement — it's absence of evidence, and
   // the title alone is not enough to accept a match.
@@ -173,10 +195,36 @@ export async function resolveTitle(
     }
   }
 
-  // 3. A single result whose year matches exactly. Unambiguous by construction:
-  //    TMDB knows of exactly one film by roughly this name from that year.
+  /**
+   * 3. A single result from the right year, *and* whose title is actually the
+   *    same title.
+   *
+   * The original rule accepted any sole result on the reasoning that TMDB
+   * "knows of exactly one film by roughly this name from that year". That
+   * reasoning is wrong: `year=` **filters** the search, so one result means one
+   * film from that year loosely matching — not an unambiguous one. A 500-film
+   * run found five wrong matches through this branch alone, every one of them
+   * a real film the user never watched:
+   *
+   *   "Spider-Man" (2003)             -> Daredevil vs. Spider-Man
+   *   "Avengers: Infinity War" (2019) -> Avengers: Endgame
+   *   "Zootopia" (2017)               -> Return to Zootopia
+   *   "Ghost Rider" (2008)            -> Ghost Rider 5 Back To Basics
+   *
+   * Each is the query embedded in a longer, different title. Token overlap
+   * rejects all four while still accepting the reordering this branch exists
+   * for — "Good, Bad and Ugly, The" is set-identical to TMDB's phrasing.
+   */
   if (results.length === 1 && year !== null && yearOf(results[0]) === year) {
-    return { status: "resolved", match: toResolved(results[0], genreNameById, "sole-result") };
+    const sole = results[0];
+    const best = Math.max(
+      ...[sole.title, sole.original_title, sole.name]
+        .filter((t): t is string => !!t)
+        .map((t) => tokenOverlap(normalizeTitle(t), wanted)),
+    );
+    if (best >= MIN_SOLE_RESULT_OVERLAP) {
+      return { status: "resolved", match: toResolved(sole, genreNameById, "sole-result") };
+    }
   }
 
   // Otherwise hand the top few back as suggestions for a one-tap manual match.
