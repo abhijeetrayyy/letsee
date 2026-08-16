@@ -29,6 +29,35 @@ Or use the npm script (same as above, assumes project is linked): **`npm run db:
 
 Save the output where you want (e.g. `schema_from_supabase.sql` in project root or `docs/`). You can then compare it to `schema.sql` or replace `schema.sql` after review.
 
+## Option A2: Native pg_dump — no Docker (recommended on this machine)
+
+`npx supabase db dump` runs pg_dump **inside a Docker container**, so on a
+machine without Docker Desktop it fails with `LegacyDockerRunError` no matter
+which of `--linked`, `--db-url` or `--password` you pass. Linking and
+`supabase login` are not the problem — the dump step itself needs Docker.
+
+This machine already has a native pg_dump from Homebrew's `libpq`, which is not
+on `PATH` by default:
+
+```bash
+/opt/homebrew/opt/libpq/bin/pg_dump --version
+```
+
+Dump straight from it, skipping the CLI and Docker entirely. Project ref for
+`letsee_2026` is `schsrkmuheekofxewioa`, region `ap-northeast-2`:
+
+```bash
+/opt/homebrew/opt/libpq/bin/pg_dump "postgresql://postgres.schsrkmuheekofxewioa:YOUR_PASSWORD@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres" --schema-only --schema=public --no-owner --no-privileges -f schema_from_supabase.sql
+```
+
+If the password contains `@ : / ?` or `#`, percent-encode it, or it will break
+the URI parse.
+
+> Never paste a connection string containing a live password into a chat, an
+> issue, or a commit. If one does get exposed, rotate it in
+> **Project Settings → Database → Reset database password** — that string is the
+> `postgres` superuser and grants full read/write/DDL over every table.
+
 ## Option B: Dump using database URL (no link)
 
 If you prefer not to link, use the **database connection string** from Supabase:
