@@ -15,7 +15,8 @@ type ActorProfile = {
 type NotificationItem = {
   id: number;
   notification_type: string;
-  actor_id: string;
+  /** Null for system notifications like new_episode — nobody acted. */
+  actor_id: string | null;
   actor: ActorProfile;
   target_type: string | null;
   target_id: number | null;
