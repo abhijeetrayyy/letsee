@@ -10,6 +10,7 @@ import ContinueWatchingProgress from "@components/tv/ContinueWatchingProgress";
 import FollowingFeed from "@components/feed/FollowingFeed";
 import AiringSoon from "@components/home/AiringSoon";
 import PeopleYouMayKnow from "@components/home/PeopleYouMayKnow";
+import PopularReviews from "@components/home/PopularReviews";
 import { Film, TrendingUp, Compass, Flame, Play } from "lucide-react";
 
 /**
@@ -151,6 +152,12 @@ export default async function Home() {
                 </div>
                 <FollowingFeed />
               </section>
+
+              {/* Worth reading. Renders nothing when there's nothing to
+                  show, so it costs the page no height until the community
+                  produces something — but it's the reason writing a review
+                  here has any distribution at all. */}
+              <PopularReviews />
 
               {/* Trending Now */}
               <section>

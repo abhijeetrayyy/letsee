@@ -1,6 +1,6 @@
 # Surpassing Letterboxd — What Needs To Be Done
 
-> **Status:** W1 (Tonight), W2 (cuts), W3 (import), W4 (Year in Review), W5 (rating scale) and W6 (TV) built — see §15. W7 not started.
+> **Status:** All seven workstreams built — see §15. Six migrations (056–062) are written but **not yet applied**.
 > **Written:** 2026-08-16, against `main` @ `faeb123`. Decisions resolved and W1 built the same day.
 > **Supersedes the benchmark table in** `COMPLETE_AUDIT_AND_ROADMAP.md` §2, which measures the wrong thing (see §1).
 
@@ -677,6 +677,35 @@ This needs a real season fetch. `/api/continue-watching` computes its next episo
 > The build caught what typecheck couldn't: an automated import insertion put `import` above `"use client"` in four files, which TypeScript accepts and Next rejects. Worth remembering that `tsc --noEmit` is not a substitute for `next build` on this codebase.
 
 **Not verified:** rating something end-to-end as a signed-in user, and how the notice reads to someone with a long pre-existing history.
+
+### W7 — Reviews get an audience, as built
+
+Closes gap #1 from §1 — the one the whole document opens with.
+
+| Piece | File |
+|---|---|
+| Like notification + ranking RPCs | `migrations/062_reviews_get_an_audience.sql` |
+| Popularity ranking | `src/app/api/reviews/route.ts` |
+| Cross-title discovery | `src/app/api/reviews/popular/route.ts` |
+| Home row | `src/components/home/PopularReviews.tsx` |
+| Permalinks + Reply on title pages | `src/components/movie/PublicReviews.tsx` |
+| OG metadata | `src/app/app/review/[id]/page.tsx` |
+| Like notification text + link | `src/app/app/notification/page.tsx` |
+
+**The finding that shaped this: liking a review notified nobody.** The `like` notification type has been in the enum since 027 with *nothing anywhere creating it* — `reactions` (026) has no trigger and the toggle route sends nothing. So you could write something, someone could like it, and you would never find out. That isn't a missing feature, it's the loop being severed at its one critical point, and it explains the empty review column better than any UI shortcoming.
+
+**Reviews now rank by reactions, not recency.** Sorting by recency puts the newest review above the best one, which guarantees good writing sinks — and a review that sinks is a review nobody had a reason to write. `sort=recent` remains for anywhere that genuinely wants a timeline. Popularity needs an aggregate over `reactions`, which PostgREST can't order by, hence the `reviews_for_title` RPC.
+
+**Two deliberate scoping calls:**
+
+- **`popular_reviews` is public-profiles-only**, not `profile_visible_to_viewer`. This is a shared discovery surface shown to strangers and signed-out visitors; a row that appears for some viewers and not others is the wrong shape for "popular this week", and it would leak followers-only writing into a public list. The consequence is a genuinely shared-cacheable response — `/api/reviews` can't be, since it embeds whether *this* viewer reacted.
+- **OG metadata re-checks visibility itself.** `generateMetadata` runs before the component's gate and is served to crawlers with no session, so it only ever describes a review a stranger may read; anything else falls back to a title revealing nothing.
+
+**Still deliberately not doing:** rich text editor, spoiler tags, review drafts. Those are polish on a loop that, until this migration runs, still doesn't exist.
+
+**Verified:** clean build and typecheck; `/api/reviews/popular` returns `{reviews: []}` and `/api/reviews` falls back to the recency query with 062 unapplied — the whole feature degrades to today's behaviour rather than breaking; the home row correctly renders *nothing* rather than an empty heading; metadata for a nonexistent review falls back to `Review · LetSee`; home renders with no overflow and every app request 200.
+
+**Not verified:** the like→notification trigger, the popularity ordering, and a shared review's OG preview — all need 062 applied and real reviews with real reactions.
 
 ### Follow-ups this build opened
 

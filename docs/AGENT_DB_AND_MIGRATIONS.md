@@ -45,7 +45,9 @@ All migration files live in **`migrations/`**. Run **in numeric order** (007 →
 | **060_season_reviews.sql** | Creates `season_reviews` (a review anchored to a season). Mirrors the diary/public split from 009. | ⬜ **Not yet applied** | ✅ Yes (`if not exists`, `drop policy if exists`) | **Required by the season page's review block.** |
 | **061_new_episode_notification.sql** | Adds the `new_episode` notification type and `notified_episodes` (the daily job's memory, so it can't re-announce). | ⬜ **Not yet applied** | ⚠️ Constraint is drop-and-recreate; table is `if not exists` | **Required by `/api/cron/new-episodes`.** Keeps `wave` and `achievement_unlocked` in the constraint so existing rows stay valid. |
 
-> ⚠️ **056 through 061 are written but have not been run against the live database.** Until they are, `/app/tonight`, `/app/import`, Year in Review and season reviews render but cannot do their work. Apply in the Supabase SQL Editor in numeric order, then re-dump `schema_from_supabase.sql`.
+| **062_reviews_get_an_audience.sql** | Adds `notify_reaction()` + trigger (liking notified nobody), and the `reviews_for_title` / `popular_reviews` RPCs that rank reviews by reactions. | ⬜ **Not yet applied** | ✅ Yes (`create or replace`, `drop trigger if exists`) | Reviews fall back to recency and the home row hides itself until this runs. |
+
+> ⚠️ **056 through 062 are written but have not been run against the live database.** Until they are, `/app/tonight`, `/app/import`, Year in Review, season reviews and review ranking render but cannot do their work. Apply in the Supabase SQL Editor in numeric order, then re-dump `schema_from_supabase.sql`.
 
 ### A note on `background_jobs` (024)
 

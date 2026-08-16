@@ -83,7 +83,21 @@ function getNotificationText(n: NotificationItem): { text: string; href?: string
         : n.metadata?.target_type === "rating" ? "rating"
         : n.metadata?.target_type === "list" ? "list"
         : "content";
-      return { text: `${username} liked your ${target}` };
+      const name = n.metadata?.item_name as string | undefined;
+      // Nothing created these until 062 added the trigger on `reactions`, so
+      // older rows may have no metadata to link with — hence the fallbacks.
+      const href =
+        n.metadata?.target_type === "review" && n.target_id
+          ? `/app/review/${n.target_id}`
+          : n.metadata?.target_type === "list" && n.target_id
+            ? `/app/lists/${n.target_id}`
+            : undefined;
+      return {
+        text: name
+          ? `${username} liked your ${target} of ${name}`
+          : `${username} liked your ${target}`,
+        href,
+      };
     }
     case "friend_watched": {
       const name = n.metadata?.item_name as string ?? "";
