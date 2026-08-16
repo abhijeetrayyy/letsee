@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
   }
 
   const participants = await loadParticipants(supabase, participantIds);
-  const { pick, alternates } = await resolveTonight(
+  const { pick, alternates, elapsedMs } = await resolveTonight(
     supabase,
     participants,
     constraints,
@@ -106,5 +106,6 @@ export async function POST(req: NextRequest) {
     participants: serializeParticipants(participants, userId),
     pick,
     alternates,
+    elapsedMs,
   });
 }

@@ -67,7 +67,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (vote === "out") rejected.add(itemId);
   else rejected.delete(itemId);
 
-  const { pick, alternates } = await resolveTonight(
+  const { pick, alternates, elapsedMs } = await resolveTonight(
     supabase,
     session.participants,
     session.constraints,
@@ -80,5 +80,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     participants: serializeParticipants(session.participants, userId),
     pick,
     alternates,
+    elapsedMs,
   });
 }

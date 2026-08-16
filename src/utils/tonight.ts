@@ -34,12 +34,32 @@ type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
-/** Candidates scored before we spend a TMDB detail call on any of them. */
-const HYDRATE_LIMIT = 14;
+/**
+ * ── The time budget ─────────────────────────────────────────────────────────
+ * The TMDB client spaces request *starts* 120ms apart (MIN_GAP_MS), so wall
+ * time is set by the number of calls, not by concurrency: N calls cost at
+ * least N × 120ms however many run at once. The original design issued ~33
+ * calls per resolve — a 4-second floor before any network latency — against a
+ * stated budget of two seconds. Concurrency could never have fixed that.
+ *
+ * Everything below exists to cut the call count:
+ *
+ *   - one discover page per media type, not two (40 candidates is already far
+ *     more than the five that ever reach the screen)
+ *   - hydrate in waves until enough survive, instead of hydrating every
+ *     ranked candidate up front
+ *   - two in-progress shows considered, not six
+ *   - episode providers fetched only for the answer, not for every contender
+ */
+
+/** Candidates hydrated per wave. One wave normally suffices. */
+const HYDRATE_WAVE = 6;
+/** Hard ceiling across all waves, so a pathological pool can't blow the budget. */
+const HYDRATE_MAX = 12;
 /** Alternates returned alongside the pick, for "Next" without a round trip. */
 const ALTERNATE_COUNT = 4;
-/** Discover pages per media type. Two is ~40 titles, enough to rank over. */
-const DISCOVER_PAGES = 2;
+/** Discover pages per media type. */
+const DISCOVER_PAGES = 1;
 
 const GENRE_NAME_BY_ID = new Map<number, string>(
   GenreList.genres.map((g: { id: number; name: string }) => [g.id, g.name]),
@@ -655,45 +675,58 @@ function scoreEpisode(
 }
 
 /**
+ * Streaming providers for a show, for display only.
+ *
+ * Split out and called once — for the answer — rather than for every episode
+ * contender. Episode picks never gate on availability (see below), so fetching
+ * logos for candidates that lose was pure latency against a two-second budget.
+ */
+async function fetchShowProviders(
+  showId: string,
+  participants: TonightParticipant[],
+  region: string,
+): Promise<TonightProvider[]> {
+  const apiKey = process.env.TMDB_API_KEY;
+  if (!apiKey) return [];
+
+  try {
+    const data = await fetchTmdbJson<{
+      results?: Record<
+        string,
+        { flatrate?: { provider_id: number; provider_name: string; logo_path?: string }[] }
+      >;
+    }>(`${TMDB_BASE}/tv/${showId}/watch/providers?api_key=${apiKey}`, { timeoutMs: 6000 });
+
+    const providers = (data.results?.[region]?.flatrate ?? []).map((p) => ({
+      id: p.provider_id,
+      name: p.provider_name,
+      logoPath: p.logo_path ?? null,
+      heldBy: participants.filter((x) => x.providerIds.has(p.provider_id)).map((x) => x.userId),
+    }));
+    providers.sort((a, b) => b.heldBy.length - a.heldBy.length);
+    return providers;
+  } catch {
+    // Availability is decoration here, not a gate — carry on without it.
+    return [];
+  }
+}
+
+/**
  * Turn an episode pick into a candidate.
  *
- * Providers are attached when TMDB knows them, but unlike a film this does
- * **not** gate on availability. Someone who is eight episodes into a series
- * has already demonstrated they can watch it — more convincingly than a
- * provider list can, since it misses owned copies, regional deals and
- * whatever they were using before. Refusing to surface their next episode
- * because TMDB has no row for it would be the tool overruling the evidence.
+ * Deliberately does **no** network work. Unlike a film this does not gate on
+ * availability: someone eight episodes into a series has already demonstrated
+ * they can watch it — more convincingly than a provider list can, since that
+ * misses owned copies, regional deals and whatever they were using before.
+ * Refusing to surface their next episode because TMDB has no row for it would
+ * be the tool overruling the evidence. Providers are attached to the answer
+ * afterwards, purely to show where it is.
  */
-async function episodeToCandidate(
+function episodeToCandidate(
   pick: EpisodePick,
   participants: TonightParticipant[],
-  constraints: TonightConstraints,
   score: number,
-): Promise<TonightCandidate> {
-  const apiKey = process.env.TMDB_API_KEY;
-  let providers: TonightProvider[] = [];
-
-  if (apiKey) {
-    try {
-      const data = await fetchTmdbJson<{
-        results?: Record<
-          string,
-          { flatrate?: { provider_id: number; provider_name: string; logo_path?: string }[] }
-        >;
-      }>(`${TMDB_BASE}/tv/${pick.showId}/watch/providers?api_key=${apiKey}`, { timeoutMs: 6000 });
-
-      providers = (data.results?.[constraints.region]?.flatrate ?? []).map((p) => ({
-        id: p.provider_id,
-        name: p.provider_name,
-        logoPath: p.logo_path ?? null,
-        heldBy: participants.filter((x) => x.providerIds.has(p.provider_id)).map((x) => x.userId),
-      }));
-      providers.sort((a, b) => b.heldBy.length - a.heldBy.length);
-    } catch {
-      // Availability is decoration here, not a gate — carry on without it.
-    }
-  }
-
+): TonightCandidate {
   return {
     itemId: pick.showId,
     itemType: "tv",
@@ -705,7 +738,7 @@ async function episodeToCandidate(
     genres: pick.genres,
     runtime: pick.runtime,
     voteAverage: 0,
-    providers,
+    providers: [],
     reason: buildEpisodeReason(pick, participants),
     episode: {
       seasonNumber: pick.seasonNumber,
@@ -722,6 +755,16 @@ async function episodeToCandidate(
 export type ResolveResult = {
   pick: TonightCandidate | null;
   alternates: TonightCandidate[];
+  /**
+   * Wall-clock milliseconds for the whole resolve.
+   *
+   * Returned because the two-second budget was asserted for weeks while the
+   * design guaranteed four — a number nobody could see was a number nobody
+   * checked. Deployment region dominates it: this app pins `iad1` precisely
+   * because TMDB is slow and flaky from some regions, so the figure is only
+   * meaningful measured where it actually runs.
+   */
+  elapsedMs: number;
 };
 
 /**
@@ -736,7 +779,8 @@ export async function resolveTonight(
   constraints: TonightConstraints,
   rejected: Set<string>,
 ): Promise<ResolveResult> {
-  if (participants.length === 0) return { pick: null, alternates: [] };
+  const startedAt = Date.now();
+  if (participants.length === 0) return { pick: null, alternates: [], elapsedMs: 0 };
 
   const [watchlist, discovered, episodePicks] = await Promise.all([
     watchlistPool(supabase, participants, constraints),
@@ -772,37 +816,61 @@ export async function resolveTonight(
     return true;
   });
 
-  if (eligible.length === 0) return { pick: null, alternates: [] };
+  if (eligible.length === 0) {
+    return { pick: null, alternates: [], elapsedMs: Date.now() - startedAt };
+  }
 
   const proof = await socialProofCounts(supabase, participants, eligible.map((e) => e.itemId));
 
   const scored = eligible
     .map((entry) => scoreEntry(entry, participants, proof.get(entry.itemId) ?? 0))
     .sort((a, b) => b.score - a.score)
-    .slice(0, HYDRATE_LIMIT);
+    // Keep a little more than HYDRATE_MAX so a later wave has somewhere to go.
+    .slice(0, HYDRATE_MAX + HYDRATE_WAVE);
 
-  const hydrated = (
-    await Promise.all(scored.map((entry) => hydrate(entry, participants, constraints)))
-  ).filter((c): c is TonightCandidate => c !== null);
+  /**
+   * Hydrate in waves rather than all at once.
+   *
+   * Discover already applied `with_watch_providers` and `with_runtime.lte`
+   * server-side, so those candidates are known-available before we touch them
+   * — hydration is mostly fetching the runtime and provider logos we *show*.
+   * Only watchlist entries can actually fail the gate here, so the first wave
+   * almost always yields enough and the rest are never fetched.
+   */
+  const want = 1 + ALTERNATE_COUNT;
+  const hydrated: TonightCandidate[] = [];
+  for (let i = 0; i < scored.length && i < HYDRATE_MAX && hydrated.length < want; i += HYDRATE_WAVE) {
+    const wave = await Promise.all(
+      scored.slice(i, i + HYDRATE_WAVE).map((entry) => hydrate(entry, participants, constraints)),
+    );
+    for (const c of wave) if (c) hydrated.push(c);
+  }
 
   // Episodes are built alongside films and then ranked against them on the
   // same scale, rather than being appended after — the single answer slot has
   // to be winnable by whichever is genuinely the better call tonight.
-  const episodes = await Promise.all(
-    episodePicks
-      .map((pick) => ({ pick, score: scoreEpisode(pick, participants, constraints.maxRuntime) }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3)
-      .map(({ pick, score }) => episodeToCandidate(pick, participants, constraints, score)),
-  );
+  // Episode candidates are built without provider lookups — they don't gate on
+  // availability anyway, so paying for logos on contenders that lose is pure
+  // latency. Only the answer gets decorated, below.
+  const episodes = episodePicks
+    .map((pick) => ({ pick, score: scoreEpisode(pick, participants, constraints.maxRuntime) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(({ pick, score }) => episodeToCandidate(pick, participants, score));
 
   const all = [...hydrated, ...episodes].sort((a, b) => b.score - a.score);
 
-  if (all.length === 0) return { pick: null, alternates: [] };
+  if (all.length === 0) return { pick: null, alternates: [], elapsedMs: Date.now() - startedAt };
+
+  const pick = all[0];
+  if (pick.episode) {
+    pick.providers = await fetchShowProviders(pick.itemId, participants, constraints.region);
+  }
 
   return {
-    pick: all[0],
+    pick,
     alternates: all.slice(1, 1 + ALTERNATE_COUNT),
+    elapsedMs: Date.now() - startedAt,
   };
 }
 

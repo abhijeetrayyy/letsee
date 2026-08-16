@@ -792,8 +792,24 @@ Each of the 28 criteria in §W1–W7 was re-read and verified against the shippe
 **1. W1.1 — "flag it in the result copy". ~~NOT BUILT~~ → FIXED.**
 `serializeParticipants` sent `hasProviders`; the client type didn't declare it and nothing rendered it, so a room containing someone who skipped the picker got picks that person might not be able to play, silently. The answer now carries the caveat directly under the provider pills. The server also marks `isYou` per participant rather than leaving the client to infer the caller from array order — "you haven't set your services" and "Priya hasn't set hers" are different sentences and only one should ever be shown to Priya.
 
-**2. W1 — "a pick in < 2s". UNACHIEVABLE AS DESIGNED.**
-A resolve issues ~33 TMDB calls (4 discover + 14 hydrate + up to 12 episode show/season + 3 episode provider). The client enforces `MIN_GAP_MS = 120`, giving a **4.0-second floor before any network latency**. The number was written before the work and never re-derived. Either the budget or the fan-out has to change; the UI currently shows an undifferentiated spinner for the whole wait.
+**2. W1 — "a pick in < 2s". ~~UNACHIEVABLE AS DESIGNED~~ → FAN-OUT CUT 33 → 13.**
+A resolve issued ~33 TMDB calls. The client spaces request *starts* 120ms apart, so wall time is set by call count and not by concurrency: a **4.0-second floor before any network latency**. Concurrency could never have fixed it.
+
+Four cuts, all resting on one observation — **discover already applies `with_watch_providers` and `with_runtime.lte` server-side**, so those candidates are known-available before hydration and hydration is mostly fetching what we *display*:
+
+| | Was | Now |
+|---|---|---|
+| Discover pages per type | 2 | 1 |
+| Hydration | all 14 ranked | waves of 6, stop once 5 survive |
+| In-progress shows examined | 6 | 2 |
+| Episode provider lookups | 3 contenders | the answer only |
+| **Typical total** | **33 → 3.96s floor** | **13 → 1.56s floor** |
+
+Film-only room: **8 calls, 0.96s floor**. Worst case (every hydration wave): 19 calls, 2.28s.
+
+**Measured, and the honest caveat:** 8 real calls through the throttled client took **2,389ms from this machine** — ~300ms each, when the throttle only accounts for 120ms. Network RTT dominates here, which is the known TMDB-from-India problem `API_AUDIT_TMDB_AND_FETCH.md` documents and the reason `vercel.json` pins `iad1`. So sub-2s is now *plausible in production* and **not verified** — the figure is only meaningful measured where it runs.
+
+Rather than assert it again, `resolveTonight` now returns `elapsedMs` and all three routes surface it. A number nobody could see was a number nobody checked.
 
 **3. W1 — "every pick is genuinely streamable". CONTRADICTED BY W6.**
 Episode picks deliberately bypass the availability gate (`episodeToCandidate` attaches providers but never filters on them). Both decisions are defensible in isolation; the criterion was never reconciled with the later one.
@@ -818,4 +834,4 @@ The copy said *"reopening the import picks up where it stopped"*; the server gen
 
 The features are built and the reasoning behind them is sound. What this audit found is that **the plan document was not kept honest as decisions changed** — four criteria describe a product that was deliberately not built — plus two real defects and one unbuilt sub-requirement.
 
-**All three of those are now fixed** (items 1, 6, 7 above). What remains open is the documentation drift (items 3 and 4, where the criteria are wrong rather than the code), the unrun 500-film test (item 5), the sub-2s budget (item 2, which needs the fan-out reduced or the number changed), and the pre-existing `(user_id, item_id)` key collision.
+**Items 1, 2, 6 and 7 are now fixed.** What remains open is the documentation drift (items 3 and 4, where the criteria are wrong rather than the code), the unrun 500-film test (item 5), and the pre-existing `(user_id, item_id)` key collision. The timing fix cut the fan-out by 60% and made the result observable, but confirming sub-2s needs one production measurement.

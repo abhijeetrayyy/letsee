@@ -32,7 +32,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     return jsonError("Session not found", 404);
   }
 
-  const { pick, alternates } = await resolveTonight(
+  const { pick, alternates, elapsedMs } = await resolveTonight(
     supabase,
     session.participants,
     session.constraints,
@@ -48,5 +48,6 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       : null,
     pick,
     alternates,
+    elapsedMs,
   });
 }

@@ -28,8 +28,14 @@ import type { TonightParticipant } from "@/utils/tonight";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
-/** Shows considered per resolve. Each costs a show fetch plus a season fetch. */
-const MAX_SHOWS = 6;
+/**
+ * Shows considered per resolve. Each costs a show fetch plus a season fetch, so
+ * this is the single biggest lever on the time budget. Two is enough: the list
+ * is sorted by how much of the room is watching, and a room rarely has more
+ * than a couple of jointly in-progress shows. Both fetches are cached for 5
+ * minutes, so repeat resolves in one sitting are nearly free.
+ */
+const MAX_SHOWS = 2;
 
 export type EpisodePick = {
   showId: string;
