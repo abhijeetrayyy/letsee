@@ -66,7 +66,12 @@ export default function ShareProfileCard({
         Share profile
       </button>
 
-      {/* Hidden render target for export */}
+      {/* Hidden render target for export.
+          Every colour in here is inline rgba rather than a Tailwind
+          `/opacity` class. Tailwind v4 compiles `bg-white/5` to
+          `oklab(... / 0.05)`, and html2canvas 1.4 throws outright on any
+          unsupported colour function — so a single such class anywhere in this
+          subtree makes the export button silently fail. */}
       <div className="fixed -left-[9999px] top-0" aria-hidden>
         <div
           ref={cardRef}
@@ -75,7 +80,8 @@ export default function ShareProfileCard({
         >
           {/* Header */}
           <div className="flex items-center gap-5 mb-8">
-            <div className="w-20 h-20 rounded-2xl overflow-hidden bg-surface-800 border-2 border-brand-500/30 flex-shrink-0">
+            <div className="w-20 h-20 rounded-2xl overflow-hidden bg-surface-800 border-2 flex-shrink-0"
+              style={{ borderColor: "rgba(34,197,94,0.3)" }}>
               {avatarUrl ? (
                 <img src={avatarUrl} alt={username} className="w-full h-full object-cover" />
               ) : (
@@ -101,7 +107,7 @@ export default function ShareProfileCard({
               { label: "Followers", value: stats.followersCount },
               { label: "Following", value: stats.followingCount },
             ].map((s) => (
-              <div key={s.label} className="rounded-xl bg-white/5 p-4 text-center">
+              <div key={s.label} className="rounded-xl p-4 text-center" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
                 <span className="block text-2xl font-bold text-white tabular-nums">{formatNum(s.value)}</span>
                 <span className="text-xs text-surface-500 uppercase tracking-wider">{s.label}</span>
               </div>
@@ -134,7 +140,8 @@ export default function ShareProfileCard({
           {topGenres.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-6">
               {topGenres.map((g) => (
-                <span key={g} className="px-3 py-1.5 rounded-full bg-brand-500/10 text-brand-300 text-sm border border-brand-500/20">
+                <span key={g} className="px-3 py-1.5 rounded-full text-brand-300 text-sm border"
+                  style={{ backgroundColor: "rgba(34,197,94,0.1)", borderColor: "rgba(34,197,94,0.2)" }}>
                   {g}
                 </span>
               ))}
@@ -142,7 +149,7 @@ export default function ShareProfileCard({
           )}
 
           {/* Footer */}
-          <p className="text-sm text-surface-500 text-center border-t border-white/5 pt-4">
+          <p className="text-sm text-surface-500 text-center border-t pt-4" style={{ borderTopColor: "rgba(255,255,255,0.05)" }}>
             letsee.app · The social film journal
           </p>
         </div>

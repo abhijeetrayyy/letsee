@@ -1,6 +1,6 @@
 # Surpassing Letterboxd — What Needs To Be Done
 
-> **Status:** W1 (Tonight), W2 (cuts) and W3 (import) built — see §15. W4–W7 not started.
+> **Status:** W1 (Tonight), W2 (cuts), W3 (import) and W4 (Year in Review) built — see §15. W5–W7 not started.
 > **Written:** 2026-08-16, against `main` @ `faeb123`. Decisions resolved and W1 built the same day.
 > **Supersedes the benchmark table in** `COMPLETE_AUDIT_AND_ROADMAP.md` §2, which measures the wrong thing (see §1).
 
@@ -578,6 +578,40 @@ W1 is built and typechecks; `npm run build:check` is clean and `/app/tonight` is
 
 **New dependency:** `fflate` (8KB, zero-dep) for ZIP extraction. The CSV parser is hand-written rather than a second dependency, because the one hard part is small and well-defined: a review field legitimately contains commas, quotes *and newlines*, so splitting on lines before commas silently corrupts every multi-paragraph review.
 
+### W4 — Year in Review, as built
+
+**`/app/profile/[id]/year/[year]`.** A fixed 540×960 card that exports at exactly **1080×1920** — story size, no resampling.
+
+| Piece | File |
+|---|---|
+| Sharing opt-in schema | `migrations/059_year_in_review.sql` |
+| Year-scoped data | `src/utils/yearInReview.ts` |
+| The card | `src/components/profile/YearInReviewCard.tsx` |
+| Page + access gate | `src/app/app/profile/[id]/year/[year]/page.tsx` |
+| Publish toggle | `src/app/api/year-review/route.ts` |
+| Entry point | Stats section of `src/app/app/profile/[id]/page.tsx` |
+
+**No hours, and no substitute for hours.** §W4 originally said to use "real `runtime_minutes` where known" — but `054_remove_hours.sql` dropped every runtime column in the schema, arguing that *a total nobody can verify is worse than no total*. A year-in-review card is exactly where the pull toward one big impressive fabricated number is strongest, so the card shows counts of rows the user actually created and nothing else. Films and shows also stay separate rather than being summed into "titles", which would make a series equal to a feature.
+
+**Per-year publishing, not profile-wide.** A followers-only profile is followers-only for a reason, and "make your whole account public to share one card" is not an acceptable price. `year_reviews` holds one flag per (user, year); the page reads through the admin client **only after** checking it. That bypass is the narrowest possible: it exists because the flag is the user's own explicit choice, checked before a single row is read.
+
+**The share hook is the line that names someone else** — *"You and @jojo both watched 14 films this year, including Sicario"* — because that makes posting it a message to a person rather than a statistic about yourself. Restricted to people the user follows: overlap with a stranger is trivia.
+
+**A real bug caught by verifying the export**, which is the reason this feature needed more than a build check:
+
+> `html2canvas` 1.4 throws `Attempting to parse an unsupported color function "oklab"`, and **Tailwind v4 compiles every `/opacity` modifier and every gradient to `oklab(…)`**. A single `bg-white/5` anywhere inside a capture target makes the export fail outright.
+
+The card's own gradient now uses inline `rgba()`. **The pre-existing `ShareProfileCard` had the same bug** — five `/opacity` classes inside its capture target, meaning its "Save as image" button has never worked. Fixed the same way. Both were confirmed by measuring the produced canvas, not by eye:
+
+| Card | Before | After |
+|---|---|---|
+| `YearInReviewCard` | threw on `oklab` | **OK 1080×1920** |
+| `ShareProfileCard` | threw on `oklab` | **OK 1600×1460** |
+
+**Verified:** clean production build and typecheck; both exports measured to produce real canvases at the right sizes; zero `oklab`/`color-mix` values left anywhere in either capture subtree; the card renders correctly with sample data (screenshotted via a temporary harness, since removed); the access gate shows "Not shared" to a non-owner and degrades correctly even with migration 059 unapplied; out-of-range years and unknown usernames 404.
+
+**Not verified: the owner's live path** — real year data needs migration 059 applied and an account.
+
 ### Follow-ups this build opened
 
 1. **Group-apply with consent** (Q6 above) — the biggest gap between what shipped and what §W1 described.
@@ -586,7 +620,8 @@ W1 is built and typechecks; `npm run build:check` is clean and `/app/tonight` is
 4. **No rate limit on session creation.** Each resolve costs up to 4 discover calls plus 14 detail calls; TMDB throttling absorbs it, but a loop would be expensive.
 5. **Run the real 500-film resolution test.** The W3 acceptance criterion (>=95%) is unverified; 16 hand-picked titles is not a sample. Needs a genuine large export.
 6. **`background_jobs` (024) is dead infrastructure.** No registered handlers, no cron entries in `vercel.json`. Anything scheduled onto it silently never runs. Wire both ends up or drop the table.
-7. **The home page has no signed-out Tonight affordance.** The banner is gated on `isLoggedIn`, so a visitor never learns the product's main idea exists. Cheapest fix is a signed-out variant that links to `/app/tonight`, which already explains itself and offers sign-in.
+7. **Audit every other html2canvas target for `oklab`.** The Tailwind-v4-vs-html2canvas incompatibility is a whole class of bug, not two instances. Anything added to a capture target later will break it silently — worth a lint rule or a shared `<ExportableCard>` wrapper that forbids opacity utilities.
+8. **The home page has no signed-out Tonight affordance.** The banner is gated on `isLoggedIn`, so a visitor never learns the product's main idea exists. Cheapest fix is a signed-out variant that links to `/app/tonight`, which already explains itself and offers sign-in.
 
 ---
 

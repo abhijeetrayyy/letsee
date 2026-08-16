@@ -39,10 +39,10 @@ All migration files live in **`migrations/`**. Run **in numeric order** (007 →
 | **055_drop_default_tv_status.sql** | Drops `users.default_tv_status` and its check constraint (`users_default_tv_status_check`, from 022). | ✅ Yes | ✅ Yes (`drop ... if exists`) | Irreversible. Nothing read the column; all users held the default `watching`. Run after removing the setting from the UI and the settings route. |
 | **056_user_providers.sql** | Creates `user_providers` (TMDB provider ids per user) + `users.watch_region`; RLS self-write, `profile_visible_to_viewer` read. | ⬜ **Not yet applied** | ✅ Yes (`if not exists`, `drop policy if exists`) | **Required by `/app/tonight`.** Run before 057. |
 | **057_watch_sessions.sql** | Creates `watch_sessions`, `watch_session_participants`, `watch_session_votes`, and `is_session_participant()` (SECURITY DEFINER, same anti-recursion pattern as 049). | ⬜ **Not yet applied** | ✅ Yes (`if not exists`, `create or replace`, `drop policy if exists`) | **Required by `/app/tonight`.** Run after 056. |
-
 | **058_letterboxd_import.sql** | Creates `import_jobs`, `import_rows`, and `owns_import_job()` (SECURITY DEFINER). Self-only RLS on both, so the importing user polls their own progress without an admin client. | ⬜ **Not yet applied** | ✅ Yes (`if not exists`, `create or replace`, `drop policy if exists`) | **Required by `/app/import`.** |
+| **059_year_in_review.sql** | Creates `year_reviews` (per-user, per-year sharing opt-in). Self-write RLS plus a public read on the flag, so one year can be published without changing `users.visibility`. | ⬜ **Not yet applied** | ✅ Yes (`if not exists`, `drop policy if exists`) | **Required by `/app/profile/[id]/year/[year]`.** |
 
-> ⚠️ **056, 057 and 058 are written but have not been run against the live database.** Until they are, `/app/tonight` and `/app/import` render but cannot do their work. Apply in the Supabase SQL Editor in numeric order, then re-dump `schema_from_supabase.sql`.
+> ⚠️ **056, 057, 058 and 059 are written but have not been run against the live database.** Until they are, `/app/tonight`, `/app/import` and the Year in Review page render but cannot do their work. Apply in the Supabase SQL Editor in numeric order, then re-dump `schema_from_supabase.sql`.
 
 ### A note on `background_jobs` (024)
 

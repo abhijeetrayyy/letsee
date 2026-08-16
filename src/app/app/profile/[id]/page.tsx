@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
+import { CalendarDays } from "lucide-react";
 import { ShowFollowing, ShowFollower, FollowerBtnClient } from "@/components/profile/profileBtn";
 import Logornot from "@components/guide/logornot";
 import VisibilityGate from "@components/profile/VisibilityGate";
@@ -393,6 +394,20 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   initialGenres={tasteProfile.topGenres.map((g) => ({ genre: g.genre, count: g.count }))}
                 />
               </DeferredSection>
+
+              {/* Year in Review. Linked from Stats because that's where
+                  someone is already looking at their own numbers, and it's the
+                  one page here built to leave the app as an image. */}
+              <Link
+                href={`/app/profile/${user.username}/year/${new Date().getUTCFullYear()}`}
+                className="mt-4 flex items-center gap-3 rounded-xl border border-surface-800 bg-surface-900/40 px-4 py-3 hover:border-brand-500/30 transition-colors"
+              >
+                <CalendarDays className="size-4 shrink-0 text-brand-400" />
+                <span className="text-sm text-surface-300">
+                  {isOwner ? "Your" : `@${user.username}'s`} {new Date().getUTCFullYear()} in review
+                </span>
+                <span className="ml-auto text-surface-600">→</span>
+              </Link>
             </section>
 
             {/* ═══ SHARE ═══ */}
