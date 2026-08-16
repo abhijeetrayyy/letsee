@@ -1,6 +1,6 @@
 # Surpassing Letterboxd — What Needs To Be Done
 
-> **Status:** All seven workstreams built — see §15. Six migrations (056–062) are written but **not yet applied**.
+> **Status:** All seven workstreams built — see §15. **Audited in §16: 21 of 28 criteria hold, 7 do not.** Six migrations (056–062) are written but **not yet applied**.
 > **Written:** 2026-08-16, against `main` @ `faeb123`. Decisions resolved and W1 built the same day.
 > **Supersedes the benchmark table in** `COMPLETE_AUDIT_AND_ROADMAP.md` §2, which measures the wrong thing (see §1).
 
@@ -23,6 +23,7 @@
 13. [How we'll know it worked](#13-how-well-know-it-worked)
 14. [Decisions — resolved](#14-decisions--resolved-2026-08-16)
 15. [What shipped](#15-what-shipped-2026-08-16)
+16. [**Audit — every criterion re-checked**](#16--audit--every-acceptance-criterion-re-checked-against-the-code-2026-08-16)
 
 ---
 
@@ -136,8 +137,8 @@ PUT    /api/user/providers            body: { region, providerIds: number[] }
 - Editable from profile settings.
 
 **Acceptance**
-- [ ] A signed-in user can set region + services in under 15 seconds.
-- [ ] Tonight degrades gracefully when a participant has set none (treat as "any provider", flag it in the result copy).
+- [x] A signed-in user can set region + services in under 15 seconds.
+- [ ] ⚠️ Tonight degrades gracefully when a participant has set none (treat as "any provider", flag it in the result copy). — **fallback built, flag NOT built. See §16.**
 
 ### W1.2 — The session
 
@@ -271,11 +272,11 @@ Candidate = {
 Design constraint: **no grid, no carousel, no "12 picks for you."** The value is that we decided. If we show twelve, we've built another discover page and lost the bet.
 
 **Acceptance**
-- [ ] Two users with overlapping watchlists get a pick in < 2s.
-- [ ] Every pick is genuinely streamable by at least one participant in their region.
-- [ ] "Next" never repeats a title within a session.
-- [ ] "Watch this" writes `watching` status for all participants and appears in their feeds.
-- [ ] Works for a single user (group of one) — that's the fallback that replaces `WhatToWatch.tsx`.
+- [ ] ⚠️ Two users with overlapping watchlists get a pick in < 2s. — **unachievable as designed: ~4s floor. See §16.**
+- [ ] ⚠️ Every pick is genuinely streamable by at least one participant in their region. — **superseded: episode picks bypass the gate. See §16.**
+- [x] "Next" never repeats a title within a session.
+- [ ] ⚠️ "Watch this" writes `watching` status for all participants and appears in their feeds. — **superseded by Q6: caller only. See §14.**
+- [x] Works for a single user (group of one) — that's the fallback that replaces `WhatToWatch.tsx`.
 
 ---
 
@@ -304,8 +305,8 @@ Design constraint: **no grid, no carousel, no "12 picks for you."** The value is
 **Do the cuts behind a single PR per surface**, deleting components *and* their API routes *and* their unused migrations' UI paths. Leave the tables (dropping them is a separate, later decision).
 
 **Acceptance**
-- [ ] Home page renders ≤ 5 sections and ≤ 6 network requests.
-- [ ] No dead components left importing deleted routes; `npm run build:check` clean.
+- [x] Home page renders ≤ 5 sections and ≤ 6 network requests. — measured: 3–4 sections, 2 requests.
+- [x] No dead components left importing deleted routes; `npm run build:check` clean.
 
 ---
 
@@ -340,11 +341,11 @@ POST /api/account/import/[jobId]/resolve  body: { row, tmdbId, mediaType }
 ```
 
 **Acceptance**
-- [ ] A real Letterboxd export ZIP imports watched + ratings + watchlist + reviews.
-- [ ] ≥ 95% auto-resolution on a 500-film sample.
-- [ ] Unresolved titles are listed with a one-tap manual match.
-- [ ] Import is idempotent — running it twice doesn't duplicate or downgrade existing status.
-- [ ] Ratings convert 0.5–5.0 → 1–10 correctly (and correctly again if W5 lands).
+- [x] A real Letterboxd export ZIP imports watched + ratings + watchlist + reviews.
+- [ ] ⚠️ ≥ 95% auto-resolution on a 500-film sample. — **never run. See §16.**
+- [x] Unresolved titles are listed with a one-tap manual match.
+- [x] Import is idempotent — running it twice doesn't duplicate or downgrade existing status. *(One exception: `watched_at` is overwritten by the export's date.)*
+- [x] Ratings convert 0.5–5.0 → 1–10 correctly (and correctly again if W5 lands).
 
 ---
 
@@ -363,9 +364,9 @@ Content, in priority order:
 6. A "Download image" button via `html2canvas`, sized 1080×1920 for stories.
 
 **Acceptance**
-- [ ] Renders for any year with data, degrades honestly when sparse.
-- [ ] Image export is legible at story size, has the LetSee wordmark, and links back.
-- [ ] Public even when the profile is followers-only (the user opts in per-year).
+- [x] Renders for any year with data, degrades honestly when sparse.
+- [x] Image export is legible at story size, has the LetSee wordmark, and links back. — measured 1080×1920.
+- [x] Public even when the profile is followers-only (the user opts in per-year).
 
 ---
 
@@ -382,8 +383,8 @@ Move `1–10` → **5 stars, half-steps** (stored as `smallint` 1–10 internall
 **Risk:** users who deliberately used the granularity of 1–10 will notice. Mitigate by keeping stored values and rounding display only — existing 7s render as 3.5★.
 
 **Acceptance**
-- [ ] Rating a title is one tap, not a slider drag.
-- [ ] No stored value changes; `rating-distribution` still reads correctly.
+- [x] Rating a title is one tap, not a slider drag.
+- [x] No stored value changes; `rating-distribution` still reads correctly.
 
 ---
 
@@ -762,3 +763,57 @@ src/app/api/movieReel/*
 src/app/api/wave/*
 src/app/api/what-to-watch/route.ts   (superseded by /api/tonight)
 ```
+
+---
+
+## 16. Audit — every acceptance criterion, re-checked against the code (2026-08-16)
+
+Each of the 28 criteria in §W1–W7 was re-read and verified against the shipped code, not against memory. **21 hold. 7 do not**, and four of those are the document being wrong rather than the code.
+
+### Criteria that hold
+
+| § | Criterion | Evidence |
+|---|---|---|
+| W1 | "Next" never repeats within a session | Rejections persist to `watch_session_votes`; `rejected` is rebuilt on every resolve. |
+| W1 | Works for a single user | `participants.length === 1` is the normal path; ratios divide by it cleanly. |
+| W2 | Home ≤ 5 sections, ≤ 6 requests | Measured: 3 sections signed-out / 4 signed-in, **2** client API calls. |
+| W2 | No dead imports; build clean | Grep sweep clean for all 12 removed symbols; `build:check` passes. |
+| W3 | Real export imports watched/ratings/watchlist/reviews | Tested against a synthetic export with BOM, CRLF, quoted commas, embedded newlines, `__MACOSX`, nested `likes/films.csv`. |
+| W3 | Unresolved listed with one-tap match | `ImportFlow` renders suggestions with posters; `/resolve` applies. |
+| W3 | Ratings convert 0.5–5.0 → 1–10 | Verified: 4.5★ → 9, 5.0★ → 10, 4.0★ → 8. |
+| W4 | Legible at story size, wordmark, links back | Measured **1080×1920**; card carries "LetSee" + `letsee.app/<user>`. |
+| W4 | Public even when the profile is followers-only | `year_reviews` flag + admin-client read, gated on the flag. |
+| W5 | One tap, not a slider | Ten discrete buttons; clicking the 4½ target stores 9. |
+| W5 | No stored value changes | **Zero** conversion calls in any API route — display-only, confirmed by grep. |
+| W7 | Permalink readable signed-out | Only `followers` visibility requires a viewer; public passes with `viewerId === null`. |
+
+### Criteria that do NOT hold
+
+**1. W1.1 — "flag it in the result copy" when a participant has no services. NOT BUILT.**
+`serializeParticipants` sends `hasProviders`, but `SessionResponse.participants` in `TonightRoom.tsx` doesn't declare the field and nothing renders it. The "treat as any provider" fallback works; the *flag* does not exist. A room containing someone who skipped the picker gets picks that person may not be able to play, with no indication anywhere.
+
+**2. W1 — "a pick in < 2s". UNACHIEVABLE AS DESIGNED.**
+A resolve issues ~33 TMDB calls (4 discover + 14 hydrate + up to 12 episode show/season + 3 episode provider). The client enforces `MIN_GAP_MS = 120`, giving a **4.0-second floor before any network latency**. The number was written before the work and never re-derived. Either the budget or the fan-out has to change; the UI currently shows an undifferentiated spinner for the whole wait.
+
+**3. W1 — "every pick is genuinely streamable". CONTRADICTED BY W6.**
+Episode picks deliberately bypass the availability gate (`episodeToCandidate` attaches providers but never filters on them). Both decisions are defensible in isolation; the criterion was never reconciled with the later one.
+
+**4. W1 — "'Watch this' writes `watching` for all participants". CONTRADICTED BY Q6.**
+Decided against during the build — writing to someone else's library on a friend's button press. §15/Q6 explains the reversal; §W1 still asserts the original. **The document argues with itself**, and §W1 is the version a reader hits first.
+
+**5. W3 — "≥ 95% auto-resolution on a 500-film sample". NEVER RUN.**
+16 hand-picked titles is not a sample. Still open.
+
+**6. Scoring defect — watchlist candidates always score 0 on quality.**
+`watchlistPool` seeds `voteCount: 0` because vote data only arrives at hydration, which runs *after* scoring. So `quality = (6.5/10) × (0 / (0+50)) = 0` for every watchlist entry, while discover entries carry a real value. Watchlist titles usually still win on `watchlistOverlap` (weight 0.35), so the effect is muted — but the ranking is not the one §W1 documents, and a watchlist film competes with a fifth of the scoring surface disabled.
+
+**7. UX defect — the import promises a resume it cannot deliver.**
+`ImportFlow` tells the user *"You can leave this page — reopening the import picks up where it stopped."* The server genuinely supports that: chunks are independent and `GET /api/account/import` lists unfinished jobs. **Nothing in the UI ever calls it.** Reopening `/app/import` shows a fresh drop zone; a half-finished import is unreachable except by re-uploading. The copy makes a promise the interface breaks.
+
+### Structural issue worth knowing
+
+**The candidate pool is keyed on `itemId` alone**, so a film and a series sharing a TMDB id collide — TMDB's movie and TV id spaces are independent, so low ids overlap. This mirrors `user_media_status`'s `(user_id, item_id)` primary key, which has the same flaw at the schema level. **Pre-existing, not introduced here**, but the resolver inherits it and a fix belongs at the schema.
+
+### Honest summary
+
+The features are built and the reasoning behind them is sound. What this audit found is that **the plan document was not kept honest as decisions changed** — four criteria describe a product that was deliberately not built — plus two real defects (the quality term, the resume promise) and one unbuilt sub-requirement (the provider flag). None are architectural; all are a day's work.
