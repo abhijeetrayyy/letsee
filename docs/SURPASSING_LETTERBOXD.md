@@ -1,6 +1,7 @@
 # Surpassing Letterboxd — What Needs To Be Done
 
-> **Status:** All seven workstreams built — see §15. **Audited in §16: 21 of 28 criteria hold, 7 do not.** Six migrations (056–062) are written but **not yet applied**.
+> **Status:** All seven workstreams built (§15). Migrations **056–063 applied and verified** on 2026-08-16.
+> **Audited in §16:** 28 criteria re-checked against the code — 21 held, 7 did not, **6 of those 7 are now fixed**. Open: the unrun 500-film resolution test, and one production timing measurement.
 > **Written:** 2026-08-16, against `main` @ `faeb123`. Decisions resolved and W1 built the same day.
 > **Supersedes the benchmark table in** `COMPLETE_AUDIT_AND_ROADMAP.md` §2, which measures the wrong thing (see §1).
 
@@ -216,11 +217,19 @@ commit;
 3. Titles with high `friends-watched` signal among participants' follow graphs.
 
 **Hard filters** (a candidate is dropped, not penalised):
-- Not available on a provider **at least one participant has** in `region` (see open decision Q2 — union vs intersection).
+- Not available on a provider **at least one participant has** in `region` (Q2: union, not intersection — §14).
 - `runtime > max_runtime`.
 - Any participant has `status IN ('watched','dropped')`, unless `allow_rewatch`.
 - Any participant has voted `out` on it in this session.
 - Blocked/adult per existing rules (`is_blocked()`, `item_adult`).
+
+> **The availability filter applies to titles, not to "next episode" picks.** W6
+> added a second candidate source — the next unwatched episode of a show the
+> room is jointly mid-way through — and it deliberately does *not* gate on
+> providers. Someone eight episodes into a series has demonstrated they can
+> watch it more convincingly than a provider list can, since TMDB misses owned
+> copies, regional deals and whatever they were already using. Every other
+> filter above still applies. See §15/W6.
 
 **Score**
 
@@ -258,7 +267,20 @@ Candidate = {
 }
 ```
 
-`decide` is what makes the loop close: it sets `status = 'watching'` in `user_media_status` **for every participant**, writes the activity rows (the `051_watched_activity_on_update.sql` path already exists), and stamps `decided_item_id`. The diary entry writes itself.
+`decide` is what makes the loop close: it sets `status = 'watching'` in `user_media_status`, writes the activity rows (the `051_watched_activity_on_update.sql` path already exists), and stamps `decided_item_id`. The diary entry writes itself.
+
+> **For the caller only — not for every participant, as this section originally
+> specified.** The others are added to a room by whoever opened it and never
+> accept anything, so writing to their library on a friend's button press is
+> mutating someone else's data without consent, and it would need the
+> service-role client to bypass RLS to do at all. The verdict is recorded on the
+> session so a consent step can apply it later. Reasoning in §14/Q6; the
+> follow-up is the first item in §15.
+>
+> When the answer is an episode, `decide` also marks that episode watched via
+> the same `ensureShowInMediaStatus` / `autoTransitionStatus` helpers
+> `/api/watched-episode` uses, so it is indistinguishable from ticking it off on
+> the season page.
 
 ### W1.4 — The screen
 
@@ -273,9 +295,9 @@ Design constraint: **no grid, no carousel, no "12 picks for you."** The value is
 
 **Acceptance**
 - [ ] ⚠️ Two users with overlapping watchlists get a pick in < 2s. — **unachievable as designed: ~4s floor. See §16.**
-- [ ] ⚠️ Every pick is genuinely streamable by at least one participant in their region. — **superseded: episode picks bypass the gate. See §16.**
+- [x] Every **title** pick is genuinely streamable by at least one participant in their region. *(Revised: "next episode" picks deliberately don't gate on providers — see the note above and §15/W6.)*
 - [x] "Next" never repeats a title within a session.
-- [ ] ⚠️ "Watch this" writes `watching` status for all participants and appears in their feeds. — **superseded by Q6: caller only. See §14.**
+- [x] "Watch this" writes `watching` status **for the caller** and appears in their feed. *(Revised from "all participants" by Q6 — consent. Group-apply is the top follow-up in §15.)*
 - [x] Works for a single user (group of one) — that's the fallback that replaces `WhatToWatch.tsx`.
 
 ---
@@ -811,11 +833,11 @@ Film-only room: **8 calls, 0.96s floor**. Worst case (every hydration wave): 19 
 
 Rather than assert it again, `resolveTonight` now returns `elapsedMs` and all three routes surface it. A number nobody could see was a number nobody checked.
 
-**3. W1 — "every pick is genuinely streamable". CONTRADICTED BY W6.**
-Episode picks deliberately bypass the availability gate (`episodeToCandidate` attaches providers but never filters on them). Both decisions are defensible in isolation; the criterion was never reconciled with the later one.
+**3. W1 — "every pick is genuinely streamable". ~~CONTRADICTED BY W6~~ → RECONCILED.**
+Episode picks deliberately bypass the availability gate. Both decisions are defensible in isolation; the criterion had simply never been reconciled with the later one. §W1 now scopes the filter to titles and states the episode exception where a reader meets the filter list, rather than only in §15.
 
-**4. W1 — "'Watch this' writes `watching` for all participants". CONTRADICTED BY Q6.**
-Decided against during the build — writing to someone else's library on a friend's button press. §15/Q6 explains the reversal; §W1 still asserts the original. **The document argues with itself**, and §W1 is the version a reader hits first.
+**4. W1 — "'Watch this' writes `watching` for all participants". ~~CONTRADICTED BY Q6~~ → RECONCILED.**
+Decided against during the build — writing to someone else's library on a friend's button press. §15/Q6 explained the reversal while §W1 still asserted the original, so the document argued with itself and §W1 is what a reader hits first. Both the prose and the checkbox now state caller-only, with the consent reasoning inline and the group-apply follow-up linked.
 
 **5. W3 — "≥ 95% auto-resolution on a 500-film sample". NEVER RUN.**
 16 hand-picked titles is not a sample. Still open.
@@ -834,4 +856,6 @@ The copy said *"reopening the import picks up where it stopped"*; the server gen
 
 The features are built and the reasoning behind them is sound. What this audit found is that **the plan document was not kept honest as decisions changed** — four criteria describe a product that was deliberately not built — plus two real defects and one unbuilt sub-requirement.
 
-**Items 1, 2, 6 and 7 are now fixed.** What remains open is the documentation drift (items 3 and 4, where the criteria are wrong rather than the code), the unrun 500-film test (item 5), and the pre-existing `(user_id, item_id)` key collision. The timing fix cut the fan-out by 60% and made the result observable, but confirming sub-2s needs one production measurement.
+**Items 1, 2, 3, 4, 6 and 7 are now fixed.** What remains open is only the unrun 500-film resolution test (item 5) and the pre-existing `(user_id, item_id)` key collision. The timing fix cut the fan-out by 60% and made the result observable, but confirming sub-2s needs one production measurement.
+
+**The lesson worth keeping:** none of the seven were architectural. Four were the plan quietly going out of date as decisions were made against it, and they survived because nothing forced the document and the code to be re-read together. A criterion nobody re-checks is a claim, not a test.
