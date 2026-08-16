@@ -10,7 +10,7 @@
 - **Schema:** `public` (app tables, functions, RLS). Auth/storage/realtime are Supabase-managed and not defined in this repo.
 - **Where to run SQL:** Supabase Dashboard → SQL Editor (paste file contents → Run). Or `pg_dump` / Supabase CLI for pulling schema (see `docs/PULL_SCHEMA_FROM_SUPABASE.md`).
 - **Reference files:**
-  - **`schema.sql`** — Full consolidated schema (tables, types, functions, RLS) as the app expects. Use for “what the app expects” and for diffing.
+  - **`schema.sql`** — ⚠️ **Badly stale — do not trust it.** It predates roughly migration 024 and is missing `notifications`, `comments`, `reactions`, `clubs`, `achievements` and everything added since, including 056–063. An agent reading it would wrongly conclude those tables don't exist. **The `migrations/` files are the source of truth**; use `schema.sql` only for the older core tables, and regenerate it with `npm run db:dump` (needs `supabase login`) before relying on it or seeding a fresh database from it.
   - **`schema_from_supabase.sql`** — Optional dump from live Supabase (`pg_dump` or `supabase db dump`). Use to compare live DB vs repo; re-dump after applying migrations.
 
 ---
@@ -47,11 +47,9 @@ All migration files live in **`migrations/`**. Run **in numeric order** (007 →
 
 | **062_reviews_get_an_audience.sql** | Adds `notify_reaction()` + trigger (liking notified nobody), and the `reviews_for_title` / `popular_reviews` RPCs that rank reviews by reactions. | ✅ **Applied 2026-08-16** | ✅ Yes (`create or replace`, `drop trigger if exists`) | Reviews fall back to recency and the home row hides itself until this runs. |
 
-| **063_nullable_notification_actor.sql** | Drops `not null` on `notifications.actor_id`. | ⬜ **Not yet applied** | ✅ Yes | **Required by `/api/cron/new-episodes`** — without it every new-episode notification insert fails with 23502. |
+| **063_nullable_notification_actor.sql** | Drops `not null` on `notifications.actor_id`. | ✅ **Applied 2026-08-16** | ✅ Yes | Required by `/api/cron/new-episodes` — without it every new-episode notification insert failed with 23502. |
 
-> ✅ **056–062 were applied on 2026-08-16 and verified**: all nine tables present, `users.watch_region` added, four RPCs exposed and executing, and 061's constraint confirmed to reject an unknown type while accepting `new_episode`.
->
-> ⚠️ **063 is not yet applied.** It fixes a bug the verification found — see below.
+> ✅ **056–063 were applied on 2026-08-16 and verified**: all nine tables present, `users.watch_region` added, four RPCs exposed and executing, and 061's constraint confirmed to reject an unknown type while accepting `new_episode`.
 >
 > `migrations/APPLY_056_TO_062.sql` is the one-paste bundle used for that batch. Re-dump `schema_from_supabase.sql` after any further migration.
 
@@ -59,7 +57,7 @@ All migration files live in **`migrations/`**. Run **in numeric order** (007 →
 
 `notifications.actor_id` is `not null` (027), but a `new_episode` notification has no actor — nobody acted, a show aired. `newEpisodeNotifier.ts` inserts `actor_id => null`, so **every one of those inserts would have been rejected**, silently, inside a fire-and-forget cron job whose only trace is a console line nobody reads.
 
-Found by probing 061's constraint with a deliberately failing insert and getting `23502` (not-null) where `23503` (foreign key) was expected. 063 is the fix.
+Found by probing 061's constraint with a deliberately failing insert and getting `23502` (not-null) where `23503` (foreign key) was expected. 063 is the fix, and after applying it the notifier's exact payload was inserted, confirmed to come back from the actor left join as `actor: null`, and deleted.
 
 ### A note on `background_jobs` (024)
 
