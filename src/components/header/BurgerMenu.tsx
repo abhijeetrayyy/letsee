@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { FaBars, FaXmark } from "react-icons/fa6";
 import { HiHome } from "react-icons/hi2";
-import { FiBell, FiMessageSquare, FiBookmark, FiHeart, FiUser, FiSearch, FiList, FiPlay } from "react-icons/fi";
+import { FiBell, FiMessageSquare, FiBookmark, FiHeart, FiUser, FiSearch, FiList, FiPlay, FiDownload } from "react-icons/fi";
 import { FaFilm, FaTv, FaUsers } from "react-icons/fa6";
 import { Film } from "lucide-react";
 import SignOut from "../buttons/signOut";
@@ -198,6 +198,9 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
               </button>
               <button type="button" onClick={() => go(username ? `/app/profile/${username}` : "/app/profile")} className={menuItemClass}>
                 <FiHeart className="size-5 shrink-0 text-rose-400" /> Favorites
+              </button>
+              <button type="button" onClick={() => go("/app/import")} className={menuItemClass}>
+                <FiDownload className="size-5 shrink-0 text-emerald-400" /> Import from Letterboxd
               </button>
               <button type="button" onClick={() => go("/app/notification")} className={menuItemClass}>
                 <FiBell className="size-5 shrink-0 text-blue-400" /> Notifications

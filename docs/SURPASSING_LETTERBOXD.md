@@ -1,6 +1,6 @@
 # Surpassing Letterboxd — What Needs To Be Done
 
-> **Status:** W1 (Tonight) and W2 (cuts) built — see §15. W3–W7 not started.
+> **Status:** W1 (Tonight), W2 (cuts) and W3 (import) built — see §15. W4–W7 not started.
 > **Written:** 2026-08-16, against `main` @ `faeb123`. Decisions resolved and W1 built the same day.
 > **Supersedes the benchmark table in** `COMPLETE_AUDIT_AND_ROADMAP.md` §2, which measures the wrong thing (see §1).
 
@@ -540,13 +540,53 @@ W1 is built and typechecks; `npm run build:check` is clean and `/app/tonight` is
 
 *Not visually confirmed: the ClubPickWidget body on `/app/clubs` — `/api/club-pick/current` returns `{"pick": null}` on this database, so it correctly renders nothing. The mount itself resolves, or the build would have failed.*
 
+### W3 — Letterboxd import, as built
+
+**`/app/import`.** Drop the export ZIP (or a single CSV), watch a real progress bar, then clear a short list of films we wouldn't guess at.
+
+| Piece | File |
+|---|---|
+| Schema | `migrations/058_letterboxd_import.sql` |
+| Parser (ZIP + RFC4180 CSV + merge) | `src/utils/letterboxd.ts` |
+| Title resolver | `src/utils/titleResolver.ts` |
+| Library writes | `src/utils/importApply.ts` |
+| Upload / list | `src/app/api/account/import/route.ts` |
+| Progress + unresolved | `src/app/api/account/import/[id]/route.ts` |
+| Chunked processing | `src/app/api/account/import/[id]/process/route.ts` |
+| Manual match / skip | `src/app/api/account/import/[id]/resolve/route.ts` |
+| UI | `src/components/import/ImportFlow.tsx`, `src/app/app/import/page.tsx` |
+
+**Three decisions that departed from the W3 plan:**
+
+1. **Not run on `background_jobs`.** The plan said migration 024 "already gives us the table." The table exists; the machinery doesn't. Nothing calls `registerJobHandler`, so `dispatchJob` always fails with *"No handler registered"*, and `vercel.json` declares no crons, so the runner is never invoked. Even repaired, cron granularity means an import that starts *later* — the wrong shape for a new user with an empty profile deciding whether to stay. Instead the browser uploads once and then drives `/process` a chunk at a time, with a progress bar fed by real completions. Each call is independent, so a closed tab costs at most one chunk and reopening resumes.
+
+2. **One row per film, not per CSV line.** `watched.csv`, `ratings.csv`, `reviews.csv` and `likes/films.csv` all name the same films. Deduping on `(title, year)` at insert time makes a film cost **one** TMDB lookup instead of four — the difference between a 500-film import being pleasant and being a rate-limit problem.
+
+3. **Reviews import as private diary notes, not public reviews.** They were public *on Letterboxd*. That isn't consent to republish them here under a different profile's visibility rules. Same reasoning as the caller-only status write in W1.
+
+**The governing rule for writes is "add, never take away".** Someone importing five years of history has usually been using this app already, and the worst outcome is a migration that silently overwrites a rating they set here last week. So: `watched` wins outright; `watchlist` only fills an empty slot, never demoting a watched film; ratings, reviews and favourites are insert-if-absent. Running the same import twice is a no-op the second time, which is what makes retrying a half-finished import safe.
+
+**The resolver is deliberately conservative**, because the costs are asymmetric — a missed match is one tap to fix, a *wrong* match is a film in someone's history they never saw and may never notice. Exact normalised match on localised or original title with the year agreeing (±1, since Letterboxd tends to use the festival date and TMDB the primary release); then Levenshtein, with tolerance scaled down for short titles so "Up" can't become "Us"; then a sole result with an exact year. No closest-guess fallback.
+
+**Measured, not estimated:**
+
+- On 16 real titles as Letterboxd writes them (including `Amélie`, `Good, Bad and Ugly, The`, `WALL·E`, `Se7en`, `Up`): **14 resolved, 2 refused** — and both refusals are correct. One was a film that doesn't exist; the other was `Dune` with no year, which is genuinely ambiguous across five real Dune films and correctly returned suggestions instead of guessing. That's **100% of the resolvable titles**.
+- The W3 target was ≥95% on a 500-film sample. **That specific test has not been run** — 16 hand-picked titles is not a 500-film sample, and the real number will be lower once obscure and non-English titles are in the mix.
+- Parser verified against a synthetic export built to be nasty: UTF-8 BOM, CRLF, a quoted title containing commas, a review with embedded blank lines, `__MACOSX` junk, and a nested `likes/films.csv`. All five files detected, merge correct, `4.5★ → 9` conversion correct, and a film appearing only in `ratings.csv` correctly inferred as watched.
+
+**Verified:** clean production build and typecheck; all four API routes 401 unauthenticated; `/app/import` renders. **Not verified: the signed-in path** — it needs migration 058 applied and an account.
+
+**New dependency:** `fflate` (8KB, zero-dep) for ZIP extraction. The CSV parser is hand-written rather than a second dependency, because the one hard part is small and well-defined: a review field legitimately contains commas, quotes *and newlines*, so splitting on lines before commas silently corrupts every multi-paragraph review.
+
 ### Follow-ups this build opened
 
 1. **Group-apply with consent** (Q6 above) — the biggest gap between what shipped and what §W1 described.
 2. ~~`/api/what-to-watch` has a latent bug~~ — **resolved by deletion in W2.** For the record: its `buildGenreVector` compared stored genre *names* against `String(genre_id)`, so `"28"` never matched `"Action"`, the "Matches your taste" reason never fired, and every pick fell through to popularity. `src/utils/tonight.ts` maps ids → names via `GenreList` and does not inherit it.
 3. **Runtime for TV** is average episode runtime, so "under 90 min" on a TV pick means one episode. That's the right reading for a weeknight, but it isn't stated in the UI.
 4. **No rate limit on session creation.** Each resolve costs up to 4 discover calls plus 14 detail calls; TMDB throttling absorbs it, but a loop would be expensive.
-5. **The home page has no signed-out Tonight affordance.** The banner is gated on `isLoggedIn`, so a visitor never learns the product's main idea exists. Cheapest fix is a signed-out variant that links to `/app/tonight`, which already explains itself and offers sign-in.
+5. **Run the real 500-film resolution test.** The W3 acceptance criterion (>=95%) is unverified; 16 hand-picked titles is not a sample. Needs a genuine large export.
+6. **`background_jobs` (024) is dead infrastructure.** No registered handlers, no cron entries in `vercel.json`. Anything scheduled onto it silently never runs. Wire both ends up or drop the table.
+7. **The home page has no signed-out Tonight affordance.** The banner is gated on `isLoggedIn`, so a visitor never learns the product's main idea exists. Cheapest fix is a signed-out variant that links to `/app/tonight`, which already explains itself and offers sign-in.
 
 ---
 

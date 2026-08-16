@@ -40,7 +40,18 @@ All migration files live in **`migrations/`**. Run **in numeric order** (007 →
 | **056_user_providers.sql** | Creates `user_providers` (TMDB provider ids per user) + `users.watch_region`; RLS self-write, `profile_visible_to_viewer` read. | ⬜ **Not yet applied** | ✅ Yes (`if not exists`, `drop policy if exists`) | **Required by `/app/tonight`.** Run before 057. |
 | **057_watch_sessions.sql** | Creates `watch_sessions`, `watch_session_participants`, `watch_session_votes`, and `is_session_participant()` (SECURITY DEFINER, same anti-recursion pattern as 049). | ⬜ **Not yet applied** | ✅ Yes (`if not exists`, `create or replace`, `drop policy if exists`) | **Required by `/app/tonight`.** Run after 056. |
 
-> ⚠️ **056 and 057 are written but have not been run against the live database.** Until they are, `/app/tonight` renders but cannot open a session. Apply in the Supabase SQL Editor in numeric order, then re-dump `schema_from_supabase.sql`.
+| **058_letterboxd_import.sql** | Creates `import_jobs`, `import_rows`, and `owns_import_job()` (SECURITY DEFINER). Self-only RLS on both, so the importing user polls their own progress without an admin client. | ⬜ **Not yet applied** | ✅ Yes (`if not exists`, `create or replace`, `drop policy if exists`) | **Required by `/app/import`.** |
+
+> ⚠️ **056, 057 and 058 are written but have not been run against the live database.** Until they are, `/app/tonight` and `/app/import` render but cannot do their work. Apply in the Supabase SQL Editor in numeric order, then re-dump `schema_from_supabase.sql`.
+
+### A note on `background_jobs` (024)
+
+That queue is **not functional**, and 058 deliberately does not use it:
+
+- Nothing anywhere calls `registerJobHandler`, so `JOB_HANDLERS` is empty and `dispatchJob` always fails with *"No handler registered for job type"*.
+- `vercel.json` declares no `crons`, so `/api/cron/run-jobs` and `/api/cron/check-availability` are never invoked.
+
+Anything scheduled onto it today silently never runs. Either wire both ends up or drop the table — but don't build on it as-is.
 
 ---
 
