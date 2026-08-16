@@ -36,6 +36,10 @@ create table if not exists public.season_reviews (
 create index if not exists season_reviews_show_idx
   on public.season_reviews (show_id, season_number);
 
+-- drop-then-create so re-running the file is safe, matching 062. A bare
+-- CREATE TRIGGER errors on the second run, which is a nasty way to fail
+-- halfway through a batch of migrations.
+drop trigger if exists set_season_reviews_updated_at on public.season_reviews;
 create trigger set_season_reviews_updated_at
 before update on public.season_reviews
 for each row
