@@ -6,9 +6,7 @@ import Link from "next/link";
 import { Star, Clock, Globe, Play, Share2, Tv, Users, Tag } from "lucide-react";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
-import UserRating from "@components/movie/UserRating";
-import WatchedReview from "@components/movie/WatchedReview";
-import PublicReviews from "@components/movie/PublicReviews";
+import YourTake from "@components/takes/YourTake";
 import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
 import TitleAudience from "@components/detail/TitleAudience";
 import CastRow from "@components/detail/CastRow";
@@ -29,7 +27,7 @@ const LANG: Record<string, string> = {
 };
 
 export default function TvDetailClient({ show, credits, trailer, certification, backdrops, posters, keywords, externalIds, seasons, createdBy, watchProviders, watchLink }: any) {
-  const { getStatus } = useMediaInteraction();
+  const { getStatus, isAuthenticated } = useMediaInteraction();
   const isWatched = getStatus(String(show.id), "tv") === "watched";
   const [showTrailer, setShowTrailer] = useState(false);
   const [markWatchedOpen, setMarkWatchedOpen] = useState(false);
@@ -273,10 +271,14 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
             {/* Your Activity */}
             <Section title="Your Activity" subtitle="Rate and review">
               <div className="space-y-4">
-                <UserRating itemId={show.id} itemType="tv" itemName={show.name}
-                  imageUrl={show.poster_path ? `https://image.tmdb.org/t/p/w92${show.poster_path}` : undefined}
-                  isWatched={isWatched} />
-                <WatchedReview itemId={show.id} itemType="tv" isWatched={isWatched} />
+                <YourTake
+                  itemId={String(show.id)}
+                  itemType="tv"
+                  itemName={show.name}
+                  imageUrl={show.poster_path ? `https://image.tmdb.org/t/p/w342${show.poster_path}` : null}
+                  genres={(show.genres ?? []).map((g: { name: string }) => g.name)}
+                  isAuthenticated={isAuthenticated}
+                />
               </div>
             </Section>
 
@@ -286,11 +288,6 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
                 <CastRow cast={credits.cast} />
               </Section>
             )}
-
-            {/* Community Reviews */}
-            <Section title="Community Reviews">
-              <PublicReviews itemId={String(show.id)} itemType="tv" />
-            </Section>
 
             {/* Discussion */}
             <Section title="Discussion">

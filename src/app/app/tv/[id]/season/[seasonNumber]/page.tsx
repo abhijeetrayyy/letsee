@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import EpisodeListWithWatched from "@components/tv/EpisodeListWithWatched";
-import SeasonReview from "@components/tv/SeasonReview";
+import YourTake from "@components/takes/YourTake";
 import { getTvShowWithSeasons, getSeasonEpisodes } from "@/utils/tmdbTvShow";
 import { createClient } from "@/utils/supabase/server";
 import TvStatusSelector from "@/components/tv/TvStatusSelector";
@@ -221,10 +221,12 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
         {/* Season reviews. The season is the unit people actually argue
             about, and it had no home before: series reviews are too coarse for
             a long-running show, episode notes too fine. */}
-        <SeasonReview
-          showId={numericId}
+        <YourTake
+          itemId={numericId}
+          itemType="tv"
+          scope="season"
           seasonNumber={currentSeasonNum}
-          showName={seriesName}
+          itemName={seriesName}
           isAuthenticated={!!user}
         />
 

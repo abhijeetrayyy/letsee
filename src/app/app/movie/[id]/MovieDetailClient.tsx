@@ -6,9 +6,7 @@ import Image from "next/image";
 import { Star, Clock, Globe, Play, Share2, BookOpen, Film, Users, Tag, ImageIcon, Calendar } from "lucide-react";
 import { releaseInfo } from "@/utils/releaseInfo";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
-import UserRating from "@components/movie/UserRating";
-import WatchedReview from "@components/movie/WatchedReview";
-import PublicReviews from "@components/movie/PublicReviews";
+import YourTake from "@components/takes/YourTake";
 import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
 import TitleAudience from "@components/detail/TitleAudience";
 import CastRow from "@components/detail/CastRow";
@@ -25,7 +23,7 @@ const LANG: Record<string, string> = {
 };
 
 export default function MovieDetailClient({ movie, directors, credits, trailer, certification, countryNames, backdrops, posters, keywords, collection, watchProviders, watchLink }: any) {
-  const { getStatus } = useMediaInteraction();
+  const { getStatus, isAuthenticated } = useMediaInteraction();
   const isWatched = getStatus(String(movie.id), "movie") === "watched";
   const [showTrailer, setShowTrailer] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -209,15 +207,19 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
               <WatchOptionsViewer mediaId={movie.id} mediaType="movie" />
             </Section>
 
-            {/* Your Activity */}
-            <Section title="Your Activity" subtitle="Rate and review">
-              <div className="space-y-4">
-                <UserRating itemId={movie.id} itemType="movie" itemName={movie.title}
-                  imageUrl={movie.poster_path ? `https://image.tmdb.org/t/p/w92${movie.poster_path}` : undefined}
-                  isWatched={isWatched} />
-                <WatchedReview itemId={movie.id} itemType="movie" isWatched={isWatched} />
-              </div>
-            </Section>
+            {/* One place to say what you thought — rating, writing and who
+                can read it, in a single card and a single save. Replaces the
+                separate rating widget, diary box and community list, which
+                between them made people decide *where* an opinion goes before
+                they could have one. */}
+            <YourTake
+              itemId={String(movie.id)}
+              itemType="movie"
+              itemName={movie.title}
+              imageUrl={movie.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : null}
+              genres={(movie.genres ?? []).map((g: { name: string }) => g.name)}
+              isAuthenticated={isAuthenticated}
+            />
 
             {/* Cast */}
             {credits.cast?.length > 0 && (
@@ -225,11 +227,6 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
                 <CastRow cast={credits.cast} />
               </Section>
             )}
-
-            {/* Community Reviews */}
-            <Section title="Community Reviews">
-              <PublicReviews itemId={String(movie.id)} itemType="movie" />
-            </Section>
 
             {/* Discussion */}
             <Section title="Discussion">

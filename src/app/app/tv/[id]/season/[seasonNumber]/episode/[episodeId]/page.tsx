@@ -8,8 +8,7 @@ import MarkEpisodeWatched from "@components/tv/MarkEpisodeWatched";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { fetchTmdb } from "@/utils/tmdbClient";
 import { createClient } from "@/utils/supabase/server";
-import EpisodeRating from "@/components/tv/EpisodeRating";
-import EpisodeNote from "@/components/tv/EpisodeNote";
+import YourTake from "@components/takes/YourTake";
 import Comments from "@components/social/Comments";
 import { ArrowLeft, Clock, Calendar, Users, Clapperboard, Star } from "lucide-react";
 
@@ -212,12 +211,6 @@ const EpisodePage = async ({ params }: PageProps) => {
               seasonNumber={seasonNum}
               episodeNumber={episode.episode_number}
             />
-            <EpisodeRating
-              showId={id}
-              seasonNumber={seasonNum}
-              episodeNumber={episode.episode_number}
-              initialRating={userRating?.score}
-            />
           </div>
 
           {/* Episode Navigation */}
@@ -244,12 +237,16 @@ const EpisodePage = async ({ params }: PageProps) => {
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        {/* Notes */}
-        <EpisodeNote
-          showId={id}
+        {/* The rating used to sit beside the watched button and the note far
+            below it — the same split D1 exists to remove. */}
+        <YourTake
+          itemId={id}
+          itemType="tv"
+          scope="episode"
           seasonNumber={seasonNum}
           episodeNumber={episode.episode_number}
-          initialNote={userRating?.note}
+          itemName={episode.name}
+          isAuthenticated={!!user}
         />
 
         {/* Images */}

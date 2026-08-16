@@ -1,6 +1,7 @@
 # One Place to Say It, One Path to Find It
 
-> **Status:** Proposal. Nothing here is built.
+> **Status:** D1 built — see the note in §D1. D2–D5 not started.
+> **⚠️ Migration `065` is not yet applied.** Until it runs, `/api/takes` degrades to an empty take rather than failing, so the pages render but nothing saves.
 > **Written:** 2026-08-17, against `main` @ `c40ddf0`.
 > **Companion to** `SURPASSING_LETTERBOXD.md`, which covers W1–W7 (all shipped).
 
@@ -143,6 +144,29 @@ One route replaces `/api/user-rating`, `/api/watched-review`, `/api/season-revie
 ### UI
 
 One card, `<YourTake>`, on every title, season and episode page. Stars, one text area, one visibility toggle, one save. Nothing else.
+
+### What shipped (2026-08-17)
+
+| Piece | File |
+|---|---|
+| Schema + backfill | `migrations/065_unified_takes.sql` |
+| Read/write + legacy mirror | `src/utils/takes.ts` |
+| API | `src/app/api/takes/route.ts` |
+| The card | `src/components/takes/YourTake.tsx` |
+| Mounted at four scopes | movie, tv, season and episode pages |
+
+**Two design choices changed once the data was measured** rather than assumed — the same habit that `064` was rewritten three times for not having:
+
+- **`is_public` is in the uniqueness key.** The plan proposed one row per scope. But exactly one row in this database holds both a private note and a public review, and they genuinely differ — 8 characters against 13. Short enough to look like test data, which is precisely the assumption that loses someone's writing. Keeping both costs one column in the key.
+- **`season_number`/`episode_number` are `NOT NULL` with a `-1` sentinel.** A nullable column can't back the plain unique constraint PostgREST's `on_conflict` requires, and `0` was unavailable as the sentinel because season 0 is real — it's specials.
+
+**The dual-write is the whole reason this was safe.** 36 files read `user_ratings` and `watched_items`' text columns — the profile grid, the feed, Year in Review, the public reviews list, the permalink, import, export, both recommendation engines. Every take is written to `takes` *and* mirrored back to those columns, so not one of those readers changed. `takes` is the source of truth; the legacy columns are a projection kept alive until their readers move.
+
+**Deleted, because consolidation that leaves the old surfaces standing isn't consolidation:** `UserRating`, `WatchedReview`, `PublicReviews`, `SeasonReview`, `EpisodeRating`, `EpisodeNote`, the orphaned `clientComponent/movie.tsx`, and the `/api/season-review`, `/api/episode-rating` and `/api/watched-review` routes. Those three routes wrote to legacy tables *without* touching `takes`, so leaving them would have been a silent divergence waiting for a caller.
+
+**Verified:** clean typecheck and production build; all four pages render; the card shows "Your take" and the three old surfaces are gone from the movie page; `/api/takes` returns 401 unauthenticated, 400 on a malformed identity, and **degrades to an empty take rather than 500 while 065 is unapplied**; the deleted routes 404.
+
+**Not verified — and this is the part that matters:** every signed-in path. Saving a take, toggling visibility, the score staying in step across both rows, and above all **whether the backfill reconciles**. See §11.
 
 **Acceptance** *(see §11 for how each is checked)*
 - [ ] A user can rate, write, and set visibility in one place without navigating.
