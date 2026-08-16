@@ -37,6 +37,10 @@ All migration files live in **`migrations/`**. Run **in numeric order** (007 →
 | **020_remove_runtime_minutes.sql** | Drops columns `watched_items.runtime_minutes` and `watched_episodes.runtime_minutes`. Profile stats show Movies, TV, Episodes (count on fetch); Hours removed. | ✅ Yes | ✅ Yes (drop column if exists) | Run when removing Hours from profile; no triggers/functions reference these columns. |
 | **021_tv_list_status.sql** | Adds `users.default_tv_status`. Creates table `user_tv_list` (user_id, show_id, status) and RLS (self + profile_visible_to_viewer for SELECT). | ⚠️ Superseded by 055 | ⚠️ Policies CREATE (run once) | **Do not run on a live DB.** The column it adds was dropped by 055 and nothing reads it; `user_tv_list` does not exist live and no code references it. |
 | **055_drop_default_tv_status.sql** | Drops `users.default_tv_status` and its check constraint (`users_default_tv_status_check`, from 022). | ✅ Yes | ✅ Yes (`drop ... if exists`) | Irreversible. Nothing read the column; all users held the default `watching`. Run after removing the setting from the UI and the settings route. |
+| **056_user_providers.sql** | Creates `user_providers` (TMDB provider ids per user) + `users.watch_region`; RLS self-write, `profile_visible_to_viewer` read. | ⬜ **Not yet applied** | ✅ Yes (`if not exists`, `drop policy if exists`) | **Required by `/app/tonight`.** Run before 057. |
+| **057_watch_sessions.sql** | Creates `watch_sessions`, `watch_session_participants`, `watch_session_votes`, and `is_session_participant()` (SECURITY DEFINER, same anti-recursion pattern as 049). | ⬜ **Not yet applied** | ✅ Yes (`if not exists`, `create or replace`, `drop policy if exists`) | **Required by `/app/tonight`.** Run after 056. |
+
+> ⚠️ **056 and 057 are written but have not been run against the live database.** Until they are, `/app/tonight` renders but cannot open a session. Apply in the Supabase SQL Editor in numeric order, then re-dump `schema_from_supabase.sql`.
 
 ---
 
