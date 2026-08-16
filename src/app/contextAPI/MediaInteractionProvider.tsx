@@ -45,11 +45,11 @@ interface MediaInteractionContextValue {
   /** Set rating (1-10). Pass null to remove. */
   setRating: (itemId: string, score: number | null, itemType?: string) => Promise<boolean>;
   /** Get the status for an item. */
-  getStatus: (itemId: string) => MediaStatus;
+  getStatus: (itemId: string, itemType: string) => MediaStatus;
   /** Get whether an item is favorited. */
-  isFavorited: (itemId: string) => boolean;
+  isFavorited: (itemId: string, itemType: string) => boolean;
   /** Get the rating for an item. */
-  getRating: (itemId: string) => number | null;
+  getRating: (itemId: string, itemType: string) => number | null;
   /** Check if any action is in progress for this item. */
   isPending: (itemId: string) => boolean;
   /** Refresh all state from the server. */
@@ -71,6 +71,18 @@ const MediaInteractionContext = createContext<MediaInteractionContextValue>({
   isPending: () => false,
   refresh: async () => {},
 });
+
+/**
+ * The key every client-side media map is built on.
+ *
+ * TMDB numbers films and series independently, so `550` is Fight Club *and* an
+ * unrelated series. Keying on the bare id meant one silently shadowed the
+ * other: whichever loaded last decided what both rendered. The server builds
+ * the identical key in /api/user-media-status.
+ */
+export function mediaKey(itemId: string | number, itemType: string): string {
+  return `${itemType === "tv" ? "tv" : "movie"}:${itemId}`;
+}
 
 export function useMediaInteraction() {
   return useContext(MediaInteractionContext);
@@ -120,12 +132,12 @@ export default function MediaInteractionProvider({ children }: { children: React
 
       const favorites = new Set<string>();
       for (const item of favList) {
-        if (item.item_id) favorites.add(String(item.item_id));
+        if (item.item_id) favorites.add(mediaKey(item.item_id, item.item_type));
       }
 
       const ratings: Record<string, number> = {};
       for (const r of ratingData.ratings ?? ratingData.data ?? []) {
-        if (r.item_id && r.score) ratings[String(r.item_id)] = r.score;
+        if (r.item_id && r.score) ratings[mediaKey(r.item_id, r.item_type)] = r.score;
       }
 
       setState({ statuses: statuses || {}, favorites, ratings });
@@ -159,23 +171,30 @@ export default function MediaInteractionProvider({ children }: { children: React
   const setStatus = useCallback(
     async (itemId: string, status: MediaStatus | null, metadata?: Record<string, unknown>) => {
       setPending(itemId);
-      const prev = state.statuses[itemId];
+      // The optimistic write has to use the same composite key the server and
+      // the accessors use, or a film's update lands under a series' entry.
+      const itemType = (metadata?.itemType as string) === "tv" ? "tv" : "movie";
+      const key = mediaKey(itemId, itemType);
+      const prev = state.statuses[key];
 
       // Optimistic update
       setState((s) => {
         const next = { ...s.statuses };
-        if (status === null) delete next[itemId];
-        else next[itemId] = status;
+        if (status === null) delete next[key];
+        else next[key] = status;
         return { ...s, statuses: next };
       });
 
       try {
         if (status === null) {
-          const ok = await apiCall(`/api/user-media-status?itemId=${encodeURIComponent(itemId)}`, "DELETE");
+          const ok = await apiCall(
+            `/api/user-media-status?itemId=${encodeURIComponent(itemId)}&itemType=${itemType}`,
+            "DELETE",
+          );
           if (!ok) {
             setState((s) => {
               const next = { ...s.statuses };
-              next[itemId] = prev;
+              next[key] = prev;
               return { ...s, statuses: next };
             });
           }
@@ -196,7 +215,7 @@ export default function MediaInteractionProvider({ children }: { children: React
         if (!ok) {
           setState((s) => {
             const next = { ...s.statuses };
-            next[itemId] = prev;
+            next[key] = prev;
             return { ...s, statuses: next };
           });
         }
@@ -206,7 +225,7 @@ export default function MediaInteractionProvider({ children }: { children: React
       } catch {
         setState((s) => {
           const next = { ...s.statuses };
-          next[itemId] = prev;
+          next[key] = prev;
           return { ...s, statuses: next };
         });
         clearPending(itemId);
@@ -219,20 +238,21 @@ export default function MediaInteractionProvider({ children }: { children: React
   const toggleFavorite = useCallback(
     async (itemId: string, metadata?: Record<string, unknown>) => {
       setPending(itemId);
-      const isFav = state.favorites.has(itemId);
+      const key = mediaKey(itemId, (metadata?.itemType as string) ?? "movie");
+      const isFav = state.favorites.has(key);
 
       // Optimistic update
       setState((s) => {
         const next = new Set(s.favorites);
-        if (isFav) next.delete(itemId);
-        else next.add(itemId);
+        if (isFav) next.delete(key);
+        else next.add(key);
         return { ...s, favorites: next };
       });
 
       try {
         const endpoint = isFav ? "/api/deletefavoriteButton" : "/api/favoriteButton";
         const body = isFav
-          ? { itemId }
+          ? { itemId, mediaType: metadata?.itemType || "movie" }
           : {
               itemId,
               name: metadata?.name || "",
@@ -277,12 +297,13 @@ export default function MediaInteractionProvider({ children }: { children: React
   const setRating = useCallback(
     async (itemId: string, score: number | null, itemType?: string) => {
       setPending(itemId);
-      const prev = state.ratings[itemId];
+      const key = mediaKey(itemId, itemType ?? "movie");
+      const prev = state.ratings[key];
 
       setState((s) => {
         const next = { ...s.ratings };
-        if (score === null) delete next[itemId];
-        else next[itemId] = score;
+        if (score === null) delete next[key];
+        else next[key] = score;
         return { ...s, ratings: next };
       });
 
@@ -292,7 +313,7 @@ export default function MediaInteractionProvider({ children }: { children: React
           if (!ok) {
             setState((s) => {
               const next = { ...s.ratings };
-              next[itemId] = prev;
+              next[key] = prev;
               return { ...s, ratings: next };
             });
           }
@@ -309,7 +330,7 @@ export default function MediaInteractionProvider({ children }: { children: React
         if (!ok) {
           setState((s) => {
             const next = { ...s.ratings };
-            next[itemId] = prev;
+            next[key] = prev;
             return { ...s, ratings: next };
           });
         }
@@ -319,7 +340,7 @@ export default function MediaInteractionProvider({ children }: { children: React
       } catch {
         setState((s) => {
           const next = { ...s.ratings };
-          next[itemId] = prev;
+          next[key] = prev;
           return { ...s, ratings: next };
         });
         clearPending(itemId);
@@ -329,16 +350,16 @@ export default function MediaInteractionProvider({ children }: { children: React
     [state.ratings]
   );
 
-  const getStatus = useCallback((itemId: string): MediaStatus => {
-    return state.statuses[String(itemId)] ?? null;
+  const getStatus = useCallback((itemId: string, itemType: string): MediaStatus => {
+    return state.statuses[mediaKey(itemId, itemType)] ?? null;
   }, [state.statuses]);
 
-  const isFavorited = useCallback((itemId: string): boolean => {
-    return state.favorites.has(String(itemId));
+  const isFavorited = useCallback((itemId: string, itemType: string): boolean => {
+    return state.favorites.has(mediaKey(itemId, itemType));
   }, [state.favorites]);
 
-  const getRating = useCallback((itemId: string): number | null => {
-    return state.ratings[String(itemId)] ?? null;
+  const getRating = useCallback((itemId: string, itemType: string): number | null => {
+    return state.ratings[mediaKey(itemId, itemType)] ?? null;
   }, [state.ratings]);
 
   const isPending = useCallback((itemId: string): boolean => {

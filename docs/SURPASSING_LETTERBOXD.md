@@ -878,9 +878,25 @@ So: the criterion is met for realistic input, the misses concentrate in a class 
 **7. UX defect — the import promised a resume it could not deliver. ~~OPEN~~ → FIXED.**
 The copy said *"reopening the import picks up where it stopped"*; the server genuinely supported it and `GET /api/account/import` listed unfinished jobs, but nothing in the UI ever called it, so a half-finished import was unreachable except by re-uploading. `/app/import` now checks for an unfinished job on mount and offers **"Pick up where it stopped"** with the real counts, or starting fresh.
 
-### Structural issue worth knowing
+### Structural issue — ~~worth knowing~~ FIXED (migration 064)
 
-**The candidate pool is keyed on `itemId` alone**, so a film and a series sharing a TMDB id collide — TMDB's movie and TV id spaces are independent, so low ids overlap. This mirrors `user_media_status`'s `(user_id, item_id)` primary key, which has the same flaw at the schema level. **Pre-existing, not introduced here**, but the resolver inherits it and a fix belongs at the schema.
+**A film and a series can share a TMDB id**, because TMDB numbers the two independently. Five tables carried an `item_type` column and then keyed on `(user_id, item_id)` alone, so one user could not hold both: the second write silently overwrote the first, and the surviving row claimed the other's name, poster and genres. Low ids collide most, and low ids are the famous films. Nobody would report it either — it reads as a title mysteriously turning into a different one.
+
+Pre-existing, not introduced by this work, but the resolver inherited it.
+
+**Migration 064** widens the `user_media_status` primary key and the unique constraints on `watched_items`, `favorite_items`, `user_ratings` and `user_watchlist` to include `item_type`. Widening a uniqueness constraint only ever *permits* more rows, so it cannot fail on existing data — it is strictly a relaxation.
+
+**The code half was larger than the schema half**, and is the part worth reviewing:
+
+- **16 upsert conflict targets.** Postgres requires `ON CONFLICT` to name a real unique constraint, so all sixteen break the instant the old one goes. **064 must be applied together with this deploy, not before.**
+- **Both client state providers were keyed on the bare id.** `MediaInteractionProvider` and `userPrefrenceProvider` each held `statuses` / `favorites` / `ratings` maps where one media type silently shadowed the other, including in every optimistic-update and rollback path. Both now use a shared `mediaKey()` of `type:id`, and the two endpoints that feed them emit the same key.
+- **`SetStatusPayload.mediaType` and `TogglePreferencePayload.mediaType` are now required.** They were already being passed by every caller but weren't in the contract — and with the map keyed on type, an omission would file a series under a film's key, writing `movie:1399` and reading back `tv:1399`. TV status would simply stop appearing, with nothing in the logs. Making it required means the compiler names every caller instead.
+- **Endpoints that took only an id now take the type**: `DELETE /api/user-media-status` deleted both titles sharing an id; `/api/deletefavoriteButton` did the same for favourites.
+- Write-path lookups in `favoriteButton`, `tvMediaStatus.syncWatchedItem`, `quick-add/bulk` and `importApply`'s existing-state maps are all type-scoped now.
+
+**Residual, deliberately left:** about ten *read* joins still match on `item_id` alone — `feed/following`, `batch`, `yearInReview`'s shared-title count, `tonight`'s social-proof tally. They can over-count in the rare collision case but cannot corrupt anything, and narrowing each one costs a query rewrite for a cosmetic gain. Worth doing, not worth blocking on.
+
+**Verified:** clean typecheck and production build; `/app`, `/app/tonight`, `/app/import`, `/app/clubs` and a season page all render; the three signed-out API gates still return 401. **Not verified:** the signed-in read/write paths through both providers, which is where a keying mistake would actually show — that needs an account.
 
 ### Honest summary
 

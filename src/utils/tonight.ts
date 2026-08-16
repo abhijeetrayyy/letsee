@@ -61,6 +61,19 @@ const ALTERNATE_COUNT = 4;
 /** Discover pages per media type. */
 const DISCOVER_PAGES = 1;
 
+/**
+ * The composite identity of a title.
+ *
+ * TMDB numbers films and series independently, so id 550 is Fight Club *and*
+ * an unrelated series. Keying the candidate pool on the bare id let one
+ * shadow the other — the second silently replaced the first, inheriting its
+ * name and poster. Migration 064 widened the database keys for the same
+ * reason; this is the in-memory half.
+ */
+function mediaKey(itemId: string, itemType: MediaType): string {
+  return `${itemType}:${itemId}`;
+}
+
 const GENRE_NAME_BY_ID = new Map<number, string>(
   GenreList.genres.map((g: { id: number; name: string }) => [g.id, g.name]),
 );
@@ -96,7 +109,7 @@ export type TonightParticipant = {
   /** Empty means "no services configured" — treated as unconstrained, not as zero. */
   providerIds: Set<number>;
   genreVector: GenreVector;
-  /** Keyed by item_id alone: user_media_status's PK is (user_id, item_id). */
+  /** Keyed `type:id` — see mediaKey below. */
   statusByItem: Map<string, string>;
   watchlist: Set<string>;
 };
@@ -167,7 +180,7 @@ export async function loadParticipants(
     supabase.from("user_providers").select("user_id, provider_id").in("user_id", userIds),
     supabase
       .from("user_media_status")
-      .select("user_id, item_id, status, genres")
+      .select("user_id, item_id, item_type, status, genres")
       .in("user_id", userIds),
     supabase.from("favorite_items").select("user_id, genres").in("user_id", userIds),
   ]);
@@ -187,7 +200,7 @@ export async function loadParticipants(
   const genreRowsByUser = new Map<string, { genres?: string[] | null }[]>();
   for (const row of statusRes.data ?? []) {
     const statuses = statusByUser.get(row.user_id) ?? new Map<string, string>();
-    statuses.set(String(row.item_id), row.status);
+    statuses.set(mediaKey(String(row.item_id), row.item_type === "tv" ? "tv" : "movie"), row.status);
     statusByUser.set(row.user_id, statuses);
 
     // Only titles they actually engaged with describe their taste. A watchlist
@@ -207,8 +220,8 @@ export async function loadParticipants(
   return userIds.map((userId) => {
     const statuses = statusByUser.get(userId) ?? new Map<string, string>();
     const watchlist = new Set<string>();
-    for (const [itemId, status] of statuses) {
-      if (status === "watchlist") watchlist.add(itemId);
+    for (const [key, status] of statuses) {
+      if (status === "watchlist") watchlist.add(key);
     }
     return {
       userId,
@@ -253,12 +266,12 @@ async function watchlistPool(
     if (constraints.mediaType !== "any" && constraints.mediaType !== itemType) continue;
 
     const itemId = String(row.item_id);
-    const existing = byItem.get(itemId);
+    const existing = byItem.get(mediaKey(itemId, itemType));
     if (existing) {
       existing.watchlistedBy.push(row.user_id);
       continue;
     }
-    byItem.set(itemId, {
+    byItem.set(mediaKey(itemId, itemType), {
       itemId,
       itemType,
       itemName: row.item_name ?? "",
@@ -795,21 +808,21 @@ export async function resolveTonight(
   // attribution that discover results can't.
   const pool = new Map<string, PoolEntry>();
   for (const entry of [...discovered, ...watchlist]) {
-    const existing = pool.get(entry.itemId);
+    const existing = pool.get(mediaKey(entry.itemId, entry.itemType));
     if (existing) {
       // Keep discover's richer metadata, keep the watchlist's attribution.
       existing.watchlistedBy = [...new Set([...existing.watchlistedBy, ...entry.watchlistedBy])];
       if (!existing.itemName) existing.itemName = entry.itemName;
       continue;
     }
-    pool.set(entry.itemId, { ...entry });
+    pool.set(mediaKey(entry.itemId, entry.itemType), { ...entry });
   }
 
   const eligible = [...pool.values()].filter((entry) => {
     if (rejected.has(entry.itemId)) return false;
     if (!entry.itemName) return false;
     for (const p of participants) {
-      const status = p.statusByItem.get(entry.itemId);
+      const status = p.statusByItem.get(mediaKey(entry.itemId, entry.itemType));
       if (status === "dropped") return false;
       if (status === "watched" && !constraints.allowRewatch) return false;
     }

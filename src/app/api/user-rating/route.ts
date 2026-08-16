@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
         item_type: itemType,
         score: num,
       },
-      { onConflict: "user_id,item_id" }
+      { onConflict: "user_id,item_id,item_type" }
     );
 
   if (upsertError) {

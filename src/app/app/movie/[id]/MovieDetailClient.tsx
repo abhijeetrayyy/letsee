@@ -26,7 +26,7 @@ const LANG: Record<string, string> = {
 
 export default function MovieDetailClient({ movie, directors, credits, trailer, certification, countryNames, backdrops, posters, keywords, collection, watchProviders, watchLink }: any) {
   const { getStatus } = useMediaInteraction();
-  const isWatched = getStatus(String(movie.id)) === "watched";
+  const isWatched = getStatus(String(movie.id), "movie") === "watched";
   const [showTrailer, setShowTrailer] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
 

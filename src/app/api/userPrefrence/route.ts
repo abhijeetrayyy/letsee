@@ -16,8 +16,8 @@ export const GET = async (_req: NextRequest) => {
     { data: userFavorites, error: userFavoritesError },
     { data: statusRows, error: statusError },
   ] = await Promise.all([
-    supabase.from("favorite_items").select("item_id").eq("user_id", userId),
-    supabase.from("user_media_status").select("item_id, status").eq("user_id", userId),
+    supabase.from("favorite_items").select("item_id, item_type").eq("user_id", userId),
+    supabase.from("user_media_status").select("item_id, item_type, status").eq("user_id", userId),
   ]);
 
   if (userFavoritesError || statusError) {
@@ -25,12 +25,21 @@ export const GET = async (_req: NextRequest) => {
     return jsonError("Failed to fetch user preferences.", 500);
   }
 
+  /**
+   * Keyed `type:id`, matching mediaKey() on the client.
+   *
+   * A bare id is ambiguous: TMDB numbers films and series independently, so a
+   * user holding both movie 550 and tv 550 had one silently overwrite the
+   * other here and both rendered as whichever won.
+   */
   const statuses: Record<string, string> = {};
   const bucket = (name: string) =>
-    (statusRows ?? []).filter((r) => r.status === name).map((r) => ({ item_id: r.item_id }));
+    (statusRows ?? [])
+      .filter((r) => r.status === name)
+      .map((r) => ({ item_id: r.item_id, item_type: r.item_type }));
 
   for (const row of statusRows ?? []) {
-    statuses[String(row.item_id)] = String(row.status);
+    statuses[`${row.item_type}:${row.item_id}`] = String(row.status);
   }
 
   return jsonSuccess(

@@ -49,7 +49,7 @@ export async function PUT(req: NextRequest) {
       status,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,item_id" }
+    { onConflict: "user_id,item_id,item_type" }
   );
 
   if (error) {
@@ -72,7 +72,7 @@ export async function PUT(req: NextRequest) {
         is_watched: true,
         watched_at: new Date().toISOString(),
       },
-      { onConflict: "user_id,item_id" }
+      { onConflict: "user_id,item_id,item_type" }
     );
 
     if (watchedItemsError) {
@@ -88,6 +88,7 @@ export async function PUT(req: NextRequest) {
       .update({ is_watched: false })
       .eq("user_id", userId)
       .eq("item_id", itemId)
+      .eq("item_type", itemType)
       .eq("is_watched", true);
 
     if (demoteError) {
@@ -113,6 +114,9 @@ export async function DELETE(req: NextRequest) {
 
   const url = new URL(req.url);
   const itemId = url.searchParams.get("itemId");
+  // TMDB numbers films and series separately, so an id alone identifies two
+  // possible titles. Without the type this deleted both.
+  const itemType = url.searchParams.get("itemType") === "tv" ? "tv" : "movie";
   // The confirm dialog offers "keep my rating, diary & review" vs "delete
   // everything". Both used to do the same thing because this flag was never
   // sent or read — the destructive option destroyed nothing.
@@ -124,7 +128,8 @@ export async function DELETE(req: NextRequest) {
     .from("user_media_status")
     .delete()
     .eq("user_id", userId)
-    .eq("item_id", itemId);
+    .eq("item_id", itemId)
+    .eq("item_type", itemType);
 
   if (error) {
     console.error("user-media-status delete:", error);
@@ -138,12 +143,16 @@ export async function DELETE(req: NextRequest) {
       .from("watched_items")
       .update({ is_watched: false })
       .eq("user_id", userId)
-      .eq("item_id", itemId);
+      .eq("item_id", itemId)
+      .eq("item_type", itemType);
   } else {
     await Promise.all([
-      supabase.from("watched_items").delete().eq("user_id", userId).eq("item_id", itemId),
-      supabase.from("user_ratings").delete().eq("user_id", userId).eq("item_id", itemId),
-      supabase.from("watched_episodes").delete().eq("user_id", userId).eq("show_id", itemId),
+      supabase.from("watched_items").delete().eq("user_id", userId).eq("item_id", itemId).eq("item_type", itemType),
+      supabase.from("user_ratings").delete().eq("user_id", userId).eq("item_id", itemId).eq("item_type", itemType),
+      // Episodes only exist for series, so this is a no-op for a film.
+      ...(itemType === "tv"
+        ? [supabase.from("watched_episodes").delete().eq("user_id", userId).eq("show_id", itemId)]
+        : []),
     ]);
   }
 
@@ -164,6 +173,7 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   const itemId = url.searchParams.get("itemId");
+  const itemType = url.searchParams.get("itemType") === "tv" ? "tv" : "movie";
 
   if (itemId) {
     const { data, error } = await supabase
@@ -171,6 +181,7 @@ export async function GET(req: NextRequest) {
       .select("status, updated_at")
       .eq("user_id", userId)
       .eq("item_id", itemId)
+      .eq("item_type", itemType)
       .maybeSingle();
 
     if (error) return jsonError(error.message, 500);
@@ -186,9 +197,17 @@ export async function GET(req: NextRequest) {
 
   if (error) return jsonError(error.message, 500);
 
+  /**
+   * Keyed `type:id`, not `id`.
+   *
+   * TMDB numbers films and series independently, so a bare id is ambiguous —
+   * a user holding both movie 550 and tv 550 had one silently overwrite the
+   * other in this map, and the client rendered whichever won for both. The
+   * client builds the same key via `mediaKey()`.
+   */
   const statuses: Record<string, string> = {};
   for (const row of data ?? []) {
-    statuses[row.item_id] = row.status;
+    statuses[`${row.item_type}:${row.item_id}`] = row.status;
   }
 
   return jsonSuccess(statuses);

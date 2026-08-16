@@ -33,6 +33,10 @@ export async function POST(req: NextRequest) {
     .select("id")
     .eq("user_id", userId)
     .eq("item_id", itemId)
+    // Without the type this matched a film when the user meant the series
+    // that happens to share its TMDB id, and maybeSingle() would throw once
+    // both existed.
+    .eq("item_type", mediaType)
     .maybeSingle();
 
   if (findError) return jsonError("Failed to check favorite status", 500);
@@ -43,7 +47,8 @@ export async function POST(req: NextRequest) {
       .from("favorite_items")
       .delete()
       .eq("user_id", userId)
-      .eq("item_id", itemId);
+      .eq("item_id", itemId)
+      .eq("item_type", mediaType);
 
     if (deleteError) return jsonError(deleteError.message, 500);
 

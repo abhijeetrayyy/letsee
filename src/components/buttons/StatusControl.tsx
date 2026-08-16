@@ -113,7 +113,7 @@ export default function StatusControl({
 
   useEffect(() => setMounted(true), []);
 
-  const current = getStatus(itemId);
+  const current = getStatus(itemId, mediaType);
   const meta = statusMeta(current);
   const busy = pendingActions.some((p) => p.itemId === Number(itemId));
   const disabled = loading || busy;

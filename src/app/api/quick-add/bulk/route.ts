@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
   const watchedRows: Record<string, unknown>[] = [];
   const favoriteRows: Record<string, unknown>[] = [];
   const removeIds: string[] = [];
+  const removeTypes = new Set<string>();
 
   for (const e of entries) {
     const itemId = e.itemId != null ? String(e.itemId) : null;
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
     // write, or the grid would show it unpicked while the row stayed saved.
     if (e.remove) {
       removeIds.push(itemId);
+      removeTypes.add(e.itemType === "tv" ? "tv" : "movie");
       continue;
     }
     const itemType = e.itemType === "tv" ? "tv" : "movie";
@@ -98,16 +100,18 @@ export async function POST(req: NextRequest) {
   if (removeIds.length > 0) {
     // Quick-add only ever created these rows, so removing them here is safe.
     await Promise.all([
-      supabase.from("user_media_status").delete().eq("user_id", userId).in("item_id", removeIds),
-      supabase.from("favorite_items").delete().eq("user_id", userId).in("item_id", removeIds),
-      supabase.from("watched_items").delete().eq("user_id", userId).in("item_id", removeIds),
+      // Quick-add is a film-and-series grid, so these have to name the type
+      // or un-ticking a film would also remove the series sharing its id.
+      supabase.from("user_media_status").delete().eq("user_id", userId).in("item_id", removeIds).in("item_type", [...removeTypes]),
+      supabase.from("favorite_items").delete().eq("user_id", userId).in("item_id", removeIds).in("item_type", [...removeTypes]),
+      supabase.from("watched_items").delete().eq("user_id", userId).in("item_id", removeIds).in("item_type", [...removeTypes]),
     ]);
   }
 
   if (statusRows.length > 0) {
     const { error } = await supabase
       .from("user_media_status")
-      .upsert(statusRows, { onConflict: "user_id,item_id" });
+      .upsert(statusRows, { onConflict: "user_id,item_id,item_type" });
     if (error) {
       console.error("quick-add status:", error);
       return jsonError(error.message, 500);
@@ -117,14 +121,14 @@ export async function POST(req: NextRequest) {
   if (watchedRows.length > 0) {
     const { error } = await supabase
       .from("watched_items")
-      .upsert(watchedRows, { onConflict: "user_id,item_id" });
+      .upsert(watchedRows, { onConflict: "user_id,item_id,item_type" });
     if (error) console.error("quick-add watched_items mirror:", error);
   }
 
   if (favoriteRows.length > 0) {
     const { error } = await supabase
       .from("favorite_items")
-      .upsert(favoriteRows, { onConflict: "user_id,item_id" });
+      .upsert(favoriteRows, { onConflict: "user_id,item_id,item_type" });
     if (error) console.error("quick-add favorites:", error);
   }
 

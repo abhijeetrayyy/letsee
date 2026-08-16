@@ -30,7 +30,7 @@ const LANG: Record<string, string> = {
 
 export default function TvDetailClient({ show, credits, trailer, certification, backdrops, posters, keywords, externalIds, seasons, createdBy, watchProviders, watchLink }: any) {
   const { getStatus } = useMediaInteraction();
-  const isWatched = getStatus(String(show.id)) === "watched";
+  const isWatched = getStatus(String(show.id), "tv") === "watched";
   const [showTrailer, setShowTrailer] = useState(false);
   const [markWatchedOpen, setMarkWatchedOpen] = useState(false);
   // Status the user picked from the menu; the modal applies it on save.

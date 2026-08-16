@@ -32,6 +32,11 @@ export type SetStatusPayload = {
   itemId: number | string;
   /** null clears the status entirely (removes it from all lists). */
   status: MediaStatus | null;
+  /**
+   * Also the status map's key discriminator. The map is keyed `type:id`, so
+   * without this a series files under a film's key — writing `movie:1399` and
+   * reading back `tv:1399`, with TV status quietly never appearing.
+   */
   mediaType: string;
   name: string;
   imgUrl?: string;
@@ -45,6 +50,7 @@ export type TogglePreferencePayload = {
   funcType: PreferenceType;
   itemId: number;
   name: string;
+  /** Also the status map's key discriminator — see SetStatusPayload. */
   mediaType: string;
   imgUrl?: string;
   adult: boolean;
@@ -93,7 +99,7 @@ export type UserPreferenceContextValue = {
       this can reach on_hold and dropped, which have no toggle button. */
   setStatus: (payload: SetStatusPayload) => Promise<TogglePreferenceResult>;
   /** Current status for an item, or null if untracked. */
-  getStatus: (itemId: number | string) => MediaStatus | null;
+  getStatus: (itemId: number | string, itemType?: string) => MediaStatus | null;
   /** Helpers so consumers don't duplicate list checks. */
   hasWatched: (itemId: number | string) => boolean;
   hasFavorite: (itemId: number | string) => boolean;

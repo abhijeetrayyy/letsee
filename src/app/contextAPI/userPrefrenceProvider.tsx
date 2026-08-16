@@ -23,6 +23,16 @@ import { useAuth } from "./AuthProvider";
 
 const normalizeId = (value: string | number): string => String(value);
 
+/**
+ * Composite identity for a title, matching the server and
+ * MediaInteractionProvider.
+ *
+ * TMDB numbers films and series independently, so a bare id is ambiguous and
+ * one type silently shadowed the other in every map below.
+ */
+const mediaKey = (itemId: string | number, itemType?: string): string =>
+  `${itemType === "tv" ? "tv" : "movie"}:${normalizeId(itemId)}`;
+
 const API_ENDPOINTS: Record<PreferenceType, { add: string; remove: string }> = {
   watched: { add: "/api/user-media-status", remove: "/api/user-media-status" },
   watchlater: {
@@ -39,6 +49,9 @@ function applyUpdate(
 ): UserPreferenceState {
   const { funcType, itemId, currentState } = payload;
   const key = normalizeId(itemId);
+  // The statuses map is keyed `type:id`; the bucket lists stay id-based
+  // because that is the shape their consumers already expect.
+  const statusKey = mediaKey(itemId, payload.mediaType);
 
   const removeFrom = (list: PreferenceItem[]) =>
     list.filter((item) => item.item_id !== key);
@@ -76,9 +89,9 @@ function applyUpdate(
   next.watching = removeFrom(next.watching);
 
   if (currentState) {
-    delete next.statuses[key];
+    delete next.statuses[statusKey];
   } else {
-    next.statuses[key] = statusFor[funcType]!;
+    next.statuses[statusKey] = statusFor[funcType]!;
     if (funcType === "watched") next.watched = addTo(next.watched);
     else if (funcType === "watchlater") next.watchlater = addTo(next.watchlater);
     else next.watching = addTo(next.watching);
@@ -92,6 +105,7 @@ function applyStatus(
   prev: UserPreferenceState,
   itemId: string,
   status: MediaStatus | null,
+  statusKey: string,
 ): UserPreferenceState {
   const drop = (list: PreferenceItem[]) => list.filter((i) => i.item_id !== itemId);
   const next: UserPreferenceState = {
@@ -103,11 +117,11 @@ function applyStatus(
   };
 
   if (status === null) {
-    delete next.statuses[itemId];
+    delete next.statuses[statusKey];
     return next;
   }
 
-  next.statuses[itemId] = status;
+  next.statuses[statusKey] = status;
   if (status === "watched") next.watched.push({ item_id: itemId });
   else if (status === "watchlist") next.watchlater.push({ item_id: itemId });
   else if (status === "watching") next.watching.push({ item_id: itemId });
@@ -182,9 +196,10 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
         (items ?? []).map((item) => ({
           item_id: normalizeId(item.item_id ?? ""),
         }));
+      // Already `type:id` from /api/userPrefrence — pass through unchanged.
       const statuses: Record<string, MediaStatus> = {};
-      for (const [id, status] of Object.entries(res?.statuses ?? {})) {
-        statuses[normalizeId(id)] = status as MediaStatus;
+      for (const [key, status] of Object.entries(res?.statuses ?? {})) {
+        statuses[key] = status as MediaStatus;
       }
       setUserPrefrence({
         watched: normalize(res?.watched),
@@ -432,8 +447,8 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const getStatus = useCallback(
-    (itemId: number | string): MediaStatus | null =>
-      userPrefrence.statuses[normalizeId(itemId)] ?? null,
+    (itemId: number | string, itemType?: string): MediaStatus | null =>
+      userPrefrence.statuses[mediaKey(itemId, itemType)] ?? null,
     [userPrefrence.statuses],
   );
 
@@ -448,8 +463,9 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
         return { ok: false, message: "Please log in to perform this action." };
       }
       const key = normalizeId(payload.itemId);
+      const statusKey = mediaKey(payload.itemId, payload.mediaType);
       const previous = userPrefrence;
-      setUserPrefrence((prev) => applyStatus(prev, key, payload.status));
+      setUserPrefrence((prev) => applyStatus(prev, key, payload.status, statusKey));
 
       const pendingItem = { itemId: Number(payload.itemId), funcType: "watched" as PreferenceType };
       setPendingActions((prev) => [...prev, pendingItem]);

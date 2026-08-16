@@ -113,7 +113,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   // A rewatch must not demote an existing 'watched' row — that would pull the
   // title out of their Films grid for the duration of the rewatch.
-  const existing = me.statusByItem.get(itemId);
+  const existing = me.statusByItem.get(`${itemType}:${itemId}`);
   if (!isEpisode && existing !== "watched") {
     const { error } = await supabase.from("user_media_status").upsert(
       {
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         ...(Number.isFinite(runtime) && runtime > 0 ? { runtime_minutes: Math.round(runtime) } : {}),
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "user_id,item_id" },
+      { onConflict: "user_id,item_id,item_type" },
     );
 
     if (error) {

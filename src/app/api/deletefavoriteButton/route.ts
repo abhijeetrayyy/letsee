@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createClient();
 
-  let body: { itemId?: string };
+  let body: { itemId?: string; mediaType?: string; itemType?: string };
   try {
     body = await req.json();
   } catch {
@@ -18,12 +18,17 @@ export async function POST(req: NextRequest) {
 
   const { itemId } = body;
   if (!itemId) return jsonError("itemId is required", 400);
+  // A bare id names two possible titles, so without this it removed both the
+  // film and the series that share it. Accepts either spelling the two
+  // providers use.
+  const itemType = (body.mediaType ?? body.itemType) === "tv" ? "tv" : "movie";
 
   const { data: existingItem } = await supabase
     .from("favorite_items")
     .select("item_id")
     .eq("user_id", userId)
     .eq("item_id", String(itemId))
+    .eq("item_type", itemType)
     .maybeSingle();
 
   if (!existingItem) return jsonSuccess({ message: "Not favorited" });
@@ -32,7 +37,8 @@ export async function POST(req: NextRequest) {
     .from("favorite_items")
     .delete()
     .eq("user_id", userId)
-    .eq("item_id", String(itemId));
+    .eq("item_id", String(itemId))
+    .eq("item_type", itemType);
 
   if (deleteError) return jsonError(deleteError.message, 500);
 

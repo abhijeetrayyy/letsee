@@ -62,21 +62,23 @@ export async function applyRows(
   const [statusRes, watchedRes] = await Promise.all([
     supabase
       .from("user_media_status")
-      .select("item_id, status")
+      .select("item_id, item_type, status")
       .eq("user_id", userId)
       .in("item_id", itemIds),
     supabase
       .from("watched_items")
-      .select("item_id, review_text")
+      .select("item_id, item_type, review_text")
       .eq("user_id", userId)
       .in("item_id", itemIds),
   ]);
 
+  // Keyed `type:id`. These maps decide whether a row is downgraded, so a bare
+  // id could judge a film against the series sharing its TMDB id.
   const existingStatus = new Map(
-    (statusRes.data ?? []).map((r) => [String(r.item_id), r.status as string]),
+    (statusRes.data ?? []).map((r) => [`${r.item_type}:${r.item_id}`, r.status as string]),
   );
   const existingReview = new Map(
-    (watchedRes.data ?? []).map((r) => [String(r.item_id), r.review_text as string | null]),
+    (watchedRes.data ?? []).map((r) => [`${r.item_type}:${r.item_id}`, r.review_text as string | null]),
   );
 
   const statusUpserts: Record<string, unknown>[] = [];
@@ -94,7 +96,7 @@ export async function applyRows(
       ...(posterUrl(row.posterPath) ? { image_url: posterUrl(row.posterPath) } : {}),
     };
 
-    const current = existingStatus.get(row.tmdbId);
+    const current = existingStatus.get(`${row.tmdbType}:${row.tmdbId}`);
 
     if (row.watched) {
       statusUpserts.push({ ...base, status: "watched", updated_at: new Date().toISOString() });
@@ -105,7 +107,7 @@ export async function applyRows(
     }
 
     if (row.watched) {
-      const hasReview = !!existingReview.get(row.tmdbId);
+      const hasReview = !!existingReview.get(`${row.tmdbType}:${row.tmdbId}`);
       watchedUpserts.push({
         ...base,
         is_watched: true,
@@ -137,26 +139,26 @@ export async function applyRows(
     statusUpserts.length
       ? supabase
           .from("user_media_status")
-          .upsert(statusUpserts, { onConflict: "user_id,item_id" })
+          .upsert(statusUpserts, { onConflict: "user_id,item_id,item_type" })
           .then(({ error }) => error && console.error("import status:", error))
       : null,
     watchedUpserts.length
       ? supabase
           .from("watched_items")
-          .upsert(watchedUpserts, { onConflict: "user_id,item_id" })
+          .upsert(watchedUpserts, { onConflict: "user_id,item_id,item_type" })
           .then(({ error }) => error && console.error("import watched_items:", error))
       : null,
     // ignoreDuplicates is the whole "never clobber" guarantee for these two.
     ratingInserts.length
       ? supabase
           .from("user_ratings")
-          .upsert(ratingInserts, { onConflict: "user_id,item_id", ignoreDuplicates: true })
+          .upsert(ratingInserts, { onConflict: "user_id,item_id,item_type", ignoreDuplicates: true })
           .then(({ error }) => error && console.error("import ratings:", error))
       : null,
     favoriteInserts.length
       ? supabase
           .from("favorite_items")
-          .upsert(favoriteInserts, { onConflict: "user_id,item_id", ignoreDuplicates: true })
+          .upsert(favoriteInserts, { onConflict: "user_id,item_id,item_type", ignoreDuplicates: true })
           .then(({ error }) => error && console.error("import favorites:", error))
       : null,
   ]);

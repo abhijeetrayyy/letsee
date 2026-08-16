@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
       status: "watched",
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,item_id" },
+    { onConflict: "user_id,item_id,item_type" },
   );
 
   if (statusError) {

@@ -78,7 +78,7 @@ export async function PUT(req: NextRequest) {
       status,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,item_id" }
+    { onConflict: "user_id,item_id,item_type" }
   );
 
   if (error) return jsonError(error.message, 500);

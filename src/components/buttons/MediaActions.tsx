@@ -80,8 +80,8 @@ export default function MediaActions({
   } = useMediaInteraction();
 
   const id = String(itemId);
-  const status = getStatus(id);
-  const favorited = isFavorited(id);
+  const status = getStatus(id, itemType);
+  const favorited = isFavorited(id, itemType);
   const pending = isPending(id);
   const meta = { itemType, name: itemName, imgUrl: itemImg ?? "", adult: itemAdult ?? false, genres };
 

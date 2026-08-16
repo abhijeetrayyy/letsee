@@ -51,7 +51,7 @@ export async function ensureShowInMediaStatus(
       status: "watching",
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,item_id" },
+    { onConflict: "user_id,item_id,item_type" },
   );
   if (error) console.error("ensureShowInMediaStatus:", error);
 }
@@ -129,7 +129,7 @@ export async function autoTransitionStatus(
         status: newStatus,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "user_id,item_id" },
+      { onConflict: "user_id,item_id,item_type" },
     );
 
     await syncWatchedItem(supabase, userId, showId, newStatus === "watched", {
@@ -191,6 +191,9 @@ export async function syncWatchedItem(
     .select("id, is_watched")
     .eq("user_id", userId)
     .eq("item_id", showId)
+    // This function is only ever about a series; without the type it could
+    // find the film that shares the id and demote that instead.
+    .eq("item_type", "tv")
     .maybeSingle();
 
   if (!watched) {
@@ -217,7 +220,7 @@ export async function syncWatchedItem(
       is_watched: true,
       watched_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,item_id" },
+    { onConflict: "user_id,item_id,item_type" },
   );
 
   if (error) console.error("syncWatchedItem:", error);
