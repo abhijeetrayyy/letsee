@@ -5,17 +5,27 @@ import HomeHero from "@components/home/HomeHero";
 import QuickActions from "@components/home/QuickActions";
 import TrendingNow from "@components/home/TrendingNow";
 import GenreExplorer from "@components/home/GenreExplorer";
-import CollectionRow from "@components/home/CollectionRow";
 import UserSidebar from "@components/home/UserSidebar";
 import ContinueWatchingProgress from "@components/tv/ContinueWatchingProgress";
-import QuickPick from "@components/home/QuickPick";
 import FollowingFeed from "@components/feed/FollowingFeed";
 import AiringSoon from "@components/home/AiringSoon";
 import PeopleYouMayKnow from "@components/home/PeopleYouMayKnow";
-import DiscoverUsers from "@components/home/DiscoverUser";
-import CommunityLeaderboard from "@components/home/CommunityLeaderboard";
-import ClubPickWidget from "@components/home/ClubPickWidget";
-import { Film, TrendingUp, Compass, Tv, Sparkles, Flame } from "lucide-react";
+import PopularReviews from "@components/home/PopularReviews";
+import { Film, TrendingUp, Compass, Flame, Play } from "lucide-react";
+
+/**
+ * Home is five sections, and that is the point.
+ *
+ * It used to carry nine genre carousels, a leaderboard, two separate
+ * people-you-might-like modules and two different "what should I watch"
+ * widgets — twenty-five surfaces competing for the same attention, none of
+ * which answered the question people actually open the app with. Everything
+ * that was browsing rather than deciding moved behind GenreExplorer and
+ * /app/profile, which already did the same job better.
+ *
+ * What's left: decide (Tonight), resume (Continue watching), what your people
+ * are doing (Feed), what's live (Trending), and one way out to browse.
+ */
 
 async function getUsername(): Promise<string | null> {
   try {
@@ -66,9 +76,6 @@ export default async function Home() {
                       whenever there was no progress to show. */}
                   <ContinueWatchingProgress />
                   <AiringSoon />
-                  <div className="pt-2">
-                    <QuickPick />
-                  </div>
                 </>
               ) : (
                 <div className="rounded-2xl border border-brand-500/10 bg-gradient-to-br from-brand-500/5 to-surface-900/50 p-6 text-center">
@@ -100,18 +107,41 @@ export default async function Home() {
                 </div>
               )}
 
-              {/* Community discovery — visible to everyone. A signed-out
-                  visitor seeing zero humans is the worst possible first
-                  impression for a community product. PeopleYouMayKnow stays
-                  gated because its matches are relative to your own taste. */}
-              <ClubPickWidget />
+              {/* One taste row, not two. PeopleYouMayKnow leads with the
+                  shared-title evidence; the old counter-card grid duplicated
+                  it with weaker signal and /app/profile already does browsing
+                  properly. */}
               {isLoggedIn && <PeopleYouMayKnow />}
-              <DiscoverUsers hideTitleLink />
-              <CommunityLeaderboard />
             </aside>
 
             {/* ═══════ MAIN CONTENT ═══════ */}
             <main className="flex-1 min-w-0 order-1 lg:order-2 space-y-10">
+              {/* Tonight — the only thing here that happens *before* watching,
+                  so it sits above everything that happens after. */}
+              {isLoggedIn && (
+                <section>
+                  <Link
+                    href="/app/tonight"
+                    className="group flex items-center gap-4 rounded-2xl border border-brand-500/20 bg-gradient-to-br from-brand-500/10 to-surface-900/40 p-5 sm:p-6 hover:border-brand-500/40 transition-colors"
+                  >
+                    <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-brand-500/15">
+                      <Play className="size-5 text-brand-400" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-lg font-bold text-white">
+                        What are we watching tonight?
+                      </span>
+                      <span className="block text-sm text-surface-400 mt-0.5">
+                        Who&apos;s in, how long you&apos;ve got, what you can stream — one answer.
+                      </span>
+                    </span>
+                    <span className="ml-auto hidden sm:block text-surface-600 group-hover:text-brand-400 transition-colors">
+                      →
+                    </span>
+                  </Link>
+                </section>
+              )}
+
               {/* Following Feed */}
               <section>
                 <div className="flex items-center justify-between mb-4">
@@ -122,6 +152,12 @@ export default async function Home() {
                 </div>
                 <FollowingFeed />
               </section>
+
+              {/* Worth reading. Renders nothing when there's nothing to
+                  show, so it costs the page no height until the community
+                  produces something — but it's the reason writing a review
+                  here has any distribution at all. */}
+              <PopularReviews />
 
               {/* Trending Now */}
               <section>
@@ -137,67 +173,8 @@ export default async function Home() {
                 <TrendingNow items={content.trending} trendingTv={content.trendingTv} />
               </section>
 
-              {/* Weekly Top 20 */}
-              {content.weeklyTop.length > 0 && (
-                <section>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <Tv className="size-4 text-accent-gold" />
-                      <h2 className="text-lg font-bold text-white">Top This Week</h2>
-                    </div>
-                  </div>
-                  <CollectionRow items={content.weeklyTop} showRank />
-                </section>
-              )}
-
-              {/* Anime Section */}
-              {(content.animeSeries.length > 0 || content.animeFilms.length > 0) && (
-                <section>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="size-4 text-purple-400" />
-                      <h2 className="text-lg font-bold text-white">Anime</h2>
-                    </div>
-                  </div>
-                  <div className="space-y-6">
-                    {content.animeSeries.length > 0 && (
-                      <CollectionRow items={content.animeSeries} label="Popular Series" mediaType="tv" />
-                    )}
-                    {content.animeFilms.length > 0 && (
-                      <CollectionRow items={content.animeFilms} label="Popular Films" mediaType="movie" />
-                    )}
-                  </div>
-                </section>
-              )}
-
-              {/* Curated Collections */}
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Compass className="size-4 text-rose-400" />
-                    <h2 className="text-lg font-bold text-white">Curated Collections</h2>
-                  </div>
-                </div>
-                <div className="space-y-8">
-                  {content.collections.romance.length > 0 && (
-                    <CollectionRow items={content.collections.romance} label="Romance & Love" accent="rose" />
-                  )}
-                  {content.collections.action.length > 0 && (
-                    <CollectionRow items={content.collections.action} label="Action" accent="amber" />
-                  )}
-                  {content.collections.crime.length > 0 && (
-                    <CollectionRow items={content.collections.crime} label="Crime" accent="slate" />
-                  )}
-                  {content.collections.thriller.length > 0 && (
-                    <CollectionRow items={content.collections.thriller} label="Thrills" accent="emerald" />
-                  )}
-                  {content.collections.horror.length > 0 && (
-                    <CollectionRow items={content.collections.horror} label="Horror" accent="red" />
-                  )}
-                </div>
-              </section>
-
-              {/* Genre Explorer */}
+              {/* Genre Explorer — the way out to everything the nine carousels
+                  used to preload. */}
               <section>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
@@ -207,19 +184,6 @@ export default async function Home() {
                 </div>
                 <GenreExplorer movieGenres={content.movieGenres} tvGenres={content.tvGenres} />
               </section>
-
-              {/* Bollywood */}
-              {content.bollywood.length > 0 && (
-                <section>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <Film className="size-4 text-orange-400" />
-                      <h2 className="text-lg font-bold text-white">Bollywood</h2>
-                    </div>
-                  </div>
-                  <CollectionRow items={content.bollywood} mediaType="movie" />
-                </section>
-              )}
             </main>
           </div>
         </div>
@@ -227,4 +191,3 @@ export default async function Home() {
     </>
   );
 }
-

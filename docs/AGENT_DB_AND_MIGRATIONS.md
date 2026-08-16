@@ -10,7 +10,7 @@
 - **Schema:** `public` (app tables, functions, RLS). Auth/storage/realtime are Supabase-managed and not defined in this repo.
 - **Where to run SQL:** Supabase Dashboard → SQL Editor (paste file contents → Run). Or `pg_dump` / Supabase CLI for pulling schema (see `docs/PULL_SCHEMA_FROM_SUPABASE.md`).
 - **Reference files:**
-  - **`schema.sql`** — Full consolidated schema (tables, types, functions, RLS) as the app expects. Use for “what the app expects” and for diffing.
+  - **`schema.sql`** — ⚠️ **Badly stale — do not trust it.** It predates roughly migration 024 and is missing `notifications`, `comments`, `reactions`, `clubs`, `achievements` and everything added since, including 056–063. An agent reading it would wrongly conclude those tables don't exist. **The `migrations/` files are the source of truth**; use `schema.sql` only for the older core tables, and regenerate it with `npm run db:dump` (needs `supabase login`) before relying on it or seeding a fresh database from it.
   - **`schema_from_supabase.sql`** — Optional dump from live Supabase (`pg_dump` or `supabase db dump`). Use to compare live DB vs repo; re-dump after applying migrations.
 
 ---
@@ -37,6 +37,40 @@ All migration files live in **`migrations/`**. Run **in numeric order** (007 →
 | **020_remove_runtime_minutes.sql** | Drops columns `watched_items.runtime_minutes` and `watched_episodes.runtime_minutes`. Profile stats show Movies, TV, Episodes (count on fetch); Hours removed. | ✅ Yes | ✅ Yes (drop column if exists) | Run when removing Hours from profile; no triggers/functions reference these columns. |
 | **021_tv_list_status.sql** | Adds `users.default_tv_status`. Creates table `user_tv_list` (user_id, show_id, status) and RLS (self + profile_visible_to_viewer for SELECT). | ⚠️ Superseded by 055 | ⚠️ Policies CREATE (run once) | **Do not run on a live DB.** The column it adds was dropped by 055 and nothing reads it; `user_tv_list` does not exist live and no code references it. |
 | **055_drop_default_tv_status.sql** | Drops `users.default_tv_status` and its check constraint (`users_default_tv_status_check`, from 022). | ✅ Yes | ✅ Yes (`drop ... if exists`) | Irreversible. Nothing read the column; all users held the default `watching`. Run after removing the setting from the UI and the settings route. |
+| **056_user_providers.sql** | Creates `user_providers` (TMDB provider ids per user) + `users.watch_region`; RLS self-write, `profile_visible_to_viewer` read. | ✅ **Applied 2026-08-16** | ✅ Yes (`if not exists`, `drop policy if exists`) | **Required by `/app/tonight`.** Run before 057. |
+| **057_watch_sessions.sql** | Creates `watch_sessions`, `watch_session_participants`, `watch_session_votes`, and `is_session_participant()` (SECURITY DEFINER, same anti-recursion pattern as 049). | ✅ **Applied 2026-08-16** | ✅ Yes (`if not exists`, `create or replace`, `drop policy if exists`) | **Required by `/app/tonight`.** Run after 056. |
+| **058_letterboxd_import.sql** | Creates `import_jobs`, `import_rows`, and `owns_import_job()` (SECURITY DEFINER). Self-only RLS on both, so the importing user polls their own progress without an admin client. | ✅ **Applied 2026-08-16** | ✅ Yes (`if not exists`, `create or replace`, `drop policy if exists`) | **Required by `/app/import`.** |
+| **059_year_in_review.sql** | Creates `year_reviews` (per-user, per-year sharing opt-in). Self-write RLS plus a public read on the flag, so one year can be published without changing `users.visibility`. | ✅ **Applied 2026-08-16** | ✅ Yes (`if not exists`, `drop policy if exists`) | **Required by `/app/profile/[id]/year/[year]`.** |
+
+| **060_season_reviews.sql** | Creates `season_reviews` (a review anchored to a season). Mirrors the diary/public split from 009. | ✅ **Applied 2026-08-16** | ✅ Yes (`if not exists`, `drop policy if exists`) | **Required by the season page's review block.** |
+| **061_new_episode_notification.sql** | Adds the `new_episode` notification type and `notified_episodes` (the daily job's memory, so it can't re-announce). | ✅ **Applied 2026-08-16** | ⚠️ Constraint is drop-and-recreate; table is `if not exists` | **Required by `/api/cron/new-episodes`.** Keeps `wave` and `achievement_unlocked` in the constraint so existing rows stay valid. |
+
+| **062_reviews_get_an_audience.sql** | Adds `notify_reaction()` + trigger (liking notified nobody), and the `reviews_for_title` / `popular_reviews` RPCs that rank reviews by reactions. | ✅ **Applied 2026-08-16** | ✅ Yes (`create or replace`, `drop trigger if exists`) | Reviews fall back to recency and the home row hides itself until this runs. |
+
+| **063_nullable_notification_actor.sql** | Drops `not null` on `notifications.actor_id`. | ✅ **Applied 2026-08-16** | ✅ Yes | Required by `/api/cron/new-episodes` — without it every new-episode notification insert failed with 23502. |
+
+> ✅ **056–063 were applied on 2026-08-16 and verified**: all nine tables present, `users.watch_region` added, four RPCs exposed and executing, and 061's constraint confirmed to reject an unknown type while accepting `new_episode`.
+>
+> `migrations/APPLY_056_TO_062.sql` is the one-paste bundle used for that batch. Re-dump `schema_from_supabase.sql` after any further migration.
+
+### What verification caught
+
+`notifications.actor_id` is `not null` (027), but a `new_episode` notification has no actor — nobody acted, a show aired. `newEpisodeNotifier.ts` inserts `actor_id => null`, so **every one of those inserts would have been rejected**, silently, inside a fire-and-forget cron job whose only trace is a console line nobody reads.
+
+Found by probing 061's constraint with a deliberately failing insert and getting `23502` (not-null) where `23503` (foreign key) was expected. 063 is the fix, and after applying it the notifier's exact payload was inserted, confirmed to come back from the actor left join as `actor: null`, and deleted.
+
+### A note on `background_jobs` (024)
+
+That queue is **not functional**, and neither 058 nor 061 uses it:
+
+- Nothing anywhere calls `registerJobHandler`, so `JOB_HANDLERS` is empty and `dispatchJob` always fails with *"No handler registered for job type"*.
+- `vercel.json` now declares one cron (`/api/cron/new-episodes`), but still none for `/api/cron/run-jobs`, so the queue runner is still never invoked.
+
+Anything scheduled onto it today silently never runs. `/api/cron/new-episodes` and `/api/cron/check-availability` sidestep it by being plain functions a cron route calls directly, which is the pattern to follow. Either wire the queue's two ends up or drop the table — but don't build on it as-is.
+
+**`/api/cron/check-availability` still has no schedule.** It is written, working, and never fires. Add it to `vercel.json` or delete it.
+
+⚠️ **`CRON_SECRET` must be set in production.** All three cron routes skip their auth guard when the variable is unset — convenient locally, an open endpoint in production.
 
 ---
 

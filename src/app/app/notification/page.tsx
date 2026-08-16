@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/utils/supabase/client";
 import { acceptFollowRequest, rejectFollowRequest } from "@/utils/followerAction";
-import { Heart, UserPlus, UserCheck, Eye, MessageSquare, Star, CheckCheck, Bell, Loader2, Hand } from "lucide-react";
+import { Heart, UserPlus, UserCheck, Eye, MessageSquare, Star, CheckCheck, Bell, Loader2, Hand, Tv } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
 
 type ActorProfile = {
@@ -15,7 +15,8 @@ type ActorProfile = {
 type NotificationItem = {
   id: number;
   notification_type: string;
-  actor_id: string;
+  /** Null for system notifications like new_episode — nobody acted. */
+  actor_id: string | null;
   actor: ActorProfile;
   target_type: string | null;
   target_id: number | null;
@@ -66,6 +67,7 @@ function notificationIcon(type: string) {
     case "friend_started_watching": return <Eye className="w-4 h-4 text-cyan-400" />;
     case "achievement_unlocked": return <Star className="w-4 h-4 text-accent-gold" />;
     case "wave": return <Hand className="w-4 h-4 text-amber-400" />;
+    case "new_episode": return <Tv className="w-4 h-4 text-sky-400" />;
     default: return <Bell className="w-4 h-4 text-surface-400" />;
   }
 }
@@ -82,7 +84,21 @@ function getNotificationText(n: NotificationItem): { text: string; href?: string
         : n.metadata?.target_type === "rating" ? "rating"
         : n.metadata?.target_type === "list" ? "list"
         : "content";
-      return { text: `${username} liked your ${target}` };
+      const name = n.metadata?.item_name as string | undefined;
+      // Nothing created these until 062 added the trigger on `reactions`, so
+      // older rows may have no metadata to link with — hence the fallbacks.
+      const href =
+        n.metadata?.target_type === "review" && n.target_id
+          ? `/app/review/${n.target_id}`
+          : n.metadata?.target_type === "list" && n.target_id
+            ? `/app/lists/${n.target_id}`
+            : undefined;
+      return {
+        text: name
+          ? `${username} liked your ${target} of ${name}`
+          : `${username} liked your ${target}`,
+        href,
+      };
     }
     case "friend_watched": {
       const name = n.metadata?.item_name as string ?? "";
@@ -125,6 +141,21 @@ function getNotificationText(n: NotificationItem): { text: string; href?: string
         href: itemId ? `/app/${itemType}/${itemId}` : undefined,
       };
     }
+    // The only notification here that isn't about what another user did to
+    // you — it's about something that happened in the world. Hence no actor.
+    case "new_episode": {
+      const show = (n.metadata?.show_name as string) ?? "a show you're watching";
+      const season = n.metadata?.season_number;
+      const episode = n.metadata?.episode_number;
+      const label = season != null && episode != null ? ` S${season}E${episode}` : "";
+      return {
+        text: `New episode of ${show}${label}`,
+        href: n.metadata?.show_id ? `/app/tv/${n.metadata.show_id}` : undefined,
+      };
+    }
+    // Waves and achievements were removed from the product; these two cases
+    // stay so rows already in the table keep reading correctly instead of
+    // degrading to "New notification from X". Nothing creates them any more.
     case "achievement_unlocked": {
       const name = n.metadata?.name as string ?? "an achievement";
       const icon = n.metadata?.icon as string ?? "🏆";

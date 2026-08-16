@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FaStar } from "react-icons/fa";
+import StarRating from "@components/ui/StarRating";
+import { formatStars } from "@/utils/ratingScale";
 
 interface EpisodeRatingProps {
   showId: string;
@@ -17,7 +18,6 @@ export default function EpisodeRating({
   initialRating,
 }: EpisodeRatingProps) {
   const [rating, setRating] = useState<number | null>(initialRating || null);
-  const [hover, setHover] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
   // If initialRating is undefined, we could fetch it.
@@ -105,32 +105,10 @@ export default function EpisodeRating({
   };
 
   return (
-    <div className="flex items-center gap-1">
-      {[...Array(10)].map((_, i) => {
-        const ratingValue = i + 1;
-        return (
-          <label key={i} className="cursor-pointer">
-            <input
-              type="radio"
-              name="rating"
-              value={ratingValue}
-              onClick={() => handleRate(ratingValue)}
-              className="hidden"
-            />
-            <FaStar
-              className="transition-colors duration-200"
-              color={
-                ratingValue <= (hover || rating || 0) ? "#f59e0b" : "#4b5563"
-              }
-              size={18} // Smaller than show rating
-              onMouseEnter={() => setHover(ratingValue)}
-              onMouseLeave={() => setHover(null)}
-            />
-          </label>
-        );
-      })}
-      <span className="ml-2 text-sm text-surface-400">
-        {rating ? `${rating}/10` : "Rate"}
+    <div className="flex items-center gap-2">
+      <StarRating value={rating ?? null} onChange={handleRate} size="sm" />
+      <span className="text-sm text-surface-400">
+        {rating ? formatStars(rating) : "Rate"}
       </span>
     </div>
   );

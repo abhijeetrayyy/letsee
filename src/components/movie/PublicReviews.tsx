@@ -133,11 +133,22 @@ export default function PublicReviews({ itemId, itemType }: PublicReviewsProps) 
                           <span className="text-xs font-semibold text-surface-500">Anonymous</span>
                         )}
                         <span className="text-[10px] text-surface-600">·</span>
-                        <span className="text-[10px] text-surface-500">Watched {formatDate(r.watchedAt)}</span>
+                        <Link
+                          href={`/app/review/${r.id}`}
+                          className="text-[10px] text-surface-500 hover:text-surface-300 transition-colors"
+                        >
+                          Watched {formatDate(r.watchedAt)}
+                        </Link>
                       </div>
                       <p className="text-sm text-surface-200 whitespace-pre-wrap leading-relaxed">{r.reviewText}</p>
-                      <div className="mt-3">
+                      <div className="mt-3 flex items-center gap-3">
                         <LikeButton targetType="review" targetId={r.id} size="sm" />
+                        <Link
+                          href={`/app/review/${r.id}`}
+                          className="text-[11px] text-surface-500 hover:text-brand-400 transition-colors"
+                        >
+                          Reply
+                        </Link>
                       </div>
                     </div>
                     {isMine && (

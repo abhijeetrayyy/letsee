@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 .commandcode/
 /.next-build/
+
+# Supabase CLI scratch state — machine-specific, and a future CLI version
+# could write a connection string here.
+supabase/.temp/

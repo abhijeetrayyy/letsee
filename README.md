@@ -1,10 +1,11 @@
 # Letsee (Movie Social)
 
-A **social movie & TV discovery app**: track what you watch, share with friends, get AI recommendations, and see where to stream.
+A **social app for deciding what to watch**: who's in the room, how long you've got, and what you can actually stream — then track it, review it, and share it with the people whose taste you trust.
 
 ## What it does
 
-- **Discover** — Trending, genres (movies & TV), Bollywood, Romance, Action, search by title or keyword
+- **Tonight** — Pick the people watching, the time you've got, and get *one* answer with the reason behind it and where it's streaming. Marks it as watching when you commit, so the diary writes itself. (`/app/tonight`)
+- **Discover** — Trending, browse by genre (movies & TV), search by title or keyword
 - **Your lists** — Watchlist, Favorites, Watched (with genre stats on your profile)
 - **Your rating** — Rate movies and TV 1–10 on detail pages; see “Your rating” and change it anytime
 - **Reviews / diary** — Add a review or note to watched items; see "Watched on [date]" and review snippet on your profile
@@ -14,7 +15,7 @@ A **social movie & TV discovery app**: track what you watch, share with friends,
 - **Activity feed** — See what people you follow watched, favorited, added to watchlist, or rated (on home)
 - **Custom lists** — Create named lists (e.g. “Best 2024”), add/remove movies and TV, set visibility (public, followers, private); view on profile and at `/app/lists/[id]`
 - **Calendar / upcoming** — "In theaters" and "TV this week" on home (TMDB now_playing + on_the_air)
-- **Reels** — Short-form movie clips by genre/keyword
+- **Clubs** — Small groups that watch the same thing the same week and talk about it
 - **Profiles** — Public, followers-only, or private; genre breakdown; paginated lists
 
 ## Tech stack
@@ -94,9 +95,11 @@ A **social movie & TV discovery app**: track what you watch, share with friends,
 
 ## Docs
 
+- `docs/SURPASSING_LETTERBOXD.md` — **Start here.** Product strategy, the decisions behind Tonight, and what shipped vs what's next
+- `docs/AGENT_DB_AND_MIGRATIONS.md` — Which migrations exist, what each does, and which are applied
 - `docs/API_AUDIT_TMDB_AND_FETCH.md` — TMDB usage, India/region options, fetch patterns
-- `docs/FEATURE_RESEARCH_AND_OPTIONS.md` — Feature gaps and options
-- `docs/PRIORITY_LIST.md` — Implementation priority list
+- `docs/FEATURE_RESEARCH_AND_OPTIONS.md` — Feature gaps and options (partly superseded)
+- `docs/PRIORITY_LIST.md` — Implementation priority list (partly superseded)
 
 ## License
 

@@ -7,6 +7,7 @@ import { Users, Plus, Loader2 } from "lucide-react";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import EmptyState from "@components/ui/EmptyState";
+import ClubPickWidget from "@components/home/ClubPickWidget";
 
 type Club = {
   id: number;
@@ -74,6 +75,13 @@ export default function ClubsPage() {
             </button>
           )}
         </header>
+
+        {/* The house pick. It lived on the home page, where it competed with
+            everything else for a glance; here it's context for the thing the
+            page is already about. */}
+        <div className="mb-6">
+          <ClubPickWidget />
+        </div>
 
         {creating && (
           <div className="mb-6 rounded-2xl border border-surface-700/60 bg-surface-900/50 p-5">

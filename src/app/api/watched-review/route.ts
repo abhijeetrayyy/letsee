@@ -97,18 +97,6 @@ export async function PATCH(request: NextRequest) {
 
   if (updateError) return jsonError(updateError.message || "Failed to save", 500);
 
-  if (updates.public_review_text) {
-    void supabase.rpc("check_achievements", { p_user_id: user.user.id, p_action: "review" })
-      .then(
-        ({ data }) => {
-          for (const row of data ?? []) {
-            void supabase.rpc("award_achievement", { p_user_id: user.user.id, p_achievement_id: row.achievement_id });
-          }
-        },
-        () => {}
-      );
-  }
-
   return jsonSuccess(
     {
       diaryText: updates.review_text !== undefined ? updates.review_text : undefined,

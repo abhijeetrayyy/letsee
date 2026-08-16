@@ -28,6 +28,75 @@ function formatDate(iso: string | null): string {
 }
 
 /**
+ * Open Graph metadata, so a shared review renders as the review.
+ *
+ * Without this a pasted link previews as the generic site card, which makes
+ * sharing someone's writing look like sharing a homepage — the single cheapest
+ * thing standing between a good review and an audience.
+ *
+ * Deliberately re-queries rather than sharing state with the page: Next runs
+ * generateMetadata and the component as separate invocations, and the request
+ * is deduped anyway.
+ *
+ * Only ever built from a review that is already public. A followers-only or
+ * hidden review 404s in the component, and its metadata falls back to a title
+ * that reveals nothing.
+ */
+export async function generateMetadata({ params }: RouteParams) {
+  const fallback = { title: "Review · LetSee" };
+  const reviewId = Number((await params).id);
+  if (!Number.isInteger(reviewId)) return fallback;
+
+  try {
+    const supabase = await createClient();
+    const { data: review } = await supabase
+      .from("watched_items")
+      .select("user_id, item_name, image_url, public_review_text")
+      .eq("id", reviewId)
+      .maybeSingle();
+
+    if (!review?.public_review_text) return fallback;
+
+    const { data: author } = await supabase
+      .from("users")
+      .select("username, visibility, profile_show_public_reviews")
+      .eq("id", review.user_id)
+      .maybeSingle();
+
+    // Metadata is rendered before the component's own gate runs and is served
+    // to crawlers with no session, so it must only ever describe a review a
+    // stranger is allowed to read.
+    const isPublic =
+      String(author?.visibility ?? "public").toLowerCase().trim() === "public" &&
+      author?.profile_show_public_reviews !== false;
+    if (!author?.username || !isPublic) return fallback;
+
+    const title = `@${author.username} on ${review.item_name || "a film"} · LetSee`;
+    const description = review.public_review_text.slice(0, 200);
+    const image = review.image_url ? getPosterUrl(review.image_url, "w500") : undefined;
+
+    return {
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+        type: "article",
+        ...(image ? { images: [{ url: image }] } : {}),
+      },
+      twitter: {
+        card: image ? "summary_large_image" : "summary",
+        title,
+        description,
+        ...(image ? { images: [image] } : {}),
+      },
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+/**
  * Permalink for a single public review — the thing you can actually reply to.
  *
  * Required, not cosmetic: comments already support item_type='review' in the
