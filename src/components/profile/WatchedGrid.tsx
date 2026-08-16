@@ -1,5 +1,6 @@
 "use client";
 
+import { formatStars } from "@/utils/ratingScale";
 import MediaCard from "@/components/cards/MediaCard";
 import SendMessageModal from "@components/message/sendCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -240,7 +241,7 @@ export default function WatchedGrid({
                 )}
                 {item.score != null && (
                   <span className="block text-xs text-accent-gold/90 font-medium">
-                    {item.score}/10
+                    {formatStars(item.score)}
                   </span>
                 )}
               </>

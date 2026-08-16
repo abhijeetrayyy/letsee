@@ -1,6 +1,6 @@
 # Surpassing Letterboxd — What Needs To Be Done
 
-> **Status:** W1 (Tonight), W2 (cuts), W3 (import), W4 (Year in Review) and W6 (TV) built — see §15. W5 and W7 not started.
+> **Status:** W1 (Tonight), W2 (cuts), W3 (import), W4 (Year in Review), W5 (rating scale) and W6 (TV) built — see §15. W7 not started.
 > **Written:** 2026-08-16, against `main` @ `faeb123`. Decisions resolved and W1 built the same day.
 > **Supersedes the benchmark table in** `COMPLETE_AUDIT_AND_ROADMAP.md` §2, which measures the wrong thing (see §1).
 
@@ -650,6 +650,33 @@ This needs a real season fetch. `/api/continue-watching` computes its next episo
 **Verified:** clean build and typecheck; season-review GET/PUT/validation behave (200 signed-out, 400 on missing params, 401 on write); the season page renders the review block; `/api/cron/new-episodes` ran end-to-end against live data and returned `{showsChecked: 1, notificationsSent: 0}` — correctly zero, since no watched show had an episode in the last 8 days.
 
 **Not verified:** the group episode pick with two real mid-show participants (needs 056/057 applied and two accounts); the notification insert path, which returned before reaching `notified_episodes` because nothing qualified; and the `caught_up` badge against a real ongoing show.
+
+### W5 — Rating scale, as built
+
+**1–10 → five stars with half steps. Nothing was migrated.**
+
+| Piece | File |
+|---|---|
+| Conversion + formatting | `src/utils/ratingScale.ts` |
+| The control | `src/components/ui/StarRating.tsx` |
+| One-time notice | `src/components/ui/RatingScaleNotice.tsx` |
+| Inputs | `src/components/movie/UserRating.tsx`, `src/components/tv/EpisodeRating.tsx`, `src/components/tv/SeasonReview.tsx` |
+| Displays | `ActivityFeed`, `WatchedGrid`, `ActivityCard`, `ReviewsSection`, `RatingDistribution` |
+
+**No schema change, and none needed.** Scores stay `smallint` 1–10 everywhere; doubling is exact in both directions, so a stored 7 was "7/10" and is now 3½ stars — the same judgement written two ways. The API contract, the Letterboxd import, `rating_distribution` and the cached stats path are all untouched. A pleasant consequence: Letterboxd's own 0.5–5 scale now round-trips as an identity (4.5★ → stored 9 → 4½★).
+
+**Why bother.** A 1–10 grid asks a question people can't answer — the difference between a 6 and a 7 isn't a distinction anyone holds consistently, so the choice takes longer *and* means less. Worse, it means something different per person, which corrodes the best original feature here: taste matching scores agreement as `1 - |r_a - r_b| / 9` (043), and that term is only meaningful if two people's numbers are commensurate.
+
+**Two details worth keeping:**
+
+- **Input is ten buttons, not a slider** — two invisible halves per star. Costs nothing visually and makes the control keyboard-navigable and screen-reader-legible for free, each option announcing the rating it sets ("4½ out of 5 for Sicario").
+- **TMDB vote averages were left on the 10 scale.** `MediaCard` and `TopResult` show TMDB's number, not ours; restating someone else's scale in our units would be a quiet misattribution. Only the community-ratings average (which *is* our data) was halved — and halved rather than re-rounded, since a mean legitimately has precision no single rating does.
+
+**Verified by measurement, not eye:** all ten stored values round-trip through `scoreToStars`/`starsToScore` unchanged; the control renders correct half-fills at every value; clicking the "4½" target sets stored **9**; ten buttons with correct ARIA labels; clean build and typecheck.
+
+> The build caught what typecheck couldn't: an automated import insertion put `import` above `"use client"` in four files, which TypeScript accepts and Next rejects. Worth remembering that `tsc --noEmit` is not a substitute for `next build` on this codebase.
+
+**Not verified:** rating something end-to-end as a signed-in user, and how the notice reads to someone with a long pre-existing history.
 
 ### Follow-ups this build opened
 

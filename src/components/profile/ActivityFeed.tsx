@@ -1,5 +1,6 @@
 "use client";
 
+import { formatStars } from "@/utils/ratingScale";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -122,7 +123,7 @@ function ActivityCard({ item }: { item: ActivityItem }) {
               </span>
             ))}
             <span className="text-xs text-surface-400 ml-1">
-              {item.score}/10
+              {formatStars(item.score)}
             </span>
           </div>
         )}

@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { Check, Loader2, Lock, PencilLine, Globe } from "lucide-react";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { getAvatarUrl } from "@/utils/imageUrl";
+import StarRating from "@components/ui/StarRating";
 
 type Mine = {
   score: number | null;
@@ -120,19 +121,24 @@ export default function SeasonReview({
               className="w-full resize-y rounded-xl border border-surface-700 bg-surface-950 px-3.5 py-3 text-sm text-white placeholder-surface-600 focus:border-brand-500 focus:outline-none"
             />
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <label className="inline-flex items-center gap-2 text-sm text-surface-400">
+              <span className="inline-flex items-center gap-2 text-sm text-surface-400">
                 Rating
-                <select
-                  value={score}
-                  onChange={(e) => setScore(e.target.value)}
-                  className="rounded-lg border border-surface-700 bg-surface-950 px-2.5 py-1.5 text-sm text-white focus:border-brand-500 focus:outline-none"
-                >
-                  <option value="">—</option>
-                  {Array.from({ length: 10 }, (_, i) => 10 - i).map((n) => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-              </label>
+                <StarRating
+                  value={score === "" ? null : Number(score)}
+                  onChange={(n) => setScore(String(n))}
+                  size="sm"
+                  label={`season ${seasonNumber}`}
+                />
+                {score !== "" && (
+                  <button
+                    type="button"
+                    onClick={() => setScore("")}
+                    className="text-xs text-surface-500 hover:text-surface-300 transition"
+                  >
+                    Clear
+                  </button>
+                )}
+              </span>
 
               <button
                 type="button"
@@ -175,8 +181,8 @@ export default function SeasonReview({
                     <><Lock className="size-3.5" /> Just for you</>
                   )}
                   {mine?.score != null && (
-                    <span className="ml-1 rounded-full bg-surface-800 px-2 py-0.5 text-surface-300">
-                      {mine.score}/10
+                    <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-surface-800 px-2 py-0.5 text-surface-300">
+                      <StarRating value={mine.score} size="sm" />
                     </span>
                   )}
                 </div>
@@ -215,7 +221,9 @@ export default function SeasonReview({
                 <p className="text-sm">
                   <span className="font-medium text-white">@{o.username}</span>
                   {o.score != null && (
-                    <span className="ml-2 text-xs text-surface-500">{o.score}/10</span>
+                    <span className="ml-2 inline-flex align-middle">
+                      <StarRating value={o.score} size="sm" />
+                    </span>
                   )}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-surface-300">{o.text}</p>

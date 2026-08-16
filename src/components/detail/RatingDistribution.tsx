@@ -66,8 +66,11 @@ export default function RatingDistribution({
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold text-accent-gold">{data.average.toFixed(1)}</span>
-            <span className="text-xs text-surface-500">avg</span>
+            {/* The average is halved, not re-rounded: 7.4/10 is 3.7 stars,
+                and snapping it to 3.5 would throw away real precision that a
+                *mean* legitimately has even though no single rating does. */}
+            <span className="text-2xl font-bold text-accent-gold">{(data.average / 2).toFixed(1)}</span>
+            <span className="text-xs text-surface-500">avg of 5</span>
           </div>
           <span className="text-xs text-surface-500 bg-surface-800/50 px-2.5 py-1 rounded-full">
             {data.total} rating{data.total !== 1 ? "s" : ""}
@@ -97,10 +100,13 @@ export default function RatingDistribution({
         })}
       </div>
 
+      {/* Ten bars, five labels. The distribution still has ten buckets
+          because that's what's stored; labelling every half-star would be
+          unreadable at this width, so only the whole stars are marked. */}
       <div className="flex gap-1 mt-1.5">
         {data.distribution.map((d) => (
           <div key={d.score} className="flex-1 text-center text-[10px] text-surface-600 font-medium">
-            {d.score}
+            {d.score % 2 === 0 ? d.score / 2 : ""}
           </div>
         ))}
       </div>

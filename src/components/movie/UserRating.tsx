@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Star, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
+import StarRating from "@components/ui/StarRating";
+import RatingScaleNotice from "@components/ui/RatingScaleNotice";
+import { formatStarsWithMax } from "@/utils/ratingScale";
 
 interface UserRatingProps {
   itemId: number | string;
@@ -17,7 +20,6 @@ export default function UserRating({ itemId, itemType, itemName, imageUrl, isWat
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loggedOut, setLoggedOut] = useState(false);
-  const [hoverScore, setHoverScore] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,37 +113,11 @@ export default function UserRating({ itemId, itemType, itemName, imageUrl, isWat
           <h3 className="text-sm font-semibold text-surface-200">Your Rating</h3>
         </div>
         {score !== null && (
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-brand-400">{score}</span>
-            <span className="text-xs text-surface-500">/ 10</span>
-          </div>
+          <span className="text-lg font-bold text-accent-gold">{formatStarsWithMax(score)}</span>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => {
-          const isHovered = hoverScore !== null;
-          const isActive = score !== null && n <= (isHovered ? hoverScore! : score!);
-          return (
-            <button
-              key={n}
-              type="button"
-              disabled={saving}
-              onClick={() => handleSetScore(n)}
-              onMouseEnter={() => setHoverScore(n)}
-              onMouseLeave={() => setHoverScore(null)}
-              className={`relative w-9 h-9 rounded-lg text-xs font-semibold transition-all duration-150 ${
-                n <= (score ?? 0)
-                  ? "bg-brand-500 text-surface-950 shadow-sm"
-                  : "bg-surface-700/50 text-surface-400 hover:bg-surface-600/60 hover:text-surface-200"
-              } ${isActive ? "scale-110" : ""} disabled:opacity-60`}
-            >
-              {n}
-              {n <= (score ?? 0) && (
-                <span className="absolute inset-0 rounded-lg ring-1 ring-inset ring-brand-500/30" />
-              )}
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap items-center gap-3">
+        <StarRating value={score} onChange={handleSetScore} size="lg" disabled={saving} />
         {score !== null && (
           <button
             type="button"
@@ -155,6 +131,7 @@ export default function UserRating({ itemId, itemType, itemName, imageUrl, isWat
         )}
       </div>
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {score !== null && <RatingScaleNotice />}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatStars } from "@/utils/ratingScale";
 import Link from "next/link";
 import LikeButton from "@components/reactions/LikeButton";
 import { getPosterUrl } from "@/utils/imageUrl";
@@ -147,7 +148,7 @@ export default function ActivityCard({ item }: { item: ActivityItem }) {
                     </span>
                   ))}
                 </div>
-                <span className="text-xs text-surface-400 ml-1">{item.score}/10</span>
+                <span className="text-xs text-surface-400 ml-1">{formatStars(item.score)}</span>
               </div>
             )}
 
