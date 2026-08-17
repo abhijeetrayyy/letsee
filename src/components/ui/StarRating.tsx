@@ -8,17 +8,29 @@ const SIZES = {
   sm: { star: "size-3.5", gap: "gap-0.5" },
   md: { star: "size-5", gap: "gap-1" },
   lg: { star: "size-7", gap: "gap-1" },
+  xl: { star: "size-9", gap: "gap-1.5" },
 } as const;
 
 type Props = {
   /** Stored score, 1–10. Null means unrated. */
   value: number | null;
-  /** Omit for a read-only display. Receives a stored score, 1–10. */
-  onChange?: (score: number) => void;
+  /**
+   * Omit for a read-only display. Receives a stored score, 1–10, or `null`
+   * when the current value is tapped again and `allowClear` is set.
+   */
+  onChange?: (score: number | null) => void;
   size?: keyof typeof SIZES;
   disabled?: boolean;
   /** Screen-reader context, e.g. the title being rated. */
   label?: string;
+  /**
+   * Tapping the segment that is already selected unsets the rating.
+   *
+   * Only safe where the caller actually erases the score everywhere it was
+   * mirrored — see `mirrorToLegacy`. A clear that leaves the old number in the
+   * community histogram is worse than no clear at all.
+   */
+  allowClear?: boolean;
 };
 
 /**
@@ -38,6 +50,7 @@ export default function StarRating({
   size = "md",
   disabled = false,
   label,
+  allowClear = false,
 }: Props) {
   const [hover, setHover] = useState<number | null>(null);
   const readOnly = !onChange;
@@ -70,16 +83,21 @@ export default function StarRating({
           {/* Two hit targets per star: left half sets x.5, right half sets x. */}
           {[0, 1].map((half) => {
             const score = starsToScore(i - 1 + (half === 0 ? 0.5 : 1));
+            const clears = allowClear && value === score;
             return (
               <button
                 key={half}
                 type="button"
                 disabled={disabled}
-                onClick={() => onChange(score)}
+                onClick={() => onChange(clears ? null : score)}
                 onMouseEnter={() => setHover(score)}
                 onFocus={() => setHover(score)}
                 onBlur={() => setHover(null)}
-                aria-label={`${formatStars(score)} out of 5${label ? ` for ${label}` : ""}`}
+                aria-label={
+                  clears
+                    ? "Clear rating"
+                    : `${formatStars(score)} out of 5${label ? ` for ${label}` : ""}`
+                }
                 className={`absolute inset-y-0 w-1/2 cursor-pointer rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed ${
                   half === 0 ? "left-0" : "right-0"
                 }`}

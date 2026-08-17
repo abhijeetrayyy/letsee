@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { Loader2, Lock, Send, Trash2 } from "lucide-react";
+import { Loader2, Lock, Send, Trash2, X } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
 import StarRating from "@components/ui/StarRating";
 import { formatStars } from "@/utils/ratingScale";
@@ -124,15 +124,26 @@ export default function TitleTalk({
 
   const mine = takes?.mine ?? null;
   const [draft, setDraft] = useState<string | null>(null);
-  const [score, setScore] = useState<number | null>(null);
+  /**
+   * In-flight score only — `undefined` means "nothing pending, read the server".
+   *
+   * It cannot be `number | null` with null meaning "not editing", because null
+   * is also a real value now: it is what clearing a rating sends.
+   */
+  const [pending, setPending] = useState<number | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reply, setReply] = useState("");
 
   // `null` means "not editing" — fall back to whatever is saved.
   const text = draft ?? mine?.body ?? "";
-  const rating = score ?? mine?.score ?? null;
-  const dirty = draft !== null || score !== null;
+  const rating = pending !== undefined ? pending : (mine?.score ?? null);
+  /**
+   * Prose only. The score is no longer a draft — it commits on tap — so
+   * counting it here would leave a card that has finished saving looking like
+   * it still had unsaved work in it.
+   */
+  const dirty = draft !== null;
 
   const prompt = useMemo(() => {
     const seed = Math.abs(Number(itemId) || 0) + (seasonNumber ?? 0) * 7 + (episodeNumber ?? 0);
@@ -163,11 +174,56 @@ export default function TitleTalk({
       });
       if (!res.ok) throw new Error((await res.json())?.error ?? "Couldn't save that.");
       setDraft(null);
-      setScore(null);
+      setPending(undefined);
       await mutateTakes();
     } catch (e) {
       setError((e as Error).message);
     } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * A rating commits on tap. One gesture is the whole act.
+   *
+   * It deliberately sends `mine?.body`, never the live `draft`: tapping a star
+   * must not quietly commit prose the writer has not decided about yet. The two
+   * controls in this card do genuinely different things, and this is the line
+   * between them.
+   *
+   * `isPublic` echoes whatever the existing take already is, so rating never
+   * changes the visibility of writing that is already there.
+   */
+  const saveScore = async (next: number | null) => {
+    setPending(next);
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/takes", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemId,
+          itemType,
+          scope,
+          seasonNumber,
+          episodeNumber,
+          score: next,
+          body: mine?.body ?? "",
+          isPublic: mine?.isPublic ?? false,
+          itemName,
+          imageUrl,
+          genres,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json())?.error ?? "Couldn't save that.");
+      await mutateTakes();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      // Either way, stop overriding the server — on success it now agrees, and
+      // on failure the stars must snap back rather than lie about being saved.
+      setPending(undefined);
       setBusy(false);
     }
   };
@@ -180,7 +236,7 @@ export default function TitleTalk({
         { method: "DELETE" },
       );
       setDraft(null);
-      setScore(null);
+      setPending(undefined);
       await mutateTakes();
     } finally {
       setBusy(false);
@@ -242,6 +298,39 @@ export default function TitleTalk({
           <Loader2 className="size-4 animate-spin" /> Loading…
         </div>
       ) : (
+        <>
+        {/* Its own strip, outside the card below.
+            The card's boundary is what says the buttons inside it act on what
+            is inside it. Stacking a control that commits on tap above a control
+            that commits on a named button, inside one border, would re-create
+            the "which box does this go in" fork this component exists to
+            remove — you would not be able to tell by looking whether a filled
+            star was saved or still a draft. */}
+        <div className="mb-3 flex items-center gap-3 rounded-2xl border border-surface-800 bg-surface-900/40 px-4 py-3.5">
+          <StarRating
+            value={rating}
+            onChange={saveScore}
+            size="xl"
+            allowClear
+            disabled={busy}
+            label={itemName}
+          />
+          {/* Appears only once a rating is actually stored, so the card
+              acknowledges the act with an available action rather than with a
+              sentence about it. It is also the undo for a mis-tap. */}
+          {rating != null && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => saveScore(null)}
+              aria-label="Clear rating"
+              className="rounded-full p-1.5 text-surface-500 transition hover:text-red-400 disabled:opacity-50"
+            >
+              <X className="size-4" />
+            </button>
+          )}
+        </div>
+
         <div className="card-accent rounded-2xl p-5">
           <textarea
             value={text}
@@ -255,14 +344,16 @@ export default function TitleTalk({
             className="w-full resize-y rounded-xl border border-surface-700 bg-surface-950 px-3.5 py-3 text-[15px] leading-relaxed text-white placeholder-surface-500 focus:border-brand-500 focus:outline-none"
           />
 
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-3">
-            {/* Rating sits after the writing and is optional. Asking for a
-                score first makes the prose a justification of the number
-                rather than an account of what happened to you. */}
-            <StarRating value={rating} onChange={setScore} size="sm" label={itemName} />
-
-            <div className="ml-auto flex items-center gap-2">
-              {mine && !dirty ? (
+          {/* Absent, not disabled.
+              These buttons govern the writing and nothing else now, so with no
+              writing there is nothing for them to govern. A greyed-out pair
+              makes a claim about the person looking at it — it says the thing
+              they just did was not enough. An absent pair makes no claim, which
+              is what lets a rating on its own read as a finished act rather
+              than an abandoned draft. */}
+          {(text.trim() || mine?.body) && (
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-x-3 gap-y-3">
+              {mine?.body && !dirty ? (
                 <>
                   <span className="text-xs text-surface-500">
                     {mine.isPublic ? "Posted" : "Only you can see this"}
@@ -275,15 +366,6 @@ export default function TitleTalk({
                   >
                     {mine.isPublic ? "Make private" : "Post it"}
                   </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={remove}
-                    aria-label="Delete"
-                    className="rounded-full p-1.5 text-surface-500 transition hover:text-red-400 disabled:opacity-50"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
                 </>
               ) : (
                 <>
@@ -293,7 +375,7 @@ export default function TitleTalk({
                       exactly what makes a blank box feel watched. */}
                   <button
                     type="button"
-                    disabled={busy || (!text.trim() && rating == null)}
+                    disabled={busy || !text.trim()}
                     onClick={() => save(false)}
                     className="inline-flex items-center gap-1.5 rounded-full border border-surface-700 px-3 py-1.5 text-xs text-surface-300 transition hover:border-surface-600 hover:text-white disabled:opacity-40"
                   >
@@ -309,11 +391,27 @@ export default function TitleTalk({
                   </button>
                 </>
               )}
+              {/* Outside the branch on purpose. Emptying the textarea moves you
+                  into the draft branch, where both buttons are correctly dead —
+                  and without this there would be no live control left to commit
+                  the deletion with. */}
+              {mine?.body && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={remove}
+                  aria-label="Delete"
+                  className="rounded-full p-1.5 text-surface-500 transition hover:text-red-400 disabled:opacity-50"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              )}
             </div>
-          </div>
+          )}
 
           {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
         </div>
+        </>
       )}
 
       {/* ── The one thread ──────────────────────────────────────────────── */}

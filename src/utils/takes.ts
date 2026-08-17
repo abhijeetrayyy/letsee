@@ -214,9 +214,11 @@ export async function saveTake(
    * rows, letting them disagree would mean the profile and the community
    * average could report different scores for the same person and title.
    */
-  if (score !== null) {
-    await match(supabase.from("takes").update({ score }), id, userId);
-  }
+  // Unconditional, including a null. Guarding this on `score !== null` meant a
+  // cleared rating updated the row you were looking at and left the number
+  // intact on the other visibility row, so a legacy two-row user could clear a
+  // score and still be carrying it.
+  await match(supabase.from("takes").update({ score }), id, userId);
 
   await mirrorToLegacy(supabase, userId, id, { score, body, isPublic, input });
   return null;
@@ -248,6 +250,23 @@ async function mirrorToLegacy(
       .from("user_ratings")
       .upsert({ ...base, score: data.score }, { onConflict: "user_id,item_id,item_type" });
     if (error) console.error("mirror user_ratings:", error);
+  } else {
+    /**
+     * Clearing has to reach here too.
+     *
+     * `rating_distribution` reads `user_ratings` with no predicate beyond the
+     * title, so skipping this branch left a withdrawn score in the community
+     * histogram permanently — the one number a rater cannot see and cannot
+     * correct. The upsert above is not an update-in-place: there is no null to
+     * write, so the row has to go.
+     */
+    const { error } = await supabase
+      .from("user_ratings")
+      .delete()
+      .eq("user_id", userId)
+      .eq("item_id", id.itemId)
+      .eq("item_type", id.itemType);
+    if (error) console.error("mirror user_ratings clear:", error);
   }
 
   // Only the column matching this take's visibility is written, so a public
@@ -291,6 +310,33 @@ export async function deleteTake(
       .eq("user_id", userId)
       .eq("item_id", id.itemId)
       .eq("item_type", id.itemType);
+
+    /**
+     * The score has to go too — but only once nothing is left holding it.
+     *
+     * Clearing your only rating arrives here rather than in `saveTake`: an
+     * empty body with a null score is routed straight to this function by the
+     * PUT handler. Without this the row survived in `user_ratings`, which
+     * `rating_distribution` reads with no predicate beyond the title, so a
+     * withdrawn rating went on counting in the community average forever.
+     *
+     * The remaining-row check matters for the legacy two-row case: a user who
+     * holds both a public and a private take at one title must not lose the
+     * score by deleting one of them.
+     */
+    const { data: left } = await match(
+      supabase.from("takes").select("is_public"),
+      id,
+      userId,
+    );
+    if (!left || left.length === 0) {
+      await supabase
+        .from("user_ratings")
+        .delete()
+        .eq("user_id", userId)
+        .eq("item_id", id.itemId)
+        .eq("item_type", id.itemType);
+    }
   }
   return null;
 }
