@@ -82,21 +82,21 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
       {/* Hero */}
       <div className="relative">
         {backdropUrl && (
-          <div className="absolute inset-0 h-[500px] overflow-hidden">
+          <div className="absolute inset-0 h-[680px] overflow-hidden">
             <img src={backdropUrl} alt="" className="w-full h-full object-cover opacity-20" />
             <div className="absolute inset-0 bg-gradient-to-b from-surface-950/10 via-surface-950/80 to-surface-950" />
           </div>
         )}
 
-        <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-8">
+        <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-16 sm:pt-20 sm:pb-20">
           {/* Back link */}
           <Link href="/app" className="inline-flex items-center gap-1.5 text-sm text-surface-500 hover:text-surface-300 mb-8 transition-colors">
             ← Back
           </Link>
 
-          <div className="flex flex-col md:flex-row gap-8">
+          <div className="flex flex-col md:flex-row gap-8 md:gap-12">
             {/* Poster */}
-            <div className="shrink-0 w-48 sm:w-56 mx-auto md:mx-0">
+            <div className="shrink-0 w-52 sm:w-60 lg:w-64 mx-auto md:mx-0">
               <img src={posterUrl} alt={movie.title} className="w-full rounded-2xl shadow-2xl" />
             </div>
 
