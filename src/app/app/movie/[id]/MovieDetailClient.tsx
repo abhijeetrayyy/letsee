@@ -80,16 +80,22 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
         onClose={() => setShareModalOpen(false)}
       />
 
-      {/* Hero */}
-      <div className="relative">
+      {/* Hero.
+          `overflow-hidden` is load-bearing. The backdrop below is absolutely
+          positioned inside this wrapper with its own fixed height, so whenever
+          that height exceeded the hero's it escaped downward and painted its
+          image and gradient over whatever followed — dimming "Where to Watch"
+          and the sidebar card beneath it. Clipping here means the two heights
+          no longer have to be kept in sync by hand. */}
+      <div className="relative overflow-hidden">
         {backdropUrl && (
-          <div className="absolute inset-0 h-[820px] overflow-hidden">
+          <div className="absolute inset-0 h-[720px] overflow-hidden">
             <img src={backdropUrl} alt="" className="w-full h-full object-cover opacity-20" />
             <div className="absolute inset-0 bg-gradient-to-b from-surface-950/10 via-surface-950/80 to-surface-950" />
           </div>
         )}
 
-        <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
+        <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-20 sm:pt-28 sm:pb-28">
           {/* Back link */}
           <Link href="/app" className="inline-flex items-center gap-1.5 text-sm text-surface-500 hover:text-surface-300 mb-8 transition-colors">
             ← Back
