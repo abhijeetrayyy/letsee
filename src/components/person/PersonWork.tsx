@@ -54,24 +54,19 @@ function CreditGrid({ credits, mode }: { credits: Credit[]; mode: "screen" | "be
           whole page rather than changing meaning section to section. */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
         {credits.map((c) => (
-          // `card-lift` scales the card on hover. A transform never affects
-          // layout, so the card grows over its neighbours without moving a
-          // single one of them — the absolute-positioned feel, without taking
-          // the card out of the grid and having to re-place it by hand.
-          <div key={c.key} className="card-lift">
-            <MediaCard
-              id={c.id}
-              title={c.title}
-              mediaType={c.mediaType}
-              posterPath={c.posterPath}
-              genres={[]}
-              showActions
-              role={roleText(c, mode)}
-              releaseDate={c.date || null}
-              rating={c.voteAverage || null}
-              voteCount={c.voteCount || null}
-            />
-          </div>
+          <MediaCard
+            key={c.key}
+            id={c.id}
+            title={c.title}
+            mediaType={c.mediaType}
+            posterPath={c.posterPath}
+            genres={[]}
+            showActions
+            role={roleText(c, mode)}
+            releaseDate={c.date || null}
+            rating={c.voteAverage || null}
+            voteCount={c.voteCount || null}
+          />
         ))}
       </div>
 
