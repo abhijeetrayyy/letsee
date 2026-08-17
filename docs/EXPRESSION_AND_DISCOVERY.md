@@ -1,6 +1,6 @@
 # One Place to Say It, One Path to Find It
 
-> **Status:** D1, D2 and D3 built. D4–D5 not started. One D3 acceptance criterion is deliberately left open — crew links still go to the person page rather than the browse engine; see the end of D3.
+> **Status:** D1–D4 built. D5 not started. One D3 acceptance criterion is deliberately left open — crew links still go to the person page rather than the browse engine; see the end of D3.
 > **⚠️ Migration `065` is not yet applied.** Until it runs, `/api/takes` degrades to an empty take rather than failing, so the pages render but nothing saves.
 > **Written:** 2026-08-17, against `main` @ `c40ddf0`.
 > **Companion to** `SURPASSING_LETTERBOXD.md`, which covers W1–W7 (all shipped).
@@ -48,8 +48,8 @@ Verified against the codebase on 2026-08-17. Several of these are much cheaper t
 | Production companies | Same request | Comes on the base object; no extra call. |
 | Directors extracted | `src/components/clientComponent/movie.tsx:59` | Already filtered out of `credits.crew` — just not clickable. |
 | Person page | `src/app/app/person/[id]/page.tsx` | Exists, with `combined_credits`. The destination for a director link is already built. |
-| Debounced multi-type search | `src/components/header/searchBar.tsx:198` | Already searches movie + tv + person + keyword in parallel with abort handling. Better than expected. |
-| Fuzzy matching libraries | `fuse.js`, `fastest-levenshtein` in `package.json` | Installed. `fastest-levenshtein` is used by the import resolver; `fuse.js` is barely used. |
+| ~~Debounced multi-type search~~ | `src/components/header/searchBar.tsx` | **Replaced by D4.** It debounced two TMDB calls per keystroke to show suggestions TMDB returns nothing for the moment a letter is mistyped. Suggestions are now local; TMDB is called on commit. |
+| Fuzzy matching libraries | `fuse.js`, `fastest-levenshtein` in `package.json` | `fastest-levenshtein` powers the import resolver; `fuse.js` was one `threshold: 1` re-rank in `searchFuzzy.ts` and now also backs the D4 index. Note it already shipped on every route — `SearchBar` is in the root layout. |
 | Community taste signal | `user_title_affinity` view (migration `043`) | Rarity-weighted per-user title affinity. Built for taste matching; **nothing uses it for item-to-item similarity.** |
 | Franchise data | `src/staticData/franchises.ts`, `/api/franchises` | Exists, no UI consumes it. Dead unless D3 adopts it. |
 
@@ -311,9 +311,66 @@ That is how you get "type and see" inside the provider's limits: the correction 
 Also worth fixing while there: results should be *grouped and ranked* (titles first, then people, then keywords) rather than concatenated, and keyboard navigation should select.
 
 **Acceptance**
-- [ ] A suggestion appears within one frame of typing, before any network response.
-- [ ] A misspelling of a title in the user's own library still surfaces it.
-- [ ] TMDB is called on commit, not on every keystroke.
+- [x] A suggestion appears within one frame of typing, before any network response.
+- [x] A misspelling of a title in the user's own library still surfaces it.
+- [x] TMDB is called on commit, not on every keystroke.
+
+### The premise, confirmed rather than assumed
+
+"TMDB will not fuzzy-correct" was worth measuring before building a subsystem on it. Against `/search/multi`, every one of these returns **zero results** — not degraded, zero:
+
+| typed | TMDB hits | | typed | TMDB hits |
+|---|---|---|---|---|
+| `Inception` | 13 | | `Incepton` | **0** |
+| `Interstellar` | 32 | | `Intersteller` | **0** |
+| `Shawshank` | 5 | | `Shawshenk` | **0** |
+| `Parasit` | 138 | | `Gladeator` | **0** |
+
+It matches prefixes — `Parasit` finds *Parasite* — but has no edit-distance tolerance at all, so one dropped letter is an empty page. Latency from this machine was 270–731ms, median 288ms, so even a correctly spelled query cost a round trip before anything could appear.
+
+### What shipped
+
+| File | What it is |
+|---|---|
+| `src/utils/searchIndex.ts` | The index and query logic. Pure — no React, no fetch — so it is verifiable by script. |
+| `src/app/api/search/index/route.ts` | Public popular slice. `public, s-maxage=3600`. |
+| `src/app/api/library/index/route.ts` | The signed-in user's titles. `private, no-store`, explicit column allowlist. |
+| `src/components/header/useSearchIndex.ts` | Loads both layers on first modal open, once per session. |
+| `src/components/header/searchBar.tsx` | Rewired: local suggestions per keystroke, TMDB only on commit. |
+
+The change **removes** more than it adds to the search bar: the 250ms debounce, its `AbortController`, its response cache, the two-request-per-tick fetch and the `reRankAll` pass are all gone, because suggestions no longer come from the network.
+
+### Evidence
+
+- **Zero network per keystroke.** With `fetch` instrumented, opening the modal issued exactly two requests (`/api/library/index`, `/api/search/index`). Typing 12 characters then issued **`[]` — nothing**. The old path made two origin requests plus up to a dozen poster fetches *per debounce tick*.
+- **Within one frame.** Keystroke → React commit, measured in the browser over 17 queries: **p50 5.3ms, p95 7.6ms, max 9.5ms** against a 16.7ms budget. Honest caveat: this is to commit, not through compositing, because the automation pane never fires `requestAnimationFrame`.
+- **Misspellings resolve.** Live, in the app: `gladeator`→*Gladiator (2000)*, `shawshenk`→*The Shawshank Redemption (1994)*, `the grene mile`→*The Green Mile (1999)*, `brekingbad`→*Breaking Bad (2008)*, correctly grouped under TV Shows. TMDB returns zero for every one.
+- **Index logic.** 32 assertions in a scratchpad script — typo→top-1 for library and popular titles, junk rejection, the short-query prefix path, grouping, dedupe preference, the cap, hrefs and normalization.
+- **Headers.** `/api/library/index` signed out → `401` with `no-store`. `/api/search/index` → `200` with `public, s-maxage=3600`.
+
+### The numbers behind the configuration
+
+Every value was measured rather than chosen, because a threshold picked by feel is how typo-tolerance quietly becomes nonsense.
+
+**Index cap — 5,000 rows.** fuse.js 7.1.0 search cost by corpus size, p50/p95: 500 → 0.37/1.12ms; 2,000 → 1.32/3.85ms; **5,000 → 3.25/9.56ms**; 10,000 → 6.72/**19.21ms**; 20,000 → 12.67/37.55ms. 10,000 misses the frame at p95, so the index is capped rather than the criterion softened.
+
+**`threshold: 0.3`.** Rank-1 accuracy over 200 real titles × 3 typo classes on a 978-title corpus: 0.20 → 96.2%, **0.30 → 99.7%**, 0.40 → 99.5%, 0.50 → 99.5% *but junk starts matching*.
+
+**`minMatchCharLength: 3`** is what actually excludes junk. On a ~3,900-title corpus, `asdf` returns 4 titles at length 2 and **none** at length 3, at every threshold up to 0.35. At threshold 0.4 even length 3 lets `aeiou` match 23 titles — which is why the two are tuned together.
+
+**No prefix or word-boundary score boost**, despite the obvious temptation. Measured, plain Fuse at 0.3 already ranks correctly — `dark` → *Dark, Poldark, Dark Phoenix*; `godfather` → *The Godfather* first — and adding a prefix tier made it **worse**, promoting *Godfather of Harlem* above *The Godfather*.
+
+### One bug this surfaced, and three honest limits
+
+**`fetchTmdb` throttles cache hits.** It calls `waitForSlot()` *before* every request, so the 120ms rate-limit gap is paid whether or not Next serves from the Data Cache. The index route sat at a flat **3.95s on every request** — 22–33 calls × 120ms — with caching working perfectly and making no difference. Wrapping the build in `unstable_cache` took it to **2.6s cold, 4ms warm**. Worth knowing: any route here that fans out over TMDB pays this, cached or not.
+
+- **Keywords lost their place in the dropdown.** The local index holds titles and people; TMDB has no "popular keywords" endpoint to seed a third group from. Keywords still appear on the committed search page. This is a real, if small, regression against the plan's "titles, then people, then keywords".
+- **People are limited to the top 40.** `leonrdo` finds nothing, because DiCaprio isn't in the two pages of `/person/popular` the slice carries. Committing still finds him.
+- **The index does not refresh mid-session.** It is built on the first modal open and rebuilt on the next page load. Refetching after every status toggle would mean a fresh download per episode marked; `resetSearchIndex()` exists for when that trade changes.
+
+### Already present, so not built
+
+The plan asked for keyboard navigation to select. `searchBar.tsx` already had it — `activeIndex`, ArrowUp/Down and Enter→select. The only change was extending the cycle so the "Search everything" row at index `-1` is reachable by arrow rather than only by clearing the selection.
 
 ---
 

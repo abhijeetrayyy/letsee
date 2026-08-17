@@ -1,10 +1,9 @@
 "use client";
 
 import { useSearch } from "@/app/contextAPI/searchContext";
-import {
-  reRankAll,
-  getDidYouMeanSuggestion,
-} from "@/utils/searchFuzzy";
+import { getDidYouMeanSuggestion } from "@/utils/searchFuzzy";
+import { queryIndex, rowHref, type IndexRow } from "@/utils/searchIndex";
+import { useSearchIndex } from "./useSearchIndex";
 import {
   buildSearchUrl,
   isValidSearchQuery,
@@ -16,38 +15,21 @@ import { FaSearch, FaTimes } from "react-icons/fa";
 import { FaCircleNotch } from "react-icons/fa6";
 import { Film, Tv, User, Hash, TrendingUp, Clock } from "lucide-react";
 
-interface SearchResult {
-  id: number;
-  media_type: "movie" | "tv" | "person" | "keyword";
-  title?: string;
-  name?: string;
-  poster_path?: string;
-  profile_path?: string;
-}
-
-type ResultsState = {
-  movie: SearchResult[];
-  tv: SearchResult[];
-  person: SearchResult[];
-  keyword: SearchResult[];
-};
-
 type FlatResult = {
   key: string;
   label: string;
   href: string;
-  category: "movie" | "tv" | "person" | "keyword";
-  image?: string;
+  category: "movie" | "tv" | "person";
 };
 
 const MAX_RECENT = 5;
 
-const emptyResults: ResultsState = {
-  movie: [],
-  tv: [],
-  person: [],
-  keyword: [],
-};
+/** The heading each suggestion group sits under, in the order they appear. */
+const GROUPS: { kind: FlatResult["category"]; label: string }[] = [
+  { kind: "movie", label: "Movies" },
+  { kind: "tv", label: "TV Shows" },
+  { kind: "person", label: "People" },
+];
 
 const QUICK_CATEGORIES = [
   { label: "Movies", icon: Film, mediaType: "movie" as SearchMediaType },
@@ -72,27 +54,6 @@ function highlightLabel(text: string, query: string) {
       <span key={`${part}-${index}`}>{part}</span>
     )
   );
-}
-
-function getTitle(result: SearchResult) {
-  return result.title || result.name || "Unknown";
-}
-
-function getHref(result: SearchResult, category: FlatResult["category"]) {
-  if (category === "person") return `/app/person/${result.id}`;
-  if (category === "keyword") {
-    return buildSearchUrl({ query: String(result.id), mediaType: "keyword", page: 1 });
-  }
-  return `/app/${category}/${result.id}`;
-}
-
-function normalizeResults(results: ResultsState) {
-  return {
-    movie: results.movie.slice(0, 4),
-    tv: results.tv.slice(0, 4),
-    person: results.person.slice(0, 4),
-    keyword: results.keyword.slice(0, 4),
-  };
 }
 
 function useRecentSearches() {
@@ -129,129 +90,47 @@ function useRecentSearches() {
 function SearchBar() {
   const [input, setInput] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [results, setResults] = useState<ResultsState>(emptyResults);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const { isSearchLoading, setIsSearchLoading } = useSearch();
   const { recentSearches, updateRecentSearches, setRecentSearches } =
     useRecentSearches();
   const router = useRouter();
 
-  const abortRef = useRef<AbortController | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cacheRef = useRef<Record<string, ResultsState>>({});
   const inputRef = useRef<HTMLInputElement>(null);
 
   const query = input.trim();
-  const displayResults = useMemo(() => normalizeResults(results), [results]);
+  // Loaded on the first modal open and reused for the rest of the session.
+  const index = useSearchIndex(isModalOpen);
+
   const didYouMean = useMemo(
     () => getDidYouMeanSuggestion(query, recentSearches),
     [query, recentSearches]
   );
 
-  const flatResults = useMemo<FlatResult[]>(() => {
-    const flattened: FlatResult[] = [];
-    (["movie", "tv", "person", "keyword"] as const).forEach((category) => {
-      displayResults[category].forEach((item) => {
-        const label = getTitle(item);
-        const image =
-          item.poster_path || item.profile_path
-            ? `https://image.tmdb.org/t/p/w92${item.poster_path || item.profile_path}`
-            : undefined;
-        flattened.push({
-          key: `${category}-${item.id}`,
-          label,
-          href: getHref(item, category),
-          category,
-          image,
-        });
-      });
-    });
-    return flattened;
-  }, [displayResults]);
+  /**
+   * Suggestions, computed synchronously from the local index.
+   *
+   * This replaced a 250ms-debounced pair of `/api/search` calls — two origin
+   * requests, two TMDB calls and up to a dozen poster fetches per debounce
+   * tick, all so the dropdown could show something TMDB would return nothing
+   * for the moment a letter was mistyped. Now nothing leaves the browser until
+   * the user commits, and the mistyped case is the one that works best.
+   */
+  const suggestions = useMemo<IndexRow[]>(
+    () => (isModalOpen ? queryIndex(index, query, 8) : []),
+    [index, query, isModalOpen]
+  );
 
-  useEffect(() => {
-    if (!isModalOpen) return;
-
-    if (!isValidSearchQuery(query)) {
-      setResults(emptyResults);
-      setError(null);
-      setIsLoading(false);
-      setActiveIndex(-1);
-      if (abortRef.current) abortRef.current.abort();
-      return;
-    }
-
-    if (cacheRef.current[query]) {
-      setResults(cacheRef.current[query]);
-      setError(null);
-      setIsLoading(false);
-      setActiveIndex(-1);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    debounceRef.current = setTimeout(async () => {
-      if (abortRef.current) abortRef.current.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      try {
-        const [generalResponse, keywordResponse] = await Promise.all([
-          fetch(`/api/search?query=${encodeURIComponent(query)}`, {
-            signal: controller.signal,
-          }),
-          fetch(
-            `/api/search?query=${encodeURIComponent(query)}&media_type=keyword`,
-            { signal: controller.signal }
-          ),
-        ]);
-
-        if (!generalResponse.ok || !keywordResponse.ok) {
-          throw new Error("Failed to fetch results");
-        }
-
-        const generalData = await generalResponse.json();
-        const keywordData = await keywordResponse.json();
-
-        const movie = generalData.results.filter(
-          (item: SearchResult) => item.media_type === "movie"
-        );
-        const tv = generalData.results.filter(
-          (item: SearchResult) => item.media_type === "tv"
-        );
-        const person = generalData.results.filter(
-          (item: SearchResult) => item.media_type === "person"
-        );
-        const keyword = keywordData.results.map(
-          (kw: { id: number; name: string }) => ({
-            id: kw.id,
-            media_type: "keyword",
-            name: kw.name,
-          })
-        );
-
-        const rawResults = { movie, tv, person, keyword };
-        const nextResults = reRankAll(rawResults, query);
-        cacheRef.current[query] = nextResults;
-        setResults(nextResults);
-      } catch (err) {
-        if ((err as Error).name === "AbortError") return;
-        setError("Something went wrong. Please try again.");
-        setResults(emptyResults);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 250);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query, isModalOpen]);
+  const flatResults = useMemo<FlatResult[]>(
+    () =>
+      suggestions.map((row) => ({
+        key: row.k,
+        label: row.n,
+        href: rowHref(row),
+        category: row.t,
+      })),
+    [suggestions]
+  );
 
   useEffect(() => {
     if (flatResults.length === 0) {
@@ -264,8 +143,6 @@ function SearchBar() {
   const closeModal = () => {
     setIsModalOpen(false);
     setInput("");
-    setResults(emptyResults);
-    setError(null);
     setActiveIndex(-1);
     setIsSearchLoading(false);
   };
@@ -297,18 +174,19 @@ function SearchBar() {
       closeModal();
       return;
     }
+    // -1 is not "nothing selected" — it is the "Search everything" row, so the
+    // cycle runs from -1 through the suggestions and back, and every option
+    // including the commit action is reachable by arrow alone.
     if (event.key === "ArrowDown") {
       event.preventDefault();
       if (flatResults.length === 0) return;
-      setActiveIndex((prev) => (prev + 1) % flatResults.length);
+      setActiveIndex((prev) => (prev + 1 > flatResults.length - 1 ? -1 : prev + 1));
       return;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
       if (flatResults.length === 0) return;
-      setActiveIndex((prev) =>
-        prev <= 0 ? flatResults.length - 1 : prev - 1
-      );
+      setActiveIndex((prev) => (prev <= -1 ? flatResults.length - 1 : prev - 1));
       return;
     }
     if (event.key === "Enter") {
@@ -469,62 +347,30 @@ function SearchBar() {
 
               {isValidSearchQuery(query) && (
                 <>
-                  {isLoading && (
-                    <div className="flex flex-col items-center gap-3 py-12 text-surface-500">
-                      <FaCircleNotch className="animate-spin" size={24} />
-                      <span className="text-sm">
-                        Searching for &ldquo;{query}&rdquo;
-                      </span>
-                    </div>
-                  )}
+                  {/* Committing is always available and always the first thing
+                      under the cursor's natural path, because the local index
+                      is a shortcut past TMDB, never a replacement for it: it
+                      knows a few thousand titles, and TMDB knows a million. */}
+                  <button
+                    type="button"
+                    onClick={() => handleSearch(query)}
+                    className={`mb-4 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                      activeIndex === -1
+                        ? "bg-surface-700/80 ring-1 ring-brand-500/30"
+                        : "bg-surface-800/40 hover:bg-surface-700/60"
+                    }`}
+                  >
+                    <FaSearch className="shrink-0 text-brand-400" size={13} />
+                    <span className="truncate text-sm text-surface-200">
+                      Search everything for &ldquo;{query}&rdquo;
+                    </span>
+                    <span className="ml-auto shrink-0 text-[10px] uppercase tracking-wider text-surface-500">
+                      Enter
+                    </span>
+                  </button>
 
-                  {error && (
-                    <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-red-300 text-sm">
-                      {error}
-                    </div>
-                  )}
-
-                  {!isLoading && !error && flatResults.length === 0 && (
-                    <div className="flex flex-col items-center gap-3 py-12 text-surface-500">
-                      {didYouMean ? (
-                        <>
-                          <p className="text-surface-300">
-                            No results for &ldquo;{query}&rdquo;.
-                          </p>
-                          <p className="text-sm text-surface-500">
-                            Did you mean{" "}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setInput(didYouMean);
-                                handleSearch(didYouMean);
-                              }}
-                              className="font-medium text-brand-400 hover:text-brand-300 transition-colors"
-                            >
-                              {didYouMean}
-                            </button>
-                            ?
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-surface-300">
-                            No results found for &ldquo;{query}&rdquo;.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => handleSearch(query)}
-                            className="rounded-full bg-surface-800 border border-surface-700 px-4 py-2 text-sm text-surface-300 hover:bg-surface-700 hover:text-white transition-colors"
-                          >
-                            Search anyway
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {!isLoading && !error && flatResults.length > 0 && didYouMean && (
-                    <p className="text-sm text-surface-500 mb-4">
+                  {didYouMean && (
+                    <p className="mb-4 text-sm text-surface-500">
                       Did you mean{" "}
                       <button
                         type="button"
@@ -532,7 +378,7 @@ function SearchBar() {
                           setInput(didYouMean);
                           handleSearch(didYouMean);
                         }}
-                        className="text-brand-400 hover:text-brand-300 transition-colors"
+                        className="text-brand-400 transition-colors hover:text-brand-300"
                       >
                         {didYouMean}
                       </button>
@@ -540,93 +386,77 @@ function SearchBar() {
                     </p>
                   )}
 
-                  {!isLoading &&
-                    !error &&
-                    (["movie", "tv", "person", "keyword"] as const).map(
-                      (category) => {
-                        const items = displayResults[category];
-                        if (items.length === 0) return null;
-                        return (
-                          <div key={category} className="mb-6 last:mb-0">
-                            <div className="flex items-center justify-between mb-3">
-                              <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider">
-                                {category === "tv" ? "TV Shows" : category}
-                              </h3>
+                  {/* The only spinner left, and it is for the index loading on
+                      first open — never for a query, which is synchronous. */}
+                  {!index && (
+                    <div className="flex items-center gap-2 py-6 text-sm text-surface-500">
+                      <FaCircleNotch className="animate-spin" size={13} />
+                      Preparing suggestions…
+                    </div>
+                  )}
+
+                  {index && flatResults.length === 0 && (
+                    <p className="py-6 text-sm text-surface-500">
+                      Nothing in your library or the popular list matches that.
+                      Press Enter to search everything.
+                    </p>
+                  )}
+
+                  {GROUPS.map(({ kind, label }) => {
+                    const rows = suggestions.filter((r) => r.t === kind);
+                    if (rows.length === 0) return null;
+                    return (
+                      <div key={kind} className="mb-5 last:mb-0">
+                        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
+                          {label}
+                        </h3>
+                        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                          {rows.map((row) => {
+                            const flatIndex = flatResults.findIndex((f) => f.key === row.k);
+                            const isActive = flatIndex === activeIndex;
+                            return (
                               <button
+                                key={row.k}
                                 type="button"
-                                onClick={() => handleSearch(query, category)}
-                                className="text-xs font-medium text-brand-400 hover:text-brand-300 transition-colors"
+                                onClick={() =>
+                                  handleSelectResult({
+                                    key: row.k,
+                                    label: row.n,
+                                    href: rowHref(row),
+                                    category: row.t,
+                                  })
+                                }
+                                className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                                  isActive
+                                    ? "bg-surface-700/80 ring-1 ring-brand-500/30"
+                                    : "bg-surface-800/40 hover:bg-surface-700/60"
+                                }`}
                               >
-                                View all →
+                                {row.t === "person" ? (
+                                  <User className="size-3.5 shrink-0 text-surface-500" />
+                                ) : row.t === "tv" ? (
+                                  <Tv className="size-3.5 shrink-0 text-surface-500" />
+                                ) : (
+                                  <Film className="size-3.5 shrink-0 text-surface-500" />
+                                )}
+                                <span className="min-w-0 flex-1 truncate text-sm text-surface-200">
+                                  {highlightLabel(row.n, query)}
+                                </span>
+                                {row.lib && (
+                                  <span className="shrink-0 text-[10px] uppercase tracking-wider text-brand-400">
+                                    Yours
+                                  </span>
+                                )}
+                                {row.y && !row.lib && (
+                                  <span className="shrink-0 text-xs text-surface-500">{row.y}</span>
+                                )}
                               </button>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {items.map((item) => {
-                                const flattenedIndex = flatResults.findIndex(
-                                  (flat) =>
-                                    flat.key === `${category}-${item.id}`
-                                );
-                                const isActive =
-                                  flattenedIndex === activeIndex;
-                                return (
-                                  <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() =>
-                                      handleSelectResult({
-                                        key: `${category}-${item.id}`,
-                                        label: getTitle(item),
-                                        href: getHref(item, category),
-                                        category,
-                                        image:
-                                          item.poster_path ||
-                                          item.profile_path
-                                            ? `https://image.tmdb.org/t/p/w92${
-                                                item.poster_path ||
-                                                item.profile_path
-                                              }`
-                                            : undefined,
-                                      })
-                                    }
-                                    className={`flex items-center gap-3 rounded-xl p-3 text-left transition-all duration-150 ${
-                                      isActive
-                                        ? "bg-surface-700/80 ring-1 ring-brand-500/30"
-                                        : "bg-surface-800/40 hover:bg-surface-700/60"
-                                    }`}
-                                  >
-                                    {item.poster_path || item.profile_path ? (
-                                      <img
-                                        src={`https://image.tmdb.org/t/p/w92${
-                                          item.poster_path ||
-                                          item.profile_path ||
-                                          ""
-                                        }`}
-                                        alt={getTitle(item)}
-                                        className="w-11 h-16 rounded-lg object-cover shrink-0 poster-shadow"
-                                        loading="lazy"
-                                        decoding="async"
-                                      />
-                                    ) : (
-                                      <div className="w-11 h-16 rounded-lg bg-surface-700 flex items-center justify-center text-[10px] text-surface-500 shrink-0">
-                                        N/A
-                                      </div>
-                                    )}
-                                    <div className="min-w-0">
-                                      <span className="text-sm font-medium text-surface-200 block truncate">
-                                        {highlightLabel(getTitle(item), query)}
-                                      </span>
-                                      <span className="text-xs text-surface-500 capitalize">
-                                        {category === "tv" ? "TV show" : category}
-                                      </span>
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      }
-                    )}
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </>
               )}
             </div>
