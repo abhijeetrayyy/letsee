@@ -15,24 +15,33 @@ import { useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FaSearch, FaTimes } from "react-icons/fa";
 import { FaCircleNotch } from "react-icons/fa6";
-import { Film, Tv, User, Hash, TrendingUp, Clock } from "lucide-react";
+import { Film, Tv, User, Hash, TrendingUp, Clock, Building2, Layers, Radio } from "lucide-react";
 
 type FlatResult = {
   key: string;
   label: string;
   href: string;
-  category: "movie" | "tv" | "person" | "keyword";
+  category: "movie" | "tv" | "person" | "network" | "keyword" | "company" | "collection";
 };
 
-type Keyword = { id: number; name: string };
+type Named = { id: number; name: string };
 
 const MAX_RECENT = 5;
 
 /** The heading each suggestion group sits under, in the order they appear. */
-const GROUPS: { kind: "movie" | "tv" | "person"; label: string }[] = [
+const GROUPS: { kind: "movie" | "tv" | "person" | "network"; label: string }[] = [
   { kind: "movie", label: "Movies" },
   { kind: "tv", label: "TV Shows" },
   { kind: "person", label: "People" },
+  // Instant, from the checked-in list — TMDB cannot search networks.
+  { kind: "network", label: "Networks" },
+];
+
+/** Fetched behind the local rows, because these have no local source. */
+const REMOTE_GROUPS = [
+  { key: "keyword" as const, label: "Keywords" },
+  { key: "company" as const, label: "Studios" },
+  { key: "collection" as const, label: "Collections" },
 ];
 
 const QUICK_CATEGORIES = [
@@ -121,32 +130,45 @@ function SearchBar() {
    * still holds: a suggestion appears within one frame, before any network
    * response.
    */
-  const [keywords, setKeywords] = useState<Keyword[]>([]);
+  const [remote, setRemote] = useState<Record<string, Named[]>>({});
 
   useEffect(() => {
     if (!isModalOpen || query.trim().length < 3) {
-      setKeywords([]);
+      setRemote({});
       return;
     }
     const controller = new AbortController();
     const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `/api/search?query=${encodeURIComponent(query)}&media_type=keyword`,
-          { signal: controller.signal },
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        setKeywords(Array.isArray(data?.results) ? data.results.slice(0, 5) : []);
-      } catch {
-        // Aborted, offline, or TMDB unhappy — the local rows stand alone.
-      }
+      const entries = await Promise.all(
+        REMOTE_GROUPS.map(async ({ key }) => {
+          try {
+            const res = await fetch(
+              `/api/search?query=${encodeURIComponent(query)}&media_type=${key}`,
+              { signal: controller.signal },
+            );
+            if (!res.ok) return [key, [] as Named[]] as const;
+            const data = await res.json();
+            return [key, Array.isArray(data?.results) ? data.results.slice(0, 6) : []] as const;
+          } catch {
+            // Aborted, offline, or TMDB unhappy — the local rows stand alone.
+            return [key, [] as Named[]] as const;
+          }
+        }),
+      );
+      setRemote(Object.fromEntries(entries));
     }, 300);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
   }, [query, isModalOpen]);
+
+  const remoteHref = (kind: string, id: number) =>
+    kind === "keyword"
+      ? buildBrowseUrl({ keyword: String(id) })
+      : kind === "company"
+        ? buildBrowseUrl({ company: String(id) })
+        : buildBrowseUrl({ collection: String(id) });
 
   const didYouMean = useMemo(
     () => getDidYouMeanSuggestion(query, recentSearches),
@@ -176,14 +198,16 @@ function SearchBar() {
         category: row.t as FlatResult["category"],
       })),
       // Last, so arrowing down reaches the instant rows first.
-      ...keywords.map((k) => ({
-        key: `keyword:${k.id}`,
-        label: k.name,
-        href: buildBrowseUrl({ keyword: String(k.id) }),
-        category: "keyword" as const,
-      })),
+      ...REMOTE_GROUPS.flatMap(({ key }) =>
+        (remote[key] ?? []).map((r) => ({
+          key: `${key}:${r.id}`,
+          label: r.name,
+          href: remoteHref(key, r.id),
+          category: key,
+        })),
+      ),
     ],
-    [suggestions, keywords]
+    [suggestions, remote]
   );
 
   useEffect(() => {
@@ -456,41 +480,51 @@ function SearchBar() {
                     </p>
                   )}
 
-                  {keywords.length > 0 && (
-                    <div className="mb-5">
-                      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
-                        Keywords
-                      </h3>
-                      <div className="flex flex-wrap gap-1.5">
-                        {keywords.map((k) => {
-                          const flatIndex = flatResults.findIndex((f) => f.key === `keyword:${k.id}`);
-                          const isActive = flatIndex === activeIndex;
-                          return (
-                            <button
-                              key={k.id}
-                              type="button"
-                              onClick={() =>
-                                handleSelectResult({
-                                  key: `keyword:${k.id}`,
-                                  label: k.name,
-                                  href: buildBrowseUrl({ keyword: String(k.id) }),
-                                  category: "keyword",
-                                })
-                              }
-                              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
-                                isActive
-                                  ? "bg-surface-700/80 text-white ring-1 ring-brand-500/30"
-                                  : "bg-surface-800/60 text-surface-300 hover:bg-surface-700 hover:text-white"
-                              }`}
-                            >
-                              <Hash className="size-3 text-surface-500" />
-                              {k.name}
-                            </button>
-                          );
-                        })}
+                  {REMOTE_GROUPS.map(({ key, label }) => {
+                    const rows = remote[key] ?? [];
+                    if (rows.length === 0) return null;
+                    return (
+                      <div key={key} className="mb-5">
+                        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
+                          {label}
+                        </h3>
+                        <div className="flex flex-wrap gap-1.5">
+                          {rows.map((r) => {
+                            const flatIndex = flatResults.findIndex((f) => f.key === `${key}:${r.id}`);
+                            const isActive = flatIndex === activeIndex;
+                            return (
+                              <button
+                                key={r.id}
+                                type="button"
+                                onClick={() =>
+                                  handleSelectResult({
+                                    key: `${key}:${r.id}`,
+                                    label: r.name,
+                                    href: remoteHref(key, r.id),
+                                    category: key,
+                                  })
+                                }
+                                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+                                  isActive
+                                    ? "bg-surface-700/80 text-white ring-1 ring-brand-500/30"
+                                    : "bg-surface-800/60 text-surface-300 hover:bg-surface-700 hover:text-white"
+                                }`}
+                              >
+                                {key === "keyword" ? (
+                                  <Hash className="size-3 text-surface-500" />
+                                ) : key === "company" ? (
+                                  <Building2 className="size-3 text-surface-500" />
+                                ) : (
+                                  <Layers className="size-3 text-surface-500" />
+                                )}
+                                {r.name}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })}
 
                   {GROUPS.map(({ kind, label }) => {
                     const rows = suggestions.filter((r) => r.t === kind);
@@ -540,6 +574,8 @@ function SearchBar() {
                                     />
                                   ) : row.t === "person" ? (
                                     <User className="size-3.5 text-surface-600" />
+                                  ) : row.t === "network" ? (
+                                    <Radio className="size-3.5 text-surface-600" />
                                   ) : row.t === "tv" ? (
                                     <Tv className="size-3.5 text-surface-600" />
                                   ) : (

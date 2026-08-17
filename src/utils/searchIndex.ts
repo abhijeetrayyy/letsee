@@ -19,8 +19,15 @@
  */
 
 import Fuse from "fuse.js";
+// Both pure and dependency-free, so importing it here creates no cycle.
+import { buildBrowseUrl } from "@/utils/browseUrl";
 
-export type IndexKind = "movie" | "tv" | "person";
+/**
+ * `network` is here rather than fetched because TMDB has no `/search/network`
+ * endpoint — it 404s. The list is checked in, so networks are instant and
+ * typo-tolerant like everything else local.
+ */
+export type IndexKind = "movie" | "tv" | "person" | "network";
 
 export type IndexRow = {
   /** `type:id` — never a bare id. Migration 064 exists because TMDB numbers films and series independently. */
@@ -198,10 +205,10 @@ export function queryIndex(
    * allowance keeps every group reachable while still letting titles dominate
    * the space, which is what people are usually looking for.
    */
-  const perKind: Record<IndexKind, number> = { movie: 0, tv: 0, person: 0 };
-  const allowance: Record<IndexKind, number> = { movie: 10, tv: 10, person: 6 };
+  const perKind: Record<IndexKind, number> = { movie: 0, tv: 0, person: 0, network: 0 };
+  const allowance: Record<IndexKind, number> = { movie: 10, tv: 10, person: 6, network: 6 };
 
-  const rank = (kind: IndexKind) => (kind === "person" ? 1 : 0);
+  const rank = (kind: IndexKind) => (kind === "person" ? 1 : kind === "network" ? 2 : 0);
   return matches
     .sort(
       (a, b) =>
@@ -222,5 +229,7 @@ export function queryIndex(
 export function rowHref(row: IndexRow): string {
   const id = row.k.slice(row.k.indexOf(":") + 1);
   if (row.t === "person") return `/app/person/${id}`;
+  // A network is a browse facet, not a page — D3 already built the destination.
+  if (row.t === "network") return buildBrowseUrl({ type: "tv", network: id });
   return `/app/${row.t}/${id}`;
 }

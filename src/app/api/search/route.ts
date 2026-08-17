@@ -20,9 +20,14 @@ export async function GET(request: NextRequest) {
     const key = process.env.TMDB_API_KEY;
     const encoded = encodeURIComponent(query.trim());
 
+    // company and collection are real TMDB search endpoints and were falling
+    // through to /search/multi, which searches only movie, tv and person — so
+    // asking for a studio silently returned films with that word in the title.
+    // There is deliberately no `network` here: /search/network 404s, and
+    // networks are served from a checked-in list instead.
     const url =
-      mediaType === "keyword"
-        ? `${base}/search/keyword?api_key=${key}&query=${encoded}`
+      mediaType === "keyword" || mediaType === "company" || mediaType === "collection"
+        ? `${base}/search/${mediaType}?api_key=${key}&query=${encoded}`
         : (() => {
             let endpoint = "multi";
             if (mediaType === "movie") endpoint = "movie";

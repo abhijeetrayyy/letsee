@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { buildSearchIndex, type IndexRow, type SearchIndex } from "@/utils/searchIndex";
+import { buildSearchIndex, normalizeQuery, type IndexRow, type SearchIndex } from "@/utils/searchIndex";
+import { NETWORKS } from "@/staticData/networks";
 
 /**
  * Loads the local search index, once per page session, on first use.
@@ -38,7 +39,22 @@ function load(): Promise<SearchIndex> {
     cached = Promise.all([
       fetchRows("/api/library/index"),
       fetchRows("/api/search/index"),
-    ]).then(([library, popular]) => buildSearchIndex([...library, ...popular]));
+    ]).then(([library, popular]) =>
+      buildSearchIndex([
+        ...library,
+        ...popular,
+        // Checked in rather than fetched: TMDB has no network search.
+        ...NETWORKS.map(
+          (n): IndexRow => ({
+            k: `network:${n.id}`,
+            n: n.name,
+            s: normalizeQuery(n.name),
+            t: "network",
+            y: null,
+          }),
+        ),
+      ]),
+    );
   }
   return cached;
 }
