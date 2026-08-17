@@ -2,7 +2,8 @@ import { Metadata } from "next";
 import { tmdbFetchJson } from "@/utils/tmdb";
 import { notFound } from "next/navigation";
 import TvDetailClient from "./TvDetailClient";
-import MovieRecoTile from "@components/movie/recoTiles";
+import RelatedSection from "@components/detail/RelatedSection";
+import { getRelated } from "@/utils/relatedData";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -61,8 +62,6 @@ export default async function TvPage({ params }: PageProps) {
   const watchProviders = show.watch_providers?.results?.US ?? null;
   const flatrateProviders = watchProviders?.flatrate ?? [];
 
-  const recoData = show.recommendations ?? { total_results: 0, results: [] };
-  const similarData = show.similar ?? { total_results: 0, results: [] };
   const createdBy = show.created_by ?? [];
   const seasons = (show.seasons ?? []).filter((s: any) => s.name !== "Specials");
 
@@ -71,6 +70,20 @@ export default async function TvPage({ params }: PageProps) {
 
   const usRating = contentRatings.find((r: any) => r.iso_3166_1 === "US");
   const certification = usRating?.rating ?? null;
+
+  // One ranked section replacing the two rails. `created_by` stands in for the
+  // director here: series-level `credits.crew` lists one Directing entry out of
+  // fifty, because who directed an episode is not a fact about the show.
+  const related = await getRelated({
+    id: Number(numericId),
+    mediaType: "tv",
+    title: show.name,
+    keywords,
+    people: createdBy.map((c: { id: number; name: string }) => ({ id: c.id, name: c.name })),
+    collection: null,
+    recommendations: show.recommendations?.results ?? [],
+    similar: show.similar?.results ?? [],
+  });
 
   return (
     <div className="bg-surface-950 min-h-screen">
@@ -90,12 +103,7 @@ export default async function TvPage({ params }: PageProps) {
       />
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
-        {recoData.total_results > 0 && (
-          <MovieRecoTile type="tv" title={show.name} data={recoData} sectionTitle="More like this" />
-        )}
-        {similarData.total_results > 0 && (
-          <MovieRecoTile type="tv" title={show.name} data={similarData} sectionTitle="Similar shows" />
-        )}
+        <RelatedSection items={related} />
       </div>
     </div>
   );

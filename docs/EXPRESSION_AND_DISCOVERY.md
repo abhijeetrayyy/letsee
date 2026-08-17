@@ -1,7 +1,7 @@
 # One Place to Say It, One Path to Find It
 
-> **Status:** D1–D4 built. D5 not started. One D3 acceptance criterion is deliberately left open — crew links still go to the person page rather than the browse engine; see the end of D3.
-> **⚠️ Migration `065` is not yet applied.** Until it runs, `/api/takes` degrades to an empty take rather than failing, so the pages render but nothing saves.
+> **Status:** D1–D5 built. One D3 acceptance criterion is deliberately left open — crew links still go to the person page rather than the browse engine; see the end of D3.
+> **⚠️ Two migrations are written but not applied: `065` and `066`.** Until `065` runs, `/api/takes` degrades to an empty take rather than failing, so D1's pages render but nothing saves. Until `066` runs, D5's related section ranks on keywords, director and collection only — the community signal is inert. Both were written in sessions without database access; neither has ever been executed.
 > **Written:** 2026-08-17, against `main` @ `c40ddf0`.
 > **Companion to** `SURPASSING_LETTERBOXD.md`, which covers W1–W7 (all shipped).
 
@@ -387,8 +387,63 @@ Proposed ranking, best signal first: shared keywords → same director → same 
 **One section, not four.** Four mediocre related rails is how the home page reached twenty-five surfaces. One good section that says *why* — "shares 4 keywords with this", "also directed by X" — is worth more than four that say nothing.
 
 **Acceptance**
-- [ ] Every related title carries a one-line reason, in the evidence style used by `tasteMatch.ts` and Tonight.
-- [ ] The section degrades to TMDB's list when the community has no signal yet, without an empty state.
+- [x] Every related title carries a one-line reason, in the evidence style used by `tasteMatch.ts` and Tonight.
+- [x] The section degrades to TMDB's list when the community has no signal yet, without an empty state.
+- [~] **The community signal itself is written but not applied.** Migration `066` has never run. See below — this is the honest state of D5's headline claim.
+
+### What shipped
+
+| File | What it is |
+|---|---|
+| `src/utils/related.ts` | Ranking and reason-building. Pure — no fetch, no DB, no `@/` imports — so it is provable by script. |
+| `src/utils/relatedData.ts` | The half that needs a network and a database. Everything `unstable_cache`d. |
+| `src/components/detail/RelatedSection.tsx` | One section, replacing two rails. |
+| `migrations/066_related_by_audience.sql` | The community RPC. **Written, not applied.** |
+
+**Deleted:** `src/components/movie/recoTiles.tsx` and both its mountings. The detail pages rendered TMDB's `recommendations` and `similar` as two near-identical rails — "More like this" and "Similar movies" — neither saying why anything was in either.
+
+### Why TMDB's own ordering isn't good enough — measured
+
+Against *Interstellar*, TMDB's recommendation order does not track subject overlap at all:
+
+| TMDB position | shared keywords | title |
+|---|---|---|
+| 1 | 3 | Stargate: The Ark of Truth |
+| 3 | 1 | The Last Mimzy |
+| 5 | **4** | Stowaway |
+| 8 | **4** | Solaris |
+| 10 | 1 | Primer |
+
+There is real signal available and TMDB is not using it. Ranking on it moves *Stowaway* and *Solaris* up and *Primer* down, and — more importantly — lets each card say why it is there.
+
+### Evidence
+
+- **Live, on `/app/movie/157336`**: 10 distinct reasons rendered, e.g. *"Shares 4 themes with Interstellar, including space travel and space."*
+- **Live, on `/app/tv/1396`**: 12 distinct reasons, e.g. *"Shares 8 themes with Breaking Bad, including new mexico and dark comedy."* No "directed by" on a series; no collection reason on a series (TV has no collections).
+- **Both old rails gone**: `grep` for "More like this" and "Similar movies/shows" returns 0 on both pages.
+- **Ranking logic**: 26 assertions in a scratchpad script — pool dedupe, seed exclusion, reason wording per term, TV vs film phrasing, total ordering stable under input permutation, and a mechanical check that **no reason contains a percentage** or scoring language.
+- **Degradation**: with `{}` evidence — the path that runs today — the section returns the full list with a reason on every item. Verified across five evidence combinations (none, keywords only, community only, community absent, everything); none produces an empty state.
+- **Timing**: 2.1–4.7s cold, **0.33s warm**, per title per 24h.
+
+### Two bugs this found
+
+**`/discover/tv?with_crew=` is silently ignored.** Asking for Vince Gilligan's series returns **229,203 results** — the entire catalogue — where `/discover/movie?with_crew=` correctly returns Nolan's 31 films. The same silent-ignore pathology as `primary_release_date` on `/discover/tv` in D3. `/person/{id}/tv_credits` is the endpoint that actually answers it.
+
+**A reason can name the wrong signal.** Picking the leading term by *priority order* rather than by weighted *contribution* made *Inception* explain itself as "Shares 1 theme with Interstellar, including time travel" when what actually put it second was being another Nolan film. One stray keyword masked the signal doing the work. Fixed to choose by contribution.
+
+### The community half, honestly
+
+D5's headline is *"the one related-titles signal a TMDB-backed competitor cannot copy"*, and **that half is not delivered in this release.** The ranking treats `community` as a first-class term, the RPC is written, and the wiring degrades cleanly — but migration `066` has never been executed, because this session had no database access. So today every page runs the no-community path.
+
+The term is not decoration: given a co-watch-dominant fixture it fires and ranks first, reading *"Watched by 7 of the 9 people here who saw Interstellar."* — a count, never a rate, per the house rule that a reason is evidence and not a percentage.
+
+`066` carries three privacy gates, and the third is one an adversarial review caught rather than something I'd have thought of:
+
+1. Public profiles only, written `lower(trim(coalesce(u.visibility::text, 'public'))) = 'public'` to match `018` and `062`. A bare `= 'public'` drops every NULL-visibility user, so the function would return nothing forever.
+2. `co_watchers >= 2`, so a row is a count rather than a disclosure.
+3. **`seed_watchers >= 5`** — which (2) alone does not give you. The same page renders `title_audience`, naming up to five people who watched this title. With two seed watchers both named there, "2 co-watchers" on another title publishes that those two named people watched it. The two features leak in combination while each looks safe alone.
+
+**Do not tick the community box on the strength of that SQL.** It has never run and its query plan has never been measured.
 
 ---
 
