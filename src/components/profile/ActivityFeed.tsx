@@ -45,96 +45,88 @@ function getPosterUrl(imageUrl: string | null | undefined): string {
   return `https://image.tmdb.org/t/p/w92/${path}`;
 }
 
-export default function ActivityFeed({
-  items,
-}: {
-  items: ActivityItem[];
-}) {
+/**
+ * Recent activity, as a list rather than a stack of cards.
+ *
+ * Each entry used to be a `p-4` bordered card with a 96px poster, a badge and
+ * a **ten-glyph** star strip — about 112px per row, ten rows, so roughly
+ * 1,100px of scrolling to say "watched these ten things". On a profile that
+ * already carries stats, favourites and a watchlist above it, that is most of
+ * a screen spent on the least dense thing on the page.
+ *
+ * Now one line each: small thumb, title, when, and a five-star reading only
+ * when a score exists. Four visible, the rest behind a control — the reader
+ * asks for more rather than scrolling past it.
+ */
+export default function ActivityFeed({ items }: { items: ActivityItem[] }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (!items?.length) {
     return (
-      <div className="rounded-xl border border-surface-700/60 bg-surface-900/50 p-12 text-center">
-        <div className="text-4xl mb-4">🎬</div>
-        <p className="text-surface-400 text-sm">
-          No recent activity yet. Watched titles and ratings will show here.
-        </p>
-      </div>
+      <p className="rounded-xl border border-surface-800/60 bg-surface-900/40 px-4 py-6 text-center text-sm text-surface-500">
+        Nothing watched yet.
+      </p>
     );
   }
 
-  return (
-    <div className="space-y-4">
-      {items.map((item) => (
-        <ActivityCard key={item.id} item={item} />
-      ))}
-    </div>
-  );
-}
-
-function ActivityCard({ item }: { item: ActivityItem }) {
-  const posterUrl = getPosterUrl(item.image_url);
-  const href = `/app/${item.item_type}/${item.item_id}`;
+  const INITIAL = 4;
+  const shown = expanded ? items : items.slice(0, INITIAL);
+  const hidden = items.length - shown.length;
 
   return (
-    <div className="flex gap-4 p-4 rounded-xl border border-surface-700/60 bg-surface-900/40 hover:border-surface-500/60 transition-all duration-300">
-      {/* Poster */}
-      <Link href={href} className="shrink-0 w-16 aspect-[2/3] rounded-lg overflow-hidden">
-        <img
-          src={posterUrl}
-          alt={item.item_name}
-          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-        />
-      </Link>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <Link
-              href={href}
-              className="text-sm font-semibold text-surface-100 hover:text-brand-400 transition-colors line-clamp-1"
-            >
-              {item.item_name}
-            </Link>
-            <p className="text-xs text-surface-500 mt-0.5">
-              {item.item_type === "tv" ? "TV Series" : "Movie"} · {formatDate(item.watched_at)}
-            </p>
-          </div>
-
-          {/* Activity Badge */}
-          <span className="shrink-0 px-2 py-1 rounded-md bg-surface-800 text-xs font-medium text-surface-300">
-            {item.activity_type === "watched" && "Watched"}
-            {item.activity_type === "rated" && "Rated"}
-            {item.activity_type === "reviewed" && "Reviewed"}
-            {item.activity_type === "list_created" && "List"}
-          </span>
-        </div>
-
-        {/* Rating */}
-        {item.score != null && (
-          <div className="flex items-center gap-1 mt-2">
-            {Array.from({ length: 10 }, (_, i) => (
-              <span
-                key={i}
-                className={`text-xs ${
-                  i < item.score! ? "text-accent-gold" : "text-surface-700"
-                }`}
+    <div>
+      <ul className="divide-y divide-surface-800/50 overflow-hidden rounded-xl border border-surface-800/60 bg-surface-900/30">
+        {shown.map((item) => {
+          const href = `/app/${item.item_type}/${item.item_id}`;
+          return (
+            <li key={item.id}>
+              <Link
+                href={href}
+                className="flex items-center gap-3 px-3 py-2 transition-colors hover:bg-surface-800/40"
               >
-                ★
-              </span>
-            ))}
-            <span className="text-xs text-surface-400 ml-1">
-              {formatStars(item.score)}
-            </span>
-          </div>
-        )}
+                <img
+                  src={getPosterUrl(item.image_url)}
+                  alt=""
+                  className="h-11 w-8 shrink-0 rounded object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-surface-100">{item.item_name}</span>
+                  <span className="block truncate text-xs text-surface-500">
+                    {item.item_type === "tv" ? "Series" : "Film"} · {formatDate(item.watched_at)}
+                    {item.review_text ? " · wrote about it" : ""}
+                  </span>
+                </span>
+                {/* One reading, not ten glyphs. The old strip rendered ten
+                    spans per row purely to show a number out of five. */}
+                {item.score != null && item.score > 0 && (
+                  <span className="shrink-0 text-xs text-amber-400/90">★ {formatStars(item.score)}</span>
+                )}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
 
-        {/* Review Snippet */}
-        {item.review_text && (
-          <p className="text-sm text-surface-300 line-clamp-2 mt-2">
-            {item.review_text}
-          </p>
-        )}
-      </div>
+      {hidden > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="mt-2 w-full rounded-lg py-2 text-xs text-surface-400 transition-colors hover:bg-surface-800/40 hover:text-surface-200"
+        >
+          Show {hidden} more
+        </button>
+      )}
+      {expanded && items.length > INITIAL && (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="mt-2 w-full rounded-lg py-2 text-xs text-surface-500 transition-colors hover:bg-surface-800/40 hover:text-surface-300"
+        >
+          Show less
+        </button>
+      )}
     </div>
   );
 }
