@@ -8,8 +8,7 @@ import MarkEpisodeWatched from "@components/tv/MarkEpisodeWatched";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { fetchTmdb } from "@/utils/tmdbClient";
 import { createClient } from "@/utils/supabase/server";
-import YourTake from "@components/takes/YourTake";
-import Comments from "@components/social/Comments";
+import TitleTalk from "@components/takes/TitleTalk";
 import { ArrowLeft, Clock, Calendar, Users, Clapperboard, Star } from "lucide-react";
 
 interface EpisodeDetails {
@@ -239,7 +238,12 @@ const EpisodePage = async ({ params }: PageProps) => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {/* The rating used to sit beside the watched button and the note far
             below it — the same split D1 exists to remove. */}
-        <YourTake
+        {/* One composer and one thread, as on the film and series pages.
+            This page used to put the rating and note here and "Episode
+            Discussion" a hundred lines further down, which is the same fork:
+            you had to decide which box a thought belonged in before you had
+            finished having it. */}
+        <TitleTalk
           itemId={id}
           itemType="tv"
           scope="episode"
@@ -357,14 +361,6 @@ const EpisodePage = async ({ params }: PageProps) => {
           </div>
         )}
 
-        {/* Episode Discussion */}
-        <div className="mt-10">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
-            <h2 className="text-xl font-bold text-white">Episode Discussion</h2>
-          </div>
-          <Comments itemId={`${id}-s${seasonNum}-e${episode.episode_number}`} itemType="episode" />
-        </div>
       </div>
     </div>
   );

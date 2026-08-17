@@ -71,10 +71,6 @@ export default async function Home() {
               {isLoggedIn ? (
                 <>
                   <UserSidebar username={username!} />
-                  {/* The heading lives inside the component — rendering it out
-                      here left a floating "CONTINUE" label above nothing
-                      whenever there was no progress to show. */}
-                  <ContinueWatchingProgress />
                   <AiringSoon />
                 </>
               ) : (
@@ -116,6 +112,15 @@ export default async function Home() {
 
             {/* ═══════ MAIN CONTENT ═══════ */}
             <main className="flex-1 min-w-0 order-1 lg:order-2 space-y-10">
+              {/* What you're already part-way through, above everything else
+                  you might start. This sat in the sidebar under the profile
+                  stats card, which put it 1,167px down a 900px viewport — it
+                  rendered correctly and essentially nobody would ever see it.
+                  Tonight answers "what shall I start"; this answers "what was
+                  I already watching", and the second question is the commoner
+                  one for someone coming back. */}
+              {isLoggedIn && <ContinueWatchingProgress />}
+
               {/* Tonight — the only thing here that happens *before* watching,
                   so it sits above everything that happens after. */}
               {isLoggedIn && (

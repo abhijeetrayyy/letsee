@@ -77,6 +77,9 @@ function when(iso: string): string {
 export default function TitleTalk({
   itemId,
   itemType,
+  scope = "title",
+  seasonNumber,
+  episodeNumber,
   itemName,
   imageUrl,
   genres,
@@ -84,13 +87,34 @@ export default function TitleTalk({
 }: {
   itemId: string;
   itemType: "movie" | "tv";
+  /** A series, one of its seasons, or one episode — the same three D1 defined. */
+  scope?: "title" | "season" | "episode";
+  seasonNumber?: number;
+  episodeNumber?: number;
   itemName?: string;
   imageUrl?: string | null;
   genres?: string[];
   isAuthenticated: boolean;
 }) {
-  const takesKey = `/api/takes?itemId=${itemId}&itemType=${itemType}&scope=title`;
-  const commentsKey = `/api/comments?itemId=${itemId}&itemType=${itemType}`;
+  const scopeQs =
+    scope === "title"
+      ? "scope=title"
+      : scope === "season"
+        ? `scope=season&seasonNumber=${seasonNumber}`
+        : `scope=episode&seasonNumber=${seasonNumber}&episodeNumber=${episodeNumber}`;
+
+  // `comments` is keyed on its own id space, and a season or an episode needs a
+  // composite id so two seasons of one show don't share a thread.
+  const commentsItemType = scope === "title" ? itemType : scope;
+  const commentsItemId =
+    scope === "title"
+      ? itemId
+      : scope === "season"
+        ? `${itemId}-s${seasonNumber}`
+        : `${itemId}-s${seasonNumber}-e${episodeNumber}`;
+
+  const takesKey = `/api/takes?itemId=${itemId}&itemType=${itemType}&${scopeQs}`;
+  const commentsKey = `/api/comments?itemId=${commentsItemId}&itemType=${commentsItemType}`;
 
   const { data: takes, mutate: mutateTakes, isLoading } = useSWR<{
     mine: Mine;
@@ -110,10 +134,10 @@ export default function TitleTalk({
   const rating = score ?? mine?.score ?? null;
   const dirty = draft !== null || score !== null;
 
-  const prompt = useMemo(
-    () => PROMPTS[Math.abs(Number(itemId) || 0) % PROMPTS.length],
-    [itemId],
-  );
+  const prompt = useMemo(() => {
+    const seed = Math.abs(Number(itemId) || 0) + (seasonNumber ?? 0) * 7 + (episodeNumber ?? 0);
+    return PROMPTS[seed % PROMPTS.length];
+  }, [itemId, seasonNumber, episodeNumber]);
 
   const save = async (isPublic: boolean) => {
     if (!text.trim() && rating == null) return;
@@ -126,7 +150,9 @@ export default function TitleTalk({
         body: JSON.stringify({
           itemId,
           itemType,
-          scope: "title",
+          scope,
+          seasonNumber,
+          episodeNumber,
           score: rating,
           body: text,
           isPublic,
@@ -150,7 +176,7 @@ export default function TitleTalk({
     setBusy(true);
     try {
       await fetch(
-        `/api/takes?itemId=${itemId}&itemType=${itemType}&scope=title&isPublic=${mine?.isPublic ?? false}`,
+        `/api/takes?itemId=${itemId}&itemType=${itemType}&${scopeQs}&isPublic=${mine?.isPublic ?? false}`,
         { method: "DELETE" },
       );
       setDraft(null);
@@ -169,7 +195,7 @@ export default function TitleTalk({
       const res = await fetch("/api/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId, itemType, body }),
+        body: JSON.stringify({ itemId: commentsItemId, itemType: commentsItemType, body }),
       });
       if (res.ok) {
         setReply("");

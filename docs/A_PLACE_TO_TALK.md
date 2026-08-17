@@ -84,6 +84,8 @@ So nothing below is copy that reassures. Every item is a structural choice.
 
 The old card rendered a coloured verb badge as the headline and put whatever the person wrote beneath it in `text-xs text-surface-400 italic line-clamp-2` — smaller, dimmer and greyer than the film's title. **The page shouted the verb and whispered the voice.** Inverted: the sentence is now the largest, brightest element; the poster demotes to a context strip; the verb survives only as a preposition — "ray · on WeCrashed". A watch is not a card at all, just a quiet line.
 
+**Continue Watching** was moved out of the sidebar into the main column. It rendered correctly the whole time, at **y=1167 in a 900px viewport** — below the fold, under the profile-stats card — so it read as "nothing is in progress". Now at y=726.
+
 **Copy.** The section is "What people are saying", not "Activity Feed". A signed-out visitor is told "From across LetSee" rather than the previous "Your activity, and others watching now" — which was said to people who have no activity.
 
 **Two live bugs fixed on the way:**
@@ -140,7 +142,9 @@ Not yet verified end to end: the toggle path needs a signed-in account, which th
 
 `src/components/takes/TitleTalk.tsx` replaces `YourTake` **and** the `Discussion` section on both detail pages. One composer, one thread. The prompt is the placeholder and there is no heading above the box telling you what kind of writing belongs in it — that question is the one that stops people. Rating sits *after* the text and is optional. Two named buttons, "Keep private" and "Post it", rather than a toggle plus Save. Below, everyone's public takes and replies are one chronological thread.
 
-Season and episode scopes still use `YourTake`; unifying those is the same change one level down.
+Season and episode pages use the same component, at `scope="season"` and `scope="episode"`. The episode page had the same fork — the rating at the top, "Episode Discussion" a hundred lines below — and now has one of each. Season pages gained a thread they never had (`season` is now an allowed `comments` target, keyed `{id}-s{n}` so two seasons of one show don't share one).
+
+`YourTake.tsx` is deleted: all four of its mounts are on `TitleTalk`.
 
 ### Step 4 — shipped
 
