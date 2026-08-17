@@ -20,14 +20,20 @@ import RatingDistribution from "@components/detail/RatingDistribution";
 import WatchOptionsViewer from "@components/clientComponent/watchOptionView";
 import ShareModal from "@components/social/ShareModal";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
+import { useCountry } from "@/app/contextAPI/countryContext";
+import { movieCertification } from "@/utils/title/certification";
 
 const LANG: Record<string, string> = {
   en: "English", es: "Spanish", fr: "French", de: "German",
   ja: "Japanese", ko: "Korean", hi: "Hindi", zh: "Chinese", it: "Italian",
 };
 
-export default function MovieDetailClient({ movie, directors, credits, trailer, videos = [], certification, countryNames, backdrops, posters, keywords, collection, watchProviders, watchLink }: any) {
+export default function MovieDetailClient({ movie, directors, credits, trailer, videos = [], releaseDates = [], countryNames, backdrops, posters, keywords, collection }: any) {
   const { getStatus, isAuthenticated } = useMediaInteraction();
+  // Computed here, not on the server: the route stays static and the chip
+  // follows the country selector without a round trip.
+  const { country } = useCountry();
+  const cert = movieCertification(releaseDates, country);
   const isWatched = getStatus(String(movie.id), "movie") === "watched";
   const [showTrailer, setShowTrailer] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -140,7 +146,12 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
                 )}
                 {year && <MetaChip label={String(year)} />}
                 {runtime && <MetaChip icon={<Clock className="size-3" />} label={runtime} />}
-                {certification && <MetaChip label={certification} />}
+                {cert && (
+                  /* The country travels with a borrowed rating. A US rating
+                     shown unlabelled to an Indian reader is a confident lie;
+                     labelled, it is a useful approximation. */
+                  <MetaChip label={cert.isLocal ? cert.value : `${cert.value} · ${cert.country}`} />
+                )}
                 {countryNames.length > 0 && <MetaChip icon={<Globe className="size-3" />} label={countryNames[0]} />}
               </div>
 

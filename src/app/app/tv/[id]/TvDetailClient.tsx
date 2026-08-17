@@ -21,6 +21,8 @@ import WatchOptionsViewer from "@components/clientComponent/watchOptionView";
 import EpisodeListWithWatched from "@components/tv/EpisodeListWithWatched";
 import ShareModal from "@components/social/ShareModal";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
+import { useCountry } from "@/app/contextAPI/countryContext";
+import { tvCertification } from "@/utils/title/certification";
 import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { releaseInfo } from "@/utils/releaseInfo";
@@ -30,8 +32,12 @@ const LANG: Record<string, string> = {
   ja: "Japanese", ko: "Korean", hi: "Hindi", zh: "Chinese", it: "Italian",
 };
 
-export default function TvDetailClient({ show, credits, trailer, videos = [], certification, backdrops, posters, keywords, externalIds, seasons, createdBy, watchProviders, watchLink }: any) {
+export default function TvDetailClient({ show, credits, trailer, videos = [], contentRatings = [], backdrops, posters, keywords, externalIds, seasons, createdBy }: any) {
   const { getStatus, isAuthenticated } = useMediaInteraction();
+  // See the movie client: client-side so the route stays static and the chip
+  // follows the country selector.
+  const { country } = useCountry();
+  const cert = tvCertification(contentRatings, country);
   const isWatched = getStatus(String(show.id), "tv") === "watched";
   const [showTrailer, setShowTrailer] = useState(false);
   const [markWatchedOpen, setMarkWatchedOpen] = useState(false);
@@ -178,7 +184,12 @@ export default function TvDetailClient({ show, credits, trailer, videos = [], ce
                 {numSeasons && <MetaChip label={`${numSeasons} season${numSeasons !== 1 ? "s" : ""}`} />}
                 {numEpisodes && <MetaChip label={`${numEpisodes} episodes`} />}
                 {show.status && <MetaChip label={show.status} />}
-                {certification && <MetaChip label={certification} />}
+                {cert && (
+                  /* The country travels with a borrowed rating. A US rating
+                     shown unlabelled to an Indian reader is a confident lie;
+                     labelled, it is a useful approximation. */
+                  <MetaChip label={cert.isLocal ? cert.value : `${cert.value} · ${cert.country}`} />
+                )}
               </div>
 
               {/* Hasn't started yet — the next-episode chip below only covers

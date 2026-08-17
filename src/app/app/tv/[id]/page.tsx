@@ -14,7 +14,7 @@ function getNumericId(value: string) {
 
 async function getShow(id: string) {
   return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,external_ids,recommendations,similar,keywords,content_ratings,watch_providers`,
+    `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,external_ids,recommendations,similar,keywords,content_ratings`,
     "TV detail",
     { revalidate: 600 }
   );
@@ -59,8 +59,8 @@ export default async function TvPage({ params }: PageProps) {
   const keywords = show.keywords?.results ?? show.keywords?.keywords ?? [];
   const externalIds = show.external_ids ?? {};
   const contentRatings = show.content_ratings?.results ?? [];
-  const watchProviders = show.watch_providers?.results?.US ?? null;
-  const flatrateProviders = watchProviders?.flatrate ?? [];
+  // See the note on the movie route: `watch_providers` is not a valid append
+  // key and never returned anything.
 
   const createdBy = show.created_by ?? [];
   const seasons = (show.seasons ?? []).filter((s: any) => s.name !== "Specials");
@@ -68,8 +68,6 @@ export default async function TvPage({ params }: PageProps) {
   const trailer = videos.find((v: any) => v.type === "Trailer" && v.site === "YouTube")
     ?? videos.find((v: any) => v.site === "YouTube");
 
-  const usRating = contentRatings.find((r: any) => r.iso_3166_1 === "US");
-  const certification = usRating?.rating ?? null;
 
   // One ranked section replacing the two rails. `created_by` stands in for the
   // director here: series-level `credits.crew` lists one Directing entry out of
@@ -92,15 +90,13 @@ export default async function TvPage({ params }: PageProps) {
         credits={credits}
         trailer={trailer}
         videos={videos}
-        certification={certification}
+        contentRatings={contentRatings}
         backdrops={backdrops}
         posters={posters}
         keywords={keywords}
         externalIds={externalIds}
         seasons={seasons}
         createdBy={createdBy}
-        watchProviders={flatrateProviders}
-        watchLink={watchProviders?.link ?? ""}
       />
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">

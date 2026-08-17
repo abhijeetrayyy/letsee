@@ -15,7 +15,7 @@ function getNumericId(value: string) {
 
 async function getMovie(id: string) {
   return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar,keywords,release_dates,watch_providers`,
+    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar,keywords,release_dates`,
     "Movie detail",
     { revalidate: 3600 }
   );
@@ -59,8 +59,10 @@ export default async function MoviePage({ params }: PageProps) {
   const posters = movie.images?.posters ?? [];
   const keywords = movie.keywords?.keywords ?? movie.keywords?.results ?? [];
   const collection = movie.belongs_to_collection ?? null;
-  const watchProviders = movie.watch_providers?.results?.US ?? null;
-  const flatrateProviders = watchProviders?.flatrate ?? [];
+  // `watch_providers` was never a valid append key — TMDB requires the slash
+  // form, silently ignores this one, and returned no watch data at all. The
+  // two props it fed were dead on arrival; WatchOptionsViewer has always
+  // fetched /api/watch-providers itself, which uses the correct endpoint.
   const directors = credits.crew?.filter((c: any) => c.job === "Director") ?? [];
   const originCountries = movie.origin_country ?? [];
   const countryNames = originCountries.flatMap((c: string) =>
@@ -86,9 +88,6 @@ export default async function MoviePage({ params }: PageProps) {
     similar: movie.similar?.results ?? [],
   });
 
-  // Find US certification
-  const usRelease = releaseDates.find((r: any) => r.iso_3166_1 === "US");
-  const certification = usRelease?.release_dates?.find((d: any) => d.certification)?.certification ?? null;
 
   const trailer = videos.find((v: any) => v.type === "Trailer" && v.site === "YouTube")
     ?? videos.find((v: any) => v.site === "YouTube");
@@ -101,14 +100,12 @@ export default async function MoviePage({ params }: PageProps) {
         credits={credits}
         trailer={trailer}
         videos={videos}
-        certification={certification}
+        releaseDates={releaseDates}
         countryNames={countryNames}
         backdrops={backdrops}
         posters={posters}
         keywords={keywords}
         collection={collection}
-        watchProviders={flatrateProviders}
-        watchLink={watchProviders?.link ?? ""}
       />
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
