@@ -13,9 +13,23 @@ function getNumericId(value: string) {
   return match ? match[0] : null;
 }
 
+/**
+ * Eight appended keys on one request.
+ *
+ * `append_to_response` caps at twenty remote calls — a twenty-first returns a
+ * 400 rather than dropping the extra quietly — so there is room here, but the
+ * budget is worth stating because two things people reach for cannot use it at
+ * all. Watch providers live at `watch/providers`, with a slash, which append
+ * does not accept; and a collection is its own resource. Both are fetched from
+ * the client instead, by the components that need them.
+ *
+ * `images` is what carries the title's logo artwork. TMDB returns every
+ * language's logo under that key with no `include_image_language` parameter,
+ * which is why the hero can print a film's own wordmark without a second call.
+ */
 async function getMovie(id: string) {
   return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar,keywords,release_dates`,
+    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar,keywords,release_dates,reviews`,
     "Movie detail",
     { revalidate: 3600 }
   );
@@ -59,10 +73,6 @@ export default async function MoviePage({ params }: PageProps) {
   const posters = movie.images?.posters ?? [];
   const keywords = movie.keywords?.keywords ?? movie.keywords?.results ?? [];
   const collection = movie.belongs_to_collection ?? null;
-  // `watch_providers` was never a valid append key — TMDB requires the slash
-  // form, silently ignores this one, and returned no watch data at all. The
-  // two props it fed were dead on arrival; WatchOptionsViewer has always
-  // fetched /api/watch-providers itself, which uses the correct endpoint.
   const directors = credits.crew?.filter((c: any) => c.job === "Director") ?? [];
   const originCountries = movie.origin_country ?? [];
   const countryNames = originCountries.flatMap((c: string) =>
@@ -70,6 +80,27 @@ export default async function MoviePage({ params }: PageProps) {
   );
 
   const releaseDates = movie.release_dates?.results ?? [];
+  const reviews = movie.reviews?.results ?? [];
+
+  /**
+   * Every appended blob above is already extracted into a prop of its own, so
+   * handing the raw object to the browser would send each of them a second
+   * time — `images` in particular carries every backdrop and poster TMDB holds,
+   * which MediaGallery already receives directly. Only `images.logos` survives,
+   * because the hero reads it to print the film's own wordmark.
+   */
+  const { images, ...base } = movie;
+  const movieForClient = {
+    ...base,
+    credits: undefined,
+    videos: undefined,
+    recommendations: undefined,
+    similar: undefined,
+    keywords: undefined,
+    release_dates: undefined,
+    reviews: undefined,
+    images: { logos: images?.logos ?? [] },
+  };
 
   // One ranked, reasoned section in place of the two rails that used to render
   // TMDB's `recommendations` and `similar` lists side by side without saying
@@ -95,7 +126,7 @@ export default async function MoviePage({ params }: PageProps) {
   return (
     <div className="bg-surface-950 min-h-screen">
       <MovieDetailClient
-        movie={movie}
+        movie={movieForClient}
         directors={directors}
         credits={credits}
         trailer={trailer}
@@ -106,6 +137,7 @@ export default async function MoviePage({ params }: PageProps) {
         posters={posters}
         keywords={keywords}
         collection={collection}
+        reviews={reviews}
       />
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">

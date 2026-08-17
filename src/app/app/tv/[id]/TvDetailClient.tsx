@@ -1,118 +1,154 @@
 "use client";
 
-import { useState } from "react";
-import useSWR from "swr";
-import Link from "next/link";
-import { Star, Clock, Globe, Play, Share2, Tv, Users, Tag } from "lucide-react";
-import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
-import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
-import TitleTalk from "@components/takes/TitleTalk";
-import CrewBlock, { groupCrew, keyCrew } from "@components/detail/CrewBlock";
-import { MetaChip, DetailBlock, Section, TitleHero } from "@components/detail/TitleChrome";
-import KeywordChips from "@components/detail/KeywordChips";
-import EntityLinks from "@components/detail/EntityLinks";
-import { buildBrowseUrl } from "@/utils/browseUrl";
-import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
-import TitleAudience from "@components/detail/TitleAudience";
-import CastRow from "@components/detail/CastRow";
-import ProgressRibbon from "@components/detail/ProgressRibbon";
-import MediaGallery from "@components/detail/MediaGallery";
-import VideoShelf from "@components/detail/VideoShelf";
-import RatingDistribution from "@components/detail/RatingDistribution";
-import WatchOptionsViewer from "@components/clientComponent/watchOptionView";
-import EpisodeListWithWatched from "@components/tv/EpisodeListWithWatched";
-import ShareModal from "@components/social/ShareModal";
-import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
-import { useCountry } from "@/app/contextAPI/countryContext";
-import { tvCertification } from "@/utils/title/certification";
-import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
-import { swrFetcher } from "@/utils/swrFetcher";
+import { useEffect, useMemo, useState } from "react";
+import { Clock } from "lucide-react";
 import { releaseInfo } from "@/utils/releaseInfo";
+import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
+import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
 
-const LANG: Record<string, string> = {
-  en: "English", es: "Spanish", fr: "French", de: "German",
-  ja: "Japanese", ko: "Korean", hi: "Hindi", zh: "Chinese", it: "Italian",
-};
+import { Section, TitleHero } from "@components/detail/TitleChrome";
+import TitleIdentity, { tvIdentity } from "@components/detail/TitleIdentity";
+import ProgressRibbon from "@components/detail/ProgressRibbon";
+import NextEpisode from "@components/detail/NextEpisode";
+import Availability from "@components/detail/Availability";
+import TitleTalk from "@components/takes/TitleTalk";
+import TheRoom from "@components/detail/TheRoom";
+import SeasonBrowser from "@components/detail/SeasonBrowser";
+import CastRow from "@components/detail/CastRow";
+import CrewBlock, { groupCrew, keyCrew } from "@components/detail/CrewBlock";
+import VideoShelf from "@components/detail/VideoShelf";
+import MediaGallery from "@components/detail/MediaGallery";
+import TmdbReviews, { prepareReviews } from "@components/detail/TmdbReviews";
+import TitleFacts, { tvFacts } from "@components/detail/TitleFacts";
+import KeywordChips from "@components/detail/KeywordChips";
+import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
+import ShareModal from "@components/social/ShareModal";
 
-export default function TvDetailClient({ show, credits, cast = [], trailer, videos = [], contentRatings = [], backdrops, posters, keywords, externalIds, seasons, createdBy }: any) {
-  const { getStatus, isAuthenticated } = useMediaInteraction();
-  // See the movie client: client-side so the route stays static and the chip
-  // follows the country selector.
-  const { country } = useCountry();
-  const cert = tvCertification(contentRatings, country);
-  const isWatched = getStatus(String(show.id), "tv") === "watched";
+/**
+ * A series page, which is not a film page with more rows.
+ *
+ * A film is a thing you did or did not see; a series is a place you are inside
+ * of. So this page opens on where you are in it — the ribbon of every episode
+ * you have marked, and the one thing a show can tell you that a film cannot,
+ * which is whether more is coming. Both sit above the synopsis, above the cast,
+ * above anything a database could say about the show, because they are the
+ * only two facts on the page that are about the reader.
+ *
+ * The season browser that follows replaces a row of tabs and a bare episode
+ * list. It opens on the season you are actually in rather than season one of a
+ * show you are eleven seasons into, and it shares its watched-episode cache
+ * with the ribbon above — marking an episode down here fills a square up there
+ * with nothing wired between them.
+ */
+
+/** The busiest title measured carried 16 reviews; twelve is where a section stops being one. */
+const REVIEW_MAX = 12;
+
+export default function TvDetailClient({
+  show,
+  credits,
+  cast = [],
+  trailer,
+  videos = [],
+  contentRatings = [],
+  backdrops = [],
+  posters = [],
+  keywords = [],
+  seasons = [],
+  createdBy = [],
+  countryNames = [],
+  reviews = [],
+}: any) {
+  const { isAuthenticated } = useMediaInteraction();
+
   const [showTrailer, setShowTrailer] = useState(false);
   const [markWatchedOpen, setMarkWatchedOpen] = useState(false);
-  // Status the user picked from the menu; the modal applies it on save.
+  /** Status the reader picked from the menu; the modal applies it on save. */
   const [pendingStatus, setPendingStatus] = useState<MediaStatus | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [activeSeason, setActiveSeason] = useState<number>(1);
 
-  const { data: seasonEpisodesData, isLoading: episodesLoading } = useSWR<{ episodes: any[] }>(
-    `/api/tv-season-episodes?showId=${encodeURIComponent(show.id)}&season=${activeSeason}`,
-    swrFetcher,
-  );
-  const activeSeasonEpisodes = seasonEpisodesData?.episodes ?? [];
+  /**
+   * Whether a show has premiered yet is read from the clock, and the clock is
+   * two different machines — the server renders in UTC and the reader's browser
+   * does not. For a show premiering on exactly the day those two disagree
+   * about, React would hydrate a text node it never rendered. The comparison
+   * waits for mount; the date itself is a fact about the show and is safe
+   * either side.
+   */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  // Status is owned by StatusControl in the action row — this page used to
-  // carry a second, separate <select> for it that only appeared once the show
-  // was already watched.
+  const firstAir = releaseInfo(show.first_air_date);
+  const premiereAhead = mounted && firstAir.isUpcoming && Boolean(firstAir.full);
 
-  const backdropUrl = show.backdrop_path ? `https://image.tmdb.org/t/p/w1280${show.backdrop_path}` : null;
-  const posterUrl = show.poster_path ? `https://image.tmdb.org/t/p/w500${show.poster_path}` : "/no-photo.webp";
-  const voteAvg = show.vote_count > 0 ? show.vote_average?.toFixed(1) : null;
-  const genres = show.genres ?? [];
-  const networks = show.networks ?? [];
-  // Present on the payload and referenced nowhere until now, so TV never got
-  // the studio door films had.
-  const productionCompanies = show.production_companies?.slice(0, 3) ?? [];
-  const crewGroups = groupCrew(credits.crew);
-  const crewKey = keyCrew(credits.crew, createdBy);
-  const firstAir = show.first_air_date;
-  const lastAir = show.last_air_date;
-  const numSeasons = show.number_of_seasons;
-  const numEpisodes = show.number_of_episodes;
-  const nextEpisode = show.next_episode_to_air;
-  const activeSeasonData = seasons.find((s: any) => s.season_number === activeSeason);
-
-  // The chips carried only years. TMDB gives exact dates plus whether the show
-  // is still running, which is the thing you actually want to know before
-  // starting one.
-  const firstAirInfo = releaseInfo(firstAir);
-  const firstAirFull = firstAirInfo.full;
-  const lastAirFull = releaseInfo(lastAir).full;
-  const episodeRuntime = Array.isArray(show.episode_run_time)
-    ? show.episode_run_time.find((n: number) => n > 0)
+  const backdropUrl = show.backdrop_path
+    ? `https://image.tmdb.org/t/p/w1280${show.backdrop_path}`
     : null;
-  const originalName =
-    show.original_name && show.original_name !== show.name ? show.original_name : null;
-  // LANG covers the common cases; spoken_languages is the fallback for the rest.
-  const spokenLanguage =
-    LANG[show.original_language] ?? show.spoken_languages?.[0]?.english_name ?? null;
-  const notYetAired = firstAirInfo.isUpcoming;
+  const posterUrl = show.poster_path
+    ? `https://image.tmdb.org/t/p/w500${show.poster_path}`
+    : "/no-photo.webp";
+
+  const crewGroups = groupCrew(credits?.crew);
+  const crewKey = keyCrew(credits?.crew, createdBy);
+
+  /**
+   * Two rows come out of the fact list, both because something further up says
+   * the same thing better. The next-episode date is answered above the fold
+   * with a countdown and an episode title beside it; the status is the card's
+   * own headline — "Ended", "Returning" — and the identity line's last segment.
+   * A word repeated three screens later under a plainer label reads as a
+   * second, worse answer rather than a confirmation.
+   */
+  const facts = useMemo(
+    () =>
+      tvFacts(show, { createdBy, countryNames }).filter(
+        (f) => f.key !== "next-episode" && f.key !== "status",
+      ),
+    [show, createdBy, countryNames],
+  );
+
+  /**
+   * Asked before the layout is chosen rather than after. Only 40% of series
+   * carry a TMDB review at all — against 74% of films — so on three pages in
+   * five a two-column band would strand the Details card in a right-hand third
+   * beside an empty column.
+   */
+  const hasReviews = useMemo(() => prepareReviews(reviews, REVIEW_MAX).length > 0, [reviews]);
 
   return (
     <div className="bg-surface-950">
-      {/* Trailer modal */}
       {showTrailer && trailer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90" onClick={() => setShowTrailer(false)}>
-          <div className="relative w-full max-w-4xl mx-4" onClick={e => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+          onClick={() => setShowTrailer(false)}
+        >
+          <div className="relative w-full max-w-4xl mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="aspect-video rounded-xl overflow-hidden">
-              <iframe className="w-full h-full" src={`https://www.youtube.com/embed/${trailer.key}?autoplay=1`} allow="autoplay; encrypted-media" allowFullScreen />
+              <iframe
+                className="w-full h-full"
+                src={`https://www.youtube.com/embed/${trailer.key}?autoplay=1`}
+                allow="autoplay; encrypted-media"
+                allowFullScreen
+              />
             </div>
           </div>
         </div>
       )}
 
-      {/* Episode Management modal */}
       {markWatchedOpen && (
         <EpisodeManagementModal
           showId={String(show.id)}
           showName={show.name}
           isOpen={markWatchedOpen}
           intendedStatus={pendingStatus}
-          onClose={() => { setMarkWatchedOpen(false); setPendingStatus(null); }}
-          onSuccess={() => { setMarkWatchedOpen(false); setPendingStatus(null); }}
+          onClose={() => {
+            setMarkWatchedOpen(false);
+            setPendingStatus(null);
+          }}
+          onSuccess={() => {
+            setMarkWatchedOpen(false);
+            setPendingStatus(null);
+          }}
         />
       )}
 
@@ -126,275 +162,133 @@ export default function TvDetailClient({ show, credits, cast = [], trailer, vide
       />
 
       <TitleHero backdropUrl={backdropUrl} posterUrl={posterUrl} title={show.name}>
-              <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">{show.name}</h1>
-              {show.tagline && (
-                <p className="mt-2 text-lg text-surface-400 italic">&ldquo;{show.tagline}&rdquo;</p>
-              )}
-
-              {/* Metadata chips */}
-              <div className="flex flex-wrap items-center gap-2 mt-4">
-                {voteAvg && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 text-sm font-semibold">
-                    <Star className="size-3.5 fill-current" /> {voteAvg}
-                    {show.vote_count > 0 && (
-                      <span className="text-amber-400/60 font-normal text-xs">
-                        ({show.vote_count.toLocaleString()})
-                      </span>
-                    )}
-                  </span>
-                )}
-                {firstAir && <MetaChip label={firstAir?.slice(0, 4)} />}
-                {lastAir && lastAir !== firstAir && <MetaChip label={`– ${lastAir?.slice(0, 4)}`} />}
-                {numSeasons && <MetaChip label={`${numSeasons} season${numSeasons !== 1 ? "s" : ""}`} />}
-                {numEpisodes && <MetaChip label={`${numEpisodes} episodes`} />}
-                {show.status && <MetaChip label={show.status} />}
-                {cert && (
-                  /* The country travels with a borrowed rating. A US rating
-                     shown unlabelled to an Indian reader is a confident lie;
-                     labelled, it is a useful approximation. */
-                  <MetaChip label={cert.isLocal ? cert.value : `${cert.value} · ${cert.country}`} />
-                )}
+        <TitleIdentity
+          kind="tv"
+          view={tvIdentity(show, contentRatings)}
+          hasTrailer={!!trailer}
+          onPlayTrailer={() => setShowTrailer(true)}
+          onShare={() => setShareModalOpen(true)}
+          onAddWatchedTv={(intended) => {
+            setPendingStatus(intended);
+            setMarkWatchedOpen(true);
+          }}
+          notice={
+            /* A show that has not started has no next episode and no last one,
+               so the card below renders nothing for it. This line is the only
+               place the premiere date is stated. */
+            premiereAhead ? (
+              <div className="mt-3 flex max-w-fit items-start gap-2 rounded-lg border border-brand-500/20 bg-brand-500/10 px-3 py-2 text-sm text-brand-300">
+                <Clock className="mt-0.5 size-3.5 shrink-0" />
+                <span>Premieres {firstAir.full}</span>
               </div>
-
-              {/* Hasn't started yet — the next-episode chip below only covers
-                  shows already airing. */}
-              {notYetAired && firstAirFull && (
-                <div className="mt-3 flex max-w-fit items-start gap-2 px-3 py-2 rounded-lg bg-brand-500/10 border border-brand-500/20 text-sm text-brand-300">
-                  <Clock className="size-3.5 mt-0.5 shrink-0" />
-                  <span>Premieres {firstAirFull}</span>
-                </div>
-              )}
-
-              {/* Next episode alert */}
-              {nextEpisode && (
-                <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-500/10 border border-brand-500/20 text-sm text-brand-300">
-                  <Clock className="size-3.5" />
-                  Next: S{nextEpisode.season_number}E{nextEpisode.episode_number} — {nextEpisode.name} ({nextEpisode.air_date ? new Date(nextEpisode.air_date).toLocaleDateString() : "TBA"})
-                </div>
-              )}
-
-              {/* Genres */}
-              <div className="flex flex-wrap gap-1.5 mt-4">
-                {genres.map((g: any) => (
-                  <Link key={g.id} href={buildBrowseUrl({ type: "tv", genre: String(g.id) })} className="px-2.5 py-1 rounded-lg bg-surface-800/60 text-xs text-surface-300 hover:text-white hover:bg-surface-700 transition-colors">
-                    {g.name}
-                  </Link>
-                ))}
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex flex-wrap items-center gap-2 mt-5">
-                <ThreePrefrenceBtn
-                  variant="detail"
-                  cardId={show.id}
-                  cardType="tv"
-                  cardName={show.name}
-                  cardAdult={show.adult}
-                  cardImg={show.poster_path}
-                  genres={genres.map((g: any) => g.name)}
-                  onAddWatchedTv={(intended) => { setPendingStatus(intended); setMarkWatchedOpen(true); }}
-                />
-                {trailer && (
-                  <button onClick={() => setShowTrailer(true)} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-brand-500/10 text-brand-400 hover:bg-brand-500/20 border border-brand-500/20 text-sm font-medium transition-colors">
-                    <Play className="size-4 fill-current" /> Trailer
-                  </button>
-                )}
-                <button onClick={() => setShareModalOpen(true)} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-800/60 text-surface-300 hover:text-white border border-surface-700/50 text-sm font-medium transition-colors">
-                  <Share2 className="size-4" /> Share
-                </button>
-              </div>
-
-              {/* Overview */}
-              {show.overview && (
-                <div className="mt-6">
-                  <h3 className="text-sm font-semibold text-surface-400 uppercase tracking-wider mb-2">Overview</h3>
-                  <p className="text-sm text-surface-300 leading-relaxed max-w-2xl">{show.overview}</p>
-                </div>
-              )}
-
-              {/* Details */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-                {createdBy.length > 0 && (
-                  <DetailBlock
-                    label="Created by"
-                    value={<EntityLinks items={createdBy} href={(c) => `/app/person/${c.id}`} />}
-                  />
-                )}
-                {networks.length > 0 && (
-                  <DetailBlock
-                    label="Network"
-                    value={
-                      <EntityLinks
-                        items={networks}
-                        href={(n) => buildBrowseUrl({ type: "tv", network: String(n.id) })}
-                      />
-                    }
-                  />
-                )}
-                {productionCompanies.length > 0 && (
-                  <DetailBlock
-                    label="Studio"
-                    value={
-                      <EntityLinks
-                        items={productionCompanies}
-                        href={(c) => buildBrowseUrl({ type: "tv", company: String(c.id) })}
-                      />
-                    }
-                  />
-                )}
-                {show.number_of_seasons && <DetailBlock label="Seasons" value={String(show.number_of_seasons)} />}
-                {show.number_of_episodes && <DetailBlock label="Episodes" value={String(show.number_of_episodes)} />}
-                {firstAirFull && <DetailBlock label="First aired" value={firstAirFull} />}
-                {lastAirFull && lastAir !== firstAir && (
-                  <DetailBlock label={show.in_production ? "Latest episode" : "Last aired"} value={lastAirFull} />
-                )}
-                {show.status && <DetailBlock label="Status" value={show.status} />}
-                {episodeRuntime && <DetailBlock label="Episode length" value={`${episodeRuntime} min`} />}
-                {show.type && <DetailBlock label="Type" value={show.type} />}
-                {spokenLanguage && <DetailBlock label="Language" value={spokenLanguage} />}
-                {originalName && <DetailBlock label="Original title" value={originalName} />}
-              </div>
+            ) : null
+          }
+        />
       </TitleHero>
 
-      {/* Content below hero.
-          `space-y-10` matters here: the Gallery section is a sibling of the
-          two-column grid, not a child of it, and the wrapper carried no
-          vertical spacing at all. So Gallery started the pixel the grid
-          ended — and because the grid's columns are different heights, its
-          heading collided with whichever column ran longest (Crew, usually).
-          Same gap as the main column already uses between its own sections. */}
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-10">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main column */}
-          <div className="lg:col-span-2 space-y-10">
-            {/* First in the column, ahead of the synopsis.
-                This is the one thing this app knows that a database does not:
-                where YOU are in it. On a journal that outranks a plot summary
-                anyone can read anywhere. */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
+        {/* Where you are, and whether there is more coming. These two are the
+            page's whole reason for existing on a journal, so they run before
+            anything a database knows. Side by side on a wide screen, stacked on
+            a phone with the ribbon first — your own history outranks the
+            schedule. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
             <Section title="Your progress">
-              <ProgressRibbon
-                showId={show.id}
-                seasons={seasons}
-                isAuthenticated={isAuthenticated}
-              />
+              <ProgressRibbon showId={show.id} seasons={seasons} isAuthenticated={isAuthenticated} />
+            </Section>
+          </div>
+          <div>
+            <NextEpisode
+              showId={show.id}
+              nextEpisode={show.next_episode_to_air}
+              lastEpisode={show.last_episode_to_air}
+              status={show.status}
+              inProduction={show.in_production}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <div className="space-y-10 lg:col-span-2">
+            <Section title="Where to watch">
+              <Availability mediaId={show.id} mediaType="tv" />
             </Section>
 
-            {/* Seasons & Episodes */}
-            <Section title="Episodes" subtitle={`${seasons.length} season${seasons.length !== 1 ? "s" : ""}`}>
-              {/* Season tabs */}
-              <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
-                {seasons.map((s: any) => (
-                  <button
-                    key={s.season_number}
-                    onClick={() => setActiveSeason(s.season_number)}
-                    className={`shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeSeason === s.season_number ? "bg-brand-500/20 text-brand-400 border border-brand-500/30" : "bg-surface-800/60 text-surface-400 hover:text-surface-200 border border-surface-700/30"}`}
-                  >
-                    {s.name}
-                  </button>
-                ))}
-              </div>
-
-              {activeSeasonData && (
-                <EpisodeListWithWatched
-                  showId={String(show.id)}
-                  seasonNumber={activeSeason}
-                  episodes={activeSeasonEpisodes}
-                  episodesLoading={episodesLoading}
-                  allSeasons={seasons.map((s: any) => ({ id: s.id, season_number: s.season_number, episode_count: s.episode_count }))}
-                  // A detail page is a summary, not an episode browser — long
-                  // anime seasons run to four figures. The season page is the
-                  // place to go through them all.
-                  initialCount={8}
-                  seeAllHref={`/app/tv/${show.id}/season/${activeSeason}`}
-                />
-              )}
-            </Section>
-
-            {/* One composer, one thread.
-                The page used to carry "Your take" here and "Discussion"
-                further down, which made the reader choose which box a thought
-                belonged in before they had finished having it. Now there is
-                one place to type: what you write is yours until you post it,
-                and posting it makes it the first thing you said in the thread. */}
-            <Section title="Talk about it">
+            {/* One composer on this page and only one, at series scope. The
+                season and episode pages carry their own; a thought about the
+                whole show belongs here. */}
+            <Section title="Your entry">
               <TitleTalk
                 itemId={String(show.id)}
                 itemType="tv"
+                scope="title"
                 itemName={show.name}
-                imageUrl={show.poster_path ? `https://image.tmdb.org/t/p/w342${show.poster_path}` : null}
+                imageUrl={
+                  show.poster_path ? `https://image.tmdb.org/t/p/w342${show.poster_path}` : null
+                }
                 genres={(show.genres ?? []).map((g: { name: string }) => g.name)}
                 isAuthenticated={isAuthenticated}
               />
             </Section>
-
-            {/* Cast */}
-            {cast.length > 0 && (
-              <Section title="Cast" subtitle={`${cast.length} regulars`}>
-                <CastRow cast={cast} />
-              </Section>
-            )}
-
-            {/* Series-level crew is often thin — a few executive producers,
-                sometimes nothing. groupCrew returns [] and this doesn't
-                render, which is why `created_by` above carries the page. */}
-            {(crewGroups.length > 0 || crewKey.length > 0) && (
-              <Section title="Crew">
-                <CrewBlock groups={crewGroups} keyPeople={crewKey} />
-              </Section>
-            )}
-
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Where to Watch */}
-            <div className="rounded-xl border border-surface-800/50 bg-surface-900/30 p-4">
-              <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-3">Where to Watch</h3>
-              <WatchOptionsViewer mediaId={show.id} mediaType="tv" />
-            </div>
-
-            <TitleAudience itemId={show.id} itemType="tv" />
-
-            <FriendsWhoWatched itemId={String(show.id)} itemType="tv" />
-            <RatingDistribution itemId={String(show.id)} itemType="tv" />
-
-            {/* Keywords */}
-            <KeywordChips keywords={keywords} mediaType="tv" />
-
-            {/* Networks */}
-            {networks.length > 0 && (
-              <div className="rounded-xl border border-surface-800/50 bg-surface-900/30 p-4">
-                <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-3">Network</h3>
-                {networks.slice(0, 4).map((n: any) => (
-                  <Link
-                    key={n.id}
-                    href={buildBrowseUrl({ type: "tv", network: String(n.id) })}
-                    className="flex items-center gap-2 rounded-lg py-1 transition-colors hover:text-white"
-                  >
-                    {n.logo_path && <img src={`https://image.tmdb.org/t/p/w92${n.logo_path}`} alt={n.name} className="h-5 object-contain" />}
-                    <span className="text-sm text-surface-300">{n.name}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
+          <div>
+            <TheRoom itemId={show.id} itemType="tv" />
           </div>
         </div>
 
-        {/* Gallery */}
-        {(backdrops.length > 0 || posters.length > 0) && (
+        {/* Full width, and deliberately far larger than a film's equivalent —
+            this is the part of a series you come back to. */}
+        {seasons.length > 0 && (
+          <Section title="Episodes">
+            <SeasonBrowser showId={show.id} seasons={seasons} isAuthenticated={isAuthenticated} />
+          </Section>
+        )}
+
+        {cast.length > 0 && (
+          <Section title="Cast" subtitle={`${cast.length} regulars`}>
+            <CastRow cast={cast} />
+          </Section>
+        )}
+
+        {/* Crew now arrives ranked out of aggregate_credits, but a handful of
+            shows still have none TMDB will admit to. groupCrew returns [] and
+            this does not render, rather than leaving a heading over nothing. */}
+        {(crewGroups.length > 0 || crewKey.length > 0) && (
+          <Section title="Crew">
+            <CrewBlock groups={crewGroups} keyPeople={crewKey} />
+          </Section>
+        )}
+
+        {(videos.length > 0 || backdrops.length > 0 || posters.length > 0) && (
           <Section title="Media" subtitle="Trailers, clips and stills">
             <div className="space-y-8">
-              {/* Videos first: a trailer answers "what is this" faster than a
-                  still does, and TMDB sends dozens the page used to discard. */}
               <VideoShelf videos={videos} />
               <MediaGallery backdrops={backdrops} posters={posters} title={show.name} />
             </div>
           </Section>
         )}
+
+        {/* The record, last. Strangers on another site, the production facts,
+            and the tags TMDB filed the show under. */}
+        {hasReviews ? (
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <TmdbReviews reviews={reviews} max={REVIEW_MAX} />
+            </div>
+            <div className="space-y-6">
+              <TitleFacts facts={facts} />
+              <KeywordChips keywords={keywords} mediaType="tv" />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <TitleFacts facts={facts} />
+            <KeywordChips keywords={keywords} mediaType="tv" />
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
-
-
