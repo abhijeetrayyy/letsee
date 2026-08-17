@@ -156,6 +156,37 @@ export async function DELETE(req: NextRequest) {
     ]);
   }
 
+  /**
+   * Remove the feed entries too, or removing a title does not remove it.
+   *
+   * `user_activity` is written by triggers — `040` on entering `watching`,
+   * `051` on watching a title — and **nothing has ever deleted from it**.
+   * So taking something off your list cleared `user_media_status`, flipped
+   * `watched_items`, and left the activity rows behind, where the home feed
+   * reads them. The title stayed in "what people are saying" permanently, with
+   * no control anywhere in the app that could remove it.
+   *
+   * Found because a show called *London Plus* would not go away: its status row
+   * was gone and its activity row was not, so the feed kept announcing it.
+   *
+   * Runs on both branches. `keepData` protects a rating, a diary entry and a
+   * review — things the user wrote. It was never meant to protect an
+   * auto-generated "started watching" announcement for a title they have just
+   * said they are not watching.
+   */
+  const { error: activityError } = await supabase
+    .from("user_activity")
+    .delete()
+    .eq("user_id", userId)
+    .eq("item_id", itemId)
+    .eq("item_type", itemType);
+
+  if (activityError) {
+    // Not fatal — the title is off the list either way — but it will linger in
+    // the feed, so it should be visible in the logs rather than silent.
+    console.error("user-media-status delete (activity):", activityError);
+  }
+
   try {
     await supabase.rpc("recount_user_stats", { p_user_id: userId });
   } catch {
