@@ -23,13 +23,36 @@ let cached: Promise<SearchIndex> | null = null;
 
 type Payload = { rows?: IndexRow[] };
 
+/**
+ * A 401 here is ordinary — a signed-out visitor has no library. Anything else
+ * is a real failure and must not be mistaken for "you own nothing".
+ *
+ * This used to swallow every non-OK response into an empty array, which made a
+ * *blocked* request indistinguishable from an *empty* one. In production
+ * Vercel's Attack Challenge Mode answered these routes with a 403 HTML
+ * challenge page; the index silently built from zero rows, and searching for a
+ * film that was sitting in the user's own library reported "nothing matches".
+ * The search looked broken when what was actually broken was the fetch.
+ */
 async function fetchRows(url: string): Promise<IndexRow[]> {
   try {
-    const res = await fetch(url);
-    if (!res.ok) return []; // 401 for signed-out on the library route is normal.
+    const res = await fetch(url, { headers: { accept: "application/json" } });
+    if (res.status === 401) return [];
+    if (!res.ok) {
+      console.warn(`searchIndex: ${url} returned ${res.status} — index will be incomplete`);
+      return [];
+    }
+    // A challenge or error page is HTML with a 200 in some configurations, so
+    // check what actually came back rather than trusting the status alone.
+    const type = res.headers.get("content-type") ?? "";
+    if (!type.includes("application/json")) {
+      console.warn(`searchIndex: ${url} returned ${type || "unknown"}, not JSON — index will be incomplete`);
+      return [];
+    }
     const body: Payload = await res.json();
     return Array.isArray(body?.rows) ? body.rows : [];
-  } catch {
+  } catch (e) {
+    console.warn(`searchIndex: ${url} failed`, e);
     return [];
   }
 }
