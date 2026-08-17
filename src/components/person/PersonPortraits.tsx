@@ -28,7 +28,7 @@ export default function PersonPortraits({
 
   return (
     <>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         {profiles.map((p, i) => (
           <button
             key={p.file_path}
@@ -41,7 +41,7 @@ export default function PersonPortraits({
             <img
               src={`https://image.tmdb.org/t/p/w185${p.file_path}`}
               srcSet={`https://image.tmdb.org/t/p/w185${p.file_path} 185w, https://image.tmdb.org/t/p/h632${p.file_path} 421w`}
-              sizes="(min-width: 1024px) 140px, (min-width: 640px) 18vw, 30vw"
+              sizes="(min-width: 1024px) 210px, (min-width: 640px) 23vw, 45vw"
               alt=""
               loading="lazy"
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"

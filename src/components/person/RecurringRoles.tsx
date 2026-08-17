@@ -27,10 +27,10 @@ export default function RecurringRoles({
           <div className="mt-2 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
             {r.titles.map((t) => (
               <Link key={t.key} href={`/app/${t.mediaType}/${t.id}`} title={t.title} className="shrink-0">
-                <span className="block h-[81px] w-[54px] overflow-hidden rounded bg-surface-800 ring-1 ring-surface-700/40 transition hover:ring-brand-500/40">
+                <span className="block h-[96px] w-16 overflow-hidden rounded bg-surface-800 ring-1 ring-surface-700/40 transition hover:ring-brand-500/40">
                   {t.posterPath && (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={`https://image.tmdb.org/t/p/w92${t.posterPath}`} alt={t.title} loading="lazy" className="h-full w-full object-cover" />
+                    <img src={`https://image.tmdb.org/t/p/w185${t.posterPath}`} alt={t.title} loading="lazy" className="h-full w-full object-cover" />
                   )}
                 </span>
               </Link>

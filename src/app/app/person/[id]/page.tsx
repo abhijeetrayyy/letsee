@@ -107,7 +107,7 @@ export default async function PersonPage({ params }: PageProps) {
             346 context subscribers a full filmography of MediaCards would be. */}
         {defining.length >= 4 && (
           <Section title="Known for">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
               {defining.map((c, i) => (
                 <MediaCard
                   key={c.key}
