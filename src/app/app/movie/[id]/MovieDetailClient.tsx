@@ -89,7 +89,7 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
           no longer have to be kept in sync by hand. */}
       <div className="relative overflow-hidden">
         {backdropUrl && (
-          <div className="absolute inset-0 h-[720px] overflow-hidden">
+          <div className="absolute inset-0 h-[780px] overflow-hidden">
             {/* opacity-60, not opacity-20. At 20% this was texture, not a
                 banner — you could tell there was an image without being able
                 to see what it was of. Legibility is the gradients' job below,
@@ -106,7 +106,7 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
           </div>
         )}
 
-        <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-20 sm:pt-28 sm:pb-28">
+        <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20 sm:pt-52 sm:pb-28">
           {/* Back link */}
           <Link href="/app" className="inline-flex items-center gap-1.5 text-sm text-surface-500 hover:text-surface-300 mb-8 transition-colors">
             ← Back
