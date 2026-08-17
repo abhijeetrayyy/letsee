@@ -948,48 +948,44 @@
 }
 
 /**
- * Poster peek — the list thumbnail, enlarged in place on hover.
+ * Card lift — a poster grows to be looked at, without moving its neighbours.
  *
- * A filmography row can only spare ~48px for a poster, which is too small to
- * recognise a film you half-remember. This lifts it out on hover instead of
- * making every row taller: absolutely positioned, so nothing around it moves,
- * and `pointer-events: none`, so the cursor is never trapped by the thing it
- * summoned.
+ * A grid poster is ~155px, which is enough to recognise something you already
+ * know and not enough to read one you half-remember. Hovering scales the whole
+ * card, artwork and title and actions together.
  *
- * The transform lives on the class as well as in the keyframe. Without it the
- * element snaps back to its untransformed position the moment the animation
- * ends.
+ * `transform` is the load-bearing choice: it is applied after layout, so a
+ * scaled card overlaps its neighbours instead of displacing them. That is the
+ * absolutely-positioned behaviour without lifting the card out of the grid and
+ * having to re-place it by hand — and the card stays fully interactive, so the
+ * add-to-list control comes along and grows with it.
+ *
+ * 1.22, not 2. The card has to grow enough to reward the hover and little
+ * enough that it never reaches past the page gutter: at the widest grid a card
+ * is ~155px, so it overhangs ~17px a side against 32px of container padding.
  */
-@keyframes poster-peek-in {
-  from {
-    opacity: 0;
-    transform: translateY(-50%) scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(-50%) scale(1);
-  }
+.card-lift {
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 
-.poster-peek {
-  transform: translateY(-50%);
-  transform-origin: left center;
-  animation: poster-peek-in 140ms ease-out;
-}
-
-/**
- * Never on touch. `mouseenter` fires on tap in most mobile browsers, which
- * would leave a poster stranded on screen after a tap with no pointer left to
- * move away and dismiss it.
- */
-@media (hover: none) {
-  .poster-peek {
-    display: none;
+@media (hover: hover) {
+  .card-lift:hover,
+  .card-lift:focus-within {
+    transform: scale(1.22);
+    /* Above its neighbours in both directions — a grid item painted under the
+       next row's card would be half-covered exactly when it is largest. */
+    position: relative;
+    z-index: 30;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .poster-peek {
-    animation: none;
+  .card-lift {
+    transition: none;
+  }
+  .card-lift:hover,
+  .card-lift:focus-within {
+    transform: none;
   }
 }

@@ -1,34 +1,29 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { Film, Tv, Mic, UserCircle2, Star } from "lucide-react";
-import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
+import MediaCard from "@components/cards/MediaCard";
 import type { Credit } from "@/utils/person/model";
 
 /**
- * The filmography, in two lists that are both always on screen.
+ * A filmography is a wall of posters, not a table of rows.
  *
- * This replaced a row of department tabs, for two reasons that measuring made
- * obvious.
+ * The first version was a dense list with a 48px thumbnail, which is what the
+ * industry standard sites do — and it is wrong for the way people actually
+ * read this page. Nobody scans a filmography by title; they scan it by poster,
+ * recognise a shape and a colour, and stop. A thumbnail too small to recognise
+ * makes the reader do the work in text that the artwork would have done
+ * instantly, and a hover-to-enlarge crutch just admitted the layout was
+ * fighting them.
  *
- * A tab is a step, and a step is a filter on who ever sees the content. The
- * people whose work is mostly behind the camera had their entire career one
- * click down; so did the more interesting fact, which is that almost every
- * actor has some. Measured across ten people, every single one had crew
- * credits — Emily Blunt 6, Tom Holland 7, Scarlett Johansson 13 (including
- * *Eleanor the Great*, which she directed), Tom Cruise 27, Tom Hanks 61, and
- * Leonardo DiCaprio 68, which is more producing credits than acting ones. None
- * of that was visible without knowing to go looking for it.
+ * Not masonry, deliberately. Masonry earns its irregularity when items have
+ * different aspect ratios; every TMDB poster is 2:3, so a masonry column would
+ * produce ragged edges carrying no information. A uniform grid lets the eye
+ * travel in straight lines, which is the whole point of scanning.
  *
- * And the tabs were double-counting. One title per department meant Nolan's
- * *Interstellar* appeared under Directing, Writing and Production as three
- * separate rows: 71 rows rendered for 28 real titles, 43 of them duplicates.
- * One row per title, naming every job on it, is both shorter and truer —
- * "Interstellar · Director, Writer, Producer" is the actual fact.
+ * Two lists, both always on screen — see the note on the sections below.
  */
 
-const PAGE = 30;
+const PAGE = 40;
 
 function roleText(c: Credit, mode: "screen" | "behind"): string | null {
   if (mode === "behind") return c.jobs.length ? c.jobs.join(", ") : null;
@@ -39,117 +34,41 @@ function roleText(c: Credit, mode: "screen" | "behind"): string | null {
   return null;
 }
 
-function CreditRow({ c, mode }: { c: Credit; mode: "screen" | "behind" }) {
-  const role = roleText(c, mode);
-  const Icon = c.mediaType === "tv" ? Tv : Film;
-  /**
-   * Mounted on hover rather than rendered hidden.
-   *
-   * A hidden-until-hover `<img>` in every row would still be fetched by the
-   * browser once the row scrolled into view — sixty full-size posters
-   * downloaded so that the two or three anyone actually hovers are instant.
-   * Mounting on the event means the request happens on the first peek and the
-   * browser cache covers every one after.
-   */
-  const [peek, setPeek] = useState(false);
-
-  return (
-    <li className="flex items-center gap-3 py-3">
-      <span className="w-11 shrink-0 text-right font-mono text-[13px] tabular-nums text-surface-500">
-        {c.year ?? "—"}
-      </span>
-      <Link href={`/app/${c.mediaType}/${c.id}`} className="group flex min-w-0 flex-1 items-center gap-3.5">
-        {/* The clipped thumbnail and the peek are siblings: `overflow-hidden`
-            has to stay on the thumbnail to round its corners, and it would
-            equally have clipped the poster growing out of it. */}
-        <span
-          className="relative h-[72px] w-12 shrink-0"
-          onMouseEnter={() => setPeek(true)}
-          onMouseLeave={() => setPeek(false)}
-        >
-          <span className="block h-full w-full overflow-hidden rounded-md bg-surface-800 ring-1 ring-surface-700/40">
-            {c.posterPath ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={`https://image.tmdb.org/t/p/w185${c.posterPath}`}
-                alt=""
-                loading="lazy"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="flex h-full w-full items-center justify-center">
-                <Icon className="size-4 text-surface-600" aria-hidden />
-              </span>
-            )}
-          </span>
-
-          {peek && c.posterPath && (
-            <span
-              aria-hidden
-              className="poster-peek pointer-events-none absolute left-full top-1/2 z-40 ml-3 block w-[184px]"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`https://image.tmdb.org/t/p/w342${c.posterPath}`}
-                alt=""
-                className="w-full rounded-xl shadow-2xl shadow-black/60 ring-1 ring-white/10"
-              />
-            </span>
-          )}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5">
-            <span className="truncate text-[15px] font-medium text-surface-100 transition-colors group-hover:text-white">
-              {c.title}
-            </span>
-            {c.flags.voice && <Mic className="size-3.5 shrink-0 text-surface-500" aria-label="Voice" />}
-            {c.bucket === "presenting" && (
-              <UserCircle2 className="size-3.5 shrink-0 text-surface-500" aria-label="As themselves" />
-            )}
-          </span>
-          {role && <span className="mt-1 block truncate text-sm text-surface-400">{role}</span>}
-        </span>
-        {c.voteAverage > 0 && c.voteCount > 50 && (
-          /* A bare number beside a title reads as anything — a runtime, an
-             episode count, a year. The star says which one it is without a
-             word of label. */
-          <span
-            className="flex shrink-0 items-center gap-1 font-mono text-sm tabular-nums text-surface-300"
-            title={`${c.voteAverage.toFixed(1)} out of 10 on TMDB`}
-          >
-            <Star className="size-3.5 text-accent-gold" fill="currentColor" strokeWidth={0} aria-hidden />
-            {c.voteAverage.toFixed(1)}
-          </span>
-        )}
-      </Link>
-      <span className="shrink-0">
-        <ThreePrefrenceBtn
-          cardId={c.id}
-          cardType={c.mediaType}
-          cardName={c.title}
-          cardImg={c.posterPath}
-          genres={[]}
-          variant="compact"
-        />
-      </span>
-    </li>
-  );
-}
-
-function CreditList({ credits, mode }: { credits: Credit[]; mode: "screen" | "behind" }) {
+function CreditGrid({ credits, mode }: { credits: Credit[]; mode: "screen" | "behind" }) {
   const [shown, setShown] = useState(PAGE);
+
   return (
     <>
-      <ul className="divide-y divide-surface-800/70">
+      {/* Same column steps as "Known for", so poster size is constant down the
+          whole page rather than changing meaning section to section. */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
         {credits.slice(0, shown).map((c) => (
-          <CreditRow key={c.key} c={c} mode={mode} />
+          // `card-lift` scales the card on hover. A transform never affects
+          // layout, so the card grows over its neighbours without moving a
+          // single one of them — the absolute-positioned feel, without taking
+          // the card out of the grid and having to re-place it by hand.
+          <div key={c.key} className="card-lift">
+            <MediaCard
+              id={c.id}
+              title={c.title}
+              mediaType={c.mediaType}
+              posterPath={c.posterPath}
+              genres={[]}
+              showActions
+              role={roleText(c, mode)}
+              releaseDate={c.date || null}
+              rating={c.voteAverage || null}
+              voteCount={c.voteCount || null}
+            />
+          </div>
         ))}
-      </ul>
+      </div>
+
       {credits.length > shown && (
         <button
           type="button"
           onClick={() => setShown((n) => n + PAGE)}
-          className="mt-4 w-full rounded-xl border border-surface-700 py-2.5 text-sm text-surface-300 transition hover:border-surface-600 hover:text-white"
+          className="mt-6 w-full rounded-xl border border-surface-700 py-2.5 text-sm text-surface-300 transition hover:border-surface-600 hover:text-white"
         >
           Show {Math.min(PAGE, credits.length - shown)} more
         </button>
@@ -160,9 +79,9 @@ function CreditList({ credits, mode }: { credits: Credit[]; mode: "screen" | "be
 
 function Heading({ title, count }: { title: string; count: number }) {
   return (
-    <h3 className="mb-1 flex items-baseline gap-2 text-lg font-semibold text-white">
+    <h3 className="mb-4 flex items-baseline gap-2 text-lg font-semibold text-white">
       {title}
-      <span className="font-mono text-sm tabular-nums font-normal text-surface-500">{count}</span>
+      <span className="font-mono text-sm font-normal tabular-nums text-surface-500">{count}</span>
     </h3>
   );
 }
@@ -188,27 +107,34 @@ export default function PersonWork({
     };
   }, [credits]);
 
-  // A director's page opens on directing. An actor's opens on acting, and the
-  // crew list underneath is the reveal rather than the headline.
+  /**
+   * Both lists are always on screen, and the order follows the person.
+   *
+   * A tab is a step, and a step is a filter on who ever sees the content.
+   * Measured across ten people, every one had crew credits — Emily Blunt 6,
+   * Tom Holland 7, Scarlett Johansson 13 (including *Eleanor the Great*, which
+   * she directed), Cruise 27, Hanks 61, and DiCaprio 68, which is more
+   * producing credits than acting ones.
+   */
   const behindFirst = (knownForDepartment ?? "Acting") !== "Acting";
 
   const screenBlock = screen.length > 0 && (
     <div key="screen">
       <Heading title="On screen" count={screen.length} />
-      <CreditList credits={screen} mode="screen" />
+      <CreditGrid credits={screen} mode="screen" />
     </div>
   );
   const behindBlock = behind.length > 0 && (
     <div key="behind">
       <Heading title="Behind the camera" count={behind.length} />
-      <CreditList credits={behind} mode="behind" />
+      <CreditGrid credits={behind} mode="behind" />
     </div>
   );
 
   if (!screenBlock && !behindBlock) return null;
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-12">
       {behindFirst ? [behindBlock, screenBlock] : [screenBlock, behindBlock]}
     </div>
   );
