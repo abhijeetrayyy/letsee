@@ -3,8 +3,8 @@ import { tmdbFetchJson } from "@/utils/tmdb";
 import { notFound } from "next/navigation";
 import MovieDetailClient from "./MovieDetailClient";
 import { Countrydata } from "@/staticData/countryName";
-import RelatedSection from "@components/detail/RelatedSection";
-import { getRelated } from "@/utils/relatedData";
+import { Suspense } from "react";
+import RelatedStream from "@components/detail/RelatedStream";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -75,7 +75,7 @@ export default async function MoviePage({ params }: PageProps) {
   // TMDB's `recommendations` and `similar` lists side by side without saying
   // why anything was in either. Both lists already arrive on the single
   // append_to_response call above, so the pool costs nothing.
-  const related = await getRelated({
+  const relatedArgs = {
     // `numericId`, not `id` — the route param is "497-The-Green-Mile", and
     // Number() of that is NaN, which would stop the seed excluding itself.
     id: Number(numericId),
@@ -86,7 +86,7 @@ export default async function MoviePage({ params }: PageProps) {
     collection: collection ? { id: collection.id, name: collection.name } : null,
     recommendations: movie.recommendations?.results ?? [],
     similar: movie.similar?.results ?? [],
-  });
+  } as const;
 
 
   const trailer = videos.find((v: any) => v.type === "Trailer" && v.site === "YouTube")
@@ -109,7 +109,11 @@ export default async function MoviePage({ params }: PageProps) {
       />
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
-        <RelatedSection items={related} />
+        {/* Streamed: getRelated is 2.1–5.4s cold and sits at the bottom
+            of the page. Nothing above it should wait. */}
+        <Suspense fallback={null}>
+          <RelatedStream {...relatedArgs} />
+        </Suspense>
       </div>
     </div>
   );

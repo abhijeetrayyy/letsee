@@ -32,7 +32,7 @@ const LANG: Record<string, string> = {
   ja: "Japanese", ko: "Korean", hi: "Hindi", zh: "Chinese", it: "Italian",
 };
 
-export default function TvDetailClient({ show, credits, trailer, videos = [], contentRatings = [], backdrops, posters, keywords, externalIds, seasons, createdBy }: any) {
+export default function TvDetailClient({ show, credits, cast = [], trailer, videos = [], contentRatings = [], backdrops, posters, keywords, externalIds, seasons, createdBy }: any) {
   const { getStatus, isAuthenticated } = useMediaInteraction();
   // See the movie client: client-side so the route stays static and the chip
   // follows the country selector.
@@ -356,9 +356,9 @@ export default function TvDetailClient({ show, credits, trailer, videos = [], co
             </Section>
 
             {/* Cast */}
-            {credits.cast?.length > 0 && (
-              <Section title="Cast" subtitle={`${credits.cast.length} actors`}>
-                <CastRow cast={credits.cast} />
+            {cast.length > 0 && (
+              <Section title="Cast" subtitle={`${cast.length} regulars`}>
+                <CastRow cast={cast} />
               </Section>
             )}
 

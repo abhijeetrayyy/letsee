@@ -2,8 +2,9 @@ import { Metadata } from "next";
 import { tmdbFetchJson } from "@/utils/tmdb";
 import { notFound } from "next/navigation";
 import TvDetailClient from "./TvDetailClient";
-import RelatedSection from "@components/detail/RelatedSection";
-import { getRelated } from "@/utils/relatedData";
+import { Suspense } from "react";
+import RelatedStream from "@components/detail/RelatedStream";
+import { seriesCast } from "@/utils/title/tvCast";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -14,7 +15,7 @@ function getNumericId(value: string) {
 
 async function getShow(id: string) {
   return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,external_ids,recommendations,similar,keywords,content_ratings`,
+    `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,external_ids,recommendations,similar,keywords,content_ratings,aggregate_credits`,
     "TV detail",
     { revalidate: 600 }
   );
@@ -53,6 +54,11 @@ export default async function TvPage({ params }: PageProps) {
   }
 
   const credits = show.credits ?? { cast: [], crew: [] };
+  // Series-level `credits.cast` is a stub — 8 people for Breaking Bad against
+  // 348 in aggregate_credits, with no notion of how much of the show anyone is
+  // actually in. Reduced to 20 here so the 143KB payload never reaches the
+  // browser.
+  const cast = seriesCast(show.aggregate_credits, credits.cast);
   const videos = show.videos?.results ?? [];
   const backdrops = show.images?.backdrops ?? [];
   const posters = show.images?.posters ?? [];
@@ -72,7 +78,7 @@ export default async function TvPage({ params }: PageProps) {
   // One ranked section replacing the two rails. `created_by` stands in for the
   // director here: series-level `credits.crew` lists one Directing entry out of
   // fifty, because who directed an episode is not a fact about the show.
-  const related = await getRelated({
+  const relatedArgs = {
     id: Number(numericId),
     mediaType: "tv",
     title: show.name,
@@ -81,13 +87,14 @@ export default async function TvPage({ params }: PageProps) {
     collection: null,
     recommendations: show.recommendations?.results ?? [],
     similar: show.similar?.results ?? [],
-  });
+  } as const;
 
   return (
     <div className="bg-surface-950 min-h-screen">
       <TvDetailClient
         show={show}
         credits={credits}
+        cast={cast}
         trailer={trailer}
         videos={videos}
         contentRatings={contentRatings}
@@ -100,7 +107,11 @@ export default async function TvPage({ params }: PageProps) {
       />
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
-        <RelatedSection items={related} />
+        {/* Streamed: getRelated is 2.1–5.4s cold and sits at the bottom
+            of the page. Nothing above it should wait. */}
+        <Suspense fallback={null}>
+          <RelatedStream {...relatedArgs} />
+        </Suspense>
       </div>
     </div>
   );
