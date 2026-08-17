@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import MediaCard from "@components/cards/MediaCard";
 import type { Credit } from "@/utils/person/model";
 
@@ -23,7 +23,20 @@ import type { Credit } from "@/utils/person/model";
  * Two lists, both always on screen — see the note on the sections below.
  */
 
-const PAGE = 40;
+/**
+ * The whole filmography, every time. No "show more".
+ *
+ * A pager on a body of work is a strange thing to make someone click: the list
+ * is the content, and the fold was arbitrary — 40 was a number I picked, not a
+ * meaningful boundary in anyone's career. Scrolling is cheaper than deciding.
+ *
+ * The two costs this incurs are both bounded. Posters are `loading="lazy"`, so
+ * a 216-credit page still only fetches the rows you scroll to. And every card
+ * carries an add-to-list control, which subscribes to the preference context —
+ * measured on Spielberg, the heaviest page in the sample, that is the real
+ * price of showing everything, and it is paid once at mount rather than on
+ * every keystroke or scroll.
+ */
 
 function roleText(c: Credit, mode: "screen" | "behind"): string | null {
   if (mode === "behind") return c.jobs.length ? c.jobs.join(", ") : null;
@@ -35,14 +48,12 @@ function roleText(c: Credit, mode: "screen" | "behind"): string | null {
 }
 
 function CreditGrid({ credits, mode }: { credits: Credit[]; mode: "screen" | "behind" }) {
-  const [shown, setShown] = useState(PAGE);
-
   return (
     <>
       {/* Same column steps as "Known for", so poster size is constant down the
           whole page rather than changing meaning section to section. */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
-        {credits.slice(0, shown).map((c) => (
+        {credits.map((c) => (
           // `card-lift` scales the card on hover. A transform never affects
           // layout, so the card grows over its neighbours without moving a
           // single one of them — the absolute-positioned feel, without taking
@@ -64,15 +75,6 @@ function CreditGrid({ credits, mode }: { credits: Credit[]; mode: "screen" | "be
         ))}
       </div>
 
-      {credits.length > shown && (
-        <button
-          type="button"
-          onClick={() => setShown((n) => n + PAGE)}
-          className="mt-6 w-full rounded-xl border border-surface-700 py-2.5 text-sm text-surface-300 transition hover:border-surface-600 hover:text-white"
-        >
-          Show {Math.min(PAGE, credits.length - shown)} more
-        </button>
-      )}
     </>
   );
 }
