@@ -7,7 +7,7 @@ import { Star, Clock, Globe, Play, Share2, BookOpen, Film, Users, Tag, ImageIcon
 import { releaseInfo } from "@/utils/releaseInfo";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import TitleTalk from "@components/takes/TitleTalk";
-import CrewBlock, { groupCrew } from "@components/detail/CrewBlock";
+import CrewBlock, { groupCrew, keyCrew } from "@components/detail/CrewBlock";
 import KeywordChips from "@components/detail/KeywordChips";
 import EntityLinks from "@components/detail/EntityLinks";
 import { buildBrowseUrl } from "@/utils/browseUrl";
@@ -44,6 +44,7 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
   const genres = movie.genres ?? [];
   const productionCompanies = movie.production_companies?.slice(0, 3) ?? [];
   const crewGroups = groupCrew(credits.crew);
+  const crewKey = keyCrew(credits.crew);
   const budget = movie.budget > 0 ? `$${(movie.budget / 1_000_000).toFixed(0)}M` : null;
   const revenue = movie.revenue > 0 ? `$${(movie.revenue / 1_000_000).toFixed(0)}M` : null;
 
@@ -275,9 +276,9 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
             {/* Who made it. Grouped by department and capped, because the
                 full crew is ninety names and that wall already exists on the
                 /cast route for anyone who wants it. */}
-            {crewGroups.length > 0 && (
+            {(crewGroups.length > 0 || crewKey.length > 0) && (
               <Section title="Crew">
-                <CrewBlock groups={crewGroups} />
+                <CrewBlock groups={crewGroups} keyPeople={crewKey} />
               </Section>
             )}
 

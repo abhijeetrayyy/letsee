@@ -7,7 +7,7 @@ import { Star, Clock, Globe, Play, Share2, Tv, Users, Tag } from "lucide-react";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import TitleTalk from "@components/takes/TitleTalk";
-import CrewBlock, { groupCrew } from "@components/detail/CrewBlock";
+import CrewBlock, { groupCrew, keyCrew } from "@components/detail/CrewBlock";
 import KeywordChips from "@components/detail/KeywordChips";
 import EntityLinks from "@components/detail/EntityLinks";
 import { buildBrowseUrl } from "@/utils/browseUrl";
@@ -59,6 +59,7 @@ export default function TvDetailClient({ show, credits, trailer, videos = [], ce
   // the studio door films had.
   const productionCompanies = show.production_companies?.slice(0, 3) ?? [];
   const crewGroups = groupCrew(credits.crew);
+  const crewKey = keyCrew(credits.crew, createdBy);
   const firstAir = show.first_air_date;
   const lastAir = show.last_air_date;
   const numSeasons = show.number_of_seasons;
@@ -353,9 +354,9 @@ export default function TvDetailClient({ show, credits, trailer, videos = [], ce
             {/* Series-level crew is often thin — a few executive producers,
                 sometimes nothing. groupCrew returns [] and this doesn't
                 render, which is why `created_by` above carries the page. */}
-            {crewGroups.length > 0 && (
+            {(crewGroups.length > 0 || crewKey.length > 0) && (
               <Section title="Crew">
-                <CrewBlock groups={crewGroups} />
+                <CrewBlock groups={crewGroups} keyPeople={crewKey} />
               </Section>
             )}
 

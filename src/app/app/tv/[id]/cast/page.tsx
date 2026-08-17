@@ -175,7 +175,7 @@ async function page({ params }: PageProps) {
                   className="max-w-[100px] object-cover rounded-md h-full"
                   src={
                     item.profile_path
-                      ? `https://image.tmdb.org/t/p/w92${item.profile_path}`
+                      ? `https://image.tmdb.org/t/p/w185${item.profile_path}`
                       : "/avatar.svg"
                   }
                   alt=""
@@ -200,15 +200,18 @@ async function page({ params }: PageProps) {
                 .replace(/-+/g, "-")}`}
             >
               <div>
-                <img
-                  className="w-32  md:min-h-44 h-full object-cover rounded-md"
-                  src={
-                    item.profile_path
-                      ? `https://image.tmdb.org/t/p/w92${item.profile_path}`
-                      : "/avatar.svg"
-                  }
-                  alt=""
-                />
+                <div className="aspect-[2/3] w-32 overflow-hidden rounded-md bg-surface-800">
+                  <img
+                    className="size-full object-cover"
+                    src={
+                      item.profile_path
+                        ? `https://image.tmdb.org/t/p/w342${item.profile_path}`
+                        : "/avatar.svg"
+                    }
+                    alt={item.name}
+                    loading="lazy"
+                  />
+                </div>
               </div>
               <div className="flex flex-col gap-2">
                 <h1 className="text-center">{item.name}</h1>{" "}
