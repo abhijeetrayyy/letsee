@@ -34,38 +34,60 @@ type Payload = { rows?: IndexRow[] };
  * film that was sitting in the user's own library reported "nothing matches".
  * The search looked broken when what was actually broken was the fetch.
  */
-async function fetchRows(url: string): Promise<IndexRow[]> {
+type Fetched = { rows: IndexRow[]; ok: boolean };
+
+async function fetchRows(url: string): Promise<Fetched> {
   try {
     const res = await fetch(url, { headers: { accept: "application/json" } });
-    if (res.status === 401) return [];
+    if (res.status === 401) return { rows: [], ok: true }; // no library is a real answer
     if (!res.ok) {
-      console.warn(`searchIndex: ${url} returned ${res.status} — index will be incomplete`);
-      return [];
+      console.warn(`searchIndex: ${url} returned ${res.status} — will retry on next open`);
+      return { rows: [], ok: false };
     }
     // A challenge or error page is HTML with a 200 in some configurations, so
     // check what actually came back rather than trusting the status alone.
     const type = res.headers.get("content-type") ?? "";
     if (!type.includes("application/json")) {
-      console.warn(`searchIndex: ${url} returned ${type || "unknown"}, not JSON — index will be incomplete`);
-      return [];
+      console.warn(`searchIndex: ${url} returned ${type || "unknown"}, not JSON — will retry on next open`);
+      return { rows: [], ok: false };
     }
     const body: Payload = await res.json();
-    return Array.isArray(body?.rows) ? body.rows : [];
+    return { rows: Array.isArray(body?.rows) ? body.rows : [], ok: true };
   } catch (e) {
-    console.warn(`searchIndex: ${url} failed`, e);
-    return [];
+    console.warn(`searchIndex: ${url} failed — will retry on next open`, e);
+    return { rows: [], ok: false };
   }
 }
 
+/**
+ * **A failed load must never be cached.**
+ *
+ * This memoised the promise unconditionally, and `fetchRows` turned every
+ * failure into an empty array. So one bad response — a 403, a cold start, a
+ * deploy landing mid-session — built an index from zero rows and then held it
+ * for the whole page session. Retyping could not help. Closing and reopening
+ * the modal could not help, because `index` was set and the effect returned
+ * early. Only a full reload recovered.
+ *
+ * That is the difference between search being flaky and search being *dead
+ * until you reload*, and it is the more likely explanation of "retyping twice
+ * or three times still does nothing".
+ *
+ * Now the promise is dropped unless both halves genuinely answered, so the
+ * next time the modal opens it tries again. The catalogue is the half that
+ * matters: without it there is no local index at all, and the spelling
+ * correction that feeds TMDB dies with it.
+ */
 function load(): Promise<SearchIndex> {
   if (!cached) {
     cached = Promise.all([
       fetchRows("/api/library/index"),
       fetchRows("/api/search/catalog"),
-    ]).then(([library, popular]) =>
-      buildSearchIndex([
-        ...library,
-        ...popular,
+    ]).then(([library, popular]) => {
+      if (!library.ok || !popular.ok) cached = null;
+      return buildSearchIndex([
+        ...library.rows,
+        ...popular.rows,
         // Checked in rather than fetched: TMDB has no network search.
         ...NETWORKS.map(
           (n): IndexRow => ({
@@ -76,8 +98,13 @@ function load(): Promise<SearchIndex> {
             y: null,
           }),
         ),
-      ]),
-    );
+      ]);
+    }).catch((e) => {
+      // Never leave a rejected promise memoised — every later open would
+      // inherit the same failure without so much as trying.
+      cached = null;
+      throw e;
+    });
   }
   return cached;
 }
@@ -97,11 +124,17 @@ export function useSearchIndex(enabled: boolean): SearchIndex | null {
   const [index, setIndex] = useState<SearchIndex | null>(null);
 
   useEffect(() => {
-    if (!enabled || index) return;
+    // Retry while the index is still empty: a build from zero rows means the
+    // fetch failed, and reopening the modal is exactly when to try again.
+    if (!enabled || (index && index.rows.length > 0)) return;
     let alive = true;
-    load().then((built) => {
-      if (alive) setIndex(built);
-    });
+    load()
+      .then((built) => {
+        if (alive) setIndex(built);
+      })
+      .catch(() => {
+        // Already logged; the next open retries.
+      });
     return () => {
       alive = false;
     };
