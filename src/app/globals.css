@@ -588,19 +588,24 @@
    * So: opaque enough to read against anything, with the blur as an
    * enhancement rather than the mechanism.
    */
+  /**
+   * The header is opaque. Deliberately, after two rounds of not being.
+   *
+   * It started at 0.75 leaning on `backdrop-filter`, which fails silently
+   * where unsupported and let a quarter of the hero art through. Raising it to
+   * 0.86 was still legibly translucent over bright posters — the Cast heading
+   * behind it read straight through the logo.
+   *
+   * A navigation bar has to be readable over *any* artwork the page happens to
+   * load, and no single alpha below 1 is safe against every poster. The glass
+   * look is not worth a header you cannot read, so this is a solid ground with
+   * the blur kept only as a soft edge for content scrolling beneath it.
+   */
   .nav-glass {
-    background: rgba(9, 9, 11, 0.92);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  }
-
-  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-    .nav-glass {
-      /* Slightly lighter, because here the blur genuinely separates the
-         layers rather than merely tinting them. */
-      background: rgba(9, 9, 11, 0.86);
-      backdrop-filter: blur(24px) saturate(180%);
-      -webkit-backdrop-filter: blur(24px) saturate(180%);
-    }
+    background: var(--color-surface-950, #09090b);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
   }
 
   .nav-link {
