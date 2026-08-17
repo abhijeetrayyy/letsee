@@ -214,9 +214,15 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
         </div>
       </div>
 
-      {/* Content below hero */}
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+      {/* Content below hero.
+          `space-y-10` matters here: the Gallery section is a sibling of the
+          two-column grid, not a child of it, and the wrapper carried no
+          vertical spacing at all. So Gallery started the pixel the grid
+          ended — and because the grid's columns are different heights, its
+          heading collided with whichever column ran longest (Crew, usually).
+          Same gap as the main column already uses between its own sections. */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main column */}
           <div className="lg:col-span-2 space-y-10">
             {/* Where to Watch */}
