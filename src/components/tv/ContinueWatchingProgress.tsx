@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import useSWR from "swr";
+import toast from "react-hot-toast";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 import Link from "next/link";
-import { Play, ChevronRight, Tv } from "lucide-react";
+import { Play, ChevronRight, Tv, Check, Loader2 } from "lucide-react";
 import EmptyState from "@components/ui/EmptyState";
 
 const continueWatchingFetcher = (url: string) =>
@@ -21,17 +23,78 @@ interface ContinueWatchingItem {
   is_caught_up: boolean;
   last_air_date: string | null;
   next_air_date: string | null;
+  up_next: { s: number; e: number }[];
+  can_mark_next: boolean;
 }
 
 export default function ContinueWatchingProgress() {
   const { isAuthenticated } = useMediaInteraction();
 
-  const { data, isLoading } = useSWR<{ items: ContinueWatchingItem[] }>(
+  const { data, isLoading, mutate } = useSWR<{ items: ContinueWatchingItem[] }>(
     isAuthenticated ? "/api/continue-watching" : null,
     continueWatchingFetcher,
   );
   const items = data?.items ?? [];
   const loading = isAuthenticated && isLoading;
+
+  /** Keyed per show — this is a horizontal rail, and one pending mark must not freeze the others. */
+  const [busy, setBusy] = useState<Record<string, boolean>>({});
+
+  /**
+   * Mark the next episode, without leaving the page.
+   *
+   * Uses `/api/watched-episodes-bulk`, not `/api/watched-episode`. The latter
+   * is a *toggle* — it selects, then deletes if found — so a double tap, a
+   * retry, or a lost response silently **un-marks** the episode. The bulk route
+   * upserts with `ignoreDuplicates`, which makes it idempotent and safe to
+   * repeat, and it carries the intent explicitly rather than depending on what
+   * the server already had.
+   *
+   * The advance is optimistic and exact: `up_next` comes from the server's own
+   * season grid, so the card knows whether S4E5 is followed by S4E6 or S5E1.
+   */
+  const markNext = async (item: ContinueWatchingItem) => {
+    const next = item.up_next?.[0];
+    if (!next || busy[item.show_id]) return;
+    setBusy((b) => ({ ...b, [item.show_id]: true }));
+
+    const optimistic = {
+      items: items.map((i) =>
+        i.show_id === item.show_id
+          ? {
+              ...i,
+              up_next: i.up_next.slice(1),
+              episodes_watched: i.episodes_watched + 1,
+              next_season: i.up_next[1]?.s ?? null,
+              next_episode: i.up_next[1]?.e ?? null,
+              is_caught_up: i.up_next.length <= 1,
+            }
+          : i,
+      ),
+    };
+    mutate(optimistic, { revalidate: false });
+
+    try {
+      const res = await fetch("/api/watched-episodes-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          showId: item.show_id,
+          episodes: [{ season_number: next.s, episode_number: next.e }],
+          action: "mark",
+        }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      // Roll back rather than leave the card claiming something that did not
+      // save — SWR revalidates on focus, so a silent failure would otherwise
+      // snap back later with no explanation.
+      mutate();
+      toast.error("That didn't save. Check your connection.");
+    } finally {
+      setBusy((b) => ({ ...b, [item.show_id]: false }));
+    }
+  };
 
   if (loading) {
     return (
@@ -69,11 +132,10 @@ export default function ContinueWatchingProgress() {
 
       <div className="flex gap-3 overflow-x-auto pb-4 -mx-1 px-1 scrollbar-thin">
         {items.slice(0, 8).map((item) => (
-          <Link
-            key={item.show_id}
-            href={`/app/tv/${item.show_id}`}
-            className="shrink-0 w-44 group relative"
-          >
+          // The button cannot live inside the Link — a <button> inside an <a>
+          // is invalid HTML — so the card is a div holding both.
+          <div key={item.show_id} className="shrink-0 w-44 group relative">
+          <Link href={`/app/tv/${item.show_id}`} className="block">
             <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-surface-800">
               {item.poster_path ? (
                 <img
@@ -123,6 +185,26 @@ export default function ContinueWatchingProgress() {
               )}
             </p>
           </Link>
+
+          {/* One tap, from wherever you already are. Labelled with the exact
+              episode so it is never a guess about what you are agreeing to. */}
+          {item.can_mark_next && item.up_next?.[0] && (
+            <button
+              type="button"
+              onClick={() => markNext(item)}
+              disabled={busy[item.show_id]}
+              aria-label={`Mark ${item.show_name} season ${item.up_next[0].s} episode ${item.up_next[0].e} as watched`}
+              className="mt-2 flex w-full min-h-[40px] touch-manipulation items-center justify-center gap-1.5 rounded-lg bg-brand-500/20 px-2 py-2 text-xs font-semibold text-brand-400 transition-colors hover:bg-brand-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {busy[item.show_id] ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Check className="size-3.5" />
+              )}
+              Watched S{item.up_next[0].s}E{item.up_next[0].e}
+            </button>
+          )}
+          </div>
         ))}
 
         {items.length > 8 && (

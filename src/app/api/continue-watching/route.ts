@@ -4,10 +4,11 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { getAuthUserId } from "@/utils/apiAuth";
 
-const MAX_SHOWS = 12;
-const BATCH_SIZE = 3;
-const BATCH_DELAY_MS = 150;
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/**
+ * Fetch at most this many, and render at most 8 — the ninth exists so the
+ * "View all" tile, which is gated on `items.length > 8`, still appears.
+ */
+const MAX_SHOWS = 9;
 
 type ContinueWatchingItem = {
   show_id: string;
@@ -21,6 +22,18 @@ type ContinueWatchingItem = {
   is_caught_up: boolean;
   last_air_date: string | null;
   next_air_date: string | null;
+  /**
+   * The next few unwatched episodes, in order.
+   *
+   * Free — the loop below already builds and sorts the whole episode grid and
+   * then throws away everything after the first miss. Sending a handful lets
+   * the card advance to the *correct* next episode after a mark without asking
+   * the server, which the client cannot compute on its own: whether S4E5 is
+   * followed by S4E6 or S5E1 is a fact about the season grid.
+   */
+  up_next: { s: number; e: number }[];
+  /** False when the next unwatched episode has not aired yet. */
+  can_mark_next: boolean;
 };
 
 export async function GET(req: NextRequest) {
@@ -73,43 +86,74 @@ export async function GET(req: NextRequest) {
     if (!ordered.has(String(r.show_id))) ordered.set(String(r.show_id), String(r.watched_at));
   }
 
-  // Over-fetch, because the status filter below still drops finished shows.
-  const showIdsByLastWatched = [...ordered.keys()].slice(0, MAX_SHOWS + 12);
+  const candidates = [...ordered.keys()].slice(0, MAX_SHOWS + 12);
+
+  if (candidates.length === 0) {
+    return jsonSuccess({ items: [] }, { maxAge: 0 });
+  }
+
+  /**
+   * Read every candidate's status in ONE query, and drop the finished ones
+   * **before** touching TMDB.
+   *
+   * This route used to fetch TMDB for all 24 candidates and filter afterwards.
+   * Measured on a real account: **24 fetched, 22 immediately discarded, 2
+   * kept.** And the waste was not free — `fetchTmdb` calls `waitForSlot()`
+   * before every request (tmdbClient.ts:103, ahead of the `inFlight++` on 104),
+   * so its 120ms gap is paid on every call that reaches the network layer,
+   * including ones Next's fetch cache would have served. 24 starts staggered
+   * 120ms apart, plus 7 inter-batch sleeps of 150ms, is over a second of
+   * deliberate waiting that bought nothing.
+   *
+   * The endpoint measured 6.4s cold and 3.7s warm to return two items, on a
+   * page that loads in 2.8s. Filtering first takes it to two TMDB calls.
+   */
+  const { data: statusRows } = await supabase
+    .from("user_media_status")
+    .select("item_id, status")
+    .eq("user_id", userId)
+    .eq("item_type", "tv")
+    .in("item_id", candidates);
+
+  const statusById = new Map(
+    (statusRows ?? []).map((r) => [String(r.item_id), String(r.status)]),
+  );
+
+  const showIdsByLastWatched = candidates
+    .filter((id) => !["dropped", "watched", "on_hold"].includes(statusById.get(id) ?? ""))
+    .slice(0, MAX_SHOWS);
 
   if (showIdsByLastWatched.length === 0) {
     return jsonSuccess({ items: [] }, { maxAge: 0 });
   }
 
-  const results: ContinueWatchingItem[] = [];
+  // One query for every survivor's ticks, rather than one per show.
+  const { data: allTicks } = await supabase
+    .from("watched_episodes")
+    .select("show_id, season_number, episode_number")
+    .eq("user_id", userId)
+    .in("show_id", showIdsByLastWatched);
 
-  for (let i = 0; i < showIdsByLastWatched.length; i += BATCH_SIZE) {
-    const batch = showIdsByLastWatched.slice(i, i + BATCH_SIZE);
-    const batchResults = await Promise.all(
-      batch.map(async (showId) => {
-        const [watchedRes, showData, statusRes] = await Promise.all([
-          supabase
-            .from("watched_episodes")
-            .select("season_number, episode_number")
-            .eq("user_id", userId)
-            .eq("show_id", showId),
-          getTvShowWithSeasons(showId),
-          supabase
-            .from("user_media_status")
-            .select("status")
-            .eq("user_id", userId)
-            .eq("item_id", showId)
-            .eq("item_type", "tv")
-            .maybeSingle(),
-        ]);
+  const ticksByShow = new Map<string, { season_number: number; episode_number: number }[]>();
+  for (const t of allTicks ?? []) {
+    const list = ticksByShow.get(String(t.show_id)) ?? [];
+    list.push({ season_number: Number(t.season_number), episode_number: Number(t.episode_number) });
+    ticksByShow.set(String(t.show_id), list);
+  }
 
-        if (watchedRes.error || !showData) return null;
+  // No hand-rolled batching: `tmdbClient` already staggers every request start
+  // by MIN_GAP_MS process-wide, so the extra sleep throttled a queue that was
+  // already throttled. With the filter moved above, this is 2 calls anyway.
+  const settled = await Promise.all(
+      showIdsByLastWatched.map(async (showId) => {
+        const showData = await getTvShowWithSeasons(showId);
+        const watchedRes = { data: ticksByShow.get(showId) ?? [] };
+        const statusRes = { data: { status: statusById.get(showId) ?? null } };
 
-        const currentStatus = statusRes?.data?.status;
+        if (!showData) return null;
 
-        // 1. Filter out dropped/watched/on_hold
-        if (["dropped", "watched", "on_hold"].includes(currentStatus || "")) {
-          return null;
-        }
+        // Already filtered above, before any TMDB call was made.
+        const currentStatus = statusRes.data.status;
 
         // Season 0 is excluded from totalEpisodes below, so it has to be
         // excluded here too — counting specials in the numerator only was
@@ -177,7 +221,24 @@ export async function GET(req: NextRequest) {
         const lastAir = (showData as any).last_episode_to_air;
         const nextAir = (showData as any).next_episode_to_air;
 
+        // `episode_count` counts announced episodes, aired or not, so the head
+        // of the queue can be one nobody could have watched. `last_episode_to_air`
+        // is the honest bound — `next_episode_to_air` is null whenever TMDB has
+        // an announced episode with no date, which is exactly this case.
+        const lastAired = lastAir
+          ? { s: Number(lastAir.season_number), e: Number(lastAir.episode_number) }
+          : null;
+        const hasAired = (ep: { s: number; e: number }) =>
+          !lastAired || ep.s < lastAired.s || (ep.s === lastAired.s && ep.e <= lastAired.e);
+
+        const upNext = allEpisodes
+          .filter(({ s, e }) => !watchedSet.has(`${s},${e}`))
+          .slice(0, 6)
+          .map(({ s, e }) => ({ s, e }));
+
         return {
+          up_next: upNext,
+          can_mark_next: upNext.length > 0 && hasAired(upNext[0]),
           show_id: showId,
           show_name: name,
           poster_path: poster,
@@ -191,14 +252,8 @@ export async function GET(req: NextRequest) {
           next_air_date: nextAir?.air_date ?? null,
         } as ContinueWatchingItem;
       }),
-    );
-    for (const item of batchResults) {
-      if (item) results.push(item as ContinueWatchingItem);
-    }
-    if (results.length >= MAX_SHOWS) break;
-    if (i + BATCH_SIZE < showIdsByLastWatched.length)
-      await delay(BATCH_DELAY_MS);
-  }
+  );
+  const results = settled.filter(Boolean) as ContinueWatchingItem[];
 
   return jsonSuccess({ items: results }, { maxAge: 0 });
 }
