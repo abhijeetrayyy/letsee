@@ -978,6 +978,22 @@
     position: relative;
     z-index: 30;
   }
+
+  /**
+   * A floating card has to be opaque.
+   *
+   * The card sits on `bg-surface-900/60`, which is fine while it is flat in
+   * the grid with the page behind it. Lifted, it overlaps its neighbours — and
+   * everywhere the artwork does not cover, which is exactly the title and
+   * button strip along the bottom, the cards underneath showed through it.
+   *
+   * Only the background is forced; the border stays as it is, so the card
+   * keeps its own edge.
+   */
+  .card-lift:hover > *,
+  .card-lift:focus-within > * {
+    background-color: var(--color-surface-900);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
