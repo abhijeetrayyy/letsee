@@ -32,20 +32,49 @@ export async function GET(req: NextRequest) {
     return jsonError("TMDB API key is missing", 500);
   }
 
-  const { data: showRows, error: showError } = await supabase
-    .from("watched_episodes")
-    .select("show_id, watched_at")
-    .eq("user_id", userId)
-    .order("watched_at", { ascending: false });
+  /**
+   * Candidates come from status first, episode activity second.
+   *
+   * This used to take only the most recently ticked shows and *then* discard
+   * anything watched, dropped or on hold — which is the wrong order, and it
+   * emptied the section completely. Measured on a real account: 8,650 episode
+   * ticks across 92 shows, and the 17 most recent of those were 15 `watched`
+   * plus 2 `dropped`. Every candidate was filtered out, so the home page said
+   * nothing was in progress while two shows sat explicitly marked *watching* —
+   * they simply never entered the list, because they had not been ticked
+   * lately. The busier the account, the more certainly this fails.
+   *
+   * A show you have marked as watching *is* the section. It leads regardless
+   * of when you last ticked an episode.
+   */
+  const [watchingRes, tickRes] = await Promise.all([
+    supabase
+      .from("user_media_status")
+      .select("item_id, updated_at")
+      .eq("user_id", userId)
+      .eq("item_type", "tv")
+      .eq("status", "watching")
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("watched_episodes")
+      .select("show_id, watched_at")
+      .eq("user_id", userId)
+      .order("watched_at", { ascending: false }),
+  ]);
 
-  if (showError) {
-    console.error("continue-watching shows:", showError);
+  if (tickRes.error) {
+    console.error("continue-watching shows:", tickRes.error);
     return jsonError("Failed to fetch progress", 500);
   }
 
-  const showIdsByLastWatched = [
-    ...new Map((showRows ?? []).map((r) => [r.show_id, r.watched_at])).keys(),
-  ].slice(0, MAX_SHOWS + 5); // Fetch a few more case we filter some out
+  const ordered = new Map<string, string>();
+  for (const r of watchingRes.data ?? []) ordered.set(String(r.item_id), String(r.updated_at));
+  for (const r of tickRes.data ?? []) {
+    if (!ordered.has(String(r.show_id))) ordered.set(String(r.show_id), String(r.watched_at));
+  }
+
+  // Over-fetch, because the status filter below still drops finished shows.
+  const showIdsByLastWatched = [...ordered.keys()].slice(0, MAX_SHOWS + 12);
 
   if (showIdsByLastWatched.length === 0) {
     return jsonSuccess({ items: [] }, { maxAge: 0 });

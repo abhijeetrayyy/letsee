@@ -163,7 +163,7 @@ function SearchBar() {
    * the user commits, and the mistyped case is the one that works best.
    */
   const suggestions = useMemo<IndexRow[]>(
-    () => (isModalOpen ? queryIndex(index, query, 8) : []),
+    () => (isModalOpen ? queryIndex(index, query, 26) : []),
     [index, query, isModalOpen]
   );
 

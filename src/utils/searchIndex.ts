@@ -164,7 +164,7 @@ export function buildSearchIndex(rows: IndexRow[]): SearchIndex {
 export function queryIndex(
   index: SearchIndex | null,
   rawQuery: string,
-  limit = 8,
+  limit = 26,
 ): IndexRow[] {
   if (!index) return [];
   const q = normalizeQuery(rawQuery);
@@ -181,13 +181,25 @@ export function queryIndex(
     for (const row of index.rows) {
       const at = row.s.startsWith(q) ? 0 : row.s.includes(` ${q}`) ? 1 : -1;
       if (at >= 0) matches.push({ row, score: at });
-      if (matches.length > limit * 12) break;
+      if (matches.length > Math.max(limit * 12, 240)) break;
     }
   } else {
     matches = index.fuse
-      .search(q, { limit: limit * 4 })
+      .search(q, { limit: Math.max(limit * 4, 120) })
       .map((r) => ({ row: r.item, score: r.score ?? 1 }));
   }
+
+  /**
+   * Allocate per kind rather than taking a flat top-N.
+   *
+   * Titles sort ahead of people, so a single global cap means a query matching
+   * plenty of films shows *no* people at all — "man" matches 44 rows in a real
+   * index, and the first 24 of those are all titles. Giving each kind its own
+   * allowance keeps every group reachable while still letting titles dominate
+   * the space, which is what people are usually looking for.
+   */
+  const perKind: Record<IndexKind, number> = { movie: 0, tv: 0, person: 0 };
+  const allowance: Record<IndexKind, number> = { movie: 10, tv: 10, person: 6 };
 
   const rank = (kind: IndexKind) => (kind === "person" ? 1 : 0);
   return matches
@@ -197,6 +209,11 @@ export function queryIndex(
         a.score - b.score ||
         Number(Boolean(b.row.lib)) - Number(Boolean(a.row.lib)),
     )
+    .filter((m) => {
+      if (perKind[m.row.t] >= allowance[m.row.t]) return false;
+      perKind[m.row.t] += 1;
+      return true;
+    })
     .slice(0, limit)
     .map((m) => m.row);
 }
