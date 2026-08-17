@@ -37,11 +37,30 @@ export function releaseInfo(raw?: string | null): ReleaseInfo {
   return {
     date,
     isUpcoming: date.getTime() > today.getTime(),
-    full: date.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }),
-    short: date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }),
+    /**
+     * Formatted by hand rather than by `toLocaleDateString(undefined, …)`.
+     *
+     * That `undefined` means "the runtime's default locale", and the runtime is
+     * two different machines: Node resolves it from the server's ICU default
+     * ("Dec 5, 1997") while the browser resolves it from the viewer's settings
+     * ("5 Dec 1997"). React then hydrates a text node that does not match the
+     * one it rendered, which throws "Hydration failed because the server
+     * rendered text..." and forces a full client re-render of the tree — on
+     * every page that renders a MediaCard with a date, which is most of them.
+     *
+     * A date is not a good place to be clever. These two strings are the same
+     * everywhere, and they match the person page's own vitals formatting.
+     */
+    full: `${d} ${MONTHS[m - 1]} ${y}`,
+    short: `${d} ${MONTHS[m - 1].slice(0, 3)} ${y}`,
     year: String(y),
   };
 }
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
 
 /** 21080 → "21K". Cards can't spare the width for the exact count. */
 export function compactCount(n: number): string {
