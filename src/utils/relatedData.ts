@@ -19,7 +19,7 @@ import {
  * Everything here is wrapped in `unstable_cache`, and that is not an
  * optimisation. `fetchTmdb` calls `waitForSlot()` *before* every request, so
  * its 120ms rate-limit gap is paid whether or not Next serves the response
- * from the Data Cache — the same pathology that pinned `/api/search/index` at
+ * from the Data Cache — the same pathology that pinned `/api/search/catalog` at
  * a flat 3.95s until the whole function was cached. Enriching a pool means
  * ~20 calls, so uncached this would be seconds of throttle on every render,
  * and the throttle is process-wide: it would slow down every other page too.

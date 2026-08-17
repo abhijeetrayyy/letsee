@@ -61,7 +61,7 @@ function load(): Promise<SearchIndex> {
   if (!cached) {
     cached = Promise.all([
       fetchRows("/api/library/index"),
-      fetchRows("/api/search/index"),
+      fetchRows("/api/search/catalog"),
     ]).then(([library, popular]) =>
       buildSearchIndex([
         ...library,

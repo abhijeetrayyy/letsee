@@ -6,6 +6,14 @@ import { normalizeQuery, type IndexRow } from "@/utils/searchIndex";
 /**
  * The public half of the local search index.
  *
+ * **Named `catalog`, not `index`, and that matters.** As
+ * `src/app/api/search/index/route.ts` this shadowed its own parent in
+ * production: Vercel's filesystem routing treats `search/index` as the index
+ * handler for `search/`, so `/api/search?query=margin` returned this
+ * catalogue payload instead of search results — 200, valid JSON, completely
+ * wrong. Next's dev server routes the two separately, so it worked locally and
+ * only broke once deployed.
+ *
  * Identical for every visitor, which is the entire reason it is a separate
  * route from `/api/library/index`. `jsonSuccess` defaults to
  * `private, no-store` because most routes here are session-scoped; this one is
