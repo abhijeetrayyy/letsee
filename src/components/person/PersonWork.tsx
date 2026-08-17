@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Film, Tv, Mic, UserCircle2 } from "lucide-react";
+import { Film, Tv, Mic, UserCircle2, Star } from "lucide-react";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import type { Credit } from "@/utils/person/model";
 
@@ -42,6 +42,16 @@ function roleText(c: Credit, mode: "screen" | "behind"): string | null {
 function CreditRow({ c, mode }: { c: Credit; mode: "screen" | "behind" }) {
   const role = roleText(c, mode);
   const Icon = c.mediaType === "tv" ? Tv : Film;
+  /**
+   * Mounted on hover rather than rendered hidden.
+   *
+   * A hidden-until-hover `<img>` in every row would still be fetched by the
+   * browser once the row scrolled into view — sixty full-size posters
+   * downloaded so that the two or three anyone actually hovers are instant.
+   * Mounting on the event means the request happens on the first peek and the
+   * browser cache covers every one after.
+   */
+  const [peek, setPeek] = useState(false);
 
   return (
     <li className="flex items-center gap-3 py-3">
@@ -49,18 +59,41 @@ function CreditRow({ c, mode }: { c: Credit; mode: "screen" | "behind" }) {
         {c.year ?? "—"}
       </span>
       <Link href={`/app/${c.mediaType}/${c.id}`} className="group flex min-w-0 flex-1 items-center gap-3.5">
-        <span className="h-[72px] w-12 shrink-0 overflow-hidden rounded-md bg-surface-800 ring-1 ring-surface-700/40">
-          {c.posterPath ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`https://image.tmdb.org/t/p/w185${c.posterPath}`}
-              alt=""
-              loading="lazy"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <span className="flex h-full w-full items-center justify-center">
-              <Icon className="size-4 text-surface-600" aria-hidden />
+        {/* The clipped thumbnail and the peek are siblings: `overflow-hidden`
+            has to stay on the thumbnail to round its corners, and it would
+            equally have clipped the poster growing out of it. */}
+        <span
+          className="relative h-[72px] w-12 shrink-0"
+          onMouseEnter={() => setPeek(true)}
+          onMouseLeave={() => setPeek(false)}
+        >
+          <span className="block h-full w-full overflow-hidden rounded-md bg-surface-800 ring-1 ring-surface-700/40">
+            {c.posterPath ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`https://image.tmdb.org/t/p/w185${c.posterPath}`}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center">
+                <Icon className="size-4 text-surface-600" aria-hidden />
+              </span>
+            )}
+          </span>
+
+          {peek && c.posterPath && (
+            <span
+              aria-hidden
+              className="poster-peek pointer-events-none absolute left-full top-1/2 z-40 ml-3 block w-[184px]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://image.tmdb.org/t/p/w342${c.posterPath}`}
+                alt=""
+                className="w-full rounded-xl shadow-2xl shadow-black/60 ring-1 ring-white/10"
+              />
             </span>
           )}
         </span>
@@ -77,7 +110,14 @@ function CreditRow({ c, mode }: { c: Credit; mode: "screen" | "behind" }) {
           {role && <span className="mt-1 block truncate text-sm text-surface-400">{role}</span>}
         </span>
         {c.voteAverage > 0 && c.voteCount > 50 && (
-          <span className="shrink-0 font-mono text-sm tabular-nums text-surface-400">
+          /* A bare number beside a title reads as anything — a runtime, an
+             episode count, a year. The star says which one it is without a
+             word of label. */
+          <span
+            className="flex shrink-0 items-center gap-1 font-mono text-sm tabular-nums text-surface-300"
+            title={`${c.voteAverage.toFixed(1)} out of 10 on TMDB`}
+          >
+            <Star className="size-3.5 text-accent-gold" fill="currentColor" strokeWidth={0} aria-hidden />
             {c.voteAverage.toFixed(1)}
           </span>
         )}

@@ -946,3 +946,50 @@
   margin-right: 0.625rem;
   color: var(--color-surface-600);
 }
+
+/**
+ * Poster peek — the list thumbnail, enlarged in place on hover.
+ *
+ * A filmography row can only spare ~48px for a poster, which is too small to
+ * recognise a film you half-remember. This lifts it out on hover instead of
+ * making every row taller: absolutely positioned, so nothing around it moves,
+ * and `pointer-events: none`, so the cursor is never trapped by the thing it
+ * summoned.
+ *
+ * The transform lives on the class as well as in the keyframe. Without it the
+ * element snaps back to its untransformed position the moment the animation
+ * ends.
+ */
+@keyframes poster-peek-in {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+.poster-peek {
+  transform: translateY(-50%);
+  transform-origin: left center;
+  animation: poster-peek-in 140ms ease-out;
+}
+
+/**
+ * Never on touch. `mouseenter` fires on tap in most mobile browsers, which
+ * would leave a poster stranded on screen after a tap with no pointer left to
+ * move away and dismiss it.
+ */
+@media (hover: none) {
+  .poster-peek {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poster-peek {
+    animation: none;
+  }
+}
