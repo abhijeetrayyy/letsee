@@ -119,19 +119,26 @@ Verified: first row is a `take`; no author+title pair appears twice; "Discussion
 
 ---
 
-## 5. The bug that blocks step 2
+## 5. The bug that blocked step 2 — fixed
 
 `takes_identity_key` is `UNIQUE (user_id, item_id, item_type, scope, season_number, episode_number, **is_public**)`, and `saveTake` upserts on that key.
 
 **So flipping a take from private to public inserts a second row rather than moving the first.** There is no unpublish path, and one user in the live database already has two rows for one title — one public, one private. That silently recreates the "two texts" problem D1 was built to eliminate.
 
-This must be fixed before any "write privately, publish as a separate act" flow is built, or the flow will manufacture duplicates at a 100% rate. The fix is in `saveTake` (delete the opposite-visibility row when toggling), not necessarily in the schema — the two-row shape is intentional for the *backfill*, where a private diary entry and a public review genuinely were two different pieces of writing.
+**Fixed in `saveTake`, not in the schema.** The two-row shape is intentional for the *backfill*, where a private diary entry and a public review genuinely were two different pieces of writing, so the constraint stays as it is. Instead the save now looks before it writes:
+
+- **Exactly one existing take** → the composer is editing that one, so a visibility change **moves** it (delete, then insert at the new visibility). No duplicate, and unpublishing works.
+- **Two existing takes** → the legacy split from the backfill. Each stays separately addressable and neither is destroyed.
+
+Not yet verified end to end: the toggle path needs a signed-in account, which this session does not have. The read side is verified — the feed shows only `is_public` rows.
 
 ---
 
 ## 6. What's next, in order
 
-**Step 2 — one place to write.** Prompt-as-placeholder instead of a blank box; private by default with publication as a separate, reversible act; merge the take and the discussion box on a detail page so there is one obvious place to type. **Blocked on §5.**
+**Step 2 — one place to write.** Prompt-as-placeholder instead of a blank box; private by default with publication as a separate, reversible act; merge the take and the discussion box so there is one obvious place to type. **Unblocked** — see §5.
+
+The shape it should take, so the next session does not re-derive it: **one composer, one thread.** Today a detail page has *your* box and *everyone's* box, and the reader has to decide which their thought belongs in before they have finished having it. Instead: a single "Talk about it" section with your composer at the top and one thread below it, where a public take is simply the first thing you said and comments are replies to it. The private/public choice stops being a choice between two boxes and becomes one control on one box — which is what D1 set out to do and stopped one step short of.
 
 **Step 3 — replies that reach someone.** A take should be answerable in the feed, and the answer should notify its author. The like→notification path was already found severed once (W7); the same check applies here.
 

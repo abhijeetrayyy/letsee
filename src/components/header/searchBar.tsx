@@ -3,6 +3,7 @@
 import { useSearch } from "@/app/contextAPI/searchContext";
 import { getDidYouMeanSuggestion } from "@/utils/searchFuzzy";
 import { queryIndex, rowHref, type IndexRow } from "@/utils/searchIndex";
+import { getPosterUrl } from "@/utils/imageUrl";
 import { useSearchIndex } from "./useSearchIndex";
 import {
   buildSearchUrl,
@@ -426,19 +427,36 @@ function SearchBar() {
                                     category: row.t,
                                   })
                                 }
-                                className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                                className={`flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
                                   isActive
                                     ? "bg-surface-700/80 ring-1 ring-brand-500/30"
                                     : "bg-surface-800/40 hover:bg-surface-700/60"
                                 }`}
                               >
-                                {row.t === "person" ? (
-                                  <User className="size-3.5 shrink-0 text-surface-500" />
-                                ) : row.t === "tv" ? (
-                                  <Tv className="size-3.5 shrink-0 text-surface-500" />
-                                ) : (
-                                  <Film className="size-3.5 shrink-0 text-surface-500" />
-                                )}
+                                {/* The picture is why a picker beats a list:
+                                    you recognise a poster faster than you read
+                                    a title. It loads after the row has already
+                                    painted, so it costs the suggestion nothing.
+                                    A reserved box means the row never reflows
+                                    when the image arrives. */}
+                                <span className="relative flex h-12 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-surface-800">
+                                  {row.p ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={getPosterUrl(row.p, "w92")}
+                                      alt=""
+                                      className="h-full w-full object-cover"
+                                      loading="lazy"
+                                      decoding="async"
+                                    />
+                                  ) : row.t === "person" ? (
+                                    <User className="size-3.5 text-surface-600" />
+                                  ) : row.t === "tv" ? (
+                                    <Tv className="size-3.5 text-surface-600" />
+                                  ) : (
+                                    <Film className="size-3.5 text-surface-600" />
+                                  )}
+                                </span>
                                 <span className="min-w-0 flex-1 truncate text-sm text-surface-200">
                                   {highlightLabel(row.n, query)}
                                 </span>

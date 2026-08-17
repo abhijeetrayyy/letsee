@@ -32,6 +32,18 @@ export type IndexRow = {
   t: IndexKind;
   /** Release year, or null. The library tables carry no year column, so library-only rows have none. */
   y: number | null;
+  /**
+   * Poster or profile image — a TMDB path from the popular slice, an absolute
+   * URL from the library. `getPosterUrl` resolves either, so the two sources
+   * do not have to agree.
+   *
+   * Dropped in the first version of this index to keep a "zero network while
+   * typing" claim clean. That was the wrong trade: the acceptance criterion is
+   * that a *suggestion appears* within one frame, and text does. A poster
+   * loads afterwards without gating the row, and being able to recognise a
+   * film by its poster is most of why a picker is faster than a list.
+   */
+  p?: string | null;
   /** True when this came from the signed-in user's own library. */
   lib?: boolean;
 };

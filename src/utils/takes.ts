@@ -143,6 +143,47 @@ export async function saveTake(
   // there instead.
   if (score === null && !body) return "Nothing to save.";
 
+  /**
+   * Changing visibility has to MOVE the take, not copy it.
+   *
+   * `takes_identity_key` includes `is_public`, so an upsert keyed on that
+   * constraint treats "the same take, now public" as a different row and
+   * inserts alongside the private one. The result is two takes on one title —
+   * exactly the split D1 existed to abolish — and no way to unpublish. One
+   * account in the live database had already ended up in that state.
+   *
+   * The legacy two-row case is deliberate and must survive: the 065 backfill
+   * split anyone holding *both* a private diary entry and a public review into
+   * two rows, because those genuinely were two different pieces of writing.
+   *
+   * So: look first. Exactly one existing take means the composer is editing
+   * that one, and a visibility change moves it. Two means the legacy split,
+   * and each stays separately addressable.
+   */
+  const { data: existing } = await supabase
+    .from("takes")
+    .select("is_public")
+    .eq("user_id", userId)
+    .eq("item_id", id.itemId)
+    .eq("item_type", id.itemType)
+    .eq("scope", id.scope)
+    .eq("season_number", id.seasonNumber)
+    .eq("episode_number", id.episodeNumber);
+
+  const rows = existing ?? [];
+  if (rows.length === 1 && rows[0].is_public !== isPublic) {
+    await supabase
+      .from("takes")
+      .delete()
+      .eq("user_id", userId)
+      .eq("item_id", id.itemId)
+      .eq("item_type", id.itemType)
+      .eq("scope", id.scope)
+      .eq("season_number", id.seasonNumber)
+      .eq("episode_number", id.episodeNumber)
+      .eq("is_public", rows[0].is_public);
+  }
+
   const { error } = await supabase.from("takes").upsert(
     {
       user_id: userId,

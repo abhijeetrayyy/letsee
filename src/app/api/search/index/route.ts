@@ -35,6 +35,8 @@ type TmdbList = {
     name?: string;
     release_date?: string;
     first_air_date?: string;
+    poster_path?: string | null;
+    profile_path?: string | null;
   }[];
 };
 
@@ -88,6 +90,7 @@ async function buildRows(): Promise<IndexRow[]> {
         s: normalizeQuery(name),
         t,
         y: t === "person" ? null : year(item.release_date ?? item.first_air_date),
+        p: (t === "person" ? item.profile_path : item.poster_path) ?? null,
       });
     }
   }
@@ -98,7 +101,7 @@ async function buildRows(): Promise<IndexRow[]> {
 export async function GET() {
   if (!KEY) return jsonError("TMDB_API_KEY is missing on the server.", 500);
 
-  const rows = await unstable_cache(buildRows, ["search-index-v1"], {
+  const rows = await unstable_cache(buildRows, ["search-index-v2"], {
     revalidate: TTL,
   })();
 

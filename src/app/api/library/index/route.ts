@@ -30,7 +30,7 @@ export const dynamic = "force-dynamic";
 /** PostgREST's usual ceiling; ask for exactly this and keep going while it's full. */
 const PAGE = 1000;
 
-type Row = { item_id: string; item_name: string | null; item_type: string | null };
+type Row = { item_id: string; item_name: string | null; item_type: string | null; image_url: string | null };
 
 async function readAll(
   run: (from: number, to: number) => PromiseLike<{ data: Row[] | null; error: unknown }>,
@@ -53,7 +53,7 @@ export async function GET() {
   if (!userId) return jsonError("Not signed in", 401);
 
   const supabase = await createClient();
-  const COLUMNS = "item_id, item_name, item_type";
+  const COLUMNS = "item_id, item_name, item_type, image_url";
 
   const listIds = await supabase.from("user_lists").select("id").eq("user_id", userId);
   const ids = (listIds.data ?? []).map((l: { id: number }) => l.id);
@@ -79,7 +79,7 @@ export async function GET() {
     seen.add(k);
     // `y` is null for every library row — none of these four tables stores a
     // release year. Only the popular slice can carry one.
-    rows.push({ k, n: name, s: normalizeQuery(name), t: type, y: null, lib: true });
+    rows.push({ k, n: name, s: normalizeQuery(name), t: type, y: null, p: r.image_url ?? null, lib: true });
     if (rows.length >= MAX_INDEX_ROWS) break;
   }
 
