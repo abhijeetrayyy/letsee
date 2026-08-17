@@ -1,6 +1,6 @@
 # A Place to Talk
 
-> **Status:** Step 1 shipped — the activity section now carries voices. Steps 2–5 planned, not built.
+> **Status:** Steps 1, 2 and 4 shipped. Steps 3 and 5 planned.
 > **Written:** 2026-08-17, after `9dbf7f4`.
 > **Third in the series**, after `SURPASSING_LETTERBOXD.md` (W1–W7) and `EXPRESSION_AND_DISCOVERY.md` (D1–D5).
 
@@ -54,12 +54,12 @@ So nothing below is copy that reassures. Every item is a structural choice.
 
 | Mechanism | Why it works | Status |
 |---|---|---|
-| **A prompt, not a blank box.** "What stayed with you?" rather than an empty textarea. | A blank box asks for *generation* against an unstated standard; a question asks for *completion* against a fact only you have. Nobody can be wrong about what stayed with them. | Planned (step 2) |
-| **Prompts about memory and feeling, not craft.** "Who did you watch it with?", "What did it remind you of?" — never "Rate the direction". | Craft prompts invoke expertise, and expertise invites comparison. Autobiography has no expert. | Planned (step 2) |
-| **Private by default, published as a separate act.** | Composition and publication are different decisions; fusing them makes every sentence a performance while you type it. | Planned (step 2) — **blocked**, see §5 |
+| **A prompt, not a blank box.** "What stayed with you?" rather than an empty textarea. | A blank box asks for *generation* against an unstated standard; a question asks for *completion* against a fact only you have. Nobody can be wrong about what stayed with them. | **Shipped** |
+| **Prompts about memory and feeling, not craft.** "Who did you watch it with?", "What did it remind you of?" — never "Rate the direction". | Craft prompts invoke expertise, and expertise invites comparison. Autobiography has no expert. | **Shipped** |
+| **Two named actions, not a toggle.** "Keep private" and "Post it" side by side, so publishing is never something you do by forgetting to flip something. | A toggle needs a label describing an audience, and an audience label above a blank box is what makes it feel watched. | **Shipped** |
 | **No reaction count on your own writing.** | A visible number attached to something you wrote converts writing into a score you are being marked on. This is the single highest-leverage omission. | **Shipped** |
 | **Voices before verbs, always.** | The first thing a newcomer sees must be a person talking, so that talking is what this place evidently does. Ordering is the argument. | **Shipped** |
-| **Ordinary writing on top, not "best" writing.** | Ranking reviews by reactions means the first thing you read is the most polished thing anyone has written, and your own draft dies against it. | Planned (step 4) |
+| **Ordinary writing on top, not "best" writing.** | Ranking reviews by reactions means the first thing you read is the most polished thing anyone has written, and your own draft dies against it. | **Shipped** |
 | **Say what the box is for, next to it.** "Your take" vs "Discussion — talk about it with everyone else". | Hesitation is often not fear but *not knowing which box*. Labelling the purpose costs nothing. | **Shipped** |
 
 **On rating before writing.** Asking for a score first anchors the writing to justification — you end up defending the number instead of saying what happened to you. The score should be optional and, where possible, come *after*. The owner said he is "not pushing on it", and that is the right instinct: the number is the least valuable thing on the card.
@@ -136,7 +136,17 @@ Not yet verified end to end: the toggle path needs a signed-in account, which th
 
 ## 6. What's next, in order
 
-**Step 2 — one place to write.** Prompt-as-placeholder instead of a blank box; private by default with publication as a separate, reversible act; merge the take and the discussion box so there is one obvious place to type. **Unblocked** — see §5.
+### Step 2 — shipped
+
+`src/components/takes/TitleTalk.tsx` replaces `YourTake` **and** the `Discussion` section on both detail pages. One composer, one thread. The prompt is the placeholder and there is no heading above the box telling you what kind of writing belongs in it — that question is the one that stops people. Rating sits *after* the text and is optional. Two named buttons, "Keep private" and "Post it", rather than a toggle plus Save. Below, everyone's public takes and replies are one chronological thread.
+
+Season and episode scopes still use `YourTake`; unifying those is the same change one level down.
+
+### Step 4 — shipped
+
+`/api/reviews/popular` no longer ranks by reaction count. It rotates by **coverage**: one piece of writing per title, one per author, newest first, with no counts rendered. The heading is "What people wrote", not "Worth reading this week" — both the heart icon and the word "worth" framed the row as a selection of the best, which is the comparison that stops someone posting their own three sentences.
+
+### Step 2 (original plan) — one place to write. Prompt-as-placeholder instead of a blank box; private by default with publication as a separate, reversible act; merge the take and the discussion box so there is one obvious place to type. **Unblocked** — see §5.
 
 The shape it should take, so the next session does not re-derive it: **one composer, one thread.** Today a detail page has *your* box and *everyone's* box, and the reader has to decide which their thought belongs in before they have finished having it. Instead: a single "Talk about it" section with your composer at the top and one thread below it, where a public take is simply the first thing you said and comments are replies to it. The private/public choice stops being a choice between two boxes and becomes one control on one box — which is what D1 set out to do and stopped one step short of.
 

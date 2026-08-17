@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import useSWR from "swr";
-import { Heart } from "lucide-react";
+import { PenLine } from "lucide-react";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { getAvatarUrl, getPosterUrl } from "@/utils/imageUrl";
 
@@ -38,8 +38,12 @@ export default function PopularReviews() {
   return (
     <section>
       <div className="mb-4 flex items-center gap-2">
-        <Heart className="size-4 text-rose-400" />
-        <h2 className="text-lg font-bold text-white">Worth reading this week</h2>
+        {/* Not a heart, and not "worth reading" — both framed this row as a
+            selection of the best, which is exactly the comparison that stops
+            someone posting their own three sentences. It is simply what people
+            wrote. */}
+        <PenLine className="size-4 text-brand-400" />
+        <h2 className="text-lg font-bold text-white">What people wrote</h2>
       </div>
 
       <ul className="space-y-3">
@@ -85,10 +89,6 @@ export default function PopularReviews() {
                   ) : (
                     <span className="truncate text-xs text-surface-400">{review.itemName}</span>
                   )}
-                  <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-xs text-surface-500">
-                    <Heart className="size-3 fill-rose-400/70 text-rose-400/70" />
-                    {review.reactionCount}
-                  </span>
                 </div>
 
                 {/* Links to the permalink, not the title page — the review is

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Star, Clock, Globe, Play, Share2, Tv, Users, Tag } from "lucide-react";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
-import YourTake from "@components/takes/YourTake";
+import TitleTalk from "@components/takes/TitleTalk";
 import CrewBlock, { groupCrew } from "@components/detail/CrewBlock";
 import KeywordChips from "@components/detail/KeywordChips";
 import EntityLinks from "@components/detail/EntityLinks";
@@ -19,7 +19,6 @@ import RatingDistribution from "@components/detail/RatingDistribution";
 import WatchOptionsViewer from "@components/clientComponent/watchOptionView";
 import EpisodeListWithWatched from "@components/tv/EpisodeListWithWatched";
 import ShareModal from "@components/social/ShareModal";
-import Comments from "@components/social/Comments";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
 import { swrFetcher } from "@/utils/swrFetcher";
@@ -302,22 +301,22 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
               )}
             </Section>
 
-            {/* Your Activity */}
-            {/* No Section wrapper: YourTake owns its own card, exactly as on
-                the film page. Wrapping it added a second competing heading
-                ("Your Activity — Rate and review") above the card's own "Your
-                take", so this page asked the reader to choose between two
-                labels for one box. */}
-            <div className="space-y-4">
-                <YourTake
-                  itemId={String(show.id)}
-                  itemType="tv"
-                  itemName={show.name}
-                  imageUrl={show.poster_path ? `https://image.tmdb.org/t/p/w342${show.poster_path}` : null}
-                  genres={(show.genres ?? []).map((g: { name: string }) => g.name)}
-                  isAuthenticated={isAuthenticated}
-                />
-            </div>
+            {/* One composer, one thread.
+                The page used to carry "Your take" here and "Discussion"
+                further down, which made the reader choose which box a thought
+                belonged in before they had finished having it. Now there is
+                one place to type: what you write is yours until you post it,
+                and posting it makes it the first thing you said in the thread. */}
+            <Section title="Talk about it">
+              <TitleTalk
+                itemId={String(show.id)}
+                itemType="tv"
+                itemName={show.name}
+                imageUrl={show.poster_path ? `https://image.tmdb.org/t/p/w342${show.poster_path}` : null}
+                genres={(show.genres ?? []).map((g: { name: string }) => g.name)}
+                isAuthenticated={isAuthenticated}
+              />
+            </Section>
 
             {/* Cast */}
             {credits.cast?.length > 0 && (
@@ -335,10 +334,6 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
               </Section>
             )}
 
-            {/* Discussion */}
-            <Section title="Discussion" subtitle="Talk about it with everyone else">
-              <Comments itemId={String(show.id)} itemType="tv" showHeading={false} />
-            </Section>
           </div>
 
           {/* Sidebar */}

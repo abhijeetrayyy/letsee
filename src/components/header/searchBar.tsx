@@ -4,6 +4,7 @@ import { useSearch } from "@/app/contextAPI/searchContext";
 import { getDidYouMeanSuggestion } from "@/utils/searchFuzzy";
 import { queryIndex, rowHref, type IndexRow } from "@/utils/searchIndex";
 import { getPosterUrl } from "@/utils/imageUrl";
+import { buildBrowseUrl } from "@/utils/browseUrl";
 import { useSearchIndex } from "./useSearchIndex";
 import {
   buildSearchUrl,
@@ -20,13 +21,15 @@ type FlatResult = {
   key: string;
   label: string;
   href: string;
-  category: "movie" | "tv" | "person";
+  category: "movie" | "tv" | "person" | "keyword";
 };
+
+type Keyword = { id: number; name: string };
 
 const MAX_RECENT = 5;
 
 /** The heading each suggestion group sits under, in the order they appear. */
-const GROUPS: { kind: FlatResult["category"]; label: string }[] = [
+const GROUPS: { kind: "movie" | "tv" | "person"; label: string }[] = [
   { kind: "movie", label: "Movies" },
   { kind: "tv", label: "TV Shows" },
   { kind: "person", label: "People" },
@@ -103,6 +106,48 @@ function SearchBar() {
   // Loaded on the first modal open and reused for the rest of the session.
   const index = useSearchIndex(isModalOpen);
 
+  /**
+   * Keywords, fetched behind the local suggestions rather than in front of them.
+   *
+   * There is no local source for these — TMDB has no "popular keywords"
+   * endpoint to seed an index from — so they need the network. What made the
+   * old search slow was that the network gated *everything*: nothing appeared
+   * until two requests came back, and if you had mistyped, what came back was
+   * nothing.
+   *
+   * Here the local rows are already on screen before this fires. Keywords are
+   * an addition that arrives late, and if it never arrives the dropdown is
+   * exactly as useful as it was a moment earlier. So the acceptance criterion
+   * still holds: a suggestion appears within one frame, before any network
+   * response.
+   */
+  const [keywords, setKeywords] = useState<Keyword[]>([]);
+
+  useEffect(() => {
+    if (!isModalOpen || query.trim().length < 3) {
+      setKeywords([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/search?query=${encodeURIComponent(query)}&media_type=keyword`,
+          { signal: controller.signal },
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        setKeywords(Array.isArray(data?.results) ? data.results.slice(0, 5) : []);
+      } catch {
+        // Aborted, offline, or TMDB unhappy — the local rows stand alone.
+      }
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query, isModalOpen]);
+
   const didYouMean = useMemo(
     () => getDidYouMeanSuggestion(query, recentSearches),
     [query, recentSearches]
@@ -123,14 +168,22 @@ function SearchBar() {
   );
 
   const flatResults = useMemo<FlatResult[]>(
-    () =>
-      suggestions.map((row) => ({
+    () => [
+      ...suggestions.map((row) => ({
         key: row.k,
         label: row.n,
         href: rowHref(row),
-        category: row.t,
+        category: row.t as FlatResult["category"],
       })),
-    [suggestions]
+      // Last, so arrowing down reaches the instant rows first.
+      ...keywords.map((k) => ({
+        key: `keyword:${k.id}`,
+        label: k.name,
+        href: buildBrowseUrl({ keyword: String(k.id) }),
+        category: "keyword" as const,
+      })),
+    ],
+    [suggestions, keywords]
   );
 
   useEffect(() => {
@@ -401,6 +454,42 @@ function SearchBar() {
                       Nothing in your library or the popular list matches that.
                       Press Enter to search everything.
                     </p>
+                  )}
+
+                  {keywords.length > 0 && (
+                    <div className="mb-5">
+                      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
+                        Keywords
+                      </h3>
+                      <div className="flex flex-wrap gap-1.5">
+                        {keywords.map((k) => {
+                          const flatIndex = flatResults.findIndex((f) => f.key === `keyword:${k.id}`);
+                          const isActive = flatIndex === activeIndex;
+                          return (
+                            <button
+                              key={k.id}
+                              type="button"
+                              onClick={() =>
+                                handleSelectResult({
+                                  key: `keyword:${k.id}`,
+                                  label: k.name,
+                                  href: buildBrowseUrl({ keyword: String(k.id) }),
+                                  category: "keyword",
+                                })
+                              }
+                              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+                                isActive
+                                  ? "bg-surface-700/80 text-white ring-1 ring-brand-500/30"
+                                  : "bg-surface-800/60 text-surface-300 hover:bg-surface-700 hover:text-white"
+                              }`}
+                            >
+                              <Hash className="size-3 text-surface-500" />
+                              {k.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   )}
 
                   {GROUPS.map(({ kind, label }) => {

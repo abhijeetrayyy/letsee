@@ -6,7 +6,7 @@ import Image from "next/image";
 import { Star, Clock, Globe, Play, Share2, BookOpen, Film, Users, Tag, ImageIcon, Calendar } from "lucide-react";
 import { releaseInfo } from "@/utils/releaseInfo";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
-import YourTake from "@components/takes/YourTake";
+import TitleTalk from "@components/takes/TitleTalk";
 import CrewBlock, { groupCrew } from "@components/detail/CrewBlock";
 import KeywordChips from "@components/detail/KeywordChips";
 import EntityLinks from "@components/detail/EntityLinks";
@@ -18,7 +18,6 @@ import MediaGallery from "@components/detail/MediaGallery";
 import RatingDistribution from "@components/detail/RatingDistribution";
 import WatchOptionsViewer from "@components/clientComponent/watchOptionView";
 import ShareModal from "@components/social/ShareModal";
-import Comments from "@components/social/Comments";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 
 const LANG: Record<string, string> = {
@@ -225,19 +224,22 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
               <WatchOptionsViewer mediaId={movie.id} mediaType="movie" />
             </Section>
 
-            {/* One place to say what you thought — rating, writing and who
-                can read it, in a single card and a single save. Replaces the
-                separate rating widget, diary box and community list, which
-                between them made people decide *where* an opinion goes before
-                they could have one. */}
-            <YourTake
-              itemId={String(movie.id)}
-              itemType="movie"
-              itemName={movie.title}
-              imageUrl={movie.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : null}
-              genres={(movie.genres ?? []).map((g: { name: string }) => g.name)}
-              isAuthenticated={isAuthenticated}
-            />
+            {/* One composer, one thread.
+                The page used to carry "Your take" here and "Discussion"
+                further down, which made the reader choose which box a thought
+                belonged in before they had finished having it. Now there is
+                one place to type: what you write is yours until you post it,
+                and posting it makes it the first thing you said in the thread. */}
+            <Section title="Talk about it">
+              <TitleTalk
+                itemId={String(movie.id)}
+                itemType="movie"
+                itemName={movie.title}
+                imageUrl={movie.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : null}
+                genres={(movie.genres ?? []).map((g: { name: string }) => g.name)}
+                isAuthenticated={isAuthenticated}
+              />
+            </Section>
 
             {/* Cast */}
             {credits.cast?.length > 0 && (
@@ -255,10 +257,6 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
               </Section>
             )}
 
-            {/* Discussion */}
-            <Section title="Discussion" subtitle="Talk about it with everyone else">
-              <Comments itemId={String(movie.id)} itemType="movie" showHeading={false} />
-            </Section>
           </div>
 
           {/* Sidebar */}
