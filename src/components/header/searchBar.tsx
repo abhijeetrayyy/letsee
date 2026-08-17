@@ -160,14 +160,31 @@ function SearchBar() {
    */
   const [tmdb, setTmdb] = useState<TmdbHit[]>([]);
   const [correctedFrom, setCorrectedFrom] = useState<string | null>(null);
+  /**
+   * True from the keystroke until TMDB answers.
+   *
+   * Without it the empty state lies: the local index misses, and "Nothing
+   * matches" paints instantly — while the request that *does* have the answer
+   * is still in flight. Locally that window is ~300ms and easy to miss; on a
+   * real connection it is long enough to read, and it is the reason searching
+   * "margin" looked like it found nothing when TMDB had *Margin Call* waiting.
+   *
+   * An empty state must mean "we looked and there is nothing", never "we have
+   * not looked yet".
+   */
+  const [awaitingRemote, setAwaitingRemote] = useState(false);
 
   useEffect(() => {
     if (!isModalOpen || query.trim().length < 3) {
       setRemote({});
       setTmdb([]);
       setCorrectedFrom(null);
+      setAwaitingRemote(false);
       return;
     }
+    // Set before the debounce, not inside it — the gap between keystroke and
+    // request is part of the wait.
+    setAwaitingRemote(true);
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       const entries = await Promise.all(
@@ -220,8 +237,12 @@ function SearchBar() {
         }
         setTmdb(hits.filter((h) => h.media_type !== "person").slice(0, 12));
         setCorrectedFrom(from);
-      } catch {
-        // Aborted or offline — the local rows already painted.
+        setAwaitingRemote(false);
+      } catch (e) {
+        // An abort means a newer keystroke owns the request — stay in the
+        // waiting state rather than flashing an empty result for a query the
+        // user has already moved past.
+        if ((e as Error)?.name !== "AbortError") setAwaitingRemote(false);
       }
     }, 220);
     return () => {
@@ -559,12 +580,97 @@ function SearchBar() {
                     </div>
                   )}
 
-                  {index && flatResults.length === 0 && (
+                  {index && flatResults.length === 0 && awaitingRemote && (
+                    <div className="flex items-center gap-2 py-6 text-sm text-surface-500">
+                      <FaCircleNotch className="animate-spin" size={13} />
+                      Searching everything…
+                    </div>
+                  )}
+
+                  {index && flatResults.length === 0 && !awaitingRemote && (
                     <p className="py-6 text-sm text-surface-500">
-                      Nothing in your library or the popular list matches that.
-                      Press Enter to search everything.
+                      Nothing found for &ldquo;{query}&rdquo;.
                     </p>
                   )}
+
+                  {/* Your own library first, always. It is the smallest set and
+                      the likeliest answer: searching "margin" put *The Water
+                      Margin (1998)* above the user's own *Margin Call*, because
+                      TMDB's block rendered first. Yours, then everything else. */}
+                  {GROUPS.map(({ kind, label }) => {
+                    const rows = suggestions.filter((r) => r.t === kind);
+                    if (rows.length === 0) return null;
+                    return (
+                      <div key={kind} className="mb-5 last:mb-0">
+                        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
+                          {label}
+                        </h3>
+                        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                          {rows.map((row) => {
+                            const flatIndex = flatResults.findIndex((f) => f.key === row.k);
+                            const isActive = flatIndex === activeIndex;
+                            return (
+                              <button
+                                key={row.k}
+                                type="button"
+                                onClick={() =>
+                                  handleSelectResult({
+                                    key: row.k,
+                                    label: row.n,
+                                    href: rowHref(row),
+                                    category: row.t,
+                                  })
+                                }
+                                className={`flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
+                                  isActive
+                                    ? "bg-surface-700/80 ring-1 ring-brand-500/30"
+                                    : "bg-surface-800/40 hover:bg-surface-700/60"
+                                }`}
+                              >
+                                {/* The picture is why a picker beats a list:
+                                    you recognise a poster faster than you read
+                                    a title. It loads after the row has already
+                                    painted, so it costs the suggestion nothing.
+                                    A reserved box means the row never reflows
+                                    when the image arrives. */}
+                                <span className="relative flex h-12 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-surface-800">
+                                  {row.p ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={getPosterUrl(row.p, "w92")}
+                                      alt=""
+                                      className="h-full w-full object-cover"
+                                      loading="lazy"
+                                      decoding="async"
+                                    />
+                                  ) : row.t === "person" ? (
+                                    <User className="size-3.5 text-surface-600" />
+                                  ) : row.t === "network" ? (
+                                    <Radio className="size-3.5 text-surface-600" />
+                                  ) : row.t === "tv" ? (
+                                    <Tv className="size-3.5 text-surface-600" />
+                                  ) : (
+                                    <Film className="size-3.5 text-surface-600" />
+                                  )}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate text-sm text-surface-200">
+                                  {highlightLabel(row.n, query)}
+                                </span>
+                                {row.lib && (
+                                  <span className="shrink-0 text-[10px] uppercase tracking-wider text-brand-400">
+                                    Yours
+                                  </span>
+                                )}
+                                {row.y && !row.lib && (
+                                  <span className="shrink-0 text-xs text-surface-500">{row.y}</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
 
                   {tmdbRows.length > 0 && (
                     <div className="mb-5">
@@ -662,81 +768,6 @@ function SearchBar() {
                                   <Layers className="size-3 text-surface-500" />
                                 )}
                                 {r.name}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {GROUPS.map(({ kind, label }) => {
-                    const rows = suggestions.filter((r) => r.t === kind);
-                    if (rows.length === 0) return null;
-                    return (
-                      <div key={kind} className="mb-5 last:mb-0">
-                        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
-                          {label}
-                        </h3>
-                        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                          {rows.map((row) => {
-                            const flatIndex = flatResults.findIndex((f) => f.key === row.k);
-                            const isActive = flatIndex === activeIndex;
-                            return (
-                              <button
-                                key={row.k}
-                                type="button"
-                                onClick={() =>
-                                  handleSelectResult({
-                                    key: row.k,
-                                    label: row.n,
-                                    href: rowHref(row),
-                                    category: row.t,
-                                  })
-                                }
-                                className={`flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
-                                  isActive
-                                    ? "bg-surface-700/80 ring-1 ring-brand-500/30"
-                                    : "bg-surface-800/40 hover:bg-surface-700/60"
-                                }`}
-                              >
-                                {/* The picture is why a picker beats a list:
-                                    you recognise a poster faster than you read
-                                    a title. It loads after the row has already
-                                    painted, so it costs the suggestion nothing.
-                                    A reserved box means the row never reflows
-                                    when the image arrives. */}
-                                <span className="relative flex h-12 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-surface-800">
-                                  {row.p ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={getPosterUrl(row.p, "w92")}
-                                      alt=""
-                                      className="h-full w-full object-cover"
-                                      loading="lazy"
-                                      decoding="async"
-                                    />
-                                  ) : row.t === "person" ? (
-                                    <User className="size-3.5 text-surface-600" />
-                                  ) : row.t === "network" ? (
-                                    <Radio className="size-3.5 text-surface-600" />
-                                  ) : row.t === "tv" ? (
-                                    <Tv className="size-3.5 text-surface-600" />
-                                  ) : (
-                                    <Film className="size-3.5 text-surface-600" />
-                                  )}
-                                </span>
-                                <span className="min-w-0 flex-1 truncate text-sm text-surface-200">
-                                  {highlightLabel(row.n, query)}
-                                </span>
-                                {row.lib && (
-                                  <span className="shrink-0 text-[10px] uppercase tracking-wider text-brand-400">
-                                    Yours
-                                  </span>
-                                )}
-                                {row.y && !row.lib && (
-                                  <span className="shrink-0 text-xs text-surface-500">{row.y}</span>
-                                )}
                               </button>
                             );
                           })}
