@@ -1,10 +1,21 @@
 import Link from "next/link";
-import { Suspense } from "react";
+import { cache } from "react";
 import { Compass } from "lucide-react";
 import { tmdbFetchJson } from "@/utils/tmdb";
-import { activeFacet, parseBrowseParams, type BrowseParams } from "@/utils/browseUrl";
+import {
+  activeFacet,
+  activeFilters,
+  parseBrowseParams,
+  buildBrowseUrl,
+  MAX_BROWSE_PAGE,
+  type BrowseFilterKey,
+  type BrowseParams,
+} from "@/utils/browseUrl";
+import { buildDiscoverQuery } from "@/utils/browseQuery";
+import { genreLabel, languageLabel } from "@/staticData/browseFilters";
 import EmptyState from "@components/ui/EmptyState";
 import BrowseGrid from "./BrowseGrid";
+import BrowseFilterBar from "./BrowseFilterBar";
 
 export const dynamic = "force-dynamic";
 
@@ -29,84 +40,127 @@ type Item = {
 };
 
 /**
- * The name of the thing being browsed.
+ * The name behind an id.
  *
- * Fetched separately from the results because "Films tagged 12345" is a URL,
- * not a heading — the whole point of a directed surface is that it says what
- * you asked for.
+ * Cached on two *strings*, deliberately. `cache()` memoises on argument
+ * identity, so a version taking the params object would miss every time —
+ * `generateMetadata` and the page component each parse the search params into
+ * their own fresh object, and the fetches would double rather than dedupe.
  */
-async function facetLabel(p: BrowseParams): Promise<string | null> {
-  const facet = activeFacet(p);
-  if (!facet || !KEY) return null;
-
-  const url =
-    facet === "keyword" ? `${BASE}/keyword/${p.keyword}?api_key=${KEY}`
-    : facet === "company" ? `${BASE}/company/${p.company}?api_key=${KEY}`
-    : facet === "network" ? `${BASE}/network/${p.network}?api_key=${KEY}`
+const entityName = cache(async (kind: string, id: string): Promise<string | null> => {
+  if (!KEY) return null;
+  const path =
+    kind === "keyword" ? `keyword/${id}`
+    : kind === "company" ? `company/${id}`
+    : kind === "network" ? `network/${id}`
+    : kind === "collection" ? `collection/${id}`
     : null;
+  if (!path) return null;
 
-  if (!url) return null;
   // `revalidate` must be top level — tmdbClient reads it there and ignores a
-  // `next: { revalidate }` object, which is why the genre list pages are
-  // uncached today without anyone noticing.
-  const { data } = await tmdbFetchJson<{ name?: string }>(url, `browse:${facet}`, {
-    revalidate: LABEL_TTL,
-  });
+  // `next: { revalidate }` object, which is why the old genre list pages were
+  // uncached without anyone noticing.
+  const { data } = await tmdbFetchJson<{ name?: string }>(
+    `${BASE}/${path}?api_key=${KEY}`,
+    `browse:${kind}`,
+    { revalidate: LABEL_TTL },
+  );
   return data?.name ?? null;
+});
+
+/** Every chip's display name, entity lookups and static tables together. */
+async function resolveLabels(
+  p: BrowseParams,
+): Promise<Partial<Record<BrowseFilterKey, string>>> {
+  const entities: BrowseFilterKey[] = ["keyword", "company", "network", "collection"];
+  const pairs = await Promise.all(
+    entities
+      .filter((k) => p[k])
+      .map(async (k) => [k, await entityName(k, String(p[k]))] as const),
+  );
+
+  const labels: Partial<Record<BrowseFilterKey, string>> = {};
+  for (const [k, name] of pairs) if (name) labels[k] = name;
+  const g = genreLabel(p.genre, p.type);
+  if (g) labels.genre = g;
+  const l = languageLabel(p.lang);
+  if (l) labels.lang = l;
+  if (p.decade) labels.decade = `${p.decade}s`;
+  return labels;
 }
 
 async function loadResults(
   p: BrowseParams,
-): Promise<{ items: Item[]; totalPages: number; total: number; label: string | null }> {
-  if (!KEY) return { items: [], totalPages: 0, total: 0, label: null };
+): Promise<{ items: Item[]; totalPages: number; total: number }> {
+  if (!KEY) return { items: [], totalPages: 0, total: 0 };
 
   // A collection is not a discover query — TMDB has no `with_collection`
   // parameter. It is a different source feeding the same grid, which is what
   // keeps this one page type rather than two.
   if (p.collection) {
-    const { data } = await tmdbFetchJson<{ name?: string; parts?: Item[] }>(
+    const { data } = await tmdbFetchJson<{ parts?: Item[] }>(
       `${BASE}/collection/${p.collection}?api_key=${KEY}&language=en-US`,
       "browse:collection",
       { revalidate: RESULTS_TTL },
     );
-    const parts = [...(data?.parts ?? [])].sort((a, b) => {
+    let parts = [...(data?.parts ?? [])];
+
+    // The other filters still have to mean something here, so they are applied
+    // in memory. A collection is a handful of films, never a paged result, so
+    // this is a filter over nine items rather than a second query.
+    if (p.genre) parts = parts.filter((i) => (i as { genre_ids?: number[] }).genre_ids?.includes(Number(p.genre)));
+    if (p.lang) parts = parts.filter((i) => (i as { original_language?: string }).original_language === p.lang);
+    if (p.decade) {
+      const start = Number(p.decade);
+      parts = parts.filter((i) => {
+        const y = Number((i.release_date ?? "").slice(0, 4));
+        return y >= start && y <= start + 9;
+      });
+    }
+
+    parts.sort((a, b) => {
       // Unsorted from TMDB, and a collection read out of order is confusing in
       // a way a discover list never is.
       const da = a.release_date || "9999";
       const db = b.release_date || "9999";
       return da.localeCompare(db);
     });
-    return { items: parts, totalPages: 1, total: parts.length, label: data?.name ?? null };
+    return { items: parts, totalPages: 1, total: parts.length };
   }
 
-  const q = new URLSearchParams({
-    api_key: KEY,
-    language: "en-US",
-    include_adult: "false", // TMDB's default varies by endpoint; be explicit.
-    sort_by: "popularity.desc",
-    page: String(p.page),
-  });
-  if (p.keyword) q.set("with_keywords", p.keyword);
-  if (p.company) q.set("with_companies", p.company);
-  if (p.network) q.set("with_networks", p.network);
-
-  const [label, res] = await Promise.all([
-    facetLabel(p),
-    tmdbFetchJson<{ results?: Item[]; total_pages?: number; total_results?: number }>(
-      `${BASE}/discover/${p.type}?${q.toString()}`,
-      "browse:discover",
-      { revalidate: RESULTS_TTL },
-    ),
-  ]);
+  const { data } = await tmdbFetchJson<{
+    results?: Item[];
+    total_pages?: number;
+    total_results?: number;
+  }>(
+    `${BASE}/discover/${p.type}?${buildDiscoverQuery(p, KEY).toString()}`,
+    "browse:discover",
+    { revalidate: RESULTS_TTL },
+  );
 
   // tmdbFetchJson never throws — it returns { data: null, error } — so an
   // unchecked destructure renders a blank page instead of an error state.
   return {
-    items: res.data?.results ?? [],
-    totalPages: Math.min(res.data?.total_pages ?? 0, 500),
-    total: res.data?.total_results ?? 0,
-    label,
+    items: data?.results ?? [],
+    totalPages: Math.min(data?.total_pages ?? 0, MAX_BROWSE_PAGE),
+    total: data?.total_results ?? 0,
   };
+}
+
+/**
+ * What this page is, in words.
+ *
+ * "Marathi documentaries" is the sentence the whole engine exists to be able to
+ * say, so the heading composes rather than naming a single facet.
+ */
+function headline(p: BrowseParams, labels: Partial<Record<BrowseFilterKey, string>>): string {
+  const facet = activeFacet(p);
+  if (facet && labels[facet]) return labels[facet]!;
+
+  const noun = p.type === "tv" ? "TV shows" : "films";
+  const parts = [labels.lang, labels.genre?.toLowerCase(), noun].filter(Boolean);
+  const phrase = parts.join(" ");
+  return labels.decade ? `${phrase} from the ${labels.decade}` : phrase;
 }
 
 export async function generateMetadata({
@@ -115,9 +169,9 @@ export async function generateMetadata({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const p = parseBrowseParams(await searchParams);
-  const label = await facetLabel(p);
-  const what = p.type === "tv" ? "TV shows" : "Films";
-  return { title: label ? `${what}: ${label} · LetSee` : "Browse · LetSee" };
+  const labels = await resolveLabels(p);
+  const what = headline(p, labels);
+  return { title: what === "films" || what === "TV shows" ? "Browse · LetSee" : `${what} · LetSee` };
 }
 
 export default async function BrowsePage({
@@ -128,31 +182,30 @@ export default async function BrowsePage({
   const params = parseBrowseParams(await searchParams);
   const facet = activeFacet(params);
 
-  if (!facet) {
-    return (
-      <Shell>
-        <EmptyState
-          icon={<Compass className="size-8 text-surface-600" />}
-          title="Nothing to browse yet"
-          description="Open a film or show and follow a keyword, studio or collection to get here."
-          actionLabel="Search instead"
-          actionHref="/app/search"
-        />
-      </Shell>
-    );
-  }
+  const [labels, { items, totalPages, total }] = await Promise.all([
+    resolveLabels(params),
+    loadResults(params),
+  ]);
 
-  const { items, totalPages, total, label } = await loadResults(params);
+  const chips = activeFilters(params, labels);
   const noun = params.type === "tv" ? "shows" : "films";
   const kind =
-    facet === "keyword" ? "Tagged" : facet === "collection" ? "Collection" : facet === "network" ? "Network" : "Studio";
+    facet === "keyword" ? "Tagged"
+    : facet === "collection" ? "Collection"
+    : facet === "network" ? "Network"
+    : facet === "company" ? "Studio"
+    : "Browse";
+
+  // The canonical query string, so the grid's scroll memory is keyed on what
+  // is actually shown rather than on however the URL happened to be written.
+  const searchKey = buildBrowseUrl(params);
 
   return (
     <Shell>
       <header className="mb-6">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-400">{kind}</p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-          {label ?? "Browse"}
+        <h1 className="mt-1 text-2xl font-bold capitalize tracking-tight text-white sm:text-3xl">
+          {headline(params, labels)}
         </h1>
         {total > 0 && (
           <p className="mt-1 text-sm text-surface-400">
@@ -161,27 +214,32 @@ export default async function BrowsePage({
         )}
       </header>
 
+      <div className="mb-8 border-b border-surface-800/60 pb-6">
+        <BrowseFilterBar params={params} chips={chips} />
+      </div>
+
       {items.length === 0 ? (
         <EmptyState
           icon={<Compass className="size-8 text-surface-600" />}
-          title={`No ${noun} here`}
+          title={`No ${noun} match`}
           description={
-            facet === "company"
-              ? "TMDB doesn't roll subsidiaries up into their parent company, so a studio can genuinely have very few titles listed."
-              : "Nothing came back for this one."
+            chips.length > 1
+              ? "That combination is narrower than TMDB's catalogue. Remove a filter to widen it."
+              : facet === "company"
+                ? "TMDB doesn't roll subsidiaries up into their parent company, so a studio can genuinely have very few titles listed."
+                : "Nothing came back for this one."
           }
           actionLabel="Search instead"
           actionHref="/app/search"
         />
       ) : (
-        <Suspense fallback={null}>
-          <BrowseGrid
-            items={items}
-            mediaType={params.type}
-            page={params.page}
-            totalPages={facet === "collection" ? 1 : totalPages}
-          />
-        </Suspense>
+        <BrowseGrid
+          items={items}
+          mediaType={params.type}
+          page={params.page}
+          totalPages={facet === "collection" ? 1 : totalPages}
+          searchKey={searchKey}
+        />
       )}
     </Shell>
   );

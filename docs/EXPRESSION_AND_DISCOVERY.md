@@ -1,6 +1,6 @@
 # One Place to Say It, One Path to Find It
 
-> **Status:** D1 and D2 built. D3 is partly started — D2 shipped a minimal `/app/browse` because every entity link needs a destination. D4–D5 not started.
+> **Status:** D1, D2 and D3 built. D4–D5 not started. One D3 acceptance criterion is deliberately left open — crew links still go to the person page rather than the browse engine; see the end of D3.
 > **⚠️ Migration `065` is not yet applied.** Until it runs, `/api/takes` degrades to an empty take rather than failing, so the pages render but nothing saves.
 > **Written:** 2026-08-17, against `main` @ `c40ddf0`.
 > **Companion to** `SURPASSING_LETTERBOXD.md`, which covers W1–W7 (all shipped).
@@ -246,10 +246,55 @@ So: **one page, one filter model, many entry points.** A director link, a studio
 The filter bar should show active filters as removable chips, and the URL must carry the full state so a result is shareable and the back button behaves.
 
 **Acceptance**
-- [ ] "Marathi documentaries" is reachable in at most two interactions from a browse entry point.
-- [ ] Every entity link from D2 lands on this engine, not a bespoke page.
-- [ ] Adding or removing a filter never loses the others, and the URL always reflects what is shown.
-- [ ] Back from a result returns to the same filter state and scroll position.
+- [x] "Marathi documentaries" is reachable in at most two interactions from a browse entry point.
+- [~] Every entity link from D2 lands on this engine, not a bespoke page. — **Everything except people.** See below.
+- [x] Adding or removing a filter never loses the others, and the URL always reflects what is shown.
+- [x] Back from a result returns to the same filter state and scroll position.
+
+### What shipped
+
+`browseUrl.ts` grew from a four-facet id carrier into the full contract: `genre`, `lang`, `decade` and `sort` alongside the D2 facets, plus `withBrowseFilters` (the single mutation idiom) and `activeFilters` (the chips, each knowing the URL that removes it). A new server-only `browseQuery.ts` turns params into a discover query. `BrowseFilterBar.tsx` is the whole interaction surface and holds no state of its own.
+
+| File | What it is |
+|---|---|
+| `src/utils/browseUrl.ts` | The contract. Pure, no deps — three client components import it. |
+| `src/utils/browseQuery.ts` | Params → TMDB discover. Server-only; owns the movie/TV parameter split. |
+| `src/staticData/browseFilters.ts` | Genre, language, decade and sort option lists, checked in. |
+| `src/app/app/browse/BrowseFilterBar.tsx` | Toggle, four selects, removable chips, Clear all. |
+| `src/app/app/browse/BrowseGrid.tsx` | Grid + per-filter-set scroll memory. |
+
+**Deleted**, because two genre browsers contradicts the whole argument: `app/moviebygenre/`, `app/tvbygenre/`, `components/scroll/movieGenre.tsx`, `tvGenre.tsx`, and the `genreSearchmovie` / `genreSearchtv` / `moviegenreList` API routes. Four permanent redirects in `next.config.mjs` keep the old URLs working, including the `/list/16-Animation` name-suffix form.
+
+### Evidence
+
+Per §11, no box above is ticked on inspection alone.
+
+- **Two interactions**: from bare `/app/browse`, Language→Marathi gives `?lang=mr`; Genre→Documentary gives `?genre=99&lang=mr`, heading "Marathi Documentary Films", **41 films** — matching a direct TMDB call made independently.
+- **Composition narrows, monotonically**: Netflix 2,833 shows → +Drama 1,163 → +Korean 93 → +2020s 76. Films 1,170,024 → +Documentary 226,617 → +Marathi 41 → +2010s 6.
+- **Removal preserves siblings**: on `?genre=99&lang=mr`, the Documentary chip's href is `?lang=mr` and the Marathi chip's is `?genre=99`. Structural, via `withBrowseFilters`, not per-call-site discipline.
+- **Back and scroll**: on `?genre=18&decade=1990`, scrolled to y=2400, opened *The Green Mile*, pressed Back → same URL, **y=2400**. (Chrome, via the in-app browser.)
+- **Type switch**: Action+1990s → TV gives Action & Adventure+1990s, chip relabelled, decade kept; back to Movies returns Action.
+- **Redirects**: all five old-form URLs return 308 to the right filter.
+- **Contract**: 43 assertions in a scratchpad script — idempotence, D2 links unchanged, hostile input, genre validity, sibling preservation, the movie/TV parameter split.
+
+### Three things worth knowing
+
+**Genre is a scalar, not a list.** The plan called for comma-joined ids with OR semantics. A single `<select>` — the convention at all 14 select sites in this app — can only ever *replace*, so the list apparatus would have been unreachable except by hand-editing the URL. Dropped it. Multi-genre needs a real multi-select first.
+
+**Genre validity is enforced in the parser, not in the write helper.** `with_genres=27` (Horror, films only) on `/discover/tv` returns zero results and no error — it reads as "no such show" rather than "not a TV genre". Most URLs arrive from somewhere other than the filter bar (a shared link, a redirect, a hand edit), so checking only on write would have left every one of those paths exposed.
+
+**`/discover/tv` ignores `primary_release_date` rather than rejecting it.** Measured: `first_air_date.gte=2020-01-01` returns 5,645; `primary_release_date.gte=2020-01-01` returns 229,186 — the whole catalogue. A decade filter written the movie way would have looked like it worked and filtered nothing. `browseQuery.ts` exists mostly to keep that in one place.
+
+### The one criterion not met: people
+
+Crew and director links still go to `/app/person/[id]`, which is a bespoke page. That page already exists, is richer than a filtered grid (biography, images, combined credits), and this section's own table answers *"this director's work"* with `/person/{id}/combined_credits` rather than with a discover call — so the criterion and the table disagree, and the table is the better answer.
+
+Two honest options, neither taken here: add `with_cast`/`with_crew` as browse facets so a director composes with genre and decade, or amend the criterion to exempt people. **Left open deliberately** rather than ticked, because a criterion quietly reinterpreted to fit what was built is exactly the failure §11 exists to prevent.
+
+### Also fixed in passing
+
+- `NaturalSearch`'s "Refine" button pointed at `/app/discover`, a route that has never existed — it 404'd. It now builds a browse URL, and carries the media type and language it already knew about and used to discard.
+- `<html>` had `scroll-behavior: smooth` with no `data-scroll-behavior`, which Next warns about at runtime: CSS was animating Next's own route-transition scrolls, so every navigation glided down the old document instead of arriving at the top.
 
 ---
 

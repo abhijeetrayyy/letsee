@@ -142,7 +142,7 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
               {/* Genres */}
               <div className="flex flex-wrap gap-1.5 mt-4">
                 {genres.map((g: any) => (
-                  <Link key={g.id} href={`/app/moviebygenre/list/${g.id}`} className="px-2.5 py-1 rounded-lg bg-surface-800/60 text-xs text-surface-300 hover:text-white hover:bg-surface-700 transition-colors">
+                  <Link key={g.id} href={buildBrowseUrl({ genre: String(g.id) })} className="px-2.5 py-1 rounded-lg bg-surface-800/60 text-xs text-surface-300 hover:text-white hover:bg-surface-700 transition-colors">
                     {g.name}
                   </Link>
                 ))}

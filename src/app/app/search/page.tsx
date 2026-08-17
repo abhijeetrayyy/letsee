@@ -1,5 +1,7 @@
 "use client";
 
+import { buildBrowseUrl } from "@/utils/browseUrl";
+
 import Link from "next/link";
 import {
   reRankAll,
@@ -448,7 +450,7 @@ export default function SearchLandingPage() {
             {BROWSE_GENRES.map((g) => (
               <Link
                 key={g.id}
-                href={`/app/moviebygenre/list/${g.id}`}
+                href={buildBrowseUrl({ genre: String(g.id) })}
                 className="px-3 py-2 rounded-lg bg-surface-800/70 text-sm text-surface-300 border border-surface-700/50 hover:text-white hover:bg-surface-700 transition-colors"
               >
                 {g.name}

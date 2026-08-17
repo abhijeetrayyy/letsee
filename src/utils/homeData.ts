@@ -9,8 +9,8 @@ const HOUR = { revalidate: 3600 } as const;
  * weekly top, anime series, anime films, Bollywood, and five genre
  * collections — to fill nine carousels nobody was deciding anything from.
  *
- * Those carousels are gone. Browsing by genre lives at /app/moviebygenre and
- * /app/tvbygenre, reached through GenreExplorer, which is the same content one
+ * Those carousels are gone. Browsing lives at /app/browse — one filterable engine — reached through
+ * GenreExplorer and the header menus, which is the same content one
  * click further away and without the cost on every home render.
  *
  * What's left is the two trending calls the hero and the single trending row

@@ -1,5 +1,7 @@
 "use client";
 
+import { buildBrowseUrl } from "@/utils/browseUrl";
+
 import { useState, useRef, useEffect, useCallback } from "react";
 import MediaCard from "@components/cards/MediaCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -304,13 +306,18 @@ export default function NaturalSearch() {
               {result.parsed.genres.length > 0 && (
                 <button
                   onClick={() => {
-                    const params = new URLSearchParams();
-                    if (result.parsed.genres.length > 0) params.set("genres", result.parsed.genres.join(","));
-                    if (result.parsed.yearRange) {
-                      const match = query.match(/\d{4}/);
-                      if (match) params.set("year", match[0]);
-                    }
-                    window.location.href = `/app/discover?${params.toString()}`;
+                    // Was pointing at /app/discover, which has never existed —
+                    // so "Refine" 404'd. Browse is the real destination, and it
+                    // can carry the media type and language this already knew
+                    // about and the old link threw away.
+                    const year = result.parsed.yearRange ? query.match(/\d{4}/)?.[0] : undefined;
+                    window.location.href = buildBrowseUrl({
+                      type: result.parsed.mediaType === "tv" ? "tv" : "movie",
+                      genre: result.parsed.genres.length > 0 ? String(result.parsed.genres[0]) : undefined,
+                      lang: result.parsed.language ?? undefined,
+                      // Browse filters by decade, so a single year floors to one.
+                      decade: year ? String(Math.floor(Number(year) / 10) * 10) : undefined,
+                    });
                   }}
                   className="flex items-center gap-1 px-2.5 py-1 text-xs text-surface-400 hover:text-surface-200 bg-surface-800 hover:bg-surface-700 rounded-lg transition-colors"
                 >

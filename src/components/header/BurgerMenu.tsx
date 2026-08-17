@@ -182,11 +182,11 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
           <button type="button" onClick={() => go("/app/lists")} className={menuItemClass}>
             <FiList className="size-5 shrink-0 text-sky-400" /> Lists
           </button>
-          <button type="button" onClick={() => go("/app/moviebygenre/list/16-Animation")} className={menuItemClass}>
-            <FaFilm className="size-5 shrink-0 text-blue-400" /> Movie genres
+          <button type="button" onClick={() => go("/app/browse")} className={menuItemClass}>
+            <FaFilm className="size-5 shrink-0 text-blue-400" /> Browse films
           </button>
-          <button type="button" onClick={() => go("/app/tvbygenre/list/35-Comedy")} className={menuItemClass}>
-            <FaTv className="size-5 shrink-0 text-purple-400" /> TV genres
+          <button type="button" onClick={() => go("/app/browse?type=tv")} className={menuItemClass}>
+            <FaTv className="size-5 shrink-0 text-purple-400" /> Browse shows
           </button>
 
           {/* Yours — only meaningful once there's an account behind them. */}

@@ -67,8 +67,14 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // `data-scroll-behavior` is Next's own opt-out, and it warns at runtime
+  // without it. globals.css sets `scroll-behavior: smooth` on <html>, which CSS
+  // applies to *every* scroll — including the ones Next performs during a route
+  // transition, so navigating between pages animates a long glide down the old
+  // document instead of arriving at the top. This confines smooth scrolling to
+  // in-page anchors, where it was meant to apply.
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" data-scroll-behavior="smooth">
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-surface-950 text-surface-200 min-h-screen`}
       >

@@ -115,22 +115,22 @@ const DropdownMenu = ({ user }: { user: AuthUser }) => {
 
             {/* Genres */}
             <Link
-              href="/app/moviebygenre/list/16-Animation"
+              href="/app/browse"
               onClick={() => setIsOpen(false)}
               className={menuItem}
               role="menuitem"
             >
               <FaFilm className={`${iconClass} text-blue-400`} />
-              Movie genres
+              Browse films
             </Link>
             <Link
-              href="/app/tvbygenre/list/35-Comedy"
+              href="/app/browse?type=tv"
               onClick={() => setIsOpen(false)}
               className={menuItem}
               role="menuitem"
             >
               <FaTv className={`${iconClass} text-purple-400`} />
-              TV genres
+              Browse shows
             </Link>
             <Link
               href="/app/profile"

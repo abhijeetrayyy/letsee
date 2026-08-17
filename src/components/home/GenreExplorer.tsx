@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Film, Tv } from "lucide-react";
+import { buildBrowseUrl } from "@/utils/browseUrl";
 
 interface Genre {
   id: number;
@@ -38,7 +39,7 @@ export default function GenreExplorer({
           {topMovie.map((g) => (
             <Link
               key={g.id}
-              href={`/app/moviebygenre/list/${g.id}`}
+              href={buildBrowseUrl({ genre: String(g.id) })}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-900/60 border border-surface-800/50 hover:border-brand-500/30 hover:bg-surface-800/80 transition-all text-xs font-medium text-surface-300 hover:text-white"
             >
               <span>{GENRE_ICONS[g.name] ?? "🎬"}</span>
@@ -57,7 +58,7 @@ export default function GenreExplorer({
           {topTv.map((g) => (
             <Link
               key={g.id}
-              href={`/app/tvbygenre/list/${g.id}`}
+              href={buildBrowseUrl({ type: "tv", genre: String(g.id) })}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-900/60 border border-surface-800/50 hover:border-brand-500/30 hover:bg-surface-800/80 transition-all text-xs font-medium text-surface-300 hover:text-white"
             >
               <span>{GENRE_ICONS[g.name] ?? "📺"}</span>
