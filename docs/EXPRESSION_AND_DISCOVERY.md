@@ -1,7 +1,7 @@
 # One Place to Say It, One Path to Find It
 
 > **Status:** D1–D5 built. One D3 acceptance criterion is deliberately left open — crew links still go to the person page rather than the browse engine; see the end of D3.
-> **⚠️ Two migrations are written but not applied: `065` and `066`.** Until `065` runs, `/api/takes` degrades to an empty take rather than failing, so D1's pages render but nothing saves. Until `066` runs, D5's related section ranks on keywords, director and collection only — the community signal is inert. Both were written in sessions without database access; neither has ever been executed.
+> **✅ All migrations through `066` are applied and verified (2026-08-17).** `065` turned out to have been applied all along — the warning that previously stood here was wrong, and D1 has been saving correctly throughout. `066` was applied and executes cleanly, but returns nothing on this database: it has 3 users, and the busiest title has 2 watchers against a k-anonymity floor of 5. D5's community term is therefore still inert, for a data reason rather than a missing-function one.
 > **Written:** 2026-08-17, against `main` @ `c40ddf0`.
 > **Companion to** `SURPASSING_LETTERBOXD.md`, which covers W1–W7 (all shipped).
 
@@ -389,7 +389,7 @@ Proposed ranking, best signal first: shared keywords → same director → same 
 **Acceptance**
 - [x] Every related title carries a one-line reason, in the evidence style used by `tasteMatch.ts` and Tonight.
 - [x] The section degrades to TMDB's list when the community has no signal yet, without an empty state.
-- [~] **The community signal itself is written but not applied.** Migration `066` has never run. See below — this is the honest state of D5's headline claim.
+- [~] **The community signal is live but silent.** Migration `066` is applied and verified; it returns zero rows because this community is 3 people. See below.
 
 ### What shipped
 
@@ -443,7 +443,11 @@ The term is not decoration: given a co-watch-dominant fixture it fires and ranks
 2. `co_watchers >= 2`, so a row is a count rather than a disclosure.
 3. **`seed_watchers >= 5`** — which (2) alone does not give you. The same page renders `title_audience`, naming up to five people who watched this title. With two seed watchers both named there, "2 co-watchers" on another title publishes that those two named people watched it. The two features leak in combination while each looks safe alone.
 
-**Do not tick the community box on the strength of that SQL.** It has never run and its query plan has never been measured.
+**Applied and verified 2026-08-17**, via `supabase db query --linked` (Management API, no database password involved). The function exists with the right signature, is `SECURITY DEFINER` and `STABLE`, and grants EXECUTE to `authenticated` and `anon`. It executes without error — which also retires the review's concern that the `ORDER BY` aliases would fail at `CREATE FUNCTION` time; they resolve.
+
+**It returns zero rows, and that is gate 3 working rather than a bug.** Measured on this database: 3 users, 505 affinity rows, and the busiest title (*Interstellar*) has **2** watchers against a required floor of **5**. So the ranking still renormalises the community term away on every page today.
+
+That is the honest state of D5's headline: the mechanism is built, applied and gated correctly, and it will stay silent until the community is larger than five people who have seen the same film. Nothing about the code changes when that happens — the term simply starts arriving.
 
 ---
 
