@@ -182,72 +182,87 @@ function SearchBar() {
       setAwaitingRemote(false);
       return;
     }
-    // Set before the debounce, not inside it — the gap between keystroke and
-    // request is part of the wait.
-    setAwaitingRemote(true);
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      const entries = await Promise.all(
-        REMOTE_GROUPS.map(async ({ key }) => {
-          try {
-            const res = await fetch(
-              `/api/search?query=${encodeURIComponent(query)}&media_type=${key}`,
-              { signal: controller.signal },
-            );
-            if (!res.ok) return [key, [] as Named[]] as const;
-            const data = await res.json();
-            return [key, Array.isArray(data?.results) ? data.results.slice(0, 6) : []] as const;
-          } catch {
-            // Aborted, offline, or TMDB unhappy — the local rows stand alone.
-            return [key, [] as Named[]] as const;
-          }
-        }),
-      );
-      setRemote(Object.fromEntries(entries));
-    }, 300);
 
-    // Titles and people, from TMDB itself.
-    const titleTimer = setTimeout(async () => {
-      const ask = async (q: string) => {
-        const res = await fetch(`/api/search?query=${encodeURIComponent(q)}`, { signal: controller.signal });
-        if (!res.ok) return [] as TmdbHit[];
+    /**
+     * `stale` is the whole reason this search was unreliable.
+     *
+     * Every keystroke re-runs this effect and aborts the previous request —
+     * but an aborted `fetch` still *settles*, and the old code caught the
+     * AbortError, turned it into an empty result, and called `setRemote` /
+     * `setTmdb` unconditionally. So a request the user had already typed past
+     * could land **after** the newer one had painted, and blank it.
+     *
+     * Which result you saw therefore depended on which promise happened to
+     * settle last — results appearing, vanishing, and reappearing when you
+     * retyped the same thing. Aborting a request is not enough; the response
+     * has to be ignored as well.
+     */
+    let stale = false;
+    const controller = new AbortController();
+    setAwaitingRemote(true);
+
+    const run = async () => {
+      const ask = async (q: string, mediaType?: string) => {
+        const url = mediaType
+          ? `/api/search?query=${encodeURIComponent(q)}&media_type=${mediaType}`
+          : `/api/search?query=${encodeURIComponent(q)}`;
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) return [];
         const data = await res.json();
-        return (Array.isArray(data?.results) ? data.results : []) as TmdbHit[];
+        return Array.isArray(data?.results) ? data.results : [];
       };
+
       try {
-        let hits = await ask(query);
+        // One pass, one abort signal — titles and the three facet groups
+        // together, rather than two timers racing each other.
+        const [titles, ...facets] = await Promise.all([
+          ask(query),
+          ...REMOTE_GROUPS.map(({ key }) => ask(query, key)),
+        ]);
+        if (stale) return;
+
+        let hits = titles as TmdbHit[];
         let from: string | null = null;
 
         /**
-         * TMDB cannot spell-check — a single dropped letter returns zero, not
-         * a worse answer. The local index can. So when TMDB comes back empty
-         * and the local fuzzy match found something, ask again using that
-         * title's real spelling. Only ever fires on an empty response, so a
-         * query that already worked is never "corrected" into something else.
+         * TMDB cannot spell-check — a dropped letter returns zero, not a worse
+         * answer. The local index can. So on an empty response, ask again with
+         * the spelling the local index believes was meant. Only ever on empty,
+         * so a query that already worked is never "corrected" into something
+         * else.
          */
         if (hits.length === 0) {
           const guess = queryIndex(index, query, 1)[0];
           if (guess && normalizeQuery(guess.n) !== normalizeQuery(query)) {
-            const retry = await ask(guess.n);
+            const retry = (await ask(guess.n)) as TmdbHit[];
+            if (stale) return;
             if (retry.length > 0) {
               hits = retry;
               from = guess.n;
             }
           }
         }
+
         setTmdb(hits.filter((h) => h.media_type !== "person").slice(0, 12));
         setCorrectedFrom(from);
+        setRemote(
+          Object.fromEntries(
+            REMOTE_GROUPS.map(({ key }, i) => [key, (facets[i] as Named[]).slice(0, 6)]),
+          ),
+        );
         setAwaitingRemote(false);
       } catch (e) {
-        // An abort means a newer keystroke owns the request — stay in the
-        // waiting state rather than flashing an empty result for a query the
-        // user has already moved past.
-        if ((e as Error)?.name !== "AbortError") setAwaitingRemote(false);
+        // An abort means a newer keystroke owns the screen — leave its state
+        // alone rather than reporting anything about a query already typed past.
+        if (stale || (e as Error)?.name === "AbortError") return;
+        setAwaitingRemote(false);
       }
-    }, 220);
+    };
+
+    const timer = setTimeout(run, 220);
     return () => {
+      stale = true;
       clearTimeout(timer);
-      clearTimeout(titleTimer);
       controller.abort();
     };
   }, [query, isModalOpen, index]);
