@@ -8,6 +8,7 @@ import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import TitleTalk from "@components/takes/TitleTalk";
 import CrewBlock, { groupCrew, keyCrew } from "@components/detail/CrewBlock";
+import { MetaChip, DetailBlock, Section, TitleHero } from "@components/detail/TitleChrome";
 import KeywordChips from "@components/detail/KeywordChips";
 import EntityLinks from "@components/detail/EntityLinks";
 import { buildBrowseUrl } from "@/utils/browseUrl";
@@ -123,45 +124,7 @@ export default function TvDetailClient({ show, credits, cast = [], trailer, vide
         onClose={() => setShareModalOpen(false)}
       />
 
-      {/* Hero.
-          `overflow-hidden` is load-bearing. The backdrop below is absolutely
-          positioned inside this wrapper with its own fixed height, so whenever
-          that height exceeded the hero's it escaped downward and painted its
-          image and gradient over whatever followed — dimming "Where to Watch"
-          and the sidebar card beneath it. Clipping here means the two heights
-          no longer have to be kept in sync by hand. */}
-      <div className="relative overflow-hidden">
-        {backdropUrl && (
-          <div className="absolute inset-0 h-[780px] overflow-hidden">
-            {/* opacity-60, not opacity-20. At 20% this was texture, not a
-                banner — you could tell there was an image without being able
-                to see what it was of. Legibility is the gradients' job below,
-                so the image itself no longer has to be dimmed into
-                uselessness to keep the title readable. */}
-            <img src={backdropUrl} alt="" className="w-full h-full object-cover opacity-60" />
-            {/* Two gradients doing separate jobs. Vertical fades the image
-                into the page so the section below starts on solid ground;
-                horizontal darkens only the left, which is where the poster,
-                title and overview sit. The right side of the frame stays
-                bright, so the banner is actually visible. */}
-            <div className="absolute inset-0 bg-gradient-to-b from-surface-950/20 via-surface-950/55 to-surface-950" />
-            <div className="absolute inset-0 bg-gradient-to-r from-surface-950 via-surface-950/70 to-surface-950/10" />
-          </div>
-        )}
-
-        <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20 sm:pt-52 sm:pb-28">
-          <Link href="/app" className="inline-flex items-center gap-1.5 text-sm text-surface-500 hover:text-surface-300 mb-8 transition-colors">
-            ← Back
-          </Link>
-
-          <div className="flex flex-col md:flex-row gap-8 md:gap-12">
-            {/* Poster */}
-            <div className="shrink-0 w-52 sm:w-60 lg:w-64 mx-auto md:mx-0">
-              <img src={posterUrl} alt={show.name} className="w-full rounded-2xl shadow-2xl" />
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
+      <TitleHero backdropUrl={backdropUrl} posterUrl={posterUrl} title={show.name}>
               <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">{show.name}</h1>
               {show.tagline && (
                 <p className="mt-2 text-lg text-surface-400 italic">&ldquo;{show.tagline}&rdquo;</p>
@@ -290,12 +253,8 @@ export default function TvDetailClient({ show, credits, cast = [], trailer, vide
                 {spokenLanguage && <DetailBlock label="Language" value={spokenLanguage} />}
                 {originalName && <DetailBlock label="Original title" value={originalName} />}
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      </TitleHero>
 
-      {/* Content */}
       {/* Content below hero.
           `space-y-10` matters here: the Gallery section is a sibling of the
           two-column grid, not a child of it, and the wrapper carried no
@@ -424,34 +383,5 @@ export default function TvDetailClient({ show, credits, cast = [], trailer, vide
   );
 }
 
-function MetaChip({ icon, label }: { icon?: React.ReactNode; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-800/60 text-xs text-surface-400">
-      {icon}{label}
-    </span>
-  );
-}
 
-function DetailBlock({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-[10px] text-surface-500 uppercase tracking-wider">{label}</p>
-      <p className="text-sm text-surface-300 mt-0.5">{value}</p>
-    </div>
-  );
-}
 
-function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="flex items-baseline gap-2 mb-4">
-        <div className="w-1 h-5 rounded-full bg-brand-500" />
-        <div>
-          <h2 className="text-lg font-bold text-white">{title}</h2>
-          {subtitle && <p className="text-xs text-surface-500">{subtitle}</p>}
-        </div>
-      </div>
-      {children}
-    </div>
-  );
-}
