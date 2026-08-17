@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   const { itemId, itemType, body: commentBody, parentId } = body;
   if (!itemId || !itemType || !commentBody?.trim()) return jsonError("itemId, itemType, and body required", 400);
   if (commentBody.length > 2000) return jsonError("Comment too long (max 2000 chars)", 400);
-  if (!["movie","tv","review","episode","club_pick"].includes(itemType)) return jsonError("Invalid itemType", 400);
+  if (!["movie","tv","review","episode","club","club_pick"].includes(itemType)) return jsonError("Invalid itemType", 400);
 
   const { data, error } = await supabase.from("comments").insert({
     user_id: userId, item_id: itemId, item_type: itemType, body: commentBody.trim(), parent_id: parentId || null,

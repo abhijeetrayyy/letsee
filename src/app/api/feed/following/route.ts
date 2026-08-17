@@ -6,60 +6,106 @@ export const dynamic = "force-dynamic";
 
 const SUPPLEMENT_THRESHOLD = 3;
 
-type ActivityType =
-  | "watched"
-  | "rated"
-  | "reviewed"
-  | "list_created"
-  | "favored"
-  | "started_watching";
+/**
+ * GET /api/feed/following — what people are saying, and what they've been watching.
+ *
+ * **This used to read one table and show only verbs.** Every row was a state
+ * change — "ray · Watched · Plus Minus" — rendered as a coloured badge above a
+ * poster. Nobody had said anything, so there was nothing to reply to, agree
+ * with, or feel part of. You cannot join a room where no one is talking; you
+ * can only watch a log scroll past.
+ *
+ * Measured on this database at the time of the change: **601 logged state
+ * changes against 2 pieces of writing.** The feed was faithfully reflecting
+ * that ratio. So the fix is not styling — it is reading the table where the
+ * writing actually lives (`takes`, from migration 065, which this route had
+ * never touched) and letting a sentence be the row.
+ *
+ * Two kinds of row now:
+ *   - `take`  — somebody wrote something. A card. The text is the headline.
+ *   - `watch` — somebody watched things. One quiet line per person, bundled.
+ *
+ * Verbs are not deleted, they are *subordinated*: collapsed to one line per
+ * author and typographically demoted, so a person's evening of logging can
+ * never bury a person's sentence.
+ *
+ * Works signed-out: an anonymous visitor has no follows, so they fall through
+ * to the supplement and see public community activity.
+ */
 
-type ActivityItem = {
-  id: number;
-  user_id: string;
-  username: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  activity_type: ActivityType;
-  item_id: string | null;
-  item_type: string | null;
-  item_name: string | null;
-  image_url: string | null;
-  score: number | null;
-  review_text: string | null;
-  list_name: string | null;
-  created_at: string;
-  source_type: "review" | "rating" | "list" | null;
-  source_id: number | null;
+type Author = { id: string; username: string; avatarUrl: string | null };
+
+type Title = {
+  itemId: string;
+  itemType: string;
+  name: string | null;
+  imageUrl: string | null;
+};
+
+type FeedRow = {
+  /** Stable across pages; `kind:sourceId`. */
+  key: string;
+  kind: "take" | "watch";
+  author: Author;
+  createdAt: string;
+  /** Present on `take` rows — the reason the row exists. */
+  body?: string;
+  score?: number | null;
+  /** One for a take; up to four for a bundled watch line. */
+  titles: Title[];
+  /** Titles omitted from a bundle, so the line can say "and 3 more". */
+  overflow?: number;
 };
 
 type ActivityRow = {
   id: number;
   user_id: string;
-  activity_type: ActivityType;
+  activity_type: string;
   item_id: string | null;
   item_type: string | null;
   item_name: string | null;
   image_url: string | null;
   score: number | null;
   review_text: string | null;
-  list_name: string | null;
-  list_id: number | null;
   created_at: string;
 };
 
+type TakeRow = {
+  user_id: string;
+  item_id: string;
+  item_type: string;
+  body: string | null;
+  score: number | null;
+  created_at: string;
+};
+
+/** Watch lines from one author inside this window merge into one row. */
+const BUNDLE_MS = 6 * 60 * 60 * 1000;
+/** Titles named in a bundled watch line before it says "and N more". */
+const BUNDLE_TITLES = 4;
+/** No one author may own the page. */
+const MAX_ROWS_PER_AUTHOR = 3;
+
 /**
- * GET /api/feed/following — activity from people you follow.
+ * The cursor carries a timestamp plus the last `user_activity` id seen.
  *
- * Reads a single indexed table (user_activity, which has a
- * (user_id, created_at) index) rather than merging four live queries in
- * memory. The previous implementation applied its cursor only to the
- * watched_items query, so page 2+ re-returned the same ratings/lists rows and
- * older ones were unreachable.
+ * A bare `created_at` cursor with a strict `<` silently drops rows sharing a
+ * timestamp with the last row of a page, and migration 045 backfilled many
+ * rows at identical timestamps, so this was not hypothetical.
  *
- * Works signed-out: an anonymous visitor has no follows, so they fall through
- * to the popular-users supplement and see public community activity.
+ * `takes` gets the timestamp alone: migration 065 gave it a composite primary
+ * key (user_id, item_id, item_type, scope, …) and **no surrogate id**, so
+ * there is no single column to break ties on. Acceptable because one person
+ * cannot publish two takes on one title, which makes same-timestamp collisions
+ * within a page vanishingly unlikely rather than routine.
  */
+function parseCursor(raw: string | null) {
+  if (!raw) return null;
+  const [ts, a] = raw.split("|");
+  if (!ts) return null;
+  return { ts, activityId: Number(a) || 0 };
+}
+
 export async function GET(request: Request) {
   const supabase = await createClient();
   const {
@@ -67,27 +113,20 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
 
   const { searchParams } = new URL(request.url);
-  const cursor = searchParams.get("cursor");
+  const cursor = parseCursor(searchParams.get("cursor"));
   const limit = Math.min(50, Math.max(1, Number(searchParams.get("limit")) || 20));
 
   const { data: following } = user
-    ? await supabase
-        .from("user_connections")
-        .select("followed_id")
-        .eq("follower_id", user.id)
+    ? await supabase.from("user_connections").select("followed_id").eq("follower_id", user.id)
     : { data: null };
 
   const followedIds = following?.map((f) => f.followed_id) ?? [];
 
   // Follow almost nobody? Supplement so the feed is never empty.
   //
-  // This used to pick the highest watched_count and exclude the viewer, which
-  // meant someone who follows no one saw only other people's oldest-ranked
-  // accounts and never their own activity — a feed frozen months in the past
-  // while they were logging titles daily. Two changes: rank by who has been
-  // active recently rather than who has the biggest library, and include the
-  // viewer, because before you follow anyone your own history is the only
-  // thing that makes the page feel alive.
+  // Rank by who has been active recently rather than who has the biggest
+  // library, and include the viewer — before you follow anyone, your own
+  // history is the only thing that makes the page feel alive.
   //
   // RLS on user_activity is profile_visible_to_viewer(user_id), so widening
   // the pool cannot expose a private profile's activity.
@@ -114,133 +153,265 @@ export async function GET(request: Request) {
   }
 
   const blockedIds = await getBlockedUserIds(supabase, user?.id ?? null);
-  if (blockedIds.size > 0) {
-    targetUserIds = targetUserIds.filter((id) => !blockedIds.has(id));
-  }
+  if (blockedIds.size > 0) targetUserIds = targetUserIds.filter((id) => !blockedIds.has(id));
 
-  const emptyResponse = {
-    items: [],
+  const empty = {
+    items: [] as FeedRow[],
     nextCursor: null,
     hasMore: false,
     followedCount: followedIds.length,
     isSupplemented,
+    isSignedIn: Boolean(user),
   };
 
   if (targetUserIds.length === 0) {
-    return NextResponse.json(emptyResponse, {
-      headers: { "Cache-Control": "private, no-store" },
-    });
+    return NextResponse.json(empty, { headers: { "Cache-Control": "private, no-store" } });
   }
 
-  // Fetch one extra row to determine hasMore without a second count query.
-  let query = supabase
+  // Over-fetch both sources: collapsing means N raw rows yield fewer than N
+  // displayed rows, so a `limit`-sized read would under-fill the page.
+  const window = limit * 4;
+
+  let activityQuery = supabase
     .from("user_activity")
-    .select(
-      "id, user_id, activity_type, item_id, item_type, item_name, image_url, score, review_text, list_name, list_id, created_at",
-    )
+    .select("id, user_id, activity_type, item_id, item_type, item_name, image_url, score, review_text, created_at")
     .in("user_id", targetUserIds)
+    // `favored` is dropped: the CHECK constraint has allowed it since migration
+    // 025 and no code has ever written one.
+    .in("activity_type", ["watched", "started_watching", "rated", "reviewed"])
     .order("created_at", { ascending: false })
-    .limit(limit + 1);
+    .order("id", { ascending: false })
+    .limit(window);
 
-  if (cursor) query = query.lt("created_at", cursor);
+  let takesQuery = supabase
+    .from("takes")
+    .select("user_id, item_id, item_type, body, score, created_at")
+    .in("user_id", targetUserIds)
+    // Only what its author chose to publish. RLS enforces this too; naming it
+    // here means a policy change can never silently widen the feed.
+    .eq("is_public", true)
+    .eq("scope", "title")
+    .not("body", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(window);
 
-  const { data: rows, error } = await query;
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (cursor) {
+    activityQuery = activityQuery.or(
+      `created_at.lt.${cursor.ts},and(created_at.eq.${cursor.ts},id.lt.${cursor.activityId})`,
+    );
+    takesQuery = takesQuery.lt("created_at", cursor.ts);
   }
 
-  const activityRows = (rows ?? []) as ActivityRow[];
-  const hasMore = activityRows.length > limit;
-  const page = activityRows.slice(0, limit);
-
-  if (page.length === 0) {
-    return NextResponse.json(emptyResponse, {
-      headers: { "Cache-Control": "private, no-store" },
-    });
-  }
-
-  // Author profiles
-  const authorIds = [...new Set(page.map((r) => r.user_id))];
-  const { data: authors } = await supabase
-    .from("users")
-    .select("id, username, avatar_url, about")
-    .in("id", authorIds);
-  const authorById = new Map((authors ?? []).map((a) => [a.id, a]));
-
-  // Resolve the reaction targets. user_activity stores list_id but not the
-  // review/rating row id, so look those up for just this page's items.
-  const reviewKeys = page.filter((r) => r.activity_type === "reviewed" && r.item_id);
-  const ratingKeys = page.filter((r) => r.activity_type === "rated" && r.item_id);
-
-  const [reviewRows, ratingRows] = await Promise.all([
-    reviewKeys.length
-      ? supabase
-          .from("watched_items")
-          .select("id, user_id, item_id")
-          .in("user_id", [...new Set(reviewKeys.map((r) => r.user_id))])
-          .in("item_id", [...new Set(reviewKeys.map((r) => r.item_id as string))])
-      : Promise.resolve({ data: [] as { id: number; user_id: string; item_id: string }[] }),
-    ratingKeys.length
-      ? supabase
-          .from("user_ratings")
-          .select("id, user_id, item_id")
-          .in("user_id", [...new Set(ratingKeys.map((r) => r.user_id))])
-          .in("item_id", [...new Set(ratingKeys.map((r) => r.item_id as string))])
-      : Promise.resolve({ data: [] as { id: number; user_id: string; item_id: string }[] }),
+  const [{ data: activityData, error }, { data: takesData, error: takesError }] = await Promise.all([
+    activityQuery,
+    takesQuery,
   ]);
 
-  const reviewIdByKey = new Map(
-    (reviewRows.data ?? []).map((r) => [`${r.user_id}:${r.item_id}`, r.id]),
-  );
-  const ratingIdByKey = new Map(
-    (ratingRows.data ?? []).map((r) => [`${r.user_id}:${r.item_id}`, r.id]),
+  // Both errors are surfaced. Checking only the first is how an earlier version
+  // of this route selected a column `takes` does not have, got back nothing,
+  // and rendered a feed with no voices in it while reporting success.
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (takesError) return NextResponse.json({ error: takesError.message }, { status: 500 });
+
+  const activity = (activityData ?? []) as ActivityRow[];
+  const takes = (takesData ?? []) as TakeRow[];
+
+  if (activity.length === 0 && takes.length === 0) {
+    return NextResponse.json(empty, { headers: { "Cache-Control": "private, no-store" } });
+  }
+
+  const authorIds = [...new Set([...activity.map((r) => r.user_id), ...takes.map((r) => r.user_id)])];
+  const { data: authorRows } = await supabase
+    .from("users")
+    .select("id, username, avatar_url")
+    .in("id", authorIds);
+  const authorById = new Map(
+    (authorRows ?? []).map((a) => [
+      a.id as string,
+      { id: a.id as string, username: (a.username as string) ?? "user", avatarUrl: a.avatar_url as string | null },
+    ]),
   );
 
-  const items: ActivityItem[] = page.map((row) => {
-    const author = authorById.get(row.user_id);
-    const key = `${row.user_id}:${row.item_id}`;
+  // `takes` stores no title or poster — it is keyed on a TMDB id and nothing
+  // else — so the card's context strip is hydrated from the status table the
+  // same user already wrote when they logged the title.
+  const takeKeys = takes.map((t) => `${t.user_id}:${t.item_id}`);
+  const { data: statusRows } = takeKeys.length
+    ? await supabase
+        .from("user_media_status")
+        .select("user_id, item_id, item_name, image_url")
+        .in("user_id", [...new Set(takes.map((t) => t.user_id))])
+        .in("item_id", [...new Set(takes.map((t) => t.item_id))])
+    : { data: [] };
+  const titleByKey = new Map(
+    (statusRows ?? []).map((r) => [
+      `${r.user_id}:${r.item_id}`,
+      { name: r.item_name as string | null, imageUrl: r.image_url as string | null },
+    ]),
+  );
 
-    let source_type: ActivityItem["source_type"] = null;
-    let source_id: number | null = null;
-    if (row.activity_type === "reviewed") {
-      source_type = "review";
-      source_id = reviewIdByKey.get(key) ?? null;
-    } else if (row.activity_type === "rated") {
-      source_type = "rating";
-      source_id = ratingIdByKey.get(key) ?? null;
-    } else if (row.activity_type === "list_created") {
-      source_type = "list";
-      source_id = row.list_id;
+  // ── Build rows ────────────────────────────────────────────────────────────
+  const rows: FeedRow[] = [];
+  /** `author:type:id` for every subject a take already speaks for. */
+  const spokenFor = new Set<string>();
+
+  for (const t of takes) {
+    const author = authorById.get(t.user_id);
+    const body = (t.body ?? "").trim();
+    if (!author || !body) continue;
+    const meta = titleByKey.get(`${t.user_id}:${t.item_id}`);
+    spokenFor.add(`${t.user_id}:${t.item_type}:${t.item_id}`);
+    rows.push({
+      key: `take:${t.user_id}:${t.item_type}:${t.item_id}`,
+      kind: "take",
+      author,
+      createdAt: t.created_at,
+      body,
+      score: t.score,
+      titles: [
+        {
+          itemId: t.item_id,
+          itemType: t.item_type,
+          name: meta?.name ?? null,
+          imageUrl: meta?.imageUrl ?? null,
+        },
+      ],
+    });
+  }
+
+  // A written review already in user_activity is a voice too — it predates
+  // `takes` and there is no reason to render it as a verb.
+  for (const a of activity) {
+    const author = authorById.get(a.user_id);
+    const text = (a.review_text ?? "").trim();
+    if (!author || !text || !a.item_id || !a.item_type) continue;
+    const subject = `${a.user_id}:${a.item_type}:${a.item_id}`;
+    if (spokenFor.has(subject)) continue; // the take supersedes it
+    spokenFor.add(subject);
+    rows.push({
+      key: `activity:${a.id}`,
+      kind: "take",
+      author,
+      createdAt: a.created_at,
+      body: text,
+      score: a.score,
+      titles: [{ itemId: a.item_id, itemType: a.item_type, name: a.item_name, imageUrl: a.image_url }],
+    });
+  }
+
+  // ── Watch lines, bundled ──────────────────────────────────────────────────
+  //
+  // The duplicate the owner saw ("Dhindora" twice, as Watched and as Started
+  // Watching) has a precise cause: migration 051 deletes only the `watched`
+  // row before inserting, while 040 inserts `started_watching` and nothing
+  // ever removes it. Two triggers on two tables, neither aware of the other.
+  // Collapsing per author per title fixes it at the point of display for every
+  // row already in the table, including the ones those triggers wrote.
+  const perAuthor = new Map<string, ActivityRow[]>();
+  for (const a of activity) {
+    if (!a.item_id || !a.item_type) continue;
+    if ((a.review_text ?? "").trim()) continue; // already emitted as a voice
+    if (spokenFor.has(`${a.user_id}:${a.item_type}:${a.item_id}`)) continue;
+    const list = perAuthor.get(a.user_id) ?? [];
+    list.push(a);
+    perAuthor.set(a.user_id, list);
+  }
+
+  for (const [userId, list] of perAuthor) {
+    const author = authorById.get(userId);
+    if (!author) continue;
+
+    // One entry per title, newest wins — this is what collapses
+    // watched + started_watching into a single mention.
+    const byTitle = new Map<string, ActivityRow>();
+    for (const a of list) {
+      const k = `${a.item_type}:${a.item_id}`;
+      const prev = byTitle.get(k);
+      if (!prev || a.created_at > prev.created_at) byTitle.set(k, a);
     }
 
-    return {
-      id: row.id,
-      user_id: row.user_id,
-      username: author?.username ?? "user",
-      display_name: author?.about ?? null,
-      avatar_url: author?.avatar_url ?? null,
-      activity_type: row.activity_type,
-      item_id: row.item_id,
-      item_type: row.item_type,
-      item_name: row.item_name,
-      image_url: row.image_url,
-      score: row.score,
-      review_text: row.review_text,
-      list_name: row.list_name,
-      created_at: row.created_at,
-      source_type: source_id != null ? source_type : null,
-      source_id,
+    const ordered = [...byTitle.values()].sort((x, y) => y.created_at.localeCompare(x.created_at));
+    let bundle: ActivityRow[] = [];
+    const flush = () => {
+      if (bundle.length === 0) return;
+      const titles = bundle.slice(0, BUNDLE_TITLES).map((a) => ({
+        itemId: a.item_id!,
+        itemType: a.item_type!,
+        name: a.item_name,
+        imageUrl: a.image_url,
+      }));
+      rows.push({
+        key: `watch:${userId}:${bundle[0].id}`,
+        kind: "watch",
+        author,
+        createdAt: bundle[0].created_at,
+        titles,
+        overflow: Math.max(0, bundle.length - BUNDLE_TITLES),
+      });
+      bundle = [];
     };
+
+    for (const a of ordered) {
+      if (
+        bundle.length > 0 &&
+        new Date(bundle[bundle.length - 1].created_at).getTime() - new Date(a.created_at).getTime() >
+          BUNDLE_MS
+      ) {
+        flush();
+      }
+      bundle.push(a);
+    }
+    flush();
+  }
+
+  // ── Order, cap, slice ─────────────────────────────────────────────────────
+  // Voices first, then chronology within each kind.
+  //
+  // Strict reverse-chronological ordering sounds neutral and is not. Measured
+  // on this database: 601 logged state changes against 2 pieces of writing.
+  // At that ratio, sorting by time alone buries every sentence anyone writes
+  // under a wall of logging, permanently — the one person who said something
+  // lands at the bottom of the page behind two lines of "ray watched…".
+  //
+  // A watch line is context, not news; it does not go stale the way a remark
+  // does, and nothing is lost by letting it sit below. This is the same
+  // hierarchy the row components already express typographically — a take is a
+  // card, a watch is a quiet line — applied to order as well as to weight.
+  const kindRank = (k: FeedRow["kind"]) => (k === "take" ? 0 : 1);
+  rows.sort(
+    (a, b) =>
+      kindRank(a.kind) - kindRank(b.kind) ||
+      b.createdAt.localeCompare(a.createdAt) ||
+      a.key.localeCompare(b.key),
+  );
+
+  // With three users on the platform, one person's evening would otherwise be
+  // the entire page.
+  const perAuthorCount = new Map<string, number>();
+  const capped = rows.filter((r) => {
+    const n = perAuthorCount.get(r.author.id) ?? 0;
+    if (n >= MAX_ROWS_PER_AUTHOR) return false;
+    perAuthorCount.set(r.author.id, n + 1);
+    return true;
   });
+
+  const page = capped.slice(0, limit);
+  const hasMore = capped.length > limit || activity.length >= window || takes.length >= window;
+
+  // The cursor must advance past everything consumed, not just what was
+  // rendered — collapsed rows are still consumed.
+  const last = page[page.length - 1];
+  const consumedUpTo = last?.createdAt ?? null;
+  const lastActivityId = activity.filter((a) => !consumedUpTo || a.created_at >= consumedUpTo).at(-1)?.id ?? 0;
 
   return NextResponse.json(
     {
-      items,
-      nextCursor: page[page.length - 1]?.created_at ?? null,
+      items: page,
+      nextCursor: consumedUpTo ? `${consumedUpTo}|${lastActivityId}` : null,
       hasMore,
       followedCount: followedIds.length,
       isSupplemented,
+      isSignedIn: Boolean(user),
     },
     { headers: { "Cache-Control": "private, no-store" } },
   );

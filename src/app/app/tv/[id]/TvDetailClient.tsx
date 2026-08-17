@@ -303,8 +303,12 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
             </Section>
 
             {/* Your Activity */}
-            <Section title="Your Activity" subtitle="Rate and review">
-              <div className="space-y-4">
+            {/* No Section wrapper: YourTake owns its own card, exactly as on
+                the film page. Wrapping it added a second competing heading
+                ("Your Activity — Rate and review") above the card's own "Your
+                take", so this page asked the reader to choose between two
+                labels for one box. */}
+            <div className="space-y-4">
                 <YourTake
                   itemId={String(show.id)}
                   itemType="tv"
@@ -313,8 +317,7 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
                   genres={(show.genres ?? []).map((g: { name: string }) => g.name)}
                   isAuthenticated={isAuthenticated}
                 />
-              </div>
-            </Section>
+            </div>
 
             {/* Cast */}
             {credits.cast?.length > 0 && (
@@ -333,8 +336,8 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
             )}
 
             {/* Discussion */}
-            <Section title="Discussion">
-              <Comments itemId={String(show.id)} itemType="tv" />
+            <Section title="Discussion" subtitle="Talk about it with everyone else">
+              <Comments itemId={String(show.id)} itemType="tv" showHeading={false} />
             </Section>
           </div>
 

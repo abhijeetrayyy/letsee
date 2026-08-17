@@ -11,7 +11,7 @@ import FollowingFeed from "@components/feed/FollowingFeed";
 import AiringSoon from "@components/home/AiringSoon";
 import PeopleYouMayKnow from "@components/home/PeopleYouMayKnow";
 import PopularReviews from "@components/home/PopularReviews";
-import { Film, TrendingUp, Compass, Flame, Play } from "lucide-react";
+import { Film, TrendingUp, Compass, MessageCircle, Play } from "lucide-react";
 
 /**
  * Home is five sections, and that is the point.
@@ -146,8 +146,8 @@ export default async function Home() {
               <section>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <Flame className="size-4 text-amber-400" />
-                    <h2 className="text-lg font-bold text-white">Activity Feed</h2>
+                    <MessageCircle className="size-4 text-brand-400" />
+                    <h2 className="text-lg font-bold text-white">What people are saying</h2>
                   </div>
                 </div>
                 <FollowingFeed />

@@ -11,7 +11,13 @@ import Avatar from "@components/ui/Avatar";
 
 interface Comment { id: number; user_id: string; body: string; created_at: string; parent_id: number|null; users: { username: string|null; avatar_url: string|null }; reaction_count: number; viewer_liked: boolean; }
 
-export default function Comments({ itemId, itemType }: { itemId: string; itemType: string }) {
+/**
+ * `showHeading` exists because this is mounted two ways. On a club page it
+ * stands alone and needs to name itself; on a detail page its `Section`
+ * wrapper already says "Discussion", and rendering both printed the word
+ * twice, one line apart.
+ */
+export default function Comments({ itemId, itemType, showHeading = true }: { itemId: string; itemType: string; showHeading?: boolean }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [body, setBody] = useState("");
@@ -60,10 +66,12 @@ export default function Comments({ itemId, itemType }: { itemId: string; itemTyp
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-3">
-        <MessageCircle className="size-4 text-brand-400" /><h3 className="text-sm font-semibold text-white">Discussion</h3>
-        <span className="text-xs text-surface-500">{comments.length}</span>
-      </div>
+      {showHeading && (
+        <div className="flex items-center gap-2 mb-3">
+          <MessageCircle className="size-4 text-brand-400" /><h3 className="text-sm font-semibold text-white">Discussion</h3>
+          <span className="text-xs text-surface-500">{comments.length}</span>
+        </div>
+      )}
 
       {isAuthenticated && (
         <form onSubmit={submit} className="flex gap-2 mb-4">

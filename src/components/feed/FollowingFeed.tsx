@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useSWRInfinite from "swr/infinite";
-import ActivityCard from "./ActivityCard";
+import FeedRow, { type FeedRowData } from "./FeedRow";
 import { Users, RefreshCw, AlertCircle } from "lucide-react";
 import { SwrFetchError } from "@/utils/swrFetcher";
 
@@ -26,11 +26,12 @@ type ActivityItem = {
 };
 
 type FeedResponse = {
-  items: ActivityItem[];
+  items: FeedRowData[];
   nextCursor: string | null;
   hasMore: boolean;
   followedCount: number;
   isSupplemented: boolean;
+  isSignedIn: boolean;
 };
 
 async function feedFetcher(url: string): Promise<FeedResponse> {
@@ -71,9 +72,10 @@ export default function FollowingFeed() {
     });
 
   const items = data ? data.flatMap((p) => p.items) : [];
-  const hasMore = data ? data[data.length - 1].hasMore : true;
+  const hasMore = data ? (data[data.length - 1]?.hasMore ?? false) : true;
   const followedCount = data?.[0]?.followedCount ?? 0;
   const isSupplemented = data?.[0]?.isSupplemented ?? false;
+  const isSignedIn = data?.[0]?.isSignedIn ?? false;
   const loading = isLoading;
   const loadingMore = isValidating && size > 1;
   const hasStaleData = items.length > 0;
@@ -130,7 +132,9 @@ export default function FollowingFeed() {
           ) : (
             // Before you follow anyone the feed is your own history plus
             // whoever has been active lately, so don't call it the community's.
-            <span>Your activity, and others watching now</span>
+            // And a signed-out visitor has no history at all — telling them
+            // they are looking at "your activity" is simply false.
+            <span>{isSignedIn ? "Your activity, and people active lately" : "From across LetSee"}</span>
           )}
           {isSupplemented && followedCount > 0 && followedCount < 3 && (
             <span className="text-surface-600">
@@ -165,8 +169,8 @@ export default function FollowingFeed() {
       {items.length > 0 ? (
         <>
           <div className="space-y-3">
-            {shown.map((item) => (
-              <ActivityCard key={`${item.activity_type}-${item.id}`} item={item} />
+            {shown.map((row) => (
+              <FeedRow key={row.key} row={row} />
             ))}
           </div>
 

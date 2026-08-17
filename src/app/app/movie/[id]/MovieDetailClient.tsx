@@ -256,8 +256,8 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
             )}
 
             {/* Discussion */}
-            <Section title="Discussion">
-              <Comments itemId={String(movie.id)} itemType="movie" />
+            <Section title="Discussion" subtitle="Talk about it with everyone else">
+              <Comments itemId={String(movie.id)} itemType="movie" showHeading={false} />
             </Section>
           </div>
 
