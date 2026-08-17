@@ -15,6 +15,7 @@ import { buildBrowseUrl } from "@/utils/browseUrl";
 import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
 import TitleAudience from "@components/detail/TitleAudience";
 import CastRow from "@components/detail/CastRow";
+import ProgressRibbon from "@components/detail/ProgressRibbon";
 import MediaGallery from "@components/detail/MediaGallery";
 import VideoShelf from "@components/detail/VideoShelf";
 import RatingDistribution from "@components/detail/RatingDistribution";
@@ -266,6 +267,18 @@ export default function TvDetailClient({ show, credits, cast = [], trailer, vide
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main column */}
           <div className="lg:col-span-2 space-y-10">
+            {/* First in the column, ahead of the synopsis.
+                This is the one thing this app knows that a database does not:
+                where YOU are in it. On a journal that outranks a plot summary
+                anyone can read anywhere. */}
+            <Section title="Your progress">
+              <ProgressRibbon
+                showId={show.id}
+                seasons={seasons}
+                isAuthenticated={isAuthenticated}
+              />
+            </Section>
+
             {/* Seasons & Episodes */}
             <Section title="Episodes" subtitle={`${seasons.length} season${seasons.length !== 1 ? "s" : ""}`}>
               {/* Season tabs */}
