@@ -191,9 +191,43 @@ export function queryIndex(
       if (matches.length > Math.max(limit * 12, 240)) break;
     }
   } else {
-    matches = index.fuse
-      .search(q, { limit: Math.max(limit * 4, 120) })
-      .map((r) => ({ row: r.item, score: r.score ?? 1 }));
+    /**
+     * Prefix and substring matches first; fuzzy only when they fail.
+     *
+     * Fuzzy is a rescue for a query that has already missed, not a similarity
+     * ranker. Running it unconditionally is what put *Wednesday*, *Dude* and
+     * *Due Date* under "dune", and *Jumanji* under "man" — the same threshold
+     * that rescues "intersteller" will happily bridge four characters when it
+     * has nothing better to do.
+     */
+    const literal: { row: IndexRow; score: number }[] = [];
+    for (const row of index.rows) {
+      const at = row.s.startsWith(q) ? 0 : row.s.includes(` ${q}`) ? 1 : row.s.includes(q) ? 2 : -1;
+      if (at >= 0) literal.push({ row, score: at / 10 });
+    }
+
+    if (literal.length >= 3) {
+      matches = literal;
+    } else {
+      const fuzzy = index.fuse
+        .search(q, { limit: Math.max(limit * 4, 120) })
+        // A typo is a near-miss of similar length. "dune" and "wednesday"
+        // differ by five characters — no amount of edit distance makes that a
+        // correction, so reject on length before trusting the score.
+        //
+        // Measured against the closest *token*, not the whole title: the match
+        // for "shawshenk" is the word "shawshank" inside "The Shawshank
+        // Redemption", where the whole-string delta is 15 and the token delta
+        // is 0. Comparing against the full title threw the correction away.
+        .filter((r) => {
+          const budget = Math.max(2, Math.round(q.length * 0.34));
+          const parts = [r.item.s, ...r.item.s.split(" ")];
+          return parts.some((part) => Math.abs(part.length - q.length) <= budget);
+        })
+        .map((r) => ({ row: r.item, score: 1 + (r.score ?? 1) }));
+      const seen = new Set(literal.map((m) => m.row.k));
+      matches = [...literal, ...fuzzy.filter((m) => !seen.has(m.row.k))];
+    }
   }
 
   /**
