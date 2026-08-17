@@ -6,7 +6,7 @@ import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
 import { Film, Tv, User, Star, Calendar } from "lucide-react";
-import { releaseInfo, compactCount } from "@/utils/releaseInfo";
+import { releaseInfo } from "@/utils/releaseInfo";
 
 const TMDB_POSTER = "https://image.tmdb.org/t/p/w342";
 const TMDB_PROFILE = "https://image.tmdb.org/t/p/h632";
@@ -92,7 +92,20 @@ export default function MediaCard({
   // Callers that already computed a year keep theirs; the rest get it here.
   const yearLabel = year ?? release.year;
   const altTitle = originalTitle && originalTitle !== title ? originalTitle : null;
-  const hasHoverDetail = !isPerson && Boolean(overview || release.full || altTitle);
+  /**
+   * Only real extra detail earns the overlay.
+   *
+   * `release.full` used to count, which meant any card carrying a date got a
+   * black gradient washed over the bottom of its artwork on hover — to reveal
+   * a rating and a date that are both printed under the poster anyway. On a
+   * filmography grid that is every card: the poster you are looking at gets
+   * darkened to show you nothing you did not have.
+   *
+   * The overview and the original title are genuinely only available here, so
+   * those still earn it — and where they appear the gradient is doing real
+   * work, keeping small text legible over arbitrary artwork.
+   */
+  const hasHoverDetail = !isPerson && Boolean(overview || altTitle);
   // knownFor was accepted and then silently dropped; it belongs in the same
   // slot as a crew job — both answer "what is this person to this entry".
   const roleLabel = role ?? knownFor ?? null;
@@ -149,22 +162,6 @@ export default function MediaCard({
             phone needs is in the always-visible row under the poster. */}
         {hasHoverDetail && (
           <div className="pointer-events-none absolute inset-0 hidden sm:flex flex-col justify-end gap-1 p-2.5 bg-gradient-to-t from-black via-black/85 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <div className="flex flex-wrap items-center gap-x-1.5 text-[10px] font-medium">
-              {rating != null && rating > 0 && (
-                <span className="inline-flex items-center gap-0.5 text-accent-gold">
-                  <Star className="size-2.5 fill-current" aria-hidden />
-                  {rating.toFixed(1)}
-                  {voteCount != null && voteCount > 0 && (
-                    <span className="text-surface-400 font-normal">({compactCount(voteCount)})</span>
-                  )}
-                </span>
-              )}
-              {release.short && (
-                <span className={release.isUpcoming ? "text-brand-400" : "text-surface-400"}>
-                  {release.short}
-                </span>
-              )}
-            </div>
             {altTitle && <p className="text-[10px] text-surface-400 line-clamp-1">{altTitle}</p>}
             {overview && (
               <p className="text-[10px] leading-snug text-surface-300 line-clamp-4">{overview}</p>
@@ -203,6 +200,8 @@ export default function MediaCard({
           ) : (
             yearLabel && <span className="text-[10px] text-surface-500">{yearLabel}</span>
           )}
+          {/* No rating here — the gold badge on the poster's top-right corner
+              already carries it, always, on every device. */}
           {subtitle && (
             <span className="text-[10px] text-surface-500 line-clamp-1">{subtitle}</span>
           )}
