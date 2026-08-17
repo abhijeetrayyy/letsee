@@ -100,6 +100,7 @@ export default async function MoviePage({ params }: PageProps) {
         directors={directors}
         credits={credits}
         trailer={trailer}
+        videos={videos}
         certification={certification}
         countryNames={countryNames}
         backdrops={backdrops}

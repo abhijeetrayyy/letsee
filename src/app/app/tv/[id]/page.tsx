@@ -91,6 +91,7 @@ export default async function TvPage({ params }: PageProps) {
         show={show}
         credits={credits}
         trailer={trailer}
+        videos={videos}
         certification={certification}
         backdrops={backdrops}
         posters={posters}

@@ -15,6 +15,7 @@ import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
 import TitleAudience from "@components/detail/TitleAudience";
 import CastRow from "@components/detail/CastRow";
 import MediaGallery from "@components/detail/MediaGallery";
+import VideoShelf from "@components/detail/VideoShelf";
 import RatingDistribution from "@components/detail/RatingDistribution";
 import WatchOptionsViewer from "@components/clientComponent/watchOptionView";
 import EpisodeListWithWatched from "@components/tv/EpisodeListWithWatched";
@@ -29,7 +30,7 @@ const LANG: Record<string, string> = {
   ja: "Japanese", ko: "Korean", hi: "Hindi", zh: "Chinese", it: "Italian",
 };
 
-export default function TvDetailClient({ show, credits, trailer, certification, backdrops, posters, keywords, externalIds, seasons, createdBy, watchProviders, watchLink }: any) {
+export default function TvDetailClient({ show, credits, trailer, videos = [], certification, backdrops, posters, keywords, externalIds, seasons, createdBy, watchProviders, watchLink }: any) {
   const { getStatus, isAuthenticated } = useMediaInteraction();
   const isWatched = getStatus(String(show.id), "tv") === "watched";
   const [showTrailer, setShowTrailer] = useState(false);
@@ -118,13 +119,13 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
       {/* Hero */}
       <div className="relative">
         {backdropUrl && (
-          <div className="absolute inset-0 h-[680px] overflow-hidden">
+          <div className="absolute inset-0 h-[820px] overflow-hidden">
             <img src={backdropUrl} alt="" className="w-full h-full object-cover opacity-20" />
             <div className="absolute inset-0 bg-gradient-to-b from-surface-950/10 via-surface-950/80 to-surface-950" />
           </div>
         )}
 
-        <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-16 sm:pt-20 sm:pb-20">
+        <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
           <Link href="/app" className="inline-flex items-center gap-1.5 text-sm text-surface-500 hover:text-surface-300 mb-8 transition-colors">
             ← Back
           </Link>
@@ -380,8 +381,13 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
 
         {/* Gallery */}
         {(backdrops.length > 0 || posters.length > 0) && (
-          <Section title="Gallery" subtitle="Tap any image to view full size">
-            <MediaGallery backdrops={backdrops} posters={posters} title={show.name} />
+          <Section title="Media" subtitle="Trailers, clips and stills">
+            <div className="space-y-8">
+              {/* Videos first: a trailer answers "what is this" faster than a
+                  still does, and TMDB sends dozens the page used to discard. */}
+              <VideoShelf videos={videos} />
+              <MediaGallery backdrops={backdrops} posters={posters} title={show.name} />
+            </div>
           </Section>
         )}
       </div>
