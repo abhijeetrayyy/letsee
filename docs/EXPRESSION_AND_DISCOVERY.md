@@ -1,6 +1,6 @@
 # One Place to Say It, One Path to Find It
 
-> **Status:** D1 built — see the note in §D1. D2–D5 not started.
+> **Status:** D1 and D2 built. D3 is partly started — D2 shipped a minimal `/app/browse` because every entity link needs a destination. D4–D5 not started.
 > **⚠️ Migration `065` is not yet applied.** Until it runs, `/api/takes` degrades to an empty take rather than failing, so the pages render but nothing saves.
 > **Written:** 2026-08-17, against `main` @ `c40ddf0`.
 > **Companion to** `SURPASSING_LETTERBOXD.md`, which covers W1–W7 (all shipped).
@@ -189,8 +189,30 @@ One card, `<YourTake>`, on every title, season and episode page. Stars, one text
 Add a proper crew block: director, writers, producers, cinematographer, composer — grouped by department, not a flat list of ninety names.
 
 **Acceptance**
-- [ ] Every name and keyword shown on a detail page is a link that leads somewhere real.
-- [ ] No additional TMDB calls are added to the detail page. If a call is needed, it belongs in D3's engine, not here.
+- [x] Every name and keyword shown on a detail page is a link that leads somewhere real. — verified by following them; see below.
+- [x] No additional TMDB calls are added to the detail page. — both `page.tsx` files are untouched; everything rendered was already in the existing `append_to_response`.
+
+### What shipped (2026-08-17)
+
+| Piece | File |
+|---|---|
+| URL contract D3 extends | `src/utils/browseUrl.ts` |
+| Minimal destination | `src/app/app/browse/page.tsx`, `BrowseGrid.tsx` |
+| Crew, grouped and deduped | `src/components/detail/CrewBlock.tsx` |
+| Keyword chips | `src/components/detail/KeywordChips.tsx` |
+| Linked name lists | `src/components/detail/EntityLinks.tsx` |
+
+**A minimal `/app/browse` landed here rather than waiting for D3**, because D3's own acceptance says *"every entity link from D2 lands on this engine"* and §9 forbids a page per entity type. Shipping only the person links would have left keyword and studio chips sitting inert beside genre chips that have always been links — half of D2 does not pass D2. The scope fence held: D2 ships URL parsing, one source per facet, a grid and pagination. **No filter bar, chips, sorting or composition** — those are D3, and none of them change the URL shape, so not one link written today needs rewriting.
+
+**Reusing the existing keyword search was rejected**, for three verified reasons: the search page renders the raw query as its heading, so a keyword link would be titled *"9715"*; `searchPage` hardcodes `discover/movie`, so a keyword on a series could never return TV; and single-digit ids bounce to the landing page because the route enforces a two-character minimum.
+
+**A live bug fixed on the way.** The collection link pointed at `/app/movie/{collectionId}` — a collection id routed as a movie id. It fails by rendering *an unrelated real film* rather than 404ing, which is why nobody had noticed. Verified fixed by reading the titles: `?collection=10` now returns all nine Star Wars films in release order.
+
+**Also deleted:** `MovieCast.tsx`, `KeywordTags.tsx` and `CollectionBanner.tsx` — all three had zero importers, used an older visual idiom, and `CollectionBanner` hardcoded a `/app/collection/{id}` route that §9 rules out. Dead code that looks authoritative is worse than no code, because it misleads the next copy-paste.
+
+**Verified:** clean typecheck and production build. Every facet returns a real page with a real heading — keyword 818 → *"based on novel or book"* (movies **and** TV), company 420 → *"Marvel Studios"*, network 213 → *"Netflix"*, collection 10 → *"Star Wars Collection"*, all with populated grids. No facet gives the empty state; a malformed id degrades rather than crashing. On the film page: crew renders grouped by department with jobs merged per person, 16 keyword links, a studio link, and **no** `/app/movie/10` collection link. On the series page: crew renders, and **every** keyword link carries `type=tv`.
+
+**Not verified:** the signed-in view of these pages, and pagination past page 1.
 
 ---
 

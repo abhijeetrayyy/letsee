@@ -7,6 +7,10 @@ import { Star, Clock, Globe, Play, Share2, BookOpen, Film, Users, Tag, ImageIcon
 import { releaseInfo } from "@/utils/releaseInfo";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import YourTake from "@components/takes/YourTake";
+import CrewBlock, { groupCrew } from "@components/detail/CrewBlock";
+import KeywordChips from "@components/detail/KeywordChips";
+import EntityLinks from "@components/detail/EntityLinks";
+import { buildBrowseUrl } from "@/utils/browseUrl";
 import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
 import TitleAudience from "@components/detail/TitleAudience";
 import CastRow from "@components/detail/CastRow";
@@ -38,7 +42,8 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
   const year = releaseInfo(movie.release_date).year;
   const runtime = movie.runtime ? `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m` : null;
   const genres = movie.genres ?? [];
-  const production = movie.production_companies?.slice(0, 3).map((c: any) => c.name).join(", ") ?? null;
+  const productionCompanies = movie.production_companies?.slice(0, 3) ?? [];
+  const crewGroups = groupCrew(credits.crew);
   const budget = movie.budget > 0 ? `$${(movie.budget / 1_000_000).toFixed(0)}M` : null;
   const revenue = movie.revenue > 0 ? `$${(movie.revenue / 1_000_000).toFixed(0)}M` : null;
 
@@ -175,9 +180,22 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
               {/* Details row */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
                 {directors.length > 0 && (
-                  <DetailBlock label="Director" value={directors.map((d: any) => d.name).join(", ")} />
+                  <DetailBlock
+                    label="Director"
+                    value={<EntityLinks items={directors} href={(d) => `/app/person/${d.id}`} />}
+                  />
                 )}
-                {production && <DetailBlock label="Studio" value={production} />}
+                {productionCompanies.length > 0 && (
+                  <DetailBlock
+                    label="Studio"
+                    value={
+                      <EntityLinks
+                        items={productionCompanies}
+                        href={(c) => buildBrowseUrl({ type: "movie", company: String(c.id) })}
+                      />
+                    }
+                  />
+                )}
                 {budget && <DetailBlock label="Budget" value={budget} />}
                 {revenue && <DetailBlock label="Revenue" value={revenue} />}
                 {fullReleaseDate && !isUpcoming && (
@@ -228,6 +246,15 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
               </Section>
             )}
 
+            {/* Who made it. Grouped by department and capped, because the
+                full crew is ninety names and that wall already exists on the
+                /cast route for anyone who wants it. */}
+            {crewGroups.length > 0 && (
+              <Section title="Crew">
+                <CrewBlock groups={crewGroups} />
+              </Section>
+            )}
+
             {/* Discussion */}
             <Section title="Discussion">
               <Comments itemId={String(movie.id)} itemType="movie" />
@@ -242,22 +269,11 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
             <RatingDistribution itemId={String(movie.id)} itemType="movie" />
 
             {/* Keywords */}
-            {keywords.length > 0 && (
-              <div className="rounded-xl border border-surface-800/50 bg-surface-900/30 p-4">
-                <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Tag className="size-3.5" /> Keywords
-                </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {keywords.slice(0, 15).map((k: any) => (
-                    <span key={k.id} className="px-2 py-1 rounded-lg bg-surface-800/60 text-[10px] text-surface-400">{k.name}</span>
-                  ))}
-                </div>
-              </div>
-            )}
+            <KeywordChips keywords={keywords} mediaType="movie" />
 
             {/* Collection */}
             {collection && (
-              <Link href={`/app/movie/${collection.id}`} className="block rounded-xl border border-brand-500/10 bg-brand-500/3 p-4 hover:bg-brand-500/5 transition-colors">
+              <Link href={buildBrowseUrl({ collection: String(collection.id) })} className="block rounded-xl border border-brand-500/10 bg-brand-500/3 p-4 hover:bg-brand-500/5 transition-colors">
                 <h3 className="text-xs font-semibold text-brand-400 uppercase tracking-wider mb-1">Part of Collection</h3>
                 <p className="text-sm text-white font-medium">{collection.name}</p>
               </Link>
@@ -284,7 +300,7 @@ function MetaChip({ icon, label }: { icon?: React.ReactNode; label: string }) {
   );
 }
 
-function DetailBlock({ label, value }: { label: string; value: string }) {
+function DetailBlock({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
       <p className="text-[10px] text-surface-500 uppercase tracking-wider">{label}</p>

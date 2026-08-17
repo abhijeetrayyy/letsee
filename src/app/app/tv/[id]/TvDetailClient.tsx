@@ -7,6 +7,10 @@ import { Star, Clock, Globe, Play, Share2, Tv, Users, Tag } from "lucide-react";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import YourTake from "@components/takes/YourTake";
+import CrewBlock, { groupCrew } from "@components/detail/CrewBlock";
+import KeywordChips from "@components/detail/KeywordChips";
+import EntityLinks from "@components/detail/EntityLinks";
+import { buildBrowseUrl } from "@/utils/browseUrl";
 import FriendsWhoWatched from "@components/detail/FriendsWhoWatched";
 import TitleAudience from "@components/detail/TitleAudience";
 import CastRow from "@components/detail/CastRow";
@@ -51,6 +55,10 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
   const voteAvg = show.vote_count > 0 ? show.vote_average?.toFixed(1) : null;
   const genres = show.genres ?? [];
   const networks = show.networks ?? [];
+  // Present on the payload and referenced nowhere until now, so TV never got
+  // the studio door films had.
+  const productionCompanies = show.production_companies?.slice(0, 3) ?? [];
+  const crewGroups = groupCrew(credits.crew);
   const firstAir = show.first_air_date;
   const lastAir = show.last_air_date;
   const numSeasons = show.number_of_seasons;
@@ -213,8 +221,34 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
 
               {/* Details */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-                {createdBy.length > 0 && <DetailBlock label="Created by" value={createdBy.map((c: any) => c.name).join(", ")} />}
-                {networks.length > 0 && <DetailBlock label="Network" value={networks.map((n: any) => n.name).join(", ")} />}
+                {createdBy.length > 0 && (
+                  <DetailBlock
+                    label="Created by"
+                    value={<EntityLinks items={createdBy} href={(c) => `/app/person/${c.id}`} />}
+                  />
+                )}
+                {networks.length > 0 && (
+                  <DetailBlock
+                    label="Network"
+                    value={
+                      <EntityLinks
+                        items={networks}
+                        href={(n) => buildBrowseUrl({ type: "tv", network: String(n.id) })}
+                      />
+                    }
+                  />
+                )}
+                {productionCompanies.length > 0 && (
+                  <DetailBlock
+                    label="Studio"
+                    value={
+                      <EntityLinks
+                        items={productionCompanies}
+                        href={(c) => buildBrowseUrl({ type: "tv", company: String(c.id) })}
+                      />
+                    }
+                  />
+                )}
                 {show.number_of_seasons && <DetailBlock label="Seasons" value={String(show.number_of_seasons)} />}
                 {show.number_of_episodes && <DetailBlock label="Episodes" value={String(show.number_of_episodes)} />}
                 {firstAirFull && <DetailBlock label="First aired" value={firstAirFull} />}
@@ -289,6 +323,15 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
               </Section>
             )}
 
+            {/* Series-level crew is often thin — a few executive producers,
+                sometimes nothing. groupCrew returns [] and this doesn't
+                render, which is why `created_by` above carries the page. */}
+            {crewGroups.length > 0 && (
+              <Section title="Crew">
+                <CrewBlock groups={crewGroups} />
+              </Section>
+            )}
+
             {/* Discussion */}
             <Section title="Discussion">
               <Comments itemId={String(show.id)} itemType="tv" />
@@ -309,28 +352,21 @@ export default function TvDetailClient({ show, credits, trailer, certification, 
             <RatingDistribution itemId={String(show.id)} itemType="tv" />
 
             {/* Keywords */}
-            {keywords.length > 0 && (
-              <div className="rounded-xl border border-surface-800/50 bg-surface-900/30 p-4">
-                <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Tag className="size-3.5" /> Keywords
-                </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {keywords.slice(0, 15).map((k: any) => (
-                    <span key={k.id} className="px-2 py-1 rounded-lg bg-surface-800/60 text-[10px] text-surface-400">{k.name}</span>
-                  ))}
-                </div>
-              </div>
-            )}
+            <KeywordChips keywords={keywords} mediaType="tv" />
 
             {/* Networks */}
             {networks.length > 0 && (
               <div className="rounded-xl border border-surface-800/50 bg-surface-900/30 p-4">
                 <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-3">Network</h3>
-                {networks.map((n: any) => (
-                  <div key={n.id} className="flex items-center gap-2">
+                {networks.slice(0, 4).map((n: any) => (
+                  <Link
+                    key={n.id}
+                    href={buildBrowseUrl({ type: "tv", network: String(n.id) })}
+                    className="flex items-center gap-2 rounded-lg py-1 transition-colors hover:text-white"
+                  >
                     {n.logo_path && <img src={`https://image.tmdb.org/t/p/w92${n.logo_path}`} alt={n.name} className="h-5 object-contain" />}
                     <span className="text-sm text-surface-300">{n.name}</span>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
@@ -356,7 +392,7 @@ function MetaChip({ icon, label }: { icon?: React.ReactNode; label: string }) {
   );
 }
 
-function DetailBlock({ label, value }: { label: string; value: string }) {
+function DetailBlock({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
       <p className="text-[10px] text-surface-500 uppercase tracking-wider">{label}</p>
