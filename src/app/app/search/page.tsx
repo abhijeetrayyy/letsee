@@ -100,13 +100,18 @@ export default function SearchLandingPage() {
   const abortRef = useRef<AbortController | null>(null);
   const cacheRef = useRef<Record<string, ResultsState>>({});
 
-  // If user lands on /app/search with media_type=movie or media_type=tv, send them to discover results
-  useEffect(() => {
-    const mediaType = searchParams.get("media_type");
-    if (mediaType === "movie" || mediaType === "tv") {
-      router.replace(buildSearchUrl({ query: "discover", mediaType: mediaType as SearchMediaType, page: 1 }));
-    }
-  }, [searchParams, router]);
+  /**
+   * The `?media_type=` redirect is gone, and with it the phantom query.
+   *
+   * "Movies" and "TV Shows" on the home page pointed at
+   * /app/search?media_type=movie, which this bounced to
+   * /app/search/discover — a search for the literal word "discover". That
+   * ended in /api/searchPage answering 400 "Search query is required", which
+   * is the recurring 400 in the console, and a red error box for the user.
+   *
+   * Browsing by type is what /app/browse is for, so both links go there
+   * directly and nothing has to invent a search term.
+   */
 
   useEffect(() => {
     setRecent(getRecentSearches());
@@ -134,11 +139,17 @@ export default function SearchLandingPage() {
     setError(null);
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    debounceRef.current = setTimeout(async () => {
-      if (abortRef.current) abortRef.current.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
+    /**
+     * `stale` guards every write, for the same reason the header modal needs
+     * one: an aborted fetch still settles, so a response for a query the user
+     * has already typed past could land after the newer one and blank it.
+     * Aborting is not enough — the answer has to be ignored too.
+     */
+    let stale = false;
+    const controller = new AbortController();
+    abortRef.current = controller;
 
+    debounceRef.current = setTimeout(async () => {
       try {
         const [generalRes, keywordRes] = await Promise.all([
           fetch(`/api/search?query=${encodeURIComponent(query)}`, {
@@ -173,20 +184,30 @@ export default function SearchLandingPage() {
         );
 
         const raw = { movie, tv, person, keyword };
-        const next = reRankAll(raw, query);
-        cacheRef.current[query] = next;
-        setResults(next);
+        if (stale) return;
+        // TMDB's own ordering is kept. `reRankAll` re-sorted it by bitap
+        // distance at threshold 1, which reorders every result rather than
+        // filtering any — measured, TMDB is already 89% top-1 and this made it
+        // worse.
+        cacheRef.current[query] = raw;
+        setResults(raw);
+        setIsLoading(false);
       } catch (err) {
-        if ((err as Error).name === "AbortError") return;
+        // An abort means a newer query owns the screen. Returning here also
+        // leaves the spinner alone: the old `finally` cleared it for whatever
+        // the user had just typed, so the page looked finished while the real
+        // request was still in flight.
+        if (stale || (err as Error).name === "AbortError") return;
         setError("Something went wrong. Try again.");
         setResults(emptyResults);
-      } finally {
         setIsLoading(false);
       }
     }, DEBOUNCE_MS);
 
     return () => {
+      stale = true;
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      controller.abort();
     };
   }, [query]);
 

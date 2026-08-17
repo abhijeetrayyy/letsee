@@ -1,5 +1,6 @@
 "use client";
 
+import { buildBrowseUrl } from "@/utils/browseUrl";
 import Link from "next/link";
 import { Search, Bookmark, List, Users, Tv, Film } from "lucide-react";
 
@@ -10,8 +11,8 @@ export default function QuickActions() {
       <ActionCard href="/app/watchlist" icon={<Bookmark className="size-4" />} label="Watchlist" />
       <ActionCard href="/app/profile" icon={<Users className="size-4" />} label="Discover" />
       <ActionCard href="/app/lists" icon={<List className="size-4" />} label="Lists" />
-      <ActionCard href="/app/search?media_type=movie" icon={<Film className="size-4" />} label="Movies" />
-      <ActionCard href="/app/search?media_type=tv" icon={<Tv className="size-4" />} label="TV Shows" />
+      <ActionCard href={buildBrowseUrl({ type: "movie" })} icon={<Film className="size-4" />} label="Movies" />
+      <ActionCard href={buildBrowseUrl({ type: "tv" })} icon={<Tv className="size-4" />} label="TV Shows" />
     </div>
   );
 }
