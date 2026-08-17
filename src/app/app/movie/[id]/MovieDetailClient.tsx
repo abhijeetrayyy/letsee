@@ -90,8 +90,19 @@ export default function MovieDetailClient({ movie, directors, credits, trailer, 
       <div className="relative overflow-hidden">
         {backdropUrl && (
           <div className="absolute inset-0 h-[720px] overflow-hidden">
-            <img src={backdropUrl} alt="" className="w-full h-full object-cover opacity-20" />
-            <div className="absolute inset-0 bg-gradient-to-b from-surface-950/10 via-surface-950/80 to-surface-950" />
+            {/* opacity-60, not opacity-20. At 20% this was texture, not a
+                banner — you could tell there was an image without being able
+                to see what it was of. Legibility is the gradients' job below,
+                so the image itself no longer has to be dimmed into
+                uselessness to keep the title readable. */}
+            <img src={backdropUrl} alt="" className="w-full h-full object-cover opacity-60" />
+            {/* Two gradients doing separate jobs. Vertical fades the image
+                into the page so the section below starts on solid ground;
+                horizontal darkens only the left, which is where the poster,
+                title and overview sit. The right side of the frame stays
+                bright, so the banner is actually visible. */}
+            <div className="absolute inset-0 bg-gradient-to-b from-surface-950/20 via-surface-950/55 to-surface-950" />
+            <div className="absolute inset-0 bg-gradient-to-r from-surface-950 via-surface-950/70 to-surface-950/10" />
           </div>
         )}
 
