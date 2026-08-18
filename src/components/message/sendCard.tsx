@@ -281,12 +281,51 @@ const SendMessageModal: React.FC<Props> = ({
 
   // Fetch users based on debounced search (reduces API calls, better performance)
   useEffect(() => {
-    if (!searchDebounced.trim() || !sender) {
+    if (!sender) {
       setUsers([]);
       return;
     }
 
     let cancelled = false;
+
+    /**
+     * An empty box shows the people you already know, not nothing.
+     *
+     * This used to clear the list and wait, so sending began by asking you to
+     * remember a username — the same failure the share sheet had. The default
+     * is your connections; typing switches to the full search, which filters
+     * blocked users and respects profile visibility in a way this list does
+     * not have to, because a connection has already passed both.
+     */
+    if (!searchDebounced.trim()) {
+      setLoading(true);
+      setError(null);
+      fetch("/api/share/recipients")
+        .then(async (res) => {
+          if (cancelled) return;
+          if (!res.ok) throw new Error(String(res.status));
+          const body = await res.json();
+          const d = body?.data ?? body;
+          setUsers(
+            ((d?.connections ?? []) as { id: string; username: string }[]).map((u) => ({
+              id: u.id,
+              username: u.username,
+            })),
+          );
+        })
+        .catch(() => {
+          // No connections list just means an empty start, not an error worth
+          // showing above a search box that still works.
+          if (!cancelled) setUsers([]);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     setLoading(true);
     setError(null);
     // Use the shared search API rather than querying `users` directly — it

@@ -26,17 +26,31 @@ export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
 
-  const [outbound, inbound] = await Promise.all([
+  const [outbound, inbound, blocks] = await Promise.all([
     supabase.from("user_connections").select("followed_id").eq("follower_id", viewerId),
     supabase.from("user_connections").select("follower_id").eq("followed_id", viewerId),
+    /**
+     * Blocking usually severs the follow, but not always — a block placed after
+     * a mutual follow can leave the row behind, and offering that person as a
+     * send target is the one mistake this list must not make.
+     */
+    supabase
+      .from("user_blocks")
+      .select("blocker_id, blocked_id")
+      .or(`blocker_id.eq.${viewerId},blocked_id.eq.${viewerId}`),
   ]);
+
+  const barred = new Set<string>();
+  for (const b of (blocks.data ?? []) as { blocker_id: string; blocked_id: string }[]) {
+    barred.add(b.blocker_id === viewerId ? b.blocked_id : b.blocker_id);
+  }
 
   const iFollow = new Set((outbound.data ?? []).map((r) => r.followed_id as string));
   const followsMe = new Set((inbound.data ?? []).map((r) => r.follower_id as string));
 
   // A one-way follower is still a plausible recipient — they chose to hear from
   // you — so the pool is the union rather than just the people you follow.
-  const pool = [...new Set([...iFollow, ...followsMe])];
+  const pool = [...new Set([...iFollow, ...followsMe])].filter((id) => !barred.has(id));
 
   let people: Row[] = [];
   if (pool.length > 0) {
@@ -66,7 +80,7 @@ export async function GET(req: NextRequest) {
    */
   let others: { id: string; username: string; avatarUrl: string | null }[] = [];
   if (q.length >= 2) {
-    const seen = new Set([...pool, viewerId]);
+    const seen = new Set([...pool, viewerId, ...barred]);
     const { data } = await supabase
       .from("users")
       .select("id, username, avatar_url")
