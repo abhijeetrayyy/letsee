@@ -472,6 +472,7 @@ function StepPicks({ onDone }: { onDone: () => void }) {
 /* ── Step 3: meet people, and follow at least one ───────────────────────── */
 
 function StepPeople({ username, onNeedsHandle }: { username: string | null; onNeedsHandle: () => void }) {
+  const [entering, setEntering] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
@@ -504,6 +505,14 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
    * Better to say what is wrong and put them back on the step that fixes it.
    */
   const finish = async () => {
+    /**
+     * A full page load takes a moment, and until it commits the browser shows
+     * the old page — so without this the button reads as ignored for the
+     * second or two it is actually working. It is never cleared: the only way
+     * out of here is the navigation, and re-enabling on the way out would let
+     * someone fire a second one.
+     */
+    setEntering(true);
     const { data: auth } = await supabase.auth.getUser();
     if (auth?.user) {
       const { data: profile } = await supabase
@@ -513,6 +522,7 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
         .maybeSingle();
       if (!profile?.username) {
         toast.error("Pick a handle first — that's what your profile lives at.");
+        setEntering(false);
         onNeedsHandle();
         return;
       }
@@ -615,16 +625,24 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
       <button
         type="button"
         onClick={finish}
+        disabled={entering}
         className={`mt-8 w-full inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 font-semibold transition-colors ${
           followed > 0 || matches.length === 0
             ? "bg-brand-500 text-surface-950 hover:bg-brand-400"
             : "bg-surface-800 text-surface-400 hover:bg-surface-700"
         }`}
       >
-        {followed > 0 || matches.length === 0
-          ? "Enter LetSee"
-          : "Skip for now"}
-        <ArrowRight className="size-4" />
+        {entering ? (
+          <>
+            <Loader2 className="size-4 animate-spin" />
+            Opening LetSee…
+          </>
+        ) : (
+          <>
+            {followed > 0 || matches.length === 0 ? "Enter LetSee" : "Skip for now"}
+            <ArrowRight className="size-4" />
+          </>
+        )}
       </button>
 
       {/* A brand new profile is empty, which is the least interesting version

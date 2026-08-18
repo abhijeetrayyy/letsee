@@ -129,9 +129,27 @@ export async function POST(req: NextRequest) {
       .then(({ error }) => error && console.error("favorite implies watched (item):", error)),
   ]);
 
+  /**
+   * Recount rather than increment.
+   *
+   * The directory reads denormalised counters from `user_cout_stats`, and the
+   * two writes above go straight to the tables without touching them — so a
+   * favourite that newly implied "watched" left watched_count behind. Measured
+   * on the two onboarding accounts: stored 0, actual 4, which is what showed on
+   * the discover page as a profile with four favourites and nothing watched.
+   *
+   * `recount_user_stats` derives all of them from the rows, so it cannot drift
+   * the way a hand-placed increment can — and it is the honest call here
+   * because this request may have changed one counter, two, or none.
+   */
   try {
-    await supabase.rpc("increment_favorites_count", { p_user_id: userId });
-  } catch {}
+    await supabase.rpc("recount_user_stats", { p_user_id: userId });
+  } catch {
+    // Fall back to the narrow increment rather than leaving every counter stale.
+    try {
+      await supabase.rpc("increment_favorites_count", { p_user_id: userId });
+    } catch {}
+  }
 
   return jsonSuccess({ action: "added", message: "Added to favorites" });
 }
