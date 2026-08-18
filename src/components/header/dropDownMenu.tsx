@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { FaChevronDown, FaFilm, FaTv, FaUsers } from "react-icons/fa6";
-import { FiBell, FiMessageSquare, FiBookmark, FiHeart } from "react-icons/fi";
+import { FiBell, FiMessageSquare, FiBookmark, FiHeart, FiDownload } from "react-icons/fi";
 import SignOut from "../buttons/signOut";
 import CountrySelector from "./CountrySelector";
 import Avatar from "@components/ui/Avatar";
@@ -140,6 +140,21 @@ const DropdownMenu = ({ user }: { user: AuthUser }) => {
             >
               <FaUsers className={`${iconClass} text-amber-400`} />
               Discover people
+            </Link>
+
+            {/* The Letterboxd import existed only in the mobile burger, which
+                is `sm:hidden` — so on every screen wider than 640px the whole
+                feature was unreachable without typing the URL. It is the one
+                thing that turns an empty account into a full journal, which
+                makes it the worst possible thing to hide. */}
+            <Link
+              href="/app/import"
+              onClick={() => setIsOpen(false)}
+              className={menuItem}
+              role="menuitem"
+            >
+              <FiDownload className={`${iconClass} text-emerald-400`} />
+              Import from Letterboxd
             </Link>
             <Link
               href="/app/clubs"
