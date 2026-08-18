@@ -1,48 +1,54 @@
 "use client";
 
-import { useState, useEffect, useCallback, useContext } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import UserPrefrenceContext, { type MediaStatus } from "@/app/contextAPI/userPrefrence";
+import toast from "react-hot-toast";
+import { Check, Loader2, X } from "lucide-react";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
+import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
 
-/** Episode checkboxes rendered per page inside one season. */
-const EPISODE_PAGE = 100;
+/**
+ * Episode progress, written as you tap.
+ *
+ * The old version staged everything: you ticked boxes, the boxes went into a
+ * `selectedEpisodes` Set, and "Save changes" computed a diff against what the
+ * server held. That design produced a specific and very bad failure — for a
+ * show whose episodes were all already ticked the diff was empty, so Save did
+ * nothing at all and the show could never leave "watching". `complete-series`
+ * exists only to work around it. A staged diff is also the wrong shape for the
+ * task: nobody opens this to compose a batch of changes, they open it to say "I
+ * finished season 3".
+ *
+ * So there is no Save button and no diff. Every action writes immediately and
+ * optimistically, the same contract as the progress ribbon on the detail page,
+ * and the two stay in agreement because neither holds a pending copy of the
+ * truth.
+ *
+ * What this offers that the ribbon cannot is the bulk verb. Tapping 62 cells to
+ * mark a finished show is the thing worth removing, so a season marks in one
+ * press, and "caught up to here" fills everything before a point — which is how
+ * people actually arrive: partway through, mid-season.
+ */
 
-const STATUS_LABEL: Record<string, string> = {
-  watchlist: "Watchlist",
-  watching: "Watching",
-  watched: "Watched",
-  on_hold: "On hold",
-  dropped: "Dropped",
-};
+type Season = { season_number: number; name: string; episode_count: number; air_date: string | null };
+type Ep = { season_number: number; episode_number: number };
 
-type Season = {
-  season_number: number;
-  name: string;
-  episode_count: number;
-  air_date: string | null;
-};
-
-type Episode = {
-  season_number: number;
-  episode_number: number;
-};
-
-type EpisodeManagementModalProps = {
+type Props = {
   showId: string;
   showName: string;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   /**
-   * Set when the modal was opened by choosing a status. Saving then applies
-   * this status explicitly instead of letting it be re-derived from episode
-   * count — "dropped at episode 3" has to survive, and counting episodes
-   * would call that "watching".
+   * Set when the modal was opened by choosing a status. It is applied on close
+   * rather than re-derived from episode count — "dropped at episode 3" has to
+   * survive, and counting episodes would call that "watching".
    */
   intendedStatus?: MediaStatus | null;
 };
+
+const key = (s: number, e: number) => `${s},${e}`;
 
 export default function EpisodeManagementModal({
   showId,
@@ -51,487 +57,251 @@ export default function EpisodeManagementModal({
   onClose,
   onSuccess,
   intendedStatus = null,
-}: EpisodeManagementModalProps) {
+}: Props) {
   const [seasons, setSeasons] = useState<Season[]>([]);
-  const [watchedEpisodes, setWatchedEpisodes] = useState<Set<string>>(new Set());
-  const [selectedEpisodes, setSelectedEpisodes] = useState<Set<string>>(new Set());
+  const [watched, setWatched] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [epPage, setEpPage] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [touched, setTouched] = useState(false);
   const { refreshPreferences } = useContext(UserPrefrenceContext);
-  // Two providers hold overlapping copies of "is this watched": the prefs
-  // context gates the card eye icon, the interaction context gates Rate/Review
-  // on the detail page. Refresh both or one of them lies.
   const { refresh: refreshInteractions } = useMediaInteraction();
-  const [activeSeason, setActiveSeason] = useState<number>(1);
-  // Reset paging when the season changes, or you land on an empty page.
-  useEffect(() => setEpPage(0), [activeSeason]);
 
   useEffect(() => {
     if (!isOpen) return;
-
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [seasonsRes, watchedRes] = await Promise.all([
-          fetch(`/api/tv-seasons?showId=${encodeURIComponent(showId)}`),
-          fetch(`/api/watched-episodes?showId=${encodeURIComponent(showId)}`),
-        ]);
-
-        const seasonsData = await seasonsRes.json();
-        const watchedData = await watchedRes.json();
-
-        setSeasons(seasonsData.seasons ?? []);
-
-        const watchedSet = new Set<string>();
-        for (const ep of watchedData.episodes ?? []) {
-          watchedSet.add(`${ep.season_number}-${ep.episode_number}`);
-        }
-        setWatchedEpisodes(watchedSet);
-
-        // "Watched" means the whole series, so start with everything ticked
-        // and let the user uncheck. Every other status starts from where they
-        // actually are.
-        if (intendedStatus === "watched") {
-          const all = new Set<string>();
-          for (const s of (seasonsData.seasons ?? []) as Season[]) {
-            for (let ep = 1; ep <= s.episode_count; ep++) all.add(`${s.season_number}-${ep}`);
-          }
-          setSelectedEpisodes(all);
-        } else {
-          setSelectedEpisodes(new Set(watchedSet));
-        }
-
-        // Set active season to first unwatched season
-        const firstUnwatched = (seasonsData.seasons ?? []).find((s: Season) => {
-          for (let ep = 1; ep <= s.episode_count; ep++) {
-            if (!watchedSet.has(`${s.season_number}-${ep}`)) return true;
-          }
-          return false;
-        });
-        if (firstUnwatched) {
-          setActiveSeason(firstUnwatched.season_number);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
+    let alive = true;
+    setLoading(true);
+    Promise.all([
+      fetch(`/api/tv-seasons?showId=${encodeURIComponent(showId)}`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`/api/watched-episodes?showId=${encodeURIComponent(showId)}`).then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([sRes, wRes]) => {
+        if (!alive) return;
+        const sd = sRes?.data ?? sRes;
+        const wd = wRes?.data ?? wRes;
+        setSeasons(((sd?.seasons ?? []) as Season[]).filter((s) => s.season_number > 0 && s.episode_count > 0));
+        setWatched(new Set(((wd?.episodes ?? []) as Ep[]).map((e) => key(e.season_number, e.episode_number))));
+      })
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
     };
+  }, [isOpen, showId]);
 
-    fetchData();
-  }, [isOpen, showId, intendedStatus]);
+  const totals = useMemo(() => {
+    let total = 0;
+    let seen = 0;
+    for (const s of seasons) {
+      total += s.episode_count;
+      for (let e = 1; e <= s.episode_count; e++) if (watched.has(key(s.season_number, e))) seen += 1;
+    }
+    return { total, seen };
+  }, [seasons, watched]);
 
-  const toggleEpisode = useCallback((seasonNum: number, epNum: number) => {
-    const key = `${seasonNum}-${epNum}`;
-    setSelectedEpisodes((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
+  /**
+   * One writer for every action. `mark` and `clear` both take a list, so
+   * a single episode, a season and a whole series are the same call with a
+   * different list — there is no separate code path to fall out of step.
+   */
+  const apply = useCallback(
+    async (eps: Ep[], mark: boolean) => {
+      if (eps.length === 0 || busy) return;
+      const ks = eps.map((e) => key(e.season_number, e.episode_number));
+      const prev = new Set(watched);
+      setWatched((cur) => {
+        const next = new Set(cur);
+        for (const k of ks) (mark ? next.add(k) : next.delete(k));
+        return next;
+      });
+      setBusy(true);
+      setTouched(true);
+      try {
+        const res = mark
+          ? await fetch("/api/watched-episodes-bulk", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ showId, episodes: eps, action: "mark" }),
+            })
+          : await fetch("/api/watched-episodes/bulk-delete", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ showId, episodes: eps }),
+            });
+        // A non-ok status is not an exception, so without this a rejected write
+        // left the optimistic state on screen looking saved.
+        if (!res.ok) throw new Error(String(res.status));
+      } catch {
+        setWatched(prev);
+        toast.error("Couldn't save that");
+      } finally {
+        setBusy(false);
       }
-      return next;
-    });
-  }, []);
+    },
+    [busy, showId, watched],
+  );
 
-  const toggleSeason = useCallback((seasonNum: number, episodeCount: number) => {
-    const seasonKeys = Array.from({ length: episodeCount }, (_, i) =>
-      `${seasonNum}-${i + 1}`
-    );
-    const allSelected = seasonKeys.every((k) => selectedEpisodes.has(k));
+  const seasonEps = (s: Season): Ep[] =>
+    Array.from({ length: s.episode_count }, (_, i) => ({ season_number: s.season_number, episode_number: i + 1 }));
 
-    setSelectedEpisodes((prev) => {
-      const next = new Set(prev);
-      if (allSelected) {
-        seasonKeys.forEach((k) => next.delete(k));
-      } else {
-        seasonKeys.forEach((k) => next.add(k));
-      }
-      return next;
-    });
-  }, [selectedEpisodes]);
+  const seasonSeen = (s: Season) => seasonEps(s).filter((e) => watched.has(key(e.season_number, e.episode_number))).length;
 
-  const markUpTo = useCallback((seasonNum: number, epNum: number) => {
-    const activeSeasonData = seasons.find((s) => s.season_number === seasonNum);
-    if (!activeSeasonData) return;
-
-    const newSelected = new Set(selectedEpisodes);
-
-    // Mark all episodes in previous seasons
+  /** Everything up to and including this episode, across earlier seasons too. */
+  const upTo = (s: number, e: number): Ep[] => {
+    const out: Ep[] = [];
     for (const season of seasons) {
-      if (season.season_number < seasonNum) {
-        for (let ep = 1; ep <= season.episode_count; ep++) {
-          newSelected.add(`${season.season_number}-${ep}`);
-        }
-      } else if (season.season_number === seasonNum) {
-        for (let ep = 1; ep <= epNum; ep++) {
-          newSelected.add(`${seasonNum}-${ep}`);
-        }
-        break;
-      }
+      if (season.season_number > s) break;
+      const last = season.season_number === s ? e : season.episode_count;
+      for (let i = 1; i <= last; i++) out.push({ season_number: season.season_number, episode_number: i });
     }
-
-    setSelectedEpisodes(newSelected);
-  }, [seasons, selectedEpisodes]);
-
-  const handleSave = async (episodesOverride?: Set<string>) => {
-    const selected = episodesOverride ?? selectedEpisodes;
-    setSaving(true);
-    try {
-      // Calculate diff
-      const toAdd: Episode[] = [];
-      const toRemove: Episode[] = [];
-
-      for (const key of selected) {
-        if (!watchedEpisodes.has(key)) {
-          const [season, episode] = key.split("-").map(Number);
-          toAdd.push({ season_number: season, episode_number: episode });
-        }
-      }
-
-      for (const key of watchedEpisodes) {
-        if (!selected.has(key)) {
-          const [season, episode] = key.split("-").map(Number);
-          toRemove.push({ season_number: season, episode_number: episode });
-        }
-      }
-
-      // Bulk add
-      if (toAdd.length > 0) {
-        await fetch("/api/watched-episodes-bulk", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ showId, episodes: toAdd, action: "mark" }),
-        });
-      }
-
-      // Bulk delete
-      if (toRemove.length > 0) {
-        await fetch("/api/watched-episodes/bulk-delete", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ showId, episodes: toRemove }),
-        });
-      }
-
-      // Status is written AFTER the episodes, so it wins over the count-based
-      // re-derivation the bulk endpoints run.
-      const total = seasons.reduce((sum, s) => sum + s.episode_count, 0);
-      const settleStatus =
-        intendedStatus ??
-        // Saving with every episode already ticked produces an empty diff, so
-        // no episode write happens and nothing re-derives — the show would sit
-        // at 100% and still say "watching".
-        (toAdd.length === 0 && toRemove.length === 0 && total > 0 && selected.size >= total
-          ? "watched"
-          : null);
-
-      if (settleStatus) {
-        await fetch("/api/tv-list-status", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ showId, status: settleStatus }),
-        });
-      }
-
-      // Episode writes can flip the show to "watched" server-side, so re-pull
-      // the preference state — otherwise the eye icon stays grey until reload.
-      await Promise.all([refreshPreferences(), refreshInteractions()]);
-
-      onSuccess();
-      onClose();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSaving(false);
-    }
+    return out;
   };
 
-  const handleMarkComplete = async () => {
-    const allKeys = new Set<string>();
-    for (const s of seasons) {
-      for (let ep = 1; ep <= s.episode_count; ep++) {
-        allKeys.add(`${s.season_number}-${ep}`);
-      }
-    }
-    setSelectedEpisodes(allKeys);
-    setSaving(true);
-    try {
-      // Same single call the status menu uses, so both routes to "I finished
-      // this" behave identically — including when every episode is already
-      // ticked and an episode diff would be empty.
-      await fetch("/api/tv/complete-series", {
+  const close = async () => {
+    // The status the user picked wins over anything derived from the count.
+    if (touched && intendedStatus) {
+      await fetch("/api/tv-list-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ showId }),
-      });
-      await Promise.all([refreshPreferences(), refreshInteractions()]);
-      onSuccess();
-      onClose();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSaving(false);
+        body: JSON.stringify({ showId, status: intendedStatus }),
+      }).catch(() => {});
     }
+    if (touched) {
+      await Promise.all([refreshPreferences(), refreshInteractions()]).catch(() => {});
+      onSuccess();
+    }
+    onClose();
   };
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && void close();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, touched, intendedStatus]);
 
-  const activeSeasonData = seasons.find((s) => s.season_number === activeSeason);
-  const selectedCount = selectedEpisodes.size;
-  const watchedCount = watchedEpisodes.size;
-  const totalEpisodes = seasons.reduce((sum, s) => sum + s.episode_count, 0);
+  if (!isOpen || typeof document === "undefined") return null;
+
+  const complete = totals.total > 0 && totals.seen === totals.total;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/70 overflow-y-auto">
-      <div className="bg-surface-900 rounded-2xl border border-surface-700/60 w-full max-w-4xl mt-8 mb-8 flex flex-col max-h-[85vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-surface-700/60">
-          <div>
-            <h2 className="text-lg font-bold text-surface-100">
-              Manage Episodes
-            </h2>
-            <p className="text-sm text-surface-400">{showName}</p>
+    <div
+      className="fixed inset-0 z-[130] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={() => void close()}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Episodes of ${showName}`}
+    >
+      <div
+        className="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-2xl border border-surface-700 bg-surface-900 shadow-2xl sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-surface-800 px-4 py-3">
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-semibold text-white">{showName}</h3>
+            {/* The count is the state, so it is the subtitle rather than a
+                progress bar competing with the grid below. */}
+            <p className="mt-0.5 font-mono text-xs tabular-nums text-surface-500">
+              {loading ? "…" : `${totals.seen} of ${totals.total} episodes`}
+            </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-surface-800 text-surface-400 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            {busy && <Loader2 className="size-4 animate-spin text-surface-500" aria-label="Saving" />}
+            <button
+              type="button"
+              onClick={() => void close()}
+              aria-label="Close"
+              className="rounded-lg p-1.5 text-surface-400 transition-colors hover:text-white"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
         </div>
 
-        {loading ? (
-          <div className="flex-1 flex items-center justify-center p-12">
-            <LoadingSpinner size="lg" className="border-t-white" />
-          </div>
-        ) : (
-          <>
-            {/* Quick Actions */}
-            <div className="flex items-center gap-2 p-3 bg-surface-800/30 border-b border-surface-700/60">
-              <button
-                onClick={handleMarkComplete}
-                disabled={saving}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-500/20 text-brand-400 hover:bg-brand-500/30 transition-colors disabled:opacity-50"
-              >
-                Mark complete series
-              </button>
-              <button
-                onClick={() => setSelectedEpisodes(new Set(watchedEpisodes))}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-700 text-surface-200 hover:bg-surface-600 transition-colors"
-              >
-                Reset to current
-              </button>
-              <button
-                onClick={() => {
-                  const allKeys: string[] = [];
-                  for (const s of seasons) {
-                    for (let ep = 1; ep <= s.episode_count; ep++) {
-                      allKeys.push(`${s.season_number}-${ep}`);
-                    }
-                  }
-                  setSelectedEpisodes(new Set(allKeys));
-                }}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-700 text-surface-200 hover:bg-surface-600 transition-colors"
-              >
-                Select all
-              </button>
-              <button
-                onClick={() => setSelectedEpisodes(new Set())}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-700 text-surface-200 hover:bg-surface-600 transition-colors"
-              >
-                Clear all
-              </button>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          {loading ? (
+            <div className="space-y-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-14 animate-pulse rounded-xl bg-surface-800/60" />
+              ))}
             </div>
-
-            <div className="flex flex-1 overflow-hidden">
-              {/* Season Sidebar */}
-              <div className="w-48 border-r border-surface-700/60 overflow-y-auto bg-surface-900/50">
-                {seasons.map((season) => {
-                  const seasonEpisodes = Array.from(
-                    { length: season.episode_count },
-                    (_, i) => `${season.season_number}-${i + 1}`
-                  );
-                  const watchedInSeason = seasonEpisodes.filter((k) =>
-                    selectedEpisodes.has(k)
-                  ).length;
-                  const allSelected =
-                    watchedInSeason === season.episode_count &&
-                    season.episode_count > 0;
-                  const someSelected =
-                    watchedInSeason > 0 && !allSelected;
-
-                  return (
-                    <button
-                      key={season.season_number}
-                      onClick={() => setActiveSeason(season.season_number)}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 text-left transition-colors ${
-                        activeSeason === season.season_number
-                          ? "bg-surface-800 text-surface-100"
-                          : "text-surface-400 hover:bg-surface-800/50"
-                      }`}
-                    >
-                      <div>
-                        <p className="text-sm font-medium">{season.name}</p>
-                        <p className="text-xs text-surface-500">
-                          {watchedInSeason}/{season.episode_count}
-                        </p>
-                      </div>
-                      <div
-                        className={`w-4 h-4 rounded border flex items-center justify-center ${
-                          allSelected
-                            ? "bg-brand-500 border-brand-500"
-                            : someSelected
-                            ? "bg-surface-600 border-surface-500"
-                            : "border-surface-600"
-                        }`}
-                      >
-                        {allSelected && (
-                          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-surface-950">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                          </svg>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Episode Grid */}
-              <div className="flex-1 overflow-y-auto p-4">
-                {activeSeasonData && (
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold text-surface-100">
-                        {activeSeasonData.name}
-                      </h3>
+          ) : seasons.length === 0 ? (
+            <p className="py-8 text-center text-sm text-surface-500">No episodes listed for this show.</p>
+          ) : (
+            <div className="space-y-4">
+              {seasons.map((s) => {
+                const seen = seasonSeen(s);
+                const full = seen === s.episode_count;
+                return (
+                  <div key={s.season_number}>
+                    <div className="mb-1.5 flex items-baseline gap-2">
+                      <span className="font-mono text-[11px] tabular-nums text-surface-500">
+                        S{String(s.season_number).padStart(2, "0")}
+                      </span>
+                      <span className="truncate text-sm text-surface-300">{s.name}</span>
+                      <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-surface-600">
+                        {seen}/{s.episode_count}
+                      </span>
+                      {/* One button whose verb follows the state, rather than a
+                          Mark and a Clear sitting side by side where only one
+                          can ever be the thing you want. */}
                       <button
-                        onClick={() =>
-                          toggleSeason(
-                            activeSeasonData.season_number,
-                            activeSeasonData.episode_count
-                          )
-                        }
-                        className="text-xs text-brand-400 hover:text-brand-300"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void apply(seasonEps(s), !full)}
+                        className="shrink-0 rounded-full border border-surface-700 px-2.5 py-1 text-[11px] text-surface-300 transition hover:border-surface-600 hover:text-white disabled:opacity-50"
                       >
-                        Toggle season
+                        {full ? "Clear" : "Mark all"}
                       </button>
                     </div>
-                    {activeSeasonData.episode_count > EPISODE_PAGE && (
-                      <div className="flex flex-wrap items-center gap-2 mb-3">
-                        <span className="text-xs text-surface-500">Jump to</span>
-                        <select
-                          value={epPage}
-                          onChange={(e) => setEpPage(Number(e.target.value))}
-                          className="bg-surface-800 border border-surface-700 rounded-lg px-2 py-1 text-xs text-surface-200"
-                        >
-                          {Array.from(
-                            { length: Math.ceil(activeSeasonData.episode_count / EPISODE_PAGE) },
-                            (_, i) => i,
-                          ).map((p) => (
-                            <option key={p} value={p}>
-                              {p * EPISODE_PAGE + 1}–
-                              {Math.min((p + 1) * EPISODE_PAGE, activeSeasonData.episode_count)}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="text-xs text-surface-500">
-                          of {activeSeasonData.episode_count} episodes
-                        </span>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                      {Array.from(
-                        { length: activeSeasonData.episode_count },
-                        (_, i) => i + 1
-                      )
-                        // A 1200-episode season would otherwise render 1200
-                        // buttons at once. Page through them instead.
-                        .slice(epPage * EPISODE_PAGE, (epPage + 1) * EPISODE_PAGE)
-                        .map((epNum) => {
-                        const key = `${activeSeasonData.season_number}-${epNum}`;
-                        const isSelected = selectedEpisodes.has(key);
 
+                    <div className="flex flex-wrap gap-[3px]">
+                      {seasonEps(s).map((e) => {
+                        const on = watched.has(key(e.season_number, e.episode_number));
                         return (
                           <button
-                            key={epNum}
-                            onClick={() =>
-                              toggleEpisode(activeSeasonData.season_number, epNum)
-                            }
-                            className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${
-                              isSelected
-                                ? "bg-brand-500/20 border-brand-500/50 text-brand-400"
-                                : "bg-surface-800/50 border-surface-700/50 text-surface-300 hover:border-surface-500"
+                            key={e.episode_number}
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void apply([e], !on)}
+                            onDoubleClick={() => void apply(upTo(e.season_number, e.episode_number), true)}
+                            title={`S${s.season_number}E${e.episode_number}${on ? " — watched" : ""} · double-click to catch up to here`}
+                            aria-label={`Season ${s.season_number}, episode ${e.episode_number}${on ? ", watched" : ""}`}
+                            aria-pressed={on}
+                            className={`size-4 rounded-[3px] transition-colors disabled:opacity-60 ${
+                              on ? "bg-brand-500 hover:bg-brand-400" : "bg-surface-700/70 hover:bg-surface-600"
                             }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                                isSelected
-                                  ? "bg-brand-500 border-brand-500"
-                                  : "border-surface-600"
-                              }`}
-                            >
-                              {isSelected && (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-surface-950">
-                                  <polyline points="20 6 9 17 4 12"></polyline>
-                                </svg>
-                              )}
-                            </div>
-                            <span className="text-xs font-medium">
-                              Episode {epNum}
-                            </span>
-                          </button>
+                          />
                         );
                       })}
                     </div>
                   </div>
-                )}
-              </div>
+                );
+              })}
             </div>
+          )}
+        </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-between p-4 border-t border-surface-700/60 bg-surface-900/50">
-              <p className="text-sm text-surface-400">
-                <span className="text-brand-400 font-medium">{selectedCount}</span> selected ·{" "}
-                <span className="text-surface-300 font-medium">{watchedCount}</span> watched ·{" "}
-                <span className="text-surface-500">{totalEpisodes}</span> total
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={onClose}
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-surface-300 hover:bg-surface-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleSave()}
-                  // When a status was chosen, saving is still meaningful with
-                  // no episode change — "dropped, and my progress is already
-                  // right" has to be possible.
-                  disabled={saving || (!intendedStatus && selectedCount === watchedCount)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-surface-950 hover:bg-brand-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                >
-                  {saving ? (
-                    <>
-                      <LoadingSpinner size="sm" className="border-t-surface-950" />
-                      Saving…
-                    </>
-                  ) : intendedStatus ? (
-                    `Save as ${STATUS_LABEL[intendedStatus]}`
-                  ) : (
-                    "Save changes"
-                  )}
-                </button>
-              </div>
-            </div>
-          </>
+        {!loading && seasons.length > 0 && (
+          <div className="flex items-center gap-2 border-t border-surface-800 px-4 py-3">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void apply(seasons.flatMap(seasonEps), !complete)}
+              className="btn-primary flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold disabled:opacity-50"
+            >
+              {complete ? "Clear the whole show" : <><Check className="size-4" /> Mark the whole show</>}
+            </button>
+            <button
+              type="button"
+              onClick={() => void close()}
+              className="rounded-xl border border-surface-700 px-4 py-2.5 text-sm text-surface-300 transition hover:border-surface-600 hover:text-white"
+            >
+              Done
+            </button>
+          </div>
         )}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
