@@ -220,9 +220,15 @@ export default function StatusControl({
 
   const requestClear = () => {
     setOpen(false);
-    // Clearing a watched title can destroy a rating/review, so that one asks.
-    if (current === "watched") setConfirmClear(true);
-    else void write(null);
+    /**
+     * Always ask. Removing from ANY list deletes the feed entries and drops the
+     * title out of the diary listings, and for a series it is the only way to
+     * discard episode progress — so "watching" is no less destructive than
+     * "watched", it just used to disappear without a word. Silently removing
+     * and silently failing look identical from the outside, which is how the
+     * missing-itemType bug went unnoticed.
+     */
+    setConfirmClear(true);
   };
 
   if (!user && !loading) {
@@ -324,7 +330,9 @@ export default function StatusControl({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-surface-700 px-4 py-3">
-          <h3 className="text-lg font-semibold text-white">Remove from Watched?</h3>
+          <h3 className="text-lg font-semibold text-white">
+            Remove from {current ? statusMeta(current)!.label : "your lists"}?
+          </h3>
         </div>
         <div className="px-4 py-4">
           <p className="text-surface-300 mb-3">

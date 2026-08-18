@@ -285,7 +285,11 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
       : "POST";
     const endpoint = useNewApi
       ? payload.currentState
-        ? `/api/user-media-status?itemId=${encodeURIComponent(payload.itemId)}&keepData=${payload.keepData === false ? "false" : "true"}`
+        // Same omission as the setStatus path below: without itemType the
+        // route falls back to "movie" and a series delete matches nothing.
+        ? `/api/user-media-status?itemId=${encodeURIComponent(payload.itemId)}&itemType=${
+            payload.mediaType === "tv" ? "tv" : "movie"
+          }&keepData=${payload.keepData === false ? "false" : "true"}`
         : `/api/user-media-status`
       : payload.currentState
         ? API_ENDPOINTS[funcType].remove
@@ -474,9 +478,19 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
         const response =
           payload.status === null
             ? await fetch(
-                `/api/user-media-status?itemId=${encodeURIComponent(key)}&keepData=${
-                  payload.keepData === false ? "false" : "true"
-                }`,
+                /**
+                 * `itemType` is not optional here even though it looks it.
+                 * The DELETE route resolves an absent param to "movie", so
+                 * removing a SERIES deleted where item_type = 'movie', matched
+                 * zero rows, and returned 200 with no error — the toast said
+                 * removed, nothing was, and the show was still there after a
+                 * reload. Films worked only because they happened to match the
+                 * default. The route's own comment already warned that the
+                 * type is required; this caller never sent it.
+                 */
+                `/api/user-media-status?itemId=${encodeURIComponent(key)}&itemType=${
+                  payload.mediaType === "tv" ? "tv" : "movie"
+                }&keepData=${payload.keepData === false ? "false" : "true"}`,
                 { method: "DELETE", credentials: "include" },
               )
             : await fetch("/api/user-media-status", {
