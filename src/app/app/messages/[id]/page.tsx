@@ -217,6 +217,32 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
           requestAnimationFrame(() => scrollToBottom("smooth"));
         },
       )
+      /**
+       * Read receipts, live.
+       *
+       * The thread listened for INSERT only, so "· Read" appeared on your own
+       * message the next time the page loaded and never while you were looking
+       * at it — measured: marking the row read left an open thread unchanged
+       * until a reload. UPDATE events only became routable at all once
+       * migration 070 set REPLICA IDENTITY FULL; before that they arrived
+       * without the old row and could not be matched to a conversation.
+       *
+       * No scroll on this one. A receipt changing is not new content, and
+       * yanking the viewport while someone is reading back through a thread is
+       * worse than the receipt arriving quietly.
+       */
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages" },
+        (payload) => {
+          const m = payload.new as Message;
+          const inThisThread =
+            (m.sender_id === myId && m.recipient_id === recipientId) ||
+            (m.sender_id === recipientId && m.recipient_id === myId);
+          if (!inThisThread) return;
+          setMessages((prev) => prev.map((p) => (p.id === m.id ? { ...p, ...m } : p)));
+        },
+      )
       .subscribe();
 
     return () => {
@@ -225,8 +251,13 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
   }, [myId, recipientId, scrollToBottom]);
 
   /* ── Send ──────────────────────────────────────────────────────────────── */
-  const send = useCallback(async () => {
-    const body = draft.trim();
+  /**
+   * `text` lets a failed message be retried without retyping it. A bubble that
+   * says "Not delivered" and offers nothing is a dead end holding the only copy
+   * of what you wrote.
+   */
+  const send = useCallback(async (text?: string, replaceId?: string) => {
+    const body = (text ?? draft).trim();
     if (!body || !myId || sending) return;
 
     const optimisticId = `pending-${Date.now()}`;
@@ -242,8 +273,8 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
       pending: true,
     };
 
-    setMessages((prev) => [...prev, optimistic]);
-    setDraft("");
+    setMessages((prev) => [...prev.filter((m) => m.id !== replaceId), optimistic]);
+    if (!text) setDraft("");
     setSending(true);
     requestAnimationFrame(() => scrollToBottom("smooth"));
 
@@ -427,13 +458,36 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
                             {m.content && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
                           </div>
                         ))}
-                        <span className="px-1 text-[10px] text-surface-600">
-                          {run.items[run.items.length - 1].failed
-                            ? "Not delivered"
-                            : run.items[run.items.length - 1].pending
-                              ? "Sending…"
-                              : clockTime(run.items[run.items.length - 1].created_at)}
-                        </span>
+                        {(() => {
+                          const last = run.items[run.items.length - 1];
+                          if (last.failed) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => void send(last.content ?? undefined, last.id)}
+                                className="px-1 text-[10px] text-red-400 underline underline-offset-2 hover:text-red-300"
+                              >
+                                Not delivered — tap to retry
+                              </button>
+                            );
+                          }
+                          if (last.pending) {
+                            return <span className="px-1 text-[10px] text-surface-600">Sending…</span>;
+                          }
+                          return (
+                            <span className="px-1 text-[10px] text-surface-600">
+                              {clockTime(last.created_at)}
+                              {/* Only on your own messages, and only ever "Read".
+                                  A permanent "Sent" beside every line is noise;
+                                  the useful signal is the transition, and it now
+                                  arrives live because 070 gave UPDATE events the
+                                  old row they need to be routed. */}
+                              {mine && last.is_read && (
+                                <span className="ml-1 text-brand-400">· Read</span>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                   );
