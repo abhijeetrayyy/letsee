@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
   const viewerId = await getAuthUserId();
 
   // ── Phase 1: everything that depends only on the title ─────────────────────
-  const [ratingsRes, audienceRes, followedIds, takeRows, blocked] = await Promise.all([
+  const [ratingsRes, audienceRes, histogramRes, followedIds, takeRows, blocked] = await Promise.all([
     supabase
       .from("user_ratings")
       .select("user_id, score")
@@ -129,6 +129,25 @@ export async function GET(req: NextRequest) {
       p_item_id: itemId,
       p_item_type: itemType,
       p_viewer: viewerId ?? null,
+    }),
+
+    /**
+     * The histogram comes from a SECURITY DEFINER aggregate, not from the rows
+     * above.
+     *
+     * `user_ratings_select_profile_visible` (019) gates SELECT on profile
+     * visibility, which is right for anything naming a person and wrong for a
+     * number naming nobody: a private profile's score vanished from every
+     * average it belonged to, so the site's ratings got quietly less
+     * representative as people chose privacy. Measured — one private rater took
+     * a title from 3 ratings to 2.
+     *
+     * The rows are still read under RLS for the people lists below, because
+     * those DO attribute. Same table, two reads, two different rules.
+     */
+    supabase.rpc("title_rating_histogram", {
+      p_item_id: itemId,
+      p_item_type: itemType,
     }),
 
     (async (): Promise<string[]> => {
@@ -161,18 +180,39 @@ export async function GET(req: NextRequest) {
 
   const ratingRows = (ratingsRes.data ?? []) as { user_id: string; score: number }[];
 
-  // One scan, two answers: the histogram everyone sees, and the score attached
-  // to each person below it.
-  const histogram = Array.from({ length: 10 }, () => 0);
+  // The per-person scores, for the lists that name people.
   const scoreOf = new Map<string, number>();
-  let sum = 0;
-  let total = 0;
   for (const r of ratingRows) {
     if (!Number.isInteger(r.score) || r.score < 1 || r.score > 10) continue;
-    histogram[r.score - 1] += 1;
     scoreOf.set(r.user_id, r.score);
-    sum += r.score;
-    total += 1;
+  }
+
+  const histogram = Array.from({ length: 10 }, () => 0);
+  let sum = 0;
+  let total = 0;
+
+  const aggregate = (histogramRes.data ?? []) as { score: number; count: number }[];
+  if (aggregate.length > 0) {
+    for (const bucket of aggregate) {
+      if (!Number.isInteger(bucket.score) || bucket.score < 1 || bucket.score > 10) continue;
+      const n = Number(bucket.count) || 0;
+      histogram[bucket.score - 1] = n;
+      sum += bucket.score * n;
+      total += n;
+    }
+  } else {
+    /**
+     * The pre-067 behaviour, kept as a fallback rather than a hard dependency.
+     * If the function is not deployed yet the chart is still drawn — from the
+     * rows RLS allows, which undercounts private raters exactly as it always
+     * did, rather than rendering an empty chart on a rated title.
+     */
+    for (const r of ratingRows) {
+      if (!Number.isInteger(r.score) || r.score < 1 || r.score > 10) continue;
+      histogram[r.score - 1] += 1;
+      sum += r.score;
+      total += 1;
+    }
   }
 
   const writers = new Set<string>();
