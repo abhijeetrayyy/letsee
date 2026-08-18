@@ -56,6 +56,18 @@ export async function POST(req: NextRequest) {
       await supabase.rpc("decrement_favorites_count", { p_user_id: userId });
     } catch {}
 
+    /**
+     * The displayed four are a subset of favourites, so un-favouriting has to
+     * take the title out of the display or the profile keeps showing a film
+     * that is no longer a favourite of anyone's.
+     */
+    await supabase
+      .from("user_favorite_display")
+      .delete()
+      .eq("user_id", userId)
+      .eq("item_id", itemId)
+      .eq("item_type", mediaType);
+
     return jsonSuccess({ action: "removed", message: "Removed from favorites" });
   }
 

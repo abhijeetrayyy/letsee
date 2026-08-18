@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { getPosterUrl } from "@/utils/imageUrl";
@@ -42,6 +42,9 @@ export default function EditTasteInFour({
   const [watched, setWatched] = useState<PickableItem[]>([]);
   const [favorites, setFavorites] = useState<PickableItem[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [query, setQuery] = useState("");
+  const [remote, setRemote] = useState<PickableItem[]>([]);
+  const [searching, setSearching] = useState(false);
 
   const loadPickable = useCallback(async () => {
     if (loaded) return;
@@ -145,7 +148,75 @@ export default function EditTasteInFour({
     }
   };
 
-  const pickerList = pickerTab === "watched" ? watched : favorites;
+  const q = query.trim().toLowerCase();
+  const source = pickerTab === "watched" ? watched : favorites;
+  const pickerList = q ? source.filter((it) => it.item_name.toLowerCase().includes(q)) : source;
+
+  /**
+   * Search reaches past the lists, not just within them.
+   *
+   * There was no search here at all — you could only scroll whatever the first
+   * page of your watched and favourites happened to contain, so changing a pick
+   * to something further down the list, or to something not in it yet, was
+   * impossible. Onboarding asks the same question with a search box over all of
+   * TMDB; this is the screen where you change that answer and it offered less.
+   *
+   * A title picked from TMDB goes through /api/favoriteButton, which makes it a
+   * favourite and therefore watched — so the invariant this display depends on
+   * (taste-of-four is a subset of favourites, which is a subset of watched)
+   * holds by construction rather than by hoping the picker only offered legal
+   * options.
+   */
+  useEffect(() => {
+    if (q.length < 2) {
+      setRemote([]);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const t = setTimeout(() => {
+      fetch(`/api/search?query=${encodeURIComponent(q)}&media_type=multi`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((body) => {
+          if (cancelled) return;
+          const rows = (body?.results ?? body?.data?.results ?? []) as any[];
+          setRemote(
+            rows
+              .filter((r) => (r.media_type === "movie" || r.media_type === "tv") && (r.title || r.name))
+              .slice(0, 12)
+              .map((r) => ({
+                item_id: String(r.id),
+                item_name: r.title ?? r.name ?? "",
+                item_type: r.media_type as "movie" | "tv",
+                image_url: r.poster_path ?? null,
+              })),
+          );
+        })
+        .catch(() => !cancelled && setRemote([]))
+        .finally(() => !cancelled && setSearching(false));
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [q]);
+
+  /** A title from search has to become a favourite before it can be displayed. */
+  const pickRemote = async (it: PickableItem) => {
+    await fetch("/api/favoriteButton", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        itemId: it.item_id,
+        name: it.item_name,
+        mediaType: it.item_type,
+        imgUrl: it.image_url ? getPosterUrl(it.image_url) : null,
+        genres: [],
+      }),
+    }).catch(() => {});
+    setFavorites((cur) => (cur.some((f) => f.item_id === it.item_id && f.item_type === it.item_type) ? cur : [it, ...cur]));
+    handlePickItem(it);
+  };
 
   return (
     <>
@@ -287,6 +358,38 @@ export default function EditTasteInFour({
                           </p>
                         </button>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Anything not in your lists yet. Picking one favourites it,
+                      which marks it watched — so it is legal to display before
+                      it ever appears above. */}
+                  {q.length >= 2 && remote.length > 0 && (
+                    <div className="mt-5 border-t border-surface-700/70 pt-4">
+                      <p className="mb-3 text-[11px] font-medium uppercase tracking-wider text-surface-500">
+                        {searching ? "Searching…" : "Not in your list yet"}
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        {remote.map((it) => (
+                          <button
+                            key={`r-${it.item_type}-${it.item_id}`}
+                            type="button"
+                            onClick={() => void pickRemote(it)}
+                            className="text-left rounded-xl overflow-hidden border-2 border-surface-600 bg-surface-800 hover:border-amber-500/60 hover:bg-surface-700 transition-all group"
+                          >
+                            <div className="aspect-2/3 bg-surface-700 overflow-hidden">
+                              <img
+                                src={getPosterUrl(it.image_url)}
+                                alt={it.item_name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                              />
+                            </div>
+                            <p className="p-3 text-sm font-medium text-white truncate" title={it.item_name}>
+                              {it.item_name}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

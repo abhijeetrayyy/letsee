@@ -157,6 +157,32 @@ export async function DELETE(req: NextRequest) {
   }
 
   /**
+   * Removing from watched removes the favourite, and the display with it.
+   *
+   * The chain only ever ran one way: favouriting marked a title watched, and
+   * nothing did the reverse. So you could take a film out of your lists and it
+   * stayed in your favourites, and stayed in the four films on your profile —
+   * a profile claiming you love something your own watched list no longer
+   * admits you have seen.
+   *
+   * Order matters. `user_favorite_display` before `favorite_items`, because the
+   * display is what a stranger sees and it must never be the row that survives.
+   */
+  await supabase
+    .from("user_favorite_display")
+    .delete()
+    .eq("user_id", userId)
+    .eq("item_id", itemId)
+    .eq("item_type", itemType);
+
+  await supabase
+    .from("favorite_items")
+    .delete()
+    .eq("user_id", userId)
+    .eq("item_id", itemId)
+    .eq("item_type", itemType);
+
+  /**
    * Remove the feed entries too, or removing a title does not remove it.
    *
    * `user_activity` is written by triggers — `040` on entering `watching`,
