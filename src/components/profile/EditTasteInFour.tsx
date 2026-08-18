@@ -188,7 +188,10 @@ export default function EditTasteInFour({
                 item_id: String(r.id),
                 item_name: r.title ?? r.name ?? "",
                 item_type: r.media_type as "movie" | "tv",
-                image_url: r.poster_path ?? null,
+                // Store the resolved URL, matching what favorite_items and
+                // watched_items hold — one shape in the database beats every
+                // reader having to guess which it got.
+                image_url: r.poster_path ? getPosterUrl(r.poster_path, "w342") : null,
               })),
           );
         })

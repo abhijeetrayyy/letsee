@@ -1,3 +1,4 @@
+import { getPosterUrl } from "@/utils/imageUrl";
 import Link from "next/link";
 
 type DisplayItem = {
@@ -18,7 +19,21 @@ export default function TasteInFourStrip({ items }: { items: DisplayItem[] }) {
       <div className="flex justify-center sm:justify-start gap-0 overflow-x-auto pb-4 pretty-scrollbar">
         {items.map((it, i) => {
           const href = `/app/${it.item_type}/${it.item_id}`;
-          const imgSrc = it.image_url?.trim() || NO_POSTER;
+          /**
+           * Resolve rather than trust the stored string.
+           *
+           * This used the column verbatim as a src, which works only if every
+           * writer happened to store an absolute URL. The taste-of-four picker
+           * now also accepts titles straight from TMDB search, whose
+           * `poster_path` is a bare "/abc.jpg" — as a src that resolves against
+           * our own domain and 404s, which is why a film added that way showed
+           * broken here while the same film rendered fine in the watched and
+           * favourites lists, which store the full URL.
+           *
+           * getPosterUrl accepts both forms, so this also fixes rows already
+           * written in the wrong shape without a migration.
+           */
+          const imgSrc = getPosterUrl(it.image_url, "w342");
           return (
             <Link
               key={`${it.item_id}-${it.position}`}
