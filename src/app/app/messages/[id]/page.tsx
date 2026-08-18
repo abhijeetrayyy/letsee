@@ -405,13 +405,17 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
      * max-w-2xl. The header, the scroller and the composer all share one width
      * so nothing steps outside the column.
      */
-    <div className="mx-auto flex h-[calc(100vh-3.5rem)] w-full max-w-3xl flex-col border-x border-surface-800/60 bg-surface-950 text-white">
+    /* Fills the pane the shell gives it. The height, the max width and the
+       side borders now belong to MessagesShell — keeping a second copy here
+       produced a column inside a column and a scrollbar that fought the
+       layout's. */
+    <div className="flex h-full flex-col bg-surface-950 text-white">
       {/* Header */}
       <header className="flex shrink-0 items-center gap-3 border-b border-surface-800 px-4 py-3">
         <Link
           href="/app/messages"
-          className="nav-icon-btn shrink-0"
-          aria-label="Back to messages"
+          className="nav-icon-btn shrink-0 md:hidden"
+          aria-label="Back to conversations"
         >
           <ArrowLeft className="size-4" />
         </Link>
