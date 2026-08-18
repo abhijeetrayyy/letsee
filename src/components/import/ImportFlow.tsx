@@ -55,6 +55,8 @@ export default function ImportFlow() {
   const [resolving, setResolving] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
   const [resumable, setResumable] = useState<ExistingJob | null>(null);
+  const [history, setHistory] = useState<ExistingJob[]>([]);
+  const [clearing, setClearing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const loadUnresolved = useCallback(async (id: number) => {
@@ -108,10 +110,13 @@ export default function ImportFlow() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled || !data?.jobs) return;
-        const unfinished = (data.jobs as ExistingJob[]).find(
+        const jobs = data.jobs as ExistingJob[];
+        const unfinished = jobs.find(
           (j) => j.status !== "completed" && j.status !== "failed" && j.processed_rows < j.total_rows,
         );
         if (unfinished) setResumable(unfinished);
+        // The same response already carried the finished runs; nothing read them.
+        setHistory(jobs.filter((j) => j.status === "completed" || j.status === "failed"));
       })
       .catch(() => {
         // An unavailable list just means no resume offer; the drop zone works.
@@ -290,6 +295,54 @@ export default function ImportFlow() {
             Letterboxd reviews come in as private diary notes rather than being published.
           </p>
         </div>
+
+      {history.length > 0 && (
+        <div className="rounded-2xl border border-surface-800 bg-surface-900/40 p-5">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 className="text-sm font-semibold text-surface-100">Past imports</h2>
+            <button
+              type="button"
+              disabled={clearing}
+              onClick={async () => {
+                setClearing(true);
+                try {
+                  const res = await fetch("/api/account/import", { method: "DELETE" });
+                  if (res.ok) setHistory([]);
+                  else setError("Couldn't clear the import history.");
+                } catch {
+                  setError("Couldn't clear the import history.");
+                } finally {
+                  setClearing(false);
+                }
+              }}
+              className="rounded-full border border-surface-700 px-3 py-1.5 text-xs text-surface-300 transition hover:border-surface-600 hover:text-white disabled:opacity-50"
+            >
+              {clearing ? "Clearing…" : "Clear history"}
+            </button>
+          </div>
+
+          <ul className="divide-y divide-surface-800/70">
+            {history.map((j) => (
+              <li key={j.id} className="flex items-baseline justify-between gap-3 py-2 text-xs">
+                <span className="text-surface-400">
+                  <time dateTime={j.created_at}>{formatRunDate(j.created_at)}</time>
+                  {j.status === "failed" && <span className="text-rose-400"> · failed</span>}
+                </span>
+                <span className="font-mono tabular-nums text-surface-500">
+                  {j.resolved_rows}/{j.total_rows} matched
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          {/* Stated plainly because "clear history" reads to some people as
+              "undo my import", and that is the worst possible thing to leave
+              ambiguous next to a destructive-sounding button. */}
+          <p className="mt-3 text-[11px] text-surface-500">
+            Clearing removes these records only. The films they added stay in your library.
+          </p>
+        </div>
+      )}
       </div>
     );
   }
@@ -437,6 +490,22 @@ export default function ImportFlow() {
       )}
 
       {error && <p className="text-rose-400 text-sm">{error}</p>}
+
     </div>
   );
+}
+
+/**
+ * Dates are formatted from the parts, not with toLocaleDateString.
+ *
+ * The runtime default locale differs between the server and the browser, which
+ * renders two different strings for one date and has already cost this repo a
+ * hydration failure once.
+ */
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function formatRunDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return "";
+  return `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}`;
 }

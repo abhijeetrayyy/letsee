@@ -138,3 +138,38 @@ export async function GET() {
 
   return jsonSuccess({ jobs: data ?? [] });
 }
+
+/**
+ * DELETE /api/account/import — forget the import records.
+ *
+ * The jobs table is a log of runs, not the library. Deleting a row here
+ * removes the receipt; the films it matched are already in
+ * `user_media_status`, `watched_items`, `user_ratings` and `takes` and are
+ * untouched by this. The UI has to say so, because "clear history" reads to
+ * some people as "undo my import" and that would be the worst possible
+ * misunderstanding to leave standing.
+ *
+ * A job still `pending` or `processing` is deliberately kept: it is the row
+ * the resume path reads, and deleting it would strand a half-finished import
+ * with no way to continue it. `import_rows` cascades, so the unresolved rows
+ * of a finished job go with their job.
+ */
+export async function DELETE() {
+  const userId = await getAuthUserId();
+  if (!userId) return jsonError("Not authenticated", 401);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("import_jobs")
+    .delete()
+    .eq("user_id", userId)
+    .in("status", ["completed", "failed"])
+    .select("id");
+
+  if (error) {
+    console.error("import history clear:", error);
+    return jsonError("Couldn't clear the import history", 500);
+  }
+
+  return jsonSuccess({ cleared: (data ?? []).length });
+}
