@@ -57,6 +57,34 @@ export async function PUT(req: NextRequest) {
     return jsonError(error.message, 500);
   }
 
+  /**
+   * A favourite requires "watched", so any other status drops it.
+   *
+   * The chain — the four films on your profile are a subset of your
+   * favourites, which are a subset of what you have watched — was only
+   * enforced on removal. Moving a title to watching, on_hold, dropped or
+   * watchlist left the favourite behind, so a profile could show a film you
+   * love while your own status for it said you had abandoned it partway.
+   *
+   * The display goes first: it is the row a stranger sees, and it must never
+   * be the one that survives a partial failure.
+   */
+  if (status !== "watched") {
+    await supabase
+      .from("user_favorite_display")
+      .delete()
+      .eq("user_id", userId)
+      .eq("item_id", itemId)
+      .eq("item_type", itemType);
+
+    await supabase
+      .from("favorite_items")
+      .delete()
+      .eq("user_id", userId)
+      .eq("item_id", itemId)
+      .eq("item_type", itemType);
+  }
+
   // Mirror writes to watched_items for backward compatibility with profile/diary/reviews
   // that still read from watched_items
   if (status === "watched") {

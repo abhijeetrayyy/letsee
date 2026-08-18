@@ -102,10 +102,11 @@ export async function POST(req: NextRequest) {
    * place a favourite is created — the detail page, the cards and the
    * onboarding picker all come through it, so they all inherit the rule.
    *
-   * Both writes are insert-if-absent. An existing "watching" or "dropped"
-   * status is left alone: favouriting episode three of something you abandoned
-   * is not a claim to have finished it, and promoting it would overwrite a
-   * fact the user set deliberately.
+   * It OVERWRITES an existing status rather than deferring to it. That is the
+   * other half of the same rule: since a non-watched status now drops the
+   * favourite, leaving a favourited title on "dropped" would produce a row the
+   * next status write deletes — a favourite that silently disappears later.
+   * One of the two has to win, and the action the user just took wins.
    */
   await Promise.all([
     supabase
@@ -121,7 +122,7 @@ export async function POST(req: NextRequest) {
           status: "watched",
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "user_id,item_id,item_type", ignoreDuplicates: true },
+        { onConflict: "user_id,item_id,item_type" },
       )
       .then(({ error }) => error && console.error("favorite implies watched (status):", error)),
     supabase
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
           ...(genres.length ? { genres } : {}),
           is_watched: true,
         },
-        { onConflict: "user_id,item_id,item_type", ignoreDuplicates: true },
+        { onConflict: "user_id,item_id,item_type" },
       )
       .then(({ error }) => error && console.error("favorite implies watched (item):", error)),
   ]);
