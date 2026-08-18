@@ -11,8 +11,25 @@ export default function NotificationBell({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (!userId) return;
-    supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("is_read", false)
-      .then(({ count: c }) => { if (c != null) setCount(c); });
+
+    const readCount = () =>
+      supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("is_read", false)
+        .then(({ count: c }) => { if (c != null) setCount(c); });
+
+    void readCount();
+
+    /**
+     * Reading a conversation clears its dm_received notifications server-side,
+     * so the bell re-reads rather than trusting the UPDATE subscription below
+     * to arrive. It usually will; "usually" is what left the message badge
+     * stale for a whole session.
+     */
+    const onMessagesRead = () => void readCount();
+    window.addEventListener("letsee:messages-read", onMessagesRead);
 
     const ch = supabase.channel(`notif-${userId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, (payload) => {
@@ -28,7 +45,10 @@ export default function NotificationBell({ userId }: { userId: string }) {
         supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("is_read", false).then(({ count: c }) => { if (c != null) setCount(c); });
       })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      window.removeEventListener("letsee:messages-read", onMessagesRead);
+      supabase.removeChannel(ch);
+    };
   }, [userId]);
 
   return (

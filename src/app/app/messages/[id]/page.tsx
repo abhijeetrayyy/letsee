@@ -86,6 +86,10 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
   const [sending, setSending] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [theyreTyping, setTheyreTyping] = useState(false);
+  const typingChannel = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const typingSentAt = useRef(0);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -190,6 +194,46 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
       alive = false;
     };
   }, [myId, messages, recipientId]);
+
+  /**
+   * Typing, over broadcast rather than the database.
+   *
+   * Typing is ephemeral — it is true for two seconds and worth nothing after —
+   * so writing it to a table would mean a row, a trigger and a WAL entry per
+   * keystroke to convey something that expires before anyone reads it back.
+   * Broadcast carries it between the two clients and leaves nothing behind.
+   *
+   * The channel name is sorted so both people join the same one; keyed on the
+   * pair in the order they happen to open the thread, each would sit in their
+   * own room shouting at nobody.
+   */
+  useEffect(() => {
+    if (!myId) return;
+    const room = [myId, recipientId].sort().join(":");
+    const ch = supabase.channel(`typing:${room}`, { config: { broadcast: { self: false } } });
+    ch.on("broadcast", { event: "typing" }, (payload) => {
+      if ((payload.payload as { from?: string })?.from === myId) return;
+      setTheyreTyping(true);
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+      // Nobody sends a "stopped typing" — it simply expires, which also covers
+      // the tab being closed mid-sentence.
+      typingTimer.current = setTimeout(() => setTheyreTyping(false), 3000);
+    }).subscribe();
+    typingChannel.current = ch;
+    return () => {
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+      void supabase.removeChannel(ch);
+      typingChannel.current = null;
+    };
+  }, [myId, recipientId]);
+
+  /** Throttled: one ping per second is enough to keep an indicator alive. */
+  const announceTyping = useCallback(() => {
+    const now = Date.now();
+    if (!myId || now - typingSentAt.current < 1000) return;
+    typingSentAt.current = now;
+    void typingChannel.current?.send({ type: "broadcast", event: "typing", payload: { from: myId } });
+  }, [myId]);
 
   /* ── Realtime ──────────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -352,7 +396,16 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col bg-surface-950 text-white">
+    /**
+     * A column, not the whole monitor.
+     *
+     * The thread had no max width, so on a wide screen it ran edge to edge
+     * with bubbles capped at 65% of ~1900px — lines far too long to read
+     * comfortably, and inconsistent with the inbox, which was already
+     * max-w-2xl. The header, the scroller and the composer all share one width
+     * so nothing steps outside the column.
+     */
+    <div className="mx-auto flex h-[calc(100vh-3.5rem)] w-full max-w-3xl flex-col border-x border-surface-800/60 bg-surface-950 text-white">
       {/* Header */}
       <header className="flex shrink-0 items-center gap-3 border-b border-surface-800 px-4 py-3">
         <Link
@@ -370,7 +423,13 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
             <Avatar src={recipient.avatar_url} name={recipient.username} size="md" />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-white">@{recipient.username}</p>
-              <p className="text-[11px] text-surface-500">View profile</p>
+              <p className="text-[11px] text-surface-500">
+                {theyreTyping ? (
+                  <span className="text-brand-400">typing…</span>
+                ) : (
+                  "View profile"
+                )}
+              </p>
             </div>
           </Link>
         ) : (
@@ -514,7 +573,10 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
           <textarea
             ref={inputRef}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              announceTyping();
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();

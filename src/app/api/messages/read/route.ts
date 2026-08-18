@@ -44,6 +44,27 @@ export async function POST(req: NextRequest) {
     return jsonError("Couldn't mark those read", 500);
   }
 
+  /**
+   * Reading the conversation clears its notifications too.
+   *
+   * A DM raises a `dm_received` notification through a trigger, and nothing
+   * ever cleared it — so the bell kept announcing a message you had opened,
+   * read and replied to. Two counters for one fact, and only one of them was
+   * ever decremented.
+   *
+   * Scoped to this sender so opening one conversation does not silently clear
+   * the bell for every other person who wrote to you.
+   */
+  const { error: notifError } = await supabase
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("user_id", userId)
+    .eq("actor_id", withUserId)
+    .eq("notification_type", "dm_received")
+    .eq("is_read", false);
+
+  if (notifError) console.error("messages read (notifications):", notifError);
+
   // The count is the point: the caller uses it to decide whether the badge
   // needs re-reading, and a zero tells it nothing changed rather than leaving
   // it to guess.
