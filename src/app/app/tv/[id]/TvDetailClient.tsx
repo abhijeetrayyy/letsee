@@ -209,42 +209,15 @@ export default function TvDetailClient({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          <div className="space-y-10 lg:col-span-2">
-            <Section title="Where to watch">
-              <Availability mediaId={show.id} mediaType="tv" />
-            </Section>
+        {/* The facts, straight after your progress. This is the moment a
+            reader forms an assumption — who made it, which network, how long a
+            season runs — and all of it used to sit at the very bottom behind
+            everything else. */}
+        <TitleFacts facts={facts} variant="card" />
 
-            {/* One composer on this page and only one, at series scope. The
-                season and episode pages carry their own; a thought about the
-                whole show belongs here. */}
-            <Section title="Your entry">
-              <TitleTalk
-                itemId={String(show.id)}
-                itemType="tv"
-                scope="title"
-                itemName={show.name}
-                imageUrl={
-                  show.poster_path ? `https://image.tmdb.org/t/p/w342${show.poster_path}` : null
-                }
-                genres={(show.genres ?? []).map((g: { name: string }) => g.name)}
-                isAuthenticated={isAuthenticated}
-              />
-            </Section>
-          </div>
-
-          <div>
-            <TheRoom itemId={show.id} itemType="tv" />
-          </div>
-        </div>
-
-        {/* Full width, and deliberately far larger than a film's equivalent —
-            this is the part of a series you come back to. */}
-        {seasons.length > 0 && (
-          <Section title="Episodes">
-            <SeasonBrowser showId={show.id} seasons={seasons} isAuthenticated={isAuthenticated} />
-          </Section>
-        )}
+        <Section title="Episodes">
+          <SeasonBrowser showId={show.id} seasons={seasons} isAuthenticated={isAuthenticated} />
+        </Section>
 
         {cast.length > 0 && (
           <Section title="Cast" subtitle={`${cast.length} regulars`}>
@@ -252,9 +225,6 @@ export default function TvDetailClient({
           </Section>
         )}
 
-        {/* Crew now arrives ranked out of aggregate_credits, but a handful of
-            shows still have none TMDB will admit to. groupCrew returns [] and
-            this does not render, rather than leaving a heading over nothing. */}
         {(crewGroups.length > 0 || crewKey.length > 0) && (
           <Section title="Crew">
             <CrewBlock groups={crewGroups} keyPeople={crewKey} />
@@ -270,24 +240,37 @@ export default function TvDetailClient({
           </Section>
         )}
 
-        {/* The record, last. Strangers on another site, the production facts,
-            and the tags TMDB filed the show under. */}
-        {hasReviews ? (
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <TmdbReviews reviews={reviews} max={REVIEW_MAX} />
-            </div>
-            <div className="space-y-6">
-              <TitleFacts facts={facts} />
-              <KeywordChips keywords={keywords} mediaType="tv" />
-            </div>
+        {/* Watching, writing and reading what others wrote are one act of
+            attention, so they sit together rather than being split across the
+            page. */}
+        <Section title="Where to watch">
+          <Availability mediaId={show.id} mediaType="tv" />
+        </Section>
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <div className="space-y-10 lg:col-span-2">
+            <Section title="Your entry">
+              <TitleTalk
+                itemId={String(show.id)}
+                itemType="tv"
+                itemName={show.name}
+                imageUrl={
+                  show.poster_path ? `https://image.tmdb.org/t/p/w342${show.poster_path}` : null
+                }
+                genres={(show.genres ?? []).map((g: { name: string }) => g.name)}
+                isAuthenticated={isAuthenticated}
+              />
+            </Section>
+
+            {hasReviews && <TmdbReviews reviews={reviews} max={REVIEW_MAX} />}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <TitleFacts facts={facts} />
+
+          <div className="space-y-6">
+            <TheRoom itemId={show.id} itemType="tv" />
             <KeywordChips keywords={keywords} mediaType="tv" />
           </div>
-        )}
+        </div>
+
       </div>
     </div>
   );

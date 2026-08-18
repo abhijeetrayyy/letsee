@@ -166,43 +166,16 @@ export default function MovieDetailClient({
       </TitleHero>
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
-        {/* Movement one: what this film is to you.
-            Availability comes first because "can I watch it" is the question a
-            reader arrives with; the composer comes next because answering it is
-            what the site is for; the room sits alongside both, since who else
-            is here is worth seeing while you write rather than after. */}
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          <div className="space-y-10 lg:col-span-2">
-            <Section title="Where to watch">
-              <Availability mediaId={movie.id} mediaType="movie" />
-            </Section>
+        {/* Movement one: what this is.
+            Details sits directly under the hero because that is when a reader
+            is forming their assumption — who directed it, who wrote it, what it
+            cost and what it made. Those are the facts people reach for first,
+            and they were at the very bottom of the page behind everything else. */}
+        <TitleFacts facts={facts} variant="card" />
 
-            {/* One composer on this page and only one. It used to be two —
-                "Your take" here and "Discussion" below — which made the reader
-                choose which box a thought belonged in before they had finished
-                having it. */}
-            <Section title="Your entry">
-              <TitleTalk
-                itemId={String(movie.id)}
-                itemType="movie"
-                itemName={movie.title}
-                imageUrl={
-                  movie.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : null
-                }
-                genres={(movie.genres ?? []).map((g: { name: string }) => g.name)}
-                isAuthenticated={isAuthenticated}
-              />
-            </Section>
-          </div>
-
-          <div>
-            <TheRoom itemId={movie.id} itemType="movie" />
-          </div>
-        </div>
-
-        {/* Movement two: the film. Both of these render their own Section and
-            return null when they have nothing, so a standalone film with no
-            dates on file adds no empty headings to the page. */}
+        {/* Movement two: the film itself. Both of these render their own
+            Section and return null when they have nothing, so a standalone
+            film with no dates on file adds no empty headings. */}
         <FranchiseStrip collection={collection} currentId={movie.id} />
 
         <ReleaseTimeline releaseDates={releaseDates} />
@@ -232,25 +205,43 @@ export default function MovieDetailClient({
           </Section>
         )}
 
-        {/* Movement three: the record. Strangers on another site, the
-            production facts and the tags TMDB filed it under — all of it real,
-            none of it the reason anyone keeps a journal. */}
-        {hasReviews ? (
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <TmdbReviews reviews={reviews} max={REVIEW_MAX} />
-            </div>
-            <div className="space-y-6">
-              <TitleFacts facts={facts} />
-              <KeywordChips keywords={keywords} mediaType="movie" />
-            </div>
+        {/* Movement three: what it is to you, and to everyone else.
+            Watching, writing and reading what others wrote are one act of
+            attention, so they sit together rather than being split across the
+            page — your entry and the room beside the strangers on TMDB who
+            reviewed the same film. */}
+        <Section title="Where to watch">
+          <Availability mediaId={movie.id} mediaType="movie" />
+        </Section>
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <div className="space-y-10 lg:col-span-2">
+            {/* One composer on this page and only one. It used to be two —
+                "Your take" here and "Discussion" below — which made the reader
+                choose which box a thought belonged in before they had finished
+                having it. */}
+            <Section title="Your entry">
+              <TitleTalk
+                itemId={String(movie.id)}
+                itemType="movie"
+                itemName={movie.title}
+                imageUrl={
+                  movie.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : null
+                }
+                genres={(movie.genres ?? []).map((g: { name: string }) => g.name)}
+                isAuthenticated={isAuthenticated}
+              />
+            </Section>
+
+            {hasReviews && <TmdbReviews reviews={reviews} max={REVIEW_MAX} />}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <TitleFacts facts={facts} />
+
+          <div className="space-y-6">
+            <TheRoom itemId={movie.id} itemType="movie" />
             <KeywordChips keywords={keywords} mediaType="movie" />
           </div>
-        )}
+        </div>
+
       </div>
     </div>
   );
