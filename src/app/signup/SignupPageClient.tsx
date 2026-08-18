@@ -60,7 +60,25 @@ export default function SignupPageClient() {
       router.push("/app/welcome");
       return;
     }
-    setInfo("Check your email to confirm your account.");
+    /**
+     * One message, whichever case this is — and it has to name both.
+     *
+     * When the address already has an account, Supabase returns SUCCESS with
+     * no session and sends no mail. That is deliberate: a different response
+     * for a known address would let anyone probe which emails are registered,
+     * which on a site with private profiles is a real leak. But the screen
+     * then told people to check an inbox nothing was ever sent to, and the
+     * only way to discover the truth was to guess and try logging in — which
+     * is exactly what happened.
+     *
+     * `data.user.identities` is empty in that case, and it is deliberately NOT
+     * read here. Branching on it would restore the enumeration hole in the UI
+     * after the API closed it. Instead the copy covers both outcomes, so it is
+     * true either way and neither leaves anybody waiting.
+     */
+    setInfo(
+      "If that email is new, a confirmation link is on its way. If you already have an account, sign in instead.",
+    );
     setLoading(false);
   };
 

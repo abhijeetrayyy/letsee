@@ -235,9 +235,20 @@ export default function SignupForm({
             )}
 
             {info && (
-              <div className="rounded-xl bg-brand-500/10 border border-brand-500/20 px-4 py-3 text-sm text-brand-300 flex items-start gap-2">
-                <span className="mt-0.5 shrink-0">✉️</span>
-                {info}
+              <div className="rounded-xl bg-brand-500/10 border border-brand-500/20 px-4 py-3 text-sm text-brand-300">
+                <div className="flex items-start gap-2">
+                  <span className="mt-0.5 shrink-0">✉️</span>
+                  <span>{info}</span>
+                </div>
+                {/* The message names signing in as an option, so the option has
+                    to be here. Telling someone to sign in and then leaving them
+                    to find the link is the same dead end one step later. */}
+                <Link
+                  href="/login"
+                  className="mt-2 inline-block font-medium text-brand-200 underline underline-offset-2 hover:text-white"
+                >
+                  Go to sign in
+                </Link>
               </div>
             )}
             {displayError && (
