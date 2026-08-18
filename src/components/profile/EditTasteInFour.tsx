@@ -327,6 +327,20 @@ export default function EditTasteInFour({
                     Favorites ({favorites.length})
                   </button>
                 </div>
+                {/* The search that was missing entirely. Without it you could
+                    only scroll the first page of your lists, so swapping a pick
+                    for anything further down — or for something not in your
+                    lists yet — was impossible. */}
+                <div className="mb-3">
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search your list, or anything on TMDB"
+                    aria-label="Search titles"
+                    className="w-full rounded-xl border border-surface-700 bg-surface-950 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+
                 <div className="rounded-xl border border-surface-700 bg-surface-800/50 p-4">
                   {!loaded ? (
                     <div className="py-12 flex flex-col items-center justify-center gap-3">
