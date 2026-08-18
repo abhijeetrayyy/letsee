@@ -156,11 +156,40 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
     if (!myId || messages.length === 0) return;
     const unread = messages.filter((m) => m.recipient_id === myId && !m.is_read && !m.pending);
     if (unread.length === 0) return;
-    void supabase
-      .from("messages")
-      .update({ is_read: true })
-      .in("id", unread.map((m) => m.id));
-  }, [myId, messages]);
+
+    /**
+     * Through the server, and the result is used.
+     *
+     * This was a fire-and-forget client update whose outcome nobody looked at,
+     * so a failure looked exactly like a success — and the local rows were
+     * never updated either, so `unread` stayed non-empty and the header badge
+     * went on counting a message that was open on screen.
+     *
+     * The rows are marked locally on success so this cannot re-fire, and the
+     * badge is told to re-read rather than waiting on a realtime UPDATE event
+     * that may never arrive.
+     */
+    let alive = true;
+    fetch("/api/messages/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ withUserId: recipientId }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (!alive || !body) return;
+        setMessages((cur) =>
+          cur.map((m) => (m.recipient_id === myId && !m.is_read ? { ...m, is_read: true } : m)),
+        );
+        window.dispatchEvent(new CustomEvent("letsee:messages-read"));
+      })
+      .catch(() => {
+        // Leaving them unread is the honest outcome of a failed write.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [myId, messages, recipientId]);
 
   /* ── Realtime ──────────────────────────────────────────────────────────── */
   useEffect(() => {

@@ -31,6 +31,18 @@ const MessageButton: React.FC<MessageButtonProps> = ({ userId, className }) => {
 
     fetchUnreadCount();
 
+    /**
+     * Re-read when a thread reports it marked something.
+     *
+     * The badge relied entirely on a realtime UPDATE event, which has to be
+     * enabled on the table and actually delivered before it helps. When it did
+     * not arrive the count stayed stale until a full reload — which is the
+     * "I read it and it still says one pending" report. The thread now
+     * announces what it did, and this listens.
+     */
+    const onRead = () => void fetchUnreadCount();
+    window.addEventListener("letsee:messages-read", onRead);
+
     const channel = supabase
       .channel(`realtime-unread-count-${userId}`)
       .on(
@@ -48,6 +60,7 @@ const MessageButton: React.FC<MessageButtonProps> = ({ userId, className }) => {
       .subscribe();
 
     return () => {
+      window.removeEventListener("letsee:messages-read", onRead);
       supabase.removeChannel(channel);
     };
   }, [supabase, userId]);
