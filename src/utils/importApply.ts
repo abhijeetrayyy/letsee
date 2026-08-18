@@ -13,6 +13,8 @@
  *              film already marked watched is never demoted back to "planned".
  *   rating     insert-if-absent. First import seeds it, re-imports leave it.
  *   review     only fills a null diary entry.
+ *   take       insert-if-absent, and only when the title has no take at
+ *              either visibility — this is the row the app actually renders.
  *   favourite  insert-if-absent.
  *
  * A consequence worth stating: running the same import twice is a no-op the
@@ -59,7 +61,7 @@ export async function applyRows(
   const itemIds = [...new Set(rows.map((r) => r.tmdbId))];
 
   // One read to learn what the user already has, so nothing below has to guess.
-  const [statusRes, watchedRes] = await Promise.all([
+  const [statusRes, watchedRes, takesRes] = await Promise.all([
     supabase
       .from("user_media_status")
       .select("item_id, item_type, status")
@@ -69,6 +71,21 @@ export async function applyRows(
       .from("watched_items")
       .select("item_id, item_type, review_text")
       .eq("user_id", userId)
+      .in("item_id", itemIds),
+    /**
+     * Both visibilities, deliberately.
+     *
+     * `takes_identity_key` includes `is_public`, so a private insert alongside
+     * an existing public take does not collide — it creates a SECOND take on
+     * one title, which is the split-row bug this codebase has already had to
+     * repair once. Any take at all means the user has spoken about this title
+     * here, and an import does not get to speak over them.
+     */
+    supabase
+      .from("takes")
+      .select("item_id, item_type")
+      .eq("user_id", userId)
+      .eq("scope", "title")
       .in("item_id", itemIds),
   ]);
 
@@ -81,7 +98,15 @@ export async function applyRows(
     (watchedRes.data ?? []).map((r) => [`${r.item_type}:${r.item_id}`, r.review_text as string | null]),
   );
 
+  const existingTake = new Set(
+    (takesRes.data ?? []).map((r) => `${r.item_type}:${r.item_id}`),
+  );
+
   const statusUpserts: Record<string, unknown>[] = [];
+  const takeInserts: Record<string, unknown>[] = [];
+  /** Guards the batch against itself — two rows for one title in a single
+      upsert violate the unique constraint and reject the whole statement. */
+  const takesInBatch = new Set<string>();
   const watchedUpserts: Record<string, unknown>[] = [];
   const ratingInserts: Record<string, unknown>[] = [];
   const favoriteInserts: Record<string, unknown>[] = [];
@@ -121,6 +146,42 @@ export async function applyRows(
       });
     }
 
+    /**
+     * The take is the record that actually gets read.
+     *
+     * Everything that displays writing — the thread on a title page, the feed,
+     * popular reviews — reads `takes` since migration 065. Writing only the
+     * legacy tables meant an imported review landed somewhere nothing renders:
+     * the rating still counted, because the histogram reads `user_ratings`,
+     * but five years of someone's writing arrived invisible.
+     *
+     * Private, matching the review policy above: it was public on Letterboxd,
+     * which is not consent to republish it here under a different profile's
+     * visibility rules. `is_public` is a decision the owner makes afterwards.
+     */
+    const takeKey = `${row.tmdbType}:${row.tmdbId}`;
+    const takeBody = row.reviewText?.trim() || null;
+    if (
+      (row.rating !== null || takeBody) &&
+      !existingTake.has(takeKey) &&
+      !takesInBatch.has(takeKey)
+    ) {
+      takesInBatch.add(takeKey);
+      takeInserts.push({
+        user_id: userId,
+        item_id: row.tmdbId,
+        item_type: row.tmdbType,
+        scope: "title",
+        // -1, not 0 — season 0 is Specials, so 0 would be a real season.
+        season_number: -1,
+        episode_number: -1,
+        score: row.rating,
+        body: takeBody,
+        is_public: false,
+        ...(row.watchedDate ? { watched_at: new Date(row.watchedDate).toISOString() } : {}),
+      });
+    }
+
     if (row.rating !== null) {
       ratingInserts.push({
         user_id: userId,
@@ -154,6 +215,15 @@ export async function applyRows(
           .from("user_ratings")
           .upsert(ratingInserts, { onConflict: "user_id,item_id,item_type", ignoreDuplicates: true })
           .then(({ error }) => error && console.error("import ratings:", error))
+      : null,
+    takeInserts.length
+      ? supabase
+          .from("takes")
+          .upsert(takeInserts, {
+            onConflict: "user_id,item_id,item_type,scope,season_number,episode_number,is_public",
+            ignoreDuplicates: true,
+          })
+          .then(({ error }) => error && console.error("import takes:", error))
       : null,
     favoriteInserts.length
       ? supabase
