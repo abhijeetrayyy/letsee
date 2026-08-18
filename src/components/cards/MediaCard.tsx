@@ -210,7 +210,13 @@ export default function MediaCard({
 
       {/* Actions */}
       {showActions && !isPerson && (
-        <div className="border-t border-surface-800/30">
+        /* The button row is square-cornered and sits at the very bottom of a
+           card that is `rounded-xl overflow-hidden`, so the card's radius was
+           slicing the button fills off on the diagonal instead of curving with
+           them. Rounding the row itself makes the fill follow the corner.
+           11px, not 12: the card's 12px radius is measured outside a 1px
+           border, and a nested shape has to subtract it or it bulges. */
+        <div className="overflow-hidden rounded-b-[11px] border-t border-surface-800/30">
           <ThreePrefrenceBtn
             variant="compact"
             cardId={id}
