@@ -1,7 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import useSWR from "swr";
+import { supabase } from "@/utils/supabase/client";
+import { swrFetcher } from "@/utils/swrFetcher";
 import { MessageSquare } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
 
@@ -47,27 +51,72 @@ function relativeTime(iso: string): string {
 
 export default function ConversationList({ conversations }: { conversations: Conversation[] }) {
   const pathname = usePathname();
+
+  /**
+   * The server render is the first paint; realtime keeps it true after that.
+   *
+   * Rendered only on the server, this list was correct exactly once — a
+   * message arriving could not reorder it or bump an unread count until you
+   * happened to navigate, which on a page whose whole job is showing what is
+   * new is the wrong kind of stale.
+   *
+   * `fallbackData` means the server rows are what paints; SWR only replaces
+   * them once something says they changed, so this adds no request to the
+   * first load.
+   */
+  const { data, mutate } = useSWR<{ conversations: Conversation[] }>(
+    "/api/messages/conversations",
+    swrFetcher,
+    { fallbackData: { conversations }, revalidateOnFocus: true },
+  );
+  const list = data?.conversations ?? conversations;
+
+  useEffect(() => {
+    /**
+     * Both events matter and for different reasons: INSERT is a new message
+     * arriving, UPDATE is one being read — which changes an unread count
+     * without changing the ordering. RLS already limits these rows to
+     * conversations this viewer is part of, so there is nothing to filter.
+     */
+    const ch = supabase
+      .channel("conversation-list")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => void mutate())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, () => void mutate())
+      .subscribe();
+
+    // Reading a thread clears its rows through the API, not through this
+    // client, so the same event the badges listen for refreshes the list too.
+    const onRead = () => void mutate();
+    window.addEventListener("letsee:messages-read", onRead);
+
+    return () => {
+      window.removeEventListener("letsee:messages-read", onRead);
+      void supabase.removeChannel(ch);
+    };
+  }, [mutate]);
+
   const activeId = pathname.startsWith("/app/messages/") ? pathname.split("/")[3] : null;
+
 
   return (
     <nav aria-label="Conversations" className="flex h-full flex-col">
       <div className="shrink-0 border-b border-surface-800 px-4 py-3">
         <h1 className="text-sm font-semibold text-white">Messages</h1>
         <p className="mt-0.5 text-[11px] text-surface-500">
-          {conversations.length === 0
+          {list.length === 0
             ? "No conversations yet"
-            : `${conversations.length} conversation${conversations.length === 1 ? "" : "s"}`}
+            : `${list.length} conversation${list.length === 1 ? "" : "s"}`}
         </p>
       </div>
 
-      {conversations.length === 0 ? (
+      {list.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
           <MessageSquare className="mb-3 size-7 text-surface-700" aria-hidden />
           <p className="text-sm text-surface-500">Send someone a film and it starts here.</p>
         </div>
       ) : (
         <ul className="flex-1 overflow-y-auto">
-          {conversations.map((c) => {
+          {list.map((c) => {
             const active = c.userId === activeId;
             return (
               <li key={c.userId}>
