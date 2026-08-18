@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Search, Loader2, ArrowRight, Users } from "lucide-react";
+import toast from "react-hot-toast";
 import { supabase } from "@/utils/supabase/client";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import { getPosterUrl } from "@/utils/imageUrl";
@@ -63,9 +64,17 @@ export default function WelcomePage() {
 
   useEffect(() => {
     if (status === "anon") router.replace("/login");
-    // Someone who already has a handle doesn't need onboarding.
-    if (status === "ok") setStep((s) => (s === 1 ? 2 : s));
-  }, [status, router]);
+    /**
+     * Skip the handle step only for someone who HAS a handle.
+     *
+     * This tested `status === "ok"`, which means authenticated — and a brand
+     * new signup is authenticated. So the one step that onboarding exists to
+     * complete was skipped for every new account, and the middleware then
+     * bounced them out of every /app route back to this page, forever. The
+     * comment said "already has a handle"; the code never checked.
+     */
+    if (status === "ok" && user?.username) setStep((s) => (s === 1 ? 2 : s));
+  }, [status, user?.username, router]);
 
   // Otherwise the new step renders behind the sticky header at whatever scroll
   // position the previous step left behind.
@@ -87,7 +96,7 @@ export default function WelcomePage() {
           />
         )}
         {step === 2 && <StepPicks onDone={() => setStep(3)} />}
-        {step === 3 && <StepPeople username={user?.username ?? null} />}
+        {step === 3 && <StepPeople username={user?.username ?? null} onNeedsHandle={() => setStep(1)} />}
       </div>
     </div>
   );
@@ -170,13 +179,44 @@ function StepUsername({ onDone }: { onDone: () => void }) {
       setSaving(false);
       return;
     }
-    const { error: err } = await supabase
+    /**
+     * Upsert, and then CHECK that a row came back.
+     *
+     * This was an `.update()`, and an update that matches nothing is not an
+     * error — PostgREST answers 200 having changed zero rows. Nothing creates
+     * the `public.users` row on signup: no trigger, and neither the signup
+     * client nor the auth callback inserts one. So for a brand new account the
+     * handle write hit no row, reported success, and onboarding advanced.
+     *
+     * Everything after that was a locked door. The middleware bounces every
+     * /app route back to /app/welcome while `username` is null, so "Enter
+     * LetSee" and "log what I've already seen" both returned the user to the
+     * screen they were trying to leave, with no error anywhere. Measured on the
+     * live database: 6 auth users, 3 with no profile row — half the people who
+     * ever signed up were stuck outside.
+     */
+    const { data: saved, error: err } = await supabase
       .from("users")
-      .update({ username: clean })
-      .eq("id", auth.user.id);
+      .upsert(
+        { id: auth.user.id, email: auth.user.email ?? null, username: clean },
+        { onConflict: "id" },
+      )
+      .select("username")
+      .maybeSingle();
     setSaving(false);
+
     if (err) {
-      setError(err.message.includes("duplicate") ? "That handle is taken." : err.message);
+      setError(
+        err.code === "23505" || err.message.includes("duplicate")
+          ? "That handle is taken."
+          : err.message,
+      );
+      return;
+    }
+    // Belt and braces: never advance on an unconfirmed write, whatever the
+    // reason. Being let through without a handle is the trap itself.
+    if (saved?.username !== clean) {
+      setError("That didn't save. Try again.");
       return;
     }
     onDone();
@@ -431,7 +471,7 @@ function StepPicks({ onDone }: { onDone: () => void }) {
 
 /* ── Step 3: meet people, and follow at least one ───────────────────────── */
 
-function StepPeople({ username }: { username: string | null }) {
+function StepPeople({ username, onNeedsHandle }: { username: string | null; onNeedsHandle: () => void }) {
   const router = useRouter();
   const { user } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
@@ -456,7 +496,29 @@ function StepPeople({ username }: { username: string | null }) {
     void load();
   }, [load]);
 
-  const finish = () => router.push("/app");
+  /**
+   * Verify the handle before leaving.
+   *
+   * If a profile somehow still has no username, pushing to /app just bounces
+   * off the middleware and back to this screen — a button that looks broken.
+   * Better to say what is wrong and put them back on the step that fixes it.
+   */
+  const finish = async () => {
+    const { data: auth } = await supabase.auth.getUser();
+    if (auth?.user) {
+      const { data: profile } = await supabase
+        .from("users")
+        .select("username")
+        .eq("id", auth.user.id)
+        .maybeSingle();
+      if (!profile?.username) {
+        toast.error("Pick a handle first — that's what your profile lives at.");
+        onNeedsHandle();
+        return;
+      }
+    }
+    router.push("/app");
+  };
 
   return (
     <section>
@@ -551,8 +613,17 @@ function StepPeople({ username }: { username: string | null }) {
 
       {/* A brand new profile is empty, which is the least interesting version
           of the product. Offer the fast way to fill it before they land. */}
+      {/* Same trap as the button above: /app/quick-add is an /app route, so a
+          profile without a handle is redirected straight back here. */}
       <Link
-        href="/app/quick-add"
+        href={username ? "/app/quick-add" : "#"}
+        onClick={(e) => {
+          if (!username) {
+            e.preventDefault();
+            toast.error("Pick a handle first — that's what your profile lives at.");
+            onNeedsHandle();
+          }
+        }}
         className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 font-medium bg-surface-800/70 text-surface-200 border border-surface-700/60 hover:bg-surface-700 transition-colors"
       >
         First, log what I&apos;ve already seen
