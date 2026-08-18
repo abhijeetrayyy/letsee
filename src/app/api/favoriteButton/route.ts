@@ -77,6 +77,58 @@ export async function POST(req: NextRequest) {
     return jsonError(insertError.message, 500);
   }
 
+  /**
+   * A favourite is a watched thing. Always.
+   *
+   * You cannot love a film you have not seen, so favouriting one is a claim
+   * about having seen it — but the two were stored independently, and nothing
+   * connected them. The result was profiles whose favourites were absent from
+   * their own watched list, and an onboarding flow that asked for four films
+   * you love and then recorded that you had watched none of them.
+   *
+   * Enforced here rather than in each caller because this route is the only
+   * place a favourite is created — the detail page, the cards and the
+   * onboarding picker all come through it, so they all inherit the rule.
+   *
+   * Both writes are insert-if-absent. An existing "watching" or "dropped"
+   * status is left alone: favouriting episode three of something you abandoned
+   * is not a claim to have finished it, and promoting it would overwrite a
+   * fact the user set deliberately.
+   */
+  await Promise.all([
+    supabase
+      .from("user_media_status")
+      .upsert(
+        {
+          user_id: userId,
+          item_id: itemId,
+          item_type: mediaType,
+          item_name: name,
+          ...(imgUrl ? { image_url: imgUrl } : {}),
+          ...(genres.length ? { genres } : {}),
+          status: "watched",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,item_id,item_type", ignoreDuplicates: true },
+      )
+      .then(({ error }) => error && console.error("favorite implies watched (status):", error)),
+    supabase
+      .from("watched_items")
+      .upsert(
+        {
+          user_id: userId,
+          item_id: itemId,
+          item_type: mediaType,
+          item_name: name,
+          ...(imgUrl ? { image_url: imgUrl } : {}),
+          ...(genres.length ? { genres } : {}),
+          is_watched: true,
+        },
+        { onConflict: "user_id,item_id,item_type", ignoreDuplicates: true },
+      )
+      .then(({ error }) => error && console.error("favorite implies watched (item):", error)),
+  ]);
+
   try {
     await supabase.rpc("increment_favorites_count", { p_user_id: userId });
   } catch {}
