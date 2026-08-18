@@ -517,7 +517,23 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
         return;
       }
     }
-    router.push("/app");
+    /**
+     * A full navigation, not router.push.
+     *
+     * Leaving onboarding is the one transition that must not fail, and
+     * router.push does not navigate — it fetches an RSC payload and swaps the
+     * tree. Anything blocking that background request leaves the user sitting
+     * here with no error and a button that looks dead. Measured on production:
+     * letsee.online answers HTTP 429 with `x-vercel-mitigated: challenge`
+     * (Vercel Attack Challenge Mode), which a browser passes for document loads
+     * but not for the router's fetch — so "Enter LetSee" did nothing while the
+     * page around it worked.
+     *
+     * A document load is also what you want here: fresh middleware evaluation
+     * and fresh providers on the way in, right after the profile changed
+     * underneath them.
+     */
+    window.location.assign("/app");
   };
 
   return (
@@ -615,7 +631,9 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
           of the product. Offer the fast way to fill it before they land. */}
       {/* Same trap as the button above: /app/quick-add is an /app route, so a
           profile without a handle is redirected straight back here. */}
-      <Link
+      {/* A plain <a>, not next/link: same reasoning as the button above. This
+          is the other exit that was reported dead. */}
+      <a
         href={username ? "/app/quick-add" : "#"}
         onClick={(e) => {
           if (!username) {
@@ -627,7 +645,7 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
         className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 font-medium bg-surface-800/70 text-surface-200 border border-surface-700/60 hover:bg-surface-700 transition-colors"
       >
         First, log what I&apos;ve already seen
-      </Link>
+      </a>
 
       {username && (
         <p className="mt-3 text-center text-xs text-surface-600">
