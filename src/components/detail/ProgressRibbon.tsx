@@ -46,6 +46,7 @@ export default function ProgressRibbon({
 
   /** Optimistic overlay, so a tap fills instantly rather than after a round trip. */
   const [pending, setPending] = useState<Record<string, boolean>>({});
+  const [failed, setFailed] = useState<string | null>(null);
 
   const real = useMemo(() => {
     const set = new Set<string>();
@@ -86,16 +87,27 @@ export default function ProgressRibbon({
         // POST toggles: the route deletes the row when it already exists and
         // re-derives the show's status either way, so there is no DELETE verb
         // to call and no second code path to keep in step.
-        await fetch("/api/watched-episode", {
+        const res = await fetch("/api/watched-episode", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ showId: String(showId), seasonNumber: s, episodeNumber: e }),
         });
+        /**
+         * `fetch` only rejects on a network failure, so without this a 400 or a
+         * 500 counted as success: the cell filled, the optimistic value was
+         * dropped, and it quietly reverted to whatever the server still held.
+         * From the outside that is indistinguishable from a tap that did not
+         * register — which is exactly the report this fixes.
+         */
+        if (!res.ok) throw new Error(String(res.status));
+        setFailed(null);
         await mutate();
       } catch {
         // Snap back rather than leave a cell claiming a state the server
-        // never accepted.
+        // never accepted, and say so — a cell that silently un-fills reads as
+        // a broken control rather than a failed write.
         setPending((p) => ({ ...p, [k]: !next }));
+        setFailed(k);
       } finally {
         setPending((p) => {
           const { [k]: _drop, ...rest } = p;
@@ -108,7 +120,13 @@ export default function ProgressRibbon({
 
   if (rows.length === 0) return null;
 
-  const pct = totals.total ? Math.round((totals.seen / totals.total) * 100) : 0;
+  /**
+   * Never round a real episode down to nothing. One of Grey's Anatomy's 466 is
+   * 0.2%, which printed as "0%" beside a filled cell and read as "my tap did
+   * not count". Anything above zero shows at least 1%.
+   */
+  const raw = totals.total ? (totals.seen / totals.total) * 100 : 0;
+  const pct = raw > 0 ? Math.max(1, Math.round(raw)) : 0;
 
   return (
     <div className="rounded-2xl border border-surface-800 bg-surface-900/40 p-4 sm:p-5">
@@ -173,6 +191,10 @@ export default function ProgressRibbon({
           );
         })}
       </div>
+
+      {failed && (
+        <p className="mt-3 text-xs text-red-400">Couldn&apos;t save that one. Tap it again.</p>
+      )}
 
       {/* No instruction line. A grid of squares that fill when you tap them
           teaches itself in one tap, and a sentence explaining it would be the
