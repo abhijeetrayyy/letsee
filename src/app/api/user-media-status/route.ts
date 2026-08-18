@@ -58,18 +58,29 @@ export async function PUT(req: NextRequest) {
   }
 
   /**
-   * A favourite requires "watched", so any other status drops it.
+   * A favourite requires having SEEN it, which is the honest form of the rule.
    *
-   * The chain — the four films on your profile are a subset of your
-   * favourites, which are a subset of what you have watched — was only
-   * enforced on removal. Moving a title to watching, on_hold, dropped or
-   * watchlist left the favourite behind, so a profile could show a film you
-   * love while your own status for it said you had abandoned it partway.
+   * The previous version demanded status === "watched" exactly, and that was
+   * too strict: dropping a show you love does not mean you never saw it, and
+   * it deleted the favourite for anything moved to watching, on_hold or
+   * dropped. Only watchlist — a thing you have not started — is incompatible
+   * with calling it a favourite.
    *
    * The display goes first: it is the row a stranger sees, and it must never
    * be the one that survives a partial failure.
    */
-  if (status !== "watched") {
+  /**
+   * "Seen it" is every status except watchlist.
+   *
+   * watching, on_hold and dropped all mean you started it — you have watched
+   * some of this thing. Only watchlist means you have not. So the line that
+   * matters for the rest of the app is seen / not-seen, not the narrower
+   * "status is exactly watched", and a dropped show belongs in your watched
+   * list the same as a finished one.
+   */
+  const seen = status !== "watchlist";
+
+  if (!seen) {
     await supabase
       .from("user_favorite_display")
       .delete()
@@ -87,7 +98,7 @@ export async function PUT(req: NextRequest) {
 
   // Mirror writes to watched_items for backward compatibility with profile/diary/reviews
   // that still read from watched_items
-  if (status === "watched") {
+  if (seen) {
     const { error: watchedItemsError } = await supabase.from("watched_items").upsert(
       {
         user_id: userId,
@@ -107,10 +118,9 @@ export async function PUT(req: NextRequest) {
       console.error("user-media-status watched_items mirror upsert:", watchedItemsError);
     }
   } else {
-    // Moving *away* from watched (to dropped, on_hold, watching, watchlist)
-    // has to demote the mirror too, or the title keeps showing in the profile
-    // Films grid and diary. is_watched=false rather than delete, so an
-    // existing rating, diary entry and review survive the move.
+    // Only watchlist lands here now. is_watched=false rather than delete, so
+    // an existing rating, diary entry and review survive being moved back to
+    // "plan to watch".
     const { error: demoteError } = await supabase
       .from("watched_items")
       .update({ is_watched: false })

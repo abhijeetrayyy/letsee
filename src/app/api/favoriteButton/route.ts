@@ -102,16 +102,26 @@ export async function POST(req: NextRequest) {
    * place a favourite is created — the detail page, the cards and the
    * onboarding picker all come through it, so they all inherit the rule.
    *
-   * It OVERWRITES an existing status rather than deferring to it. That is the
-   * other half of the same rule: since a non-watched status now drops the
-   * favourite, leaving a favourited title on "dropped" would produce a row the
-   * next status write deletes — a favourite that silently disappears later.
-   * One of the two has to win, and the action the user just took wins.
+   * It fills in a missing status and upgrades a watchlist entry, and leaves
+   * watching, on_hold and dropped alone. Those already mean you have seen some
+   * of it, which is all a favourite requires — overwriting them would throw
+   * away a fact the user set on purpose to satisfy a rule that is already
+   * satisfied.
    */
+  const { data: current } = await supabase
+    .from("user_media_status")
+    .select("status")
+    .eq("user_id", userId)
+    .eq("item_id", itemId)
+    .eq("item_type", mediaType)
+    .maybeSingle();
+  const needsPromotion = !current?.status || current.status === "watchlist";
+
   await Promise.all([
-    supabase
-      .from("user_media_status")
-      .upsert(
+    (needsPromotion
+      ? supabase
+          .from("user_media_status")
+          .upsert(
         {
           user_id: userId,
           item_id: itemId,
@@ -122,9 +132,10 @@ export async function POST(req: NextRequest) {
           status: "watched",
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "user_id,item_id,item_type" },
-      )
-      .then(({ error }) => error && console.error("favorite implies watched (status):", error)),
+            { onConflict: "user_id,item_id,item_type" },
+          )
+          .then(({ error }) => error && console.error("favorite implies seen (status):", error))
+      : Promise.resolve()),
     supabase
       .from("watched_items")
       .upsert(
