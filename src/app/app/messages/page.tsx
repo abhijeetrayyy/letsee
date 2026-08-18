@@ -7,8 +7,6 @@ import { getBlockedUserIds } from "@/utils/blocks";
 
 export const dynamic = "force-dynamic";
 
-/** How far back to look when deriving conversations. */
-const SCAN_LIMIT = 500;
 
 type Conversation = {
   userId: string;
@@ -41,57 +39,55 @@ function relativeTime(iso: string): string {
 async function getConversations(userId: string): Promise<Conversation[]> {
   const supabase = await createClient();
 
-  const { data: messages } = await supabase
-    .from("messages")
-    .select("sender_id, recipient_id, content, message_type, is_read, created_at")
-    .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
-    .order("created_at", { ascending: false })
-    .limit(SCAN_LIMIT);
+  /**
+   * One row per conversation, from the database.
+   *
+   * This used to scan the newest 500 messages and fold them in application
+   * code, which means a conversation vanishes from the inbox entirely once 500
+   * newer ones exist — not slow, gone. `conversation_list` does it with one
+   * DISTINCT ON and is correct at any volume. It runs on invoker rights, so
+   * `messages_select_participants` still decides which rows exist at all.
+   */
+  const { data: rows, error } = await supabase.rpc("conversation_list", { p_user: userId });
 
-  if (!messages?.length) return [];
-
-  const blocked = await getBlockedUserIds(supabase, userId);
-
-  // Messages arrive newest-first, so the first time we see a partner is their
-  // latest message.
-  const byPartner = new Map<string, { last: (typeof messages)[number]; unread: number }>();
-  for (const m of messages) {
-    const partner = m.sender_id === userId ? m.recipient_id : m.sender_id;
-    if (partner === userId || blocked.has(partner)) continue;
-
-    const entry = byPartner.get(partner);
-    const isUnread = m.recipient_id === userId && !m.is_read;
-    if (!entry) {
-      byPartner.set(partner, { last: m, unread: isUnread ? 1 : 0 });
-    } else if (isUnread) {
-      entry.unread += 1;
-    }
+  if (error || !rows) {
+    // The function is deployed in migration 070; if an environment has not run
+    // it yet, an empty inbox is a better failure than a crash.
+    if (error) console.error("conversation_list:", error.message);
+    return [];
   }
 
-  const partnerIds = [...byPartner.keys()];
-  if (partnerIds.length === 0) return [];
+  type Row = {
+    partner_id: string;
+    last_content: string | null;
+    last_message_type: string | null;
+    last_at: string;
+    last_from_me: boolean;
+    unread: number;
+  };
+
+  const blocked = await getBlockedUserIds(supabase, userId);
+  const visible = (rows as Row[]).filter((r) => r.partner_id !== userId && !blocked.has(r.partner_id));
+  if (visible.length === 0) return [];
 
   const { data: users } = await supabase
     .from("users")
     .select("id, username, avatar_url")
-    .in("id", partnerIds);
+    .in("id", visible.map((r) => r.partner_id));
   const userById = new Map((users ?? []).map((u) => [u.id, u]));
 
-  return partnerIds
-    .map((id) => {
-      const { last, unread } = byPartner.get(id)!;
-      const u = userById.get(id);
-      return {
-        userId: id,
-        username: u?.username ?? "user",
-        avatarUrl: u?.avatar_url ?? null,
-        lastMessage: preview(last.content, last.message_type === "cardmix"),
-        lastAt: last.created_at,
-        unread,
-        fromMe: last.sender_id === userId,
-      };
-    })
-    .sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime());
+  return visible.map((r) => {
+    const u = userById.get(r.partner_id);
+    return {
+      userId: r.partner_id,
+      username: u?.username ?? "user",
+      avatarUrl: u?.avatar_url ?? null,
+      lastMessage: preview(r.last_content ?? "", r.last_message_type === "cardmix"),
+      lastAt: r.last_at,
+      unread: Number(r.unread) || 0,
+      fromMe: r.last_from_me,
+    };
+  });
 }
 
 export default async function MessagesPage() {
