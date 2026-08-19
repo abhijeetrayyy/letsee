@@ -179,7 +179,15 @@ export default function TvShowCard({
           </div>
 
           {/* Preference Buttons */}
-          <div className="border-t border-surface-700/50">
+          {/* Square-cornered buttons at the very bottom of a card that is
+              `rounded-xl overflow-hidden`, so the card's radius was slicing the
+              fills off on the diagonal instead of curving with them — most
+              visibly the favourite heart in the bottom-right corner. Rounding
+              the row itself makes the fill follow the corner. 11px, not 12: the
+              card's 12px radius is measured outside a 1px border, and a nested
+              shape has to subtract it or it bulges. MediaCard carries the same
+              fix and the same note; this card never got it. */}
+          <div className="overflow-hidden rounded-b-[11px] border-t border-surface-700/50">
             <ThreePrefrenceBtn
               variant="compact"
               cardId={showId}
