@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { NextResponse } from "next/server";
 import { getBlockedUserIds } from "@/utils/blocks";
+import { tmdbFetchJson } from "@/utils/tmdb";
 
 export const dynamic = "force-dynamic";
 
@@ -106,6 +107,9 @@ function parseCursor(raw: string | null) {
   if (!ts) return null;
   return { ts, activityId: Number(a) || 0 };
 }
+
+/** A page of feed rows should never cost more than this many TMDB calls. */
+const TMDB_NAME_LOOKUPS = 8;
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -266,6 +270,51 @@ export async function GET(request: Request) {
         imageUrl: r.image_url as string | null,
       });
     }
+  }
+
+  /**
+   * Last resort for a title nothing in this database can name.
+   *
+   * Migration 086 fixed the writer, so new rows arrive named. It cannot help a
+   * row already written for a title nobody ever shelved: rating Memento without
+   * adding it to a list leaves `user_activity` holding id 77 and no name, and
+   * there is no row anywhere else to copy from. The feed then renders a card
+   * with no title and a link to `/app/movie/77`.
+   *
+   * TMDB knows. The call is cached for a day and only fires for ids the two
+   * queries above could not resolve, which is normally none — and it is capped,
+   * because a feed page that quietly turned into twenty sequential round trips
+   * would be a worse bug than the one it fixes.
+   */
+  const stillUnnamed = [
+    ...new Set(
+      [
+        ...takes.filter((t) => !titleByKey.has(`${t.item_type}:${t.item_id}`)).map((t) => `${t.item_type}:${t.item_id}`),
+        ...activity
+          .filter((a) => !a.item_name && a.item_id && a.item_type && !titleByKey.has(`${a.item_type}:${a.item_id}`))
+          .map((a) => `${a.item_type}:${a.item_id}`),
+      ],
+    ),
+  ].slice(0, TMDB_NAME_LOOKUPS);
+
+  if (stillUnnamed.length > 0) {
+    await Promise.all(
+      stillUnnamed.map(async (key) => {
+        const [kind, id] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
+        if (kind !== "movie" && kind !== "tv") return;
+        const res = await tmdbFetchJson<{ title?: string; name?: string; poster_path?: string | null }>(
+          `https://api.themoviedb.org/3/${kind}/${encodeURIComponent(id)}?api_key=${process.env.TMDB_API_KEY}`,
+          "feed title",
+          { revalidate: 86400 },
+        );
+        const name = res.data?.title ?? res.data?.name;
+        if (!name) return;
+        titleByKey.set(key, {
+          name,
+          imageUrl: res.data?.poster_path ? `https://image.tmdb.org/t/p/w342${res.data.poster_path}` : null,
+        });
+      }),
+    );
   }
 
   // ── Build rows ────────────────────────────────────────────────────────────
