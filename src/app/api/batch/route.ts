@@ -50,7 +50,7 @@ export async function POST(request: Request) {
           watched_at: new Date().toISOString(),
         }));
         const { data, error } = await supabase.from("watched_items").upsert(toInsert, {
-          onConflict: "user_id, item_id",
+          onConflict: "user_id,item_id,item_type",
           ignoreDuplicates: false,
         }).select("item_id");
         if (error) throw error;
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
           updated_at: new Date().toISOString(),
         }));
         const { data, error } = await supabase.from("user_media_status").upsert(toInsert, {
-          onConflict: "user_id, item_id",
+          onConflict: "user_id,item_id,item_type",
           ignoreDuplicates: true,
         }).select("item_id");
         if (error) throw error;

@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Deterministic checks: no network, no database, no secrets.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Tests
+        run: npm test
+
+  # Non-blocking on purpose, for now.
+  #
+  # Linting was dead in two ways at once (`next lint` was removed in Next 16,
+  # and ESLint 9 ignores the legacy .eslintrc). Restoring it surfaced 33 errors
+  # and 73 warnings that had accumulated while nothing was looking — mostly
+  # react-hooks/set-state-in-effect and unescaped entities.
+  #
+  # Turning that into a red build on day one would train everyone to ignore the
+  # badge, which is how it got here. It reports; flip `continue-on-error` to
+  # false once the backlog is triaged.
+  lint:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+# The production build is deliberately not here. Vercel builds every push with
+# the real environment, which is a stricter gate than this workflow could be
+# with placeholder secrets — and a build that needs fake credentials to pass
+# proves less than the one that ships.
