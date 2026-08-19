@@ -12,7 +12,48 @@ export interface EpisodeItem {
   overview: string;
   still_path: string | null;
   vote_average?: number;
+  vote_count?: number;
   runtime?: number;
+  /** TMDB marks premieres, mid-season breaks and finales explicitly. */
+  episode_type?: string | null;
+  /** Per-episode crew. Every episode carries one; the series-level list does not. */
+  crew?: { id?: number; name?: string; job?: string }[];
+}
+
+/**
+ * TMDB's `episode_type`, in words a viewer uses.
+ *
+ * "standard" is every episode that is not one of these, so it earns no badge —
+ * printing it on fourteen of sixteen rows would make the two that matter harder
+ * to find, not easier.
+ */
+const EPISODE_TYPE_LABEL: Record<string, string> = {
+  finale: "Finale",
+  mid_season: "Mid-season finale",
+  premiere: "Premiere",
+};
+
+/**
+ * Who made this episode.
+ *
+ * The season payload carries a `crew` array per episode and the page threw all
+ * of it away — so "who directed Ozymandias" (Rian Johnson) or "who wrote it"
+ * (Moira Walley-Beckett) was answerable only by opening the episode. For an
+ * anthology or a prestige drama that is the question people scan the list for.
+ *
+ * Director and writer only. The array also holds the editor, the photography
+ * director and three producers, which is a credits roll, not a scan line.
+ */
+function episodeByline(crew?: { name?: string; job?: string }[]): string | null {
+  if (!crew?.length) return null;
+  const pick = (job: string) =>
+    [...new Set(crew.filter((c) => c.job === job && c.name).map((c) => c.name as string))];
+  const directors = pick("Director");
+  const writers = pick("Writer");
+  const parts: string[] = [];
+  if (directors.length) parts.push(`Dir. ${directors.join(", ")}`);
+  if (writers.length) parts.push(`Wr. ${writers.join(", ")}`);
+  return parts.length ? parts.join("  ·  ") : null;
 }
 
 interface SeasonSummary {
@@ -387,19 +428,46 @@ export default function EpisodeListWithWatched({
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h3 className={`text-base font-semibold truncate ${watchedInfo.watched ? "text-brand-300" : "text-white"}`}>
-                        {episode.name}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className={`truncate text-base font-semibold ${watchedInfo.watched ? "text-brand-300" : "text-white"}`}>
+                          {episode.name}
+                        </h3>
+                        {episode.episode_type && EPISODE_TYPE_LABEL[episode.episode_type] && (
+                          <span className="shrink-0 rounded-md border border-brand-500/20 bg-brand-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-300">
+                            {EPISODE_TYPE_LABEL[episode.episode_type]}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-surface-500 mt-0.5">
                         {episode.air_date ? new Date(episode.air_date).toLocaleDateString() : "Air date TBA"}
                         {episode.runtime && ` · ${episode.runtime}m`}
                       </p>
+                      {episodeByline(episode.crew) && (
+                        <p className="mt-0.5 truncate text-xs text-surface-500">
+                          {episodeByline(episode.crew)}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {episode.vote_average != null && episode.vote_average > 0 && (
-                        <span className="flex items-center gap-1 text-xs text-accent-gold">
+                        <span
+                          className="flex items-center gap-1 text-xs text-accent-gold"
+                          title={
+                            episode.vote_count
+                              ? `TMDB score from ${episode.vote_count.toLocaleString()} votes`
+                              : undefined
+                          }
+                        >
                           <Star className="w-3 h-3 fill-current" />
                           {Number(episode.vote_average).toFixed(1)}
+                          {/* A 9.4 from four people is not a 9.4. The series score
+                              already carries its count for exactly this reason;
+                              the episode score was printed bare. */}
+                          {episode.vote_count ? (
+                            <span className="text-surface-600">
+                              ({episode.vote_count.toLocaleString()})
+                            </span>
+                          ) : null}
                         </span>
                       )}
                       {!loading && !unaired && (
