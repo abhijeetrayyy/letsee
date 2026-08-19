@@ -144,6 +144,8 @@ export async function applyRows(
    */
   const statusByKey = new Map<string, Record<string, unknown>>();
   const watchedByKey = new Map<string, Record<string, unknown>>();
+  /** Written after the rows land, by set_my_diary_notes — see below. */
+  const diaryNotes: { item_id: string; item_type: string; body: string }[] = [];
   const ratingInserts: Record<string, unknown>[] = [];
   const favoriteInserts: Record<string, unknown>[] = [];
 
@@ -183,11 +185,27 @@ export async function applyRows(
         // Letterboxd's watch date is the whole point of importing a diary, so
         // it wins over "now" — but only ever as a date we were actually given.
         ...(row.watchedDate ? { watched_at: new Date(row.watchedDate).toISOString() } : {}),
-        // Imported into the private diary, not public_review_text. The review
-        // was public on Letterboxd; that is not consent to republish it here
-        // under a different profile's visibility rules.
-        ...(row.reviewText && !hasReview ? { review_text: row.reviewText } : {}),
       });
+      /**
+       * The diary note is collected, not upserted.
+       *
+       * Imported into the private diary rather than public_review_text: the
+       * review was public on Letterboxd, and that is not consent to republish
+       * it here under a different profile's visibility rules.
+       *
+       * It cannot ride along in the upsert above. 076 revoked SELECT on
+       * `review_text`, and `ON CONFLICT DO UPDATE SET review_text =
+       * EXCLUDED.review_text` reads that column — so an import carrying any
+       * review answered "permission denied" and took its whole chunk with it.
+       * set_my_diary_notes writes it as the owner, once the rows exist.
+       */
+      if (row.reviewText && !hasReview) {
+        diaryNotes.push({
+          item_id: row.tmdbId,
+          item_type: row.tmdbType,
+          body: row.reviewText,
+        });
+      }
     }
 
     /**
@@ -296,6 +314,24 @@ export async function applyRows(
           .then(record("favorite_items"))
       : null,
   ]);
+
+  /**
+   * Notes last, and only into an empty diary.
+   *
+   * `p_only_if_empty` is this module's opening rule expressed in SQL: an import
+   * may add, but never take away. A row the user has written about since keeps
+   * what they wrote.
+   */
+  if (diaryNotes.length > 0) {
+    const { error } = await supabase.rpc("set_my_diary_notes", {
+      p_notes: diaryNotes,
+      p_only_if_empty: true,
+    });
+    if (error) {
+      console.error("import diary notes:", error);
+      errors.push(`diary notes: ${error.message}`);
+    }
+  }
 
   return { applied: rows.length, errors };
 }

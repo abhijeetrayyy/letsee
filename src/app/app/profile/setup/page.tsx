@@ -213,15 +213,14 @@ export default function SettingsPage() {
     const toastId = toast.loading("Saving profile…");
 
     try {
-      const { error } = await supabase.from("users").upsert({
-        id: user.id,
-        email: user.email,
-        username: sanitizeUsername(username),
-        about: about.trim() || null,
-        tagline: tagline.trim() || null,
-        avatar_url: avatarUrl.trim() || null,
-        banner_url: bannerUrl.trim() || null,
-        updated_at: new Date().toISOString(),
+      // Same reason as /app/welcome: an upsert on users needs table-level
+      // SELECT, which 072 revoked to hide `email`. 085 owns the write now.
+      const { error } = await supabase.rpc("save_my_profile", {
+        p_username: sanitizeUsername(username),
+        p_about: about.trim() || null,
+        p_tagline: tagline.trim() || null,
+        p_avatar_url: avatarUrl.trim() || null,
+        p_banner_url: bannerUrl.trim() || null,
       });
 
       if (error) {

@@ -281,20 +281,39 @@ async function mirrorToLegacy(
     if (error) console.error("mirror user_ratings clear:", error);
   }
 
-  // Only the column matching this take's visibility is written, so a public
-  // review never lands in the private diary or the reverse.
-  const column = data.isPublic ? "public_review_text" : "review_text";
+  /**
+   * The row and the private note are written separately, and they have to be.
+   *
+   * 076 revoked SELECT on `review_text`, and `ON CONFLICT DO UPDATE SET
+   * review_text = EXCLUDED.review_text` reads that column — so naming it in an
+   * upsert answers "permission denied" for every private take. A public take
+   * was unaffected: `public_review_text` is readable, which is exactly why this
+   * only ever broke one of the two branches.
+   *
+   * So the upsert carries everything the caller may write, and the diary note
+   * goes through set_my_diary_notes(), the write half of my_diary_notes().
+   */
+  const isPrivate = !data.isPublic;
   const { error } = await supabase.from("watched_items").upsert(
     {
       ...base,
       item_name: data.input.itemName ?? "",
       ...(data.input.imageUrl ? { image_url: data.input.imageUrl } : {}),
       ...(data.input.genres?.length ? { genres: data.input.genres } : {}),
-      [column]: data.body || null,
+      ...(isPrivate ? {} : { public_review_text: data.body || null }),
     },
     { onConflict: "user_id,item_id,item_type" },
   );
   if (error) console.error("mirror watched_items:", error);
+
+  if (isPrivate) {
+    // After the upsert: the row has to exist before its note can be set.
+    const { error: noteError } = await supabase.rpc("set_my_diary_notes", {
+      p_notes: [{ item_id: id.itemId, item_type: id.itemType, body: data.body || null }],
+      p_only_if_empty: false,
+    });
+    if (noteError) console.error("mirror diary note:", noteError);
+  }
 }
 
 /** Remove a take at one visibility, and clear its legacy mirror. */

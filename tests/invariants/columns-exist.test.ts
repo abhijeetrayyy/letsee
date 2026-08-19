@@ -113,3 +113,60 @@ describe("api surface", () => {
     expect(apiRoutes().length).toBeGreaterThan(80);
   });
 });
+
+/**
+ * An upsert needs privileges a column grant cannot give.
+ *
+ * `INSERT ... ON CONFLICT DO UPDATE` requires **table-level** SELECT, because
+ * the DO UPDATE path has to read the conflicting row. Revoking the table grant
+ * and re-granting column by column — which is the only way to hide a column
+ * from a role, and what 072 and 076 do — therefore breaks every upsert on that
+ * table, while leaving plain INSERT, UPDATE and SELECT working.
+ *
+ * It cost a production outage to learn: 072 hid `users.email`, and both
+ * `.from("users").upsert(...)` calls started answering "permission denied for
+ * table users". One of them is picking a handle, and the middleware bounces a
+ * user without a handle back to onboarding — so every account created after
+ * that migration was trapped there, with no way out and no error anyone saw
+ * until someone signed up and said so.
+ *
+ * The fix is a SECURITY DEFINER function, which runs as the owner and is not
+ * subject to the grants. This test is the reminder.
+ */
+describe("no upsert writes a column the role may not read", () => {
+  /**
+   * Known limit, stated rather than papered over: this sees inline payloads
+   * only. `.upsert(someArray)` hides the columns behind a variable, and the
+   * importer built exactly that — it stayed broken while this test was green.
+   * Closing it properly needs real dataflow analysis; until then the comment
+   * is the guard rail.
+   */
+  it("routes those writes through a SECURITY DEFINER function instead", () => {
+    const problems: string[] = [];
+    for (const file of sourceFiles()) {
+      const source = read(file);
+      for (const [table, withheld] of revokedColumns) {
+        const call = new RegExp(
+          `\\.from\\(\\s*["'\`]${table}["'\`]\\s*\\)(?:(?!\\.from\\()[\\s\\S]){0,400}?\\.upsert\\(`,
+          "g",
+        );
+        for (const m of source.matchAll(call)) {
+          // Only the upsert's own arguments count. A plain UPDATE elsewhere in
+          // the file may set a withheld column freely — writing it reads
+          // nothing. It is `ON CONFLICT DO UPDATE SET c = EXCLUDED.c` that
+          // reads, and that lives inside this call.
+          const args = source.slice(m.index! + m[0].length, m.index! + m[0].length + 600);
+          for (const col of withheld) {
+            if (new RegExp(`\\b${col}\\b`).test(args)) {
+              problems.push(
+                `${rel(file)}: upserts ${table} writing ${col}, which is revoked — ` +
+                  `EXCLUDED.${col} needs SELECT on it`,
+              );
+            }
+          }
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+});

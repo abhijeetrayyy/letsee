@@ -197,14 +197,20 @@ function StepUsername({ onDone }: { onDone: () => void }) {
      * live database: 6 auth users, 3 with no profile row — half the people who
      * ever signed up were stuck outside.
      */
-    const { data: saved, error: err } = await supabase
-      .from("users")
-      .upsert(
-        { id: auth.user.id, email: auth.user.email ?? null, username: clean },
-        { onConflict: "id" },
-      )
-      .select("username")
-      .maybeSingle();
+    /**
+     * Through save_my_profile, not a direct upsert.
+     *
+     * 072 revoked table-level SELECT on users to hide `email`, and
+     * `INSERT ... ON CONFLICT DO UPDATE` needs exactly that — it has to read
+     * the conflicting row — so this answered "permission denied for table
+     * users" and no new account could get past onboarding. 085 moves the write
+     * into a SECURITY DEFINER function, which also means the browser stops
+     * sending its own id and its own email for a row keyed on identity.
+     */
+    const { data: savedRows, error: err } = await supabase.rpc("save_my_profile", {
+      p_username: clean,
+    });
+    const saved = Array.isArray(savedRows) ? savedRows[0] : savedRows;
     setSaving(false);
 
     if (err) {
