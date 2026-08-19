@@ -10,7 +10,10 @@ import { fetchTmdb } from "@/utils/tmdbClient";
 import { createClient } from "@/utils/supabase/server";
 import TitleTalk from "@components/takes/TitleTalk";
 import { ArrowLeft, Clock, Calendar, Users, Clapperboard, Star } from "lucide-react";
-import { parseRouteId } from "@/utils/urls";
+import { episodePath, parseRouteId, seasonPath, titlePath } from "@/utils/urls";
+import type { Metadata } from "next";
+import JsonLd from "@components/seo/JsonLd";
+import { tvEpisodeLd, breadcrumbLd } from "@/utils/structuredData";
 
 interface EpisodeDetails {
   id: number;
@@ -95,6 +98,53 @@ const fetchEpisodeData = async (
   };
 };
 
+
+/**
+ * An episode page is the most specific thing this app has, and it was the least
+ * described: every one of them inherited the site title. A person searching an
+ * episode by name got nothing here, which is the search a TV tracker should win.
+ */
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id: rawId, seasonNumber, episodeId } = await params;
+  const id = parseRouteId(rawId);
+  if (!id) return { title: "Episode" };
+
+  try {
+    // fetchTmdb is revalidate-cached, so this rides along on the page's own fetch.
+    const { seriesName, episode } = await fetchEpisodeData(id, seasonNumber, episodeId);
+    const seasonNum = parseInt(seasonNumber, 10);
+    const code = `S${String(seasonNum).padStart(2, "0")}E${String(episode.episode_number).padStart(2, "0")}`;
+    const title = `${seriesName} ${code}: ${episode.name}`;
+
+    const description =
+      (episode.overview && episode.overview.trim().slice(0, 200)) ||
+      `${episode.name} — ${code} of ${seriesName}${
+        episode.air_date ? `, first aired ${episode.air_date}` : ""
+      }. Rate it, log it, and see what everyone else thought.`;
+
+    const canonical = episodePath(id, seasonNum, episode.episode_number, seriesName);
+    const image = episode.still_path
+      ? `https://image.tmdb.org/t/p/w780${episode.still_path}`
+      : null;
+
+    return {
+      title,
+      description,
+      alternates: { canonical },
+      openGraph: {
+        type: "video.episode",
+        title,
+        description,
+        url: canonical,
+        images: image ? [{ url: image, width: 780, height: 439, alt: title }] : [],
+      },
+      twitter: { card: "summary_large_image", title, description, images: image ? [image] : [] },
+    };
+  } catch {
+    return { title: "Episode" };
+  }
+}
+
 const EpisodePage = async ({ params }: PageProps) => {
   const rawId = (await params).id;
   const id = parseRouteId(rawId);
@@ -143,6 +193,31 @@ const EpisodePage = async ({ params }: PageProps) => {
   const epNum = episode.episode_number.toString().padStart(2, "0");
 
   return (
+    <>
+      <JsonLd
+        data={[
+          tvEpisodeLd({
+            showId: id,
+            showName: seriesName,
+            seasonNumber: seasonNum,
+            episodeNumber: episode.episode_number,
+            name: episode.name,
+            overview: episode.overview,
+            stillPath: episode.still_path,
+            airDate: episode.air_date,
+            runtime: episode.runtime,
+          }),
+          breadcrumbLd([
+            { name: "TV", path: "/app/browse?type=tv" },
+            { name: seriesName, path: titlePath("tv", id, seriesName) },
+            { name: `Season ${seasonNum}`, path: seasonPath(id, seasonNum, seriesName) },
+            {
+              name: episode.name,
+              path: episodePath(id, seasonNum, episode.episode_number, seriesName),
+            },
+          ]),
+        ]}
+      />
     <div className="min-h-screen bg-surface-950 text-white">
       {/* Hero */}
       <div className="relative overflow-hidden">
@@ -360,6 +435,7 @@ const EpisodePage = async ({ params }: PageProps) => {
 
       </div>
     </div>
+    </>
   );
 };
 

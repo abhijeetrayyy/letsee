@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { parseRouteId } from "@/utils/urls";
+import { parseRouteId, titlePath } from "@/utils/urls";
 
 // Types
 type PageProps = {
@@ -52,26 +52,61 @@ async function getMovieWithCredits(id: string) {
   );
 }
 
+/**
+ * "who played X in Y" is a search this page can actually win, and it could not
+ * while the description was the phrase "Cast and crew information for Y" — a
+ * sentence containing none of the names the page is about. Now the top-billed
+ * names are in the description, which is both better for search and more
+ * useful to a person deciding whether to click.
+ */
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const rawId = (await params).id;
   const numericId = parseRouteId(rawId);
   if (!numericId) {
-    return {
-      title: "Cast & Crew",
-      description: "Cast and crew information",
-    };
+    return { title: "Cast & Crew", description: "Cast and crew information" };
   }
   const movieResult = await getMovieWithCredits(numericId);
   const movie = movieResult.data;
 
+  if (!movie?.title) {
+    return {
+      title: "Cast & Crew",
+      description: movieResult.error || "Cast and crew information",
+    };
+  }
+
+  const cast = movie.credits?.cast ?? [];
+  const directors = (movie.credits?.crew ?? []).filter(
+    (c: any) => c.job === "Director",
+  );
+  const leads = cast.slice(0, 6).map((c) => c.name);
+
+  const title = `${movie.title} — Cast & Crew`;
+  const description = leads.length
+    ? `Full cast and crew for ${movie.title}${
+        directors.length ? `, directed by ${directors.map((d: any) => d.name).join(" & ")}` : ""
+      }. Starring ${leads.join(", ")}${cast.length > leads.length ? ` and ${cast.length - leads.length} more` : ""}.`
+    : `Full cast and crew for ${movie.title}.`;
+
+  const canonical = `${titlePath("movie", numericId, movie.title)}/cast`;
+  const image = movie.poster_path
+    ? `https://image.tmdb.org/t/p/w780${movie.poster_path}`
+    : null;
+
   return {
-    title: movie?.title ? `${movie.title} - Cast & Crew` : "Cast & Crew",
-    description:
-      movie?.title
-        ? `Cast and crew information for ${movie.title}`
-        : movieResult.error || "Cast and crew information",
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      url: canonical,
+      images: image ? [{ url: image, width: 780, height: 1170, alt: title }] : [],
+    },
+    twitter: { card: "summary_large_image", title, description, images: image ? [image] : [] },
   };
 }
 

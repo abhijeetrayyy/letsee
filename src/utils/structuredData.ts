@@ -1,5 +1,5 @@
 import { absoluteUrl } from "@/utils/siteUrl";
-import { personPath, titlePath } from "@/utils/urls";
+import { episodePath, personPath, seasonPath, titlePath } from "@/utils/urls";
 
 /**
  * schema.org JSON-LD.
@@ -152,6 +152,76 @@ export function tvSeriesLd(show: TmdbLike): Json {
  * would only move the cast to each call site, which is the same trust with more
  * ceremony.
  */
+/**
+ * A season, tied to the series it belongs to.
+ *
+ * `partOfSeries` is the whole point: without it a season page is an orphan that
+ * happens to mention a show name, and with it a crawler can place it in the
+ * series it belongs to and surface it under that name.
+ */
+export function tvSeasonLd(season: {
+  showId: string | number;
+  showName: string;
+  seasonNumber: number;
+  name?: string | null;
+  overview?: string | null;
+  posterPath?: string | null;
+  airDate?: string | null;
+  episodeCount?: number | null;
+}): Json {
+  return compact({
+    "@context": "https://schema.org",
+    "@type": "TVSeason",
+    name: season.name || `Season ${season.seasonNumber}`,
+    url: absoluteUrl(seasonPath(season.showId, season.seasonNumber, season.showName)),
+    seasonNumber: season.seasonNumber,
+    description: season.overview || undefined,
+    image: img(season.posterPath),
+    datePublished: season.airDate || undefined,
+    numberOfEpisodes: season.episodeCount || undefined,
+    partOfSeries: {
+      "@type": "TVSeries",
+      name: season.showName,
+      url: absoluteUrl(titlePath("tv", season.showId, season.showName)),
+    },
+  });
+}
+
+/** One episode, tied to both its season and its series. */
+export function tvEpisodeLd(ep: {
+  showId: string | number;
+  showName: string;
+  seasonNumber: number;
+  episodeNumber: number;
+  name?: string | null;
+  overview?: string | null;
+  stillPath?: string | null;
+  airDate?: string | null;
+  runtime?: number | null;
+}): Json {
+  return compact({
+    "@context": "https://schema.org",
+    "@type": "TVEpisode",
+    name: ep.name || `Episode ${ep.episodeNumber}`,
+    url: absoluteUrl(episodePath(ep.showId, ep.seasonNumber, ep.episodeNumber, ep.showName)),
+    episodeNumber: ep.episodeNumber,
+    description: ep.overview || undefined,
+    image: img(ep.stillPath, "w780"),
+    datePublished: ep.airDate || undefined,
+    timeRequired: ep.runtime ? `PT${ep.runtime}M` : undefined,
+    partOfSeason: {
+      "@type": "TVSeason",
+      seasonNumber: ep.seasonNumber,
+      url: absoluteUrl(seasonPath(ep.showId, ep.seasonNumber, ep.showName)),
+    },
+    partOfSeries: {
+      "@type": "TVSeries",
+      name: ep.showName,
+      url: absoluteUrl(titlePath("tv", ep.showId, ep.showName)),
+    },
+  });
+}
+
 export function personLd(person: TmdbLike): Json {
   return compact({
     "@context": "https://schema.org",

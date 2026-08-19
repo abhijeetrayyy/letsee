@@ -8,6 +8,10 @@ import { createClient } from "@/utils/supabase/server";
 import TvStatusSelector from "@/components/tv/TvStatusSelector";
 import { ArrowLeft, Tv, Calendar, Film } from "lucide-react";
 import { parseRouteId } from "@/utils/urls";
+import type { Metadata } from "next";
+import JsonLd from "@components/seo/JsonLd";
+import { tvSeasonLd, breadcrumbLd } from "@/utils/structuredData";
+import { seasonPath, titlePath } from "@/utils/urls";
 
 interface Episode {
   id: number;
@@ -82,6 +86,60 @@ const fetchSeriesAndSeasonData = async (
   };
 };
 
+
+/**
+ * Several hundred season pages shared one title and one description, which is
+ * the same as having none: a result list cannot tell Breaking Bad season 2 from
+ * season 4, and neither can a person reading it.
+ */
+export async function generateMetadata({ params }: SeasonPageProps): Promise<Metadata> {
+  const { id: rawId, seasonNumber }: any = await params;
+  const numericId = parseRouteId(rawId);
+  if (!numericId) return { title: "Season" };
+
+  try {
+    // Both fetches are cached, so this shares the page's requests rather than
+    // paying for a second round trip.
+    const data = await fetchSeriesAndSeasonData(numericId, seasonNumber);
+    const { seriesName, currentSeason, seriesPoster } = data;
+    const n = currentSeason.season_number;
+    const seasonName = currentSeason.name || `Season ${n}`;
+    const title = `${seriesName}: ${seasonName}`;
+    const year = currentSeason.air_date ? String(currentSeason.air_date).slice(0, 4) : null;
+    const count = currentSeason.episodes?.length ?? 0;
+
+    const description =
+      (currentSeason.overview && String(currentSeason.overview).trim().slice(0, 200)) ||
+      [
+        `${seasonName} of ${seriesName}`,
+        year ? `aired ${year}` : null,
+        count ? `${count} episodes` : null,
+      ]
+        .filter(Boolean)
+        .join(" — ") + ". Track what you have watched, episode by episode.";
+
+    const canonical = seasonPath(numericId, n, seriesName);
+    const poster = currentSeason.poster_path || seriesPoster;
+    const image = poster ? `https://image.tmdb.org/t/p/w780${poster}` : null;
+
+    return {
+      title,
+      description,
+      alternates: { canonical },
+      openGraph: {
+        type: "video.tv_show",
+        title,
+        description,
+        url: canonical,
+        images: image ? [{ url: image, width: 780, height: 1170, alt: title }] : [],
+      },
+      twitter: { card: "summary_large_image", title, description, images: image ? [image] : [] },
+    };
+  } catch {
+    return { title: "Season" };
+  }
+}
+
 const SeasonPage = async ({ params }: SeasonPageProps) => {
   const { id: rawId, seasonNumber }: any = await params;
   const numericId = parseRouteId(rawId);
@@ -126,6 +184,29 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
   }
 
   return (
+    <>
+      <JsonLd
+        data={[
+          tvSeasonLd({
+            showId: numericId,
+            showName: seriesName,
+            seasonNumber: currentSeasonNum,
+            name: currentSeason.name,
+            overview: currentSeason.overview,
+            posterPath: currentSeason.poster_path ?? seriesPoster,
+            airDate: currentSeason.air_date,
+            episodeCount: currentSeason.episodes?.length ?? null,
+          }),
+          breadcrumbLd([
+            { name: "TV", path: "/app/browse?type=tv" },
+            { name: seriesName, path: titlePath("tv", numericId, seriesName) },
+            {
+              name: currentSeason.name || `Season ${currentSeasonNum}`,
+              path: seasonPath(numericId, currentSeasonNum, seriesName),
+            },
+          ]),
+        ]}
+      />
     <div className="min-h-screen bg-surface-950 text-white">
       {/* Hero Header */}
       <div className="relative overflow-hidden">
@@ -294,6 +375,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

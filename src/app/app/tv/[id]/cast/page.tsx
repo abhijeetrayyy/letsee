@@ -2,7 +2,8 @@ import Link from "next/link";
 import React from "react";
 import { tmdbFetchJson } from "@/utils/tmdb";
 import { notFound } from "next/navigation";
-import { parseRouteId } from "@/utils/urls";
+import { parseRouteId, titlePath } from "@/utils/urls";
+import type { Metadata } from "next";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -23,6 +24,58 @@ async function getShowCredit(id: string) {
     "TV show credits",
     { next: { revalidate: 3600 } }
   );
+}
+
+
+/** Same idea as the movie cast page: name the people the page is about. */
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const rawId = (await params).id;
+  const numericId = parseRouteId(rawId);
+  if (!numericId) {
+    return { title: "Cast & Crew", description: "Cast and crew information" };
+  }
+
+  const [showResult, creditsResult] = await Promise.all([
+    getShowDetails(numericId),
+    getShowCredit(numericId),
+  ]);
+  const show = showResult.data;
+  if (!show?.name) {
+    return {
+      title: "Cast & Crew",
+      description: showResult.error || "Cast and crew information",
+    };
+  }
+
+  const cast: any[] = creditsResult.data?.cast ?? [];
+  const creators: any[] = show.created_by ?? [];
+  const leads = cast.slice(0, 6).map((c) => c.name);
+
+  const title = `${show.name} — Cast & Crew`;
+  const description = leads.length
+    ? `Full cast and crew for ${show.name}${
+        creators.length ? `, created by ${creators.map((c) => c.name).join(" & ")}` : ""
+      }. Starring ${leads.join(", ")}${cast.length > leads.length ? ` and ${cast.length - leads.length} more` : ""}.`
+    : `Full cast and crew for ${show.name}.`;
+
+  const canonical = `${titlePath("tv", numericId, show.name)}/cast`;
+  const image = show.poster_path
+    ? `https://image.tmdb.org/t/p/w780${show.poster_path}`
+    : null;
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      url: canonical,
+      images: image ? [{ url: image, width: 780, height: 1170, alt: title }] : [],
+    },
+    twitter: { card: "summary_large_image", title, description, images: image ? [image] : [] },
+  };
 }
 
 async function page({ params }: PageProps) {
