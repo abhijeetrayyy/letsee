@@ -100,8 +100,7 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  const userId = auth?.user?.id;
+  const userId = await getAuthUserId();
 
   if (!userId) {
     return jsonError("Not authenticated", 401);

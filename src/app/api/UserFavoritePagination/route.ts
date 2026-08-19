@@ -14,10 +14,7 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = await createClient();
-    const {
-      data: { user: viewer },
-    } = await supabase.auth.getUser();
-    const viewerId = viewer?.id ?? null;
+    const viewerId = await getAuthUserId();
 
     const { data: profile, error: profileError } = await supabase
       .from("users")

@@ -12,19 +12,16 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const userId = await getAuthUserId();
 
-    if (authError || !user) {
+    if (!userId) {
       return jsonError("Unauthorized", 401);
     }
 
     const { error } = await supabase
       .from("recommendation")
       .delete()
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("item_id", item_id);
 
     if (error) {

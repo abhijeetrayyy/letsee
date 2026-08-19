@@ -13,12 +13,10 @@ const MIN_RATING_SCORE = 7;
 
 export async function GET() {
   const supabase = await createClient();
-  const { data: auth, error: authError } = await supabase.auth.getUser();
-  if (authError || !auth?.user) {
+  const userId = await getAuthUserId();
+  if (!userId) {
     return jsonError("Not authenticated", 401);
   }
-
-  const userId = auth.user.id;
 
   try {
     const [userWatched, userFavs] = await Promise.all([

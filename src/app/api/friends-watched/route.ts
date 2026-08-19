@@ -9,11 +9,9 @@ export const dynamic = "force-dynamic";
 // Returns avatars of followed users who watched/rated/reviewed this item
 export async function GET(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = await getAuthUserId();
 
-  if (!user) {
+  if (!userId) {
     return NextResponse.json({ friends: [] });
   }
 
@@ -29,7 +27,7 @@ export async function GET(request: Request) {
   const { data: following } = await supabase
     .from("user_connections")
     .select("followed_id")
-    .eq("follower_id", user.id);
+    .eq("follower_id", userId);
 
   const followedIds = following?.map((f) => f.followed_id) ?? [];
   if (followedIds.length === 0) {

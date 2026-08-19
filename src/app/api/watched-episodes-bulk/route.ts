@@ -6,11 +6,10 @@ import { ensureShowInMediaStatus, autoTransitionStatus } from "@/utils/tvMediaSt
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
-  const { data: userData, error: authError } = await supabase.auth.getUser();
-  if (authError || !userData?.user) {
+  const userId = await getAuthUserId();
+  if (!userId) {
     return jsonError("User isn't logged in", 401);
   }
-  const userId = userData.user.id;
 
   let body: {
     showId?: string;

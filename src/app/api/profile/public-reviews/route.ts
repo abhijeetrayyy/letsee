@@ -18,10 +18,7 @@ export async function GET(request: Request) {
     return jsonError("userId is required", 400);
   }
 
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
-  const viewerId = viewer?.id ?? null;
+  const viewerId = await getAuthUserId();
 
   const { data: profile, error: profileError } = await supabase
     .from("users")

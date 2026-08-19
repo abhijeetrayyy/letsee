@@ -10,11 +10,9 @@ import { autoTransitionStatus } from "@/utils/tvMediaStatus";
  */
 export async function DELETE(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = await getAuthUserId();
 
-  if (!user) {
+  if (!userId) {
     return jsonError("Not authenticated", 401);
   }
 
@@ -49,7 +47,7 @@ export async function DELETE(request: Request) {
     const { data, error } = await supabase
       .from("watched_episodes")
       .delete()
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("show_id", showId)
       .eq("season_number", Number(season))
       .in("episode_number", episodeNumbers)
@@ -70,7 +68,7 @@ export async function DELETE(request: Request) {
   }
 
   if (deleted.length > 0) {
-    await autoTransitionStatus(supabase, user.id, String(showId));
+    await autoTransitionStatus(supabase, userId, String(showId));
   }
 
   return new Response(

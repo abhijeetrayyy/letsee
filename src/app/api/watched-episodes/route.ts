@@ -5,11 +5,10 @@ import { getAuthUserId } from "@/utils/apiAuth";
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
-  const { data: userData, error: authError } = await supabase.auth.getUser();
-  if (authError || !userData?.user) {
+  const userId = await getAuthUserId();
+  if (!userId) {
     return jsonError("User isn't logged in", 401);
   }
-  const userId = userData.user.id;
 
   const showId = req.nextUrl.searchParams.get("showId")?.trim();
   if (!showId) {

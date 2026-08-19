@@ -49,8 +49,7 @@ async function enrichLists(
 /** GET /api/user-lists — current user's lists. GET /api/user-lists?userId=xxx — lists for profile (respects visibility). Anon can view public lists only. */
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
-  const { data: authUser, error: authError } = await supabase.auth.getUser();
-  const viewerId = authError || !authUser?.user ? null : authUser.user.id;
+  const viewerId = await getAuthUserId();
 
   const { searchParams } = new URL(request.url);
   const targetUserId = searchParams.get("userId");
@@ -159,8 +158,8 @@ export async function GET(request: NextRequest) {
 /** POST /api/user-lists — create list. Body: { name: string, description?: string, visibility?: 'public'|'followers'|'private' } */
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
-  const { data: user, error: authError } = await supabase.auth.getUser();
-  if (authError || !user?.user) {
+  const userId = await getAuthUserId();
+  if (!userId) {
     return jsonError("User isn't logged in", 401);
   }
 
@@ -179,7 +178,7 @@ export async function POST(request: NextRequest) {
   const { data: list, error } = await supabase
     .from("user_lists")
     .insert({
-      user_id: user.user.id,
+      user_id: userId,
       name,
       description: (body.description ?? "").trim() || null,
       visibility,

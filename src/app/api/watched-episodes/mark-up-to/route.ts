@@ -14,11 +14,9 @@ import { ensureShowInMediaStatus, autoTransitionStatus } from "@/utils/tvMediaSt
  */
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = await getAuthUserId();
 
-  if (!user) {
+  if (!userId) {
     return jsonError("Not authenticated", 401);
   }
 
@@ -78,7 +76,7 @@ export async function POST(request: Request) {
   const { data: existingWatched } = await supabase
     .from("watched_items")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("item_id", showId)
     .eq("item_type", "tv")
     .single();
@@ -90,7 +88,7 @@ export async function POST(request: Request) {
     const genreList = genres || showData.genres?.map((g: any) => g.name) || [];
 
     await supabase.from("watched_items").insert({
-      user_id: user.id,
+      user_id: userId,
       item_id: showId,
       item_name: name,
       item_type: "tv",
@@ -103,7 +101,7 @@ export async function POST(request: Request) {
 
   // Upsert episodes (ignore duplicates)
   const episodeRows = episodesToMark.map((ep) => ({
-    user_id: user.id,
+    user_id: userId,
     show_id: showId,
     season_number: ep.season_number,
     episode_number: ep.episode_number,
@@ -123,13 +121,13 @@ export async function POST(request: Request) {
     );
   }
 
-  await ensureShowInMediaStatus(supabase, user.id, String(showId));
-  await autoTransitionStatus(supabase, user.id, String(showId));
+  await ensureShowInMediaStatus(supabase, userId, String(showId));
+  await autoTransitionStatus(supabase, userId, String(showId));
 
   const { data: statusRow } = await supabase
     .from("user_media_status")
     .select("status")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("item_id", showId)
     .eq("item_type", "tv")
     .maybeSingle();

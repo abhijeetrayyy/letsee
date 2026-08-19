@@ -11,8 +11,8 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
 
   // Get user details from Supabase (authenticated user)
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData?.user) {
+  const viewerId = await getAuthUserId();
+  if (!viewerId) {
     return jsonError("User isn't logged in", 401);
   }
   if (!userId) {
@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
   }
 
   const visibility = String(profile.visibility ?? "public").toLowerCase().trim();
-  const viewerId = userData.user.id;
   let canView = visibility === "public" || viewerId === userId;
 
   if (!canView && visibility === "followers") {

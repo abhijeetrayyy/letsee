@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
@@ -14,14 +15,12 @@ export async function GET(req: NextRequest) {
   if (!itemId) return jsonError("itemId is required", 400);
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const viewerId = await getAuthUserId();
 
   const { data, error } = await supabase.rpc("title_audience", {
     p_item_id: itemId,
     p_item_type: itemType,
-    p_viewer: user?.id ?? null,
+    p_viewer: viewerId ?? null,
   });
 
   if (error) {

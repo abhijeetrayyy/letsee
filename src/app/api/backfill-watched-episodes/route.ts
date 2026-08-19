@@ -14,11 +14,10 @@ const TMDB_API_KEY = process.env.TMDB_API_KEY;
  */
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
-  const { data: userData, error: authError } = await supabase.auth.getUser();
-  if (authError || !userData?.user) {
+  const userId = await getAuthUserId();
+  if (!userId) {
     return jsonError("User isn't logged in", 401);
   }
-  const userId = userData.user.id;
 
   if (!TMDB_API_KEY) {
     return jsonError("TMDB API key is missing", 500);

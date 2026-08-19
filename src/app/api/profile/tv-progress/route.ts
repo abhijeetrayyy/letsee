@@ -44,8 +44,8 @@ export async function GET(req: NextRequest) {
     }
 
     // Auth & Permission Check
-    const { data: viewerData } = await supabase.auth.getUser();
-    const viewerId = viewerData?.user?.id ?? null;
+    const authUserId = await getAuthUserId();
+    const viewerId = authUserId ?? null;
 
     const { data: profile, error: profileError } = await supabase
       .from("users")

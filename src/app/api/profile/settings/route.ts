@@ -4,20 +4,18 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function GET() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user?.id) {
+  const userId = await getAuthUserId();
+  if (!userId) {
     return jsonError("Unauthorized", 401);
   }
   const [{ data, error }, { count: followersCount }, { count: followingCount }] = await Promise.all([
     supabase
       .from("users")
       .select("visibility, profile_show_diary, profile_show_ratings, profile_show_public_reviews, avatar_url, tagline")
-      .eq("id", user.id)
+      .eq("id", userId)
       .maybeSingle(),
-    supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("followed_id", user.id),
-    supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("follower_id", user.id),
+    supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("followed_id", userId),
+    supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("follower_id", userId),
   ]);
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), {
@@ -43,10 +41,8 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user?.id) {
+  const userId = await getAuthUserId();
+  if (!userId) {
     return jsonError("Unauthorized", 401);
   }
   let body: {
@@ -73,7 +69,7 @@ export async function PATCH(request: Request) {
   const { error: updateError } = await supabase
     .from("users")
     .update(updates)
-    .eq("id", user.id);
+    .eq("id", userId);
   if (updateError) {
     return new Response(JSON.stringify({ error: updateError.message }), {
       status: 500,

@@ -13,8 +13,7 @@ export async function GET(
   const supabase = await createClient();
   // Public lists are readable signed-out — a shared list link is an acquisition
   // path, and 401ing here dead-ends every invitee.
-  const { data: authUser } = await supabase.auth.getUser();
-  const viewerId = authUser?.user?.id ?? null;
+  const viewerId = await getAuthUserId();
 
   const id = (await context.params).id;
   const listId = Number(id);
@@ -70,8 +69,8 @@ export async function PATCH(
   context: RouteContext
 ) {
   const supabase = await createClient();
-  const { data: user, error: authError } = await supabase.auth.getUser();
-  if (authError || !user?.user) {
+  const userId = await getAuthUserId();
+  if (!userId) {
     return jsonError("User isn't logged in", 401);
   }
   const id = (await context.params).id;
@@ -85,7 +84,7 @@ export async function PATCH(
     .select("user_id")
     .eq("id", listId)
     .single();
-  if (!list || list.user_id !== user.user.id) {
+  if (!list || list.user_id !== userId) {
     return jsonError("List not found or access denied", 404);
   }
 
@@ -121,7 +120,7 @@ export async function PATCH(
     .from("user_lists")
     .update(updates)
     .eq("id", listId)
-    .eq("user_id", user.user.id)
+    .eq("user_id", userId)
     .select("id, name, description, visibility, created_at, updated_at")
     .single();
 
@@ -139,8 +138,8 @@ export async function DELETE(
   context: RouteContext
 ) {
   const supabase = await createClient();
-  const { data: user, error: authError } = await supabase.auth.getUser();
-  if (authError || !user?.user) {
+  const userId = await getAuthUserId();
+  if (!userId) {
     return jsonError("User isn't logged in", 401);
   }
   const id = (await context.params).id;
@@ -153,7 +152,7 @@ export async function DELETE(
     .from("user_lists")
     .delete()
     .eq("id", listId)
-    .eq("user_id", user.user.id);
+    .eq("user_id", userId);
 
   if (error) return jsonError(error.message || "Failed to delete list", 500);
   return jsonSuccess({ deleted: true }, { maxAge: 0 });

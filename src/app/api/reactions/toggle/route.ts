@@ -8,11 +8,9 @@ export const dynamic = "force-dynamic";
 // POST /api/reactions/toggle — toggle like on a target
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = await getAuthUserId();
 
-  if (!user) {
+  if (!userId) {
     return jsonError("Unauthorized", 401);
   }
 
@@ -37,7 +35,7 @@ export async function POST(request: Request) {
   const { data: existing } = await supabase
     .from("reactions")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("target_type", targetType)
     .eq("target_id", targetIdNum)
     .maybeSingle();
@@ -66,7 +64,7 @@ export async function POST(request: Request) {
     const { error: insertError } = await supabase
       .from("reactions")
       .insert({
-        user_id: user.id,
+        user_id: userId,
         target_type: targetType,
         target_id: targetIdNum,
       });
@@ -88,9 +86,7 @@ export async function POST(request: Request) {
 // GET /api/reactions?targetType=review&targetId=123 — get like count and user's reaction
 export async function GET(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = await getAuthUserId();
 
   const { searchParams } = new URL(request.url);
   const targetType = searchParams.get("targetType");
@@ -114,11 +110,11 @@ export async function GET(request: Request) {
 
   // Get user's reaction if logged in
   let liked = false;
-  if (user) {
+  if (userId) {
     const { data: existing } = await supabase
       .from("reactions")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("target_type", targetType)
       .eq("target_id", targetIdNum)
       .maybeSingle();

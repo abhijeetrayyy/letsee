@@ -8,11 +8,9 @@ export const dynamic = "force-dynamic";
 // GET /api/notifications?page=1&limit=20
 export async function GET(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = await getAuthUserId();
 
-  if (!user) {
+  if (!userId) {
     return jsonError("Unauthorized", 401);
   }
 
@@ -32,7 +30,7 @@ export async function GET(request: Request) {
         avatar_url
       )
     `, { count: "exact" })
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     // A unique tiebreaker makes the sort total. Without it, rows sharing a
     // timestamp can reshuffle between pages — and they do share one: the
     // quick-add bulk endpoint stamps a single `now` across an entire batch, so
@@ -55,7 +53,7 @@ export async function GET(request: Request) {
   const { count: unreadCount } = await supabase
     .from("notifications")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("is_read", false);
 
   const totalItems = count ?? 0;
@@ -74,11 +72,9 @@ export async function GET(request: Request) {
 // Body: { ids?: number[] } — if ids provided, mark those; otherwise mark all
 export async function PATCH(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = await getAuthUserId();
 
-  if (!user) {
+  if (!userId) {
     return jsonError("Unauthorized", 401);
   }
 
@@ -88,7 +84,7 @@ export async function PATCH(request: Request) {
   let query = supabase
     .from("notifications")
     .update({ is_read: true })
-    .eq("user_id", user.id);
+    .eq("user_id", userId);
 
   if (Array.isArray(ids) && ids.length > 0) {
     query = query.in("id", ids);

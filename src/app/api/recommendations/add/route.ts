@@ -13,17 +13,14 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const userId = await getAuthUserId();
 
-    if (authError || !user) {
+    if (!userId) {
       return jsonError("Unauthorized", 401);
     }
 
     const { error } = await supabase.from("recommendation").insert({
-      user_id: user.id,
+      user_id: userId,
       item_id,
       name,
       item_type,
@@ -39,7 +36,7 @@ export async function POST(req: NextRequest) {
     const { data: updatedData } = await supabase
       .from("recommendation")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("recommended_at", { ascending: false });
 
     return NextResponse.json(

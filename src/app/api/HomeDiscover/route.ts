@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { buildGenreVector, cosineSimilarity } from "@/utils/genreVector";
 import { getBlockedUserIds } from "@/utils/blocks";
@@ -30,10 +31,7 @@ export async function GET(request: Request) {
     // Discovering people doesn't require login. Anonymous visitors get the
     // same recency-ordered pool, just without the personalised re-rank and
     // follow/block filtering (which need a viewer to be relative to).
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const viewerId = user?.id ?? null;
+    const viewerId = await getAuthUserId();
 
     const selectWithAvatar =
       "id, username, about, avatar_url, user_cout_stats (watched_count, favorites_count, watchlist_count)";

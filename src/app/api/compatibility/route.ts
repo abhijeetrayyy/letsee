@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { getAuthUserId } from "@/utils/apiAuth";
 import { NextResponse } from "next/server";
 import { jsonError } from "@/utils/apiResponse";
 import { getPairwiseCompatibility } from "@/utils/tasteMatch";
@@ -23,8 +24,7 @@ export async function GET(request: Request) {
   if (!otherUserId) return jsonError("userId is required", 400);
 
   const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  const currentUserId = auth?.user?.id;
+  const currentUserId = await getAuthUserId();
   if (!currentUserId) return jsonError("Not authenticated", 401);
 
   try {

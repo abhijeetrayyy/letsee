@@ -12,8 +12,7 @@ export async function GET(
 ) {
   const supabase = await createClient();
   // Mirrors the parent route: public lists are readable signed-out.
-  const { data: authUser } = await supabase.auth.getUser();
-  const viewerId = authUser?.user?.id ?? null;
+  const viewerId = await getAuthUserId();
 
   const id = (await context.params).id;
   const listId = Number(id);
@@ -71,8 +70,8 @@ export async function POST(
   context: RouteContext
 ) {
   const supabase = await createClient();
-  const { data: user, error: authError } = await supabase.auth.getUser();
-  if (authError || !user?.user) {
+  const userId = await getAuthUserId();
+  if (!userId) {
     return jsonError("User isn't logged in", 401);
   }
   const id = (await context.params).id;
@@ -85,7 +84,7 @@ export async function POST(
   // owner-only and live on the parent route.
   const { data: canEdit } = await supabase.rpc("is_list_editor", {
     p_list: listId,
-    p_user: user.user.id,
+    p_user: userId,
   });
   if (!canEdit) {
     return jsonError("List not found or access denied", 404);
@@ -122,7 +121,7 @@ export async function POST(
       item_adult: body.adult ?? false,
       genres: body.genres ?? null,
       position,
-      added_by: user.user.id,
+      added_by: userId,
     })
     .select("id, item_id, item_type, item_name, image_url, position, created_at, added_by")
     .single();
@@ -140,8 +139,8 @@ export async function DELETE(
   context: RouteContext
 ) {
   const supabase = await createClient();
-  const { data: user, error: authError } = await supabase.auth.getUser();
-  if (authError || !user?.user) {
+  const userId = await getAuthUserId();
+  if (!userId) {
     return jsonError("User isn't logged in", 401);
   }
   const id = (await context.params).id;
@@ -157,7 +156,7 @@ export async function DELETE(
   // owner-only and live on the parent route.
   const { data: canEdit } = await supabase.rpc("is_list_editor", {
     p_list: listId,
-    p_user: user.user.id,
+    p_user: userId,
   });
   if (!canEdit) {
     return jsonError("List not found or access denied", 404);

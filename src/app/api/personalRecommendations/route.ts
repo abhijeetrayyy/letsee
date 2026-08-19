@@ -28,8 +28,8 @@ function getGenreName(id: number): string | null {
 
 export async function GET() {
   const supabase = await createClient();
-  const { data: auth, error: authError } = await supabase.auth.getUser();
-  if (authError || !auth?.user) {
+  const userId = await getAuthUserId();
+  if (!userId) {
     return jsonError("You must be logged in to get personal recommendations.", 401);
   }
 
@@ -37,8 +37,6 @@ export async function GET() {
   if (!apiKey) {
     return jsonError("TMDB_API_KEY is missing on the server.", 500);
   }
-
-  const userId = auth.user.id;
 
   try {
     const [favRes, watchedRes] = await Promise.all([
