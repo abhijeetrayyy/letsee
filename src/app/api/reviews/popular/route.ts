@@ -84,7 +84,8 @@ export async function GET(req: NextRequest) {
       reviewText: String(r.body ?? ""),
       itemId: r.item_id ? String(r.item_id) : null,
       itemType: r.item_type === "tv" ? "tv" : "movie",
-      // `takes` stores no title or poster; the client falls back to the id link.
+      // `takes` stores no title or poster. Filled in by the backfill below
+      // rather than shipped blank.
       itemName: "",
       imageUrl: null,
       at: String(r.updated_at ?? ""),
@@ -105,6 +106,63 @@ export async function GET(req: NextRequest) {
       imageUrl: (r.image_url as string | null) ?? null,
       at: String(r.watched_at ?? ""),
     });
+  }
+
+  /**
+   * Titles for the rows that have none.
+   *
+   * `takes` is keyed on a TMDB id and stores no name or poster, and this route
+   * shipped `itemName: ""` with a comment saying the client would fall back to
+   * an id link. It did — and that one missing string produced three visible
+   * defects at once: a nameless URL, the `/no-photo.webp` placeholder, and an
+   * empty `alt` on the card.
+   *
+   * Looked up by `item_type:item_id`, deliberately not by `user_id:item_id`
+   * the way the following-feed route does it. A film's name is not a fact
+   * about the person who logged it, and keying on the author leaves a take by
+   * someone who never shelved the title nameless — which is the case that
+   * produced this bug.
+   *
+   * `user_media_status` first, since that is what everyone writes when they
+   * track anything; `watched_items` only for whatever is still missing, so the
+   * common case costs one query and the rare one two.
+   */
+  const missing = rows.filter((r) => !r.itemName && r.itemId);
+  if (missing.length > 0) {
+    const byKey = new Map<string, { name: string; image: string | null }>();
+
+    const remember = (list: Record<string, unknown>[] | null) => {
+      for (const t of list ?? []) {
+        const name = String(t.item_name ?? "").trim();
+        if (!name) continue;
+        const key = `${t.item_type}:${t.item_id}`;
+        if (!byKey.has(key)) byKey.set(key, { name, image: (t.image_url as string | null) ?? null });
+      }
+    };
+
+    const { data: statusRows } = await supabase
+      .from("user_media_status")
+      .select("item_id, item_type, item_name, image_url")
+      .in("item_id", [...new Set(missing.map((r) => r.itemId as string))])
+      .not("item_name", "is", null);
+    remember(statusRows as Record<string, unknown>[] | null);
+
+    const stillMissing = missing.filter((r) => !byKey.has(`${r.itemType}:${r.itemId}`));
+    if (stillMissing.length > 0) {
+      const { data: watchedRows } = await supabase
+        .from("watched_items")
+        .select("item_id, item_type, item_name, image_url")
+        .in("item_id", [...new Set(stillMissing.map((r) => r.itemId as string))])
+        .not("item_name", "is", null);
+      remember(watchedRows as Record<string, unknown>[] | null);
+    }
+
+    for (const r of missing) {
+      const hit = byKey.get(`${r.itemType}:${r.itemId}`);
+      if (!hit) continue;
+      r.itemName = hit.name;
+      r.imageUrl = r.imageUrl ?? hit.image;
+    }
   }
 
   // One per title, and one per author — so a single prolific week cannot fill

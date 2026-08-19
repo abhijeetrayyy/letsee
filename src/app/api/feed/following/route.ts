@@ -231,23 +231,42 @@ export async function GET(request: Request) {
     ]),
   );
 
-  // `takes` stores no title or poster — it is keyed on a TMDB id and nothing
-  // else — so the card's context strip is hydrated from the status table the
-  // same user already wrote when they logged the title.
-  const takeKeys = takes.map((t) => `${t.user_id}:${t.item_id}`);
-  const { data: statusRows } = takeKeys.length
+  /**
+   * `takes` stores no title or poster — it is keyed on a TMDB id and nothing
+   * else — so the card's context strip is hydrated from the status table.
+   *
+   * Keyed on the item, not on `user_id:item_id`. The narrower key looks more
+   * careful and is strictly worse: a take written by someone who never added
+   * that title to their own shelf finds nothing and renders nameless. A film's
+   * name is the same fact for everyone who has it, so any row that carries it
+   * will do.
+   */
+  // Every item mentioned anywhere in this page of the feed, not just the ones
+  // a take speaks for — activity rows can arrive with a null `item_name` too,
+  // and they use the same map.
+  const lookupIds = [
+    ...new Set([
+      ...takes.map((t) => t.item_id),
+      ...activity.filter((a) => !a.item_name && a.item_id).map((a) => a.item_id as string),
+    ]),
+  ];
+  const { data: statusRows } = lookupIds.length
     ? await supabase
         .from("user_media_status")
-        .select("user_id, item_id, item_name, image_url")
-        .in("user_id", [...new Set(takes.map((t) => t.user_id))])
-        .in("item_id", [...new Set(takes.map((t) => t.item_id))])
+        .select("item_id, item_type, item_name, image_url")
+        .in("item_id", lookupIds)
+        .not("item_name", "is", null)
     : { data: [] };
-  const titleByKey = new Map(
-    (statusRows ?? []).map((r) => [
-      `${r.user_id}:${r.item_id}`,
-      { name: r.item_name as string | null, imageUrl: r.image_url as string | null },
-    ]),
-  );
+  const titleByKey = new Map<string, { name: string | null; imageUrl: string | null }>();
+  for (const r of statusRows ?? []) {
+    const key = `${r.item_type}:${r.item_id}`;
+    if (!titleByKey.has(key)) {
+      titleByKey.set(key, {
+        name: r.item_name as string | null,
+        imageUrl: r.image_url as string | null,
+      });
+    }
+  }
 
   // ── Build rows ────────────────────────────────────────────────────────────
   const rows: FeedRow[] = [];
@@ -258,7 +277,7 @@ export async function GET(request: Request) {
     const author = authorById.get(t.user_id);
     const body = (t.body ?? "").trim();
     if (!author || !body) continue;
-    const meta = titleByKey.get(`${t.user_id}:${t.item_id}`);
+    const meta = titleByKey.get(`${t.item_type}:${t.item_id}`);
     spokenFor.add(`${t.user_id}:${t.item_type}:${t.item_id}`);
     rows.push({
       key: `take:${t.user_id}:${t.item_type}:${t.item_id}`,
@@ -294,7 +313,15 @@ export async function GET(request: Request) {
       createdAt: a.created_at,
       body: text,
       score: a.score,
-      titles: [{ itemId: a.item_id, itemType: a.item_type, name: a.item_name, imageUrl: a.image_url }],
+      titles: [
+        {
+          itemId: a.item_id,
+          itemType: a.item_type,
+          // Same null-name fallback as the watch bundle below.
+          name: a.item_name ?? titleByKey.get(`${a.item_type}:${a.item_id}`)?.name ?? null,
+          imageUrl: a.image_url ?? titleByKey.get(`${a.item_type}:${a.item_id}`)?.imageUrl ?? null,
+        },
+      ],
     });
   }
 
@@ -336,8 +363,13 @@ export async function GET(request: Request) {
       const titles = bundle.slice(0, BUNDLE_TITLES).map((a) => ({
         itemId: a.item_id!,
         itemType: a.item_type!,
-        name: a.item_name,
-        imageUrl: a.image_url,
+          // `user_activity.item_name` can be null: the rated trigger looked the
+          // title up by `user_id AND item_id`, so rating something nobody had
+          // shelved wrote a nameless row, and the feed renders what the row
+          // says. Migration 086 fixes the writer and backfills history; this
+          // covers rows already out there.
+        name: a.item_name ?? titleByKey.get(`${a.item_type}:${a.item_id}`)?.name ?? null,
+        imageUrl: a.image_url ?? titleByKey.get(`${a.item_type}:${a.item_id}`)?.imageUrl ?? null,
       }));
       rows.push({
         key: `watch:${userId}:${bundle[0].id}`,
