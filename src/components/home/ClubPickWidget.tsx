@@ -19,6 +19,7 @@ type ClubPick = {
   ends_at: string;
 };
 
+import { titlePath } from "@/utils/urls";
 export default function ClubPickWidget() {
   const [expanded, setExpanded] = useState(false);
   const { data } = useSWR<{ pick: ClubPick | null }>("/api/club-pick/current", swrFetcher);
@@ -33,11 +34,11 @@ export default function ClubPickWidget() {
         <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider">This Week’s Club Pick</h3>
       </div>
       <div className="flex gap-3">
-        <Link href={`/app/${pick.item_type}/${pick.item_id}`} className="shrink-0 w-16 aspect-[2/3] rounded-lg overflow-hidden bg-surface-800">
+        <Link href={titlePath(pick.item_type, pick.item_id, pick.title)} className="shrink-0 w-16 aspect-[2/3] rounded-lg overflow-hidden bg-surface-800">
           <img src={getPosterUrl(pick.image_url)} alt={pick.title} className="w-full h-full object-cover" />
         </Link>
         <div className="flex-1 min-w-0">
-          <Link href={`/app/${pick.item_type}/${pick.item_id}`} className="text-sm font-semibold text-white hover:text-brand-400 transition-colors line-clamp-1">
+          <Link href={titlePath(pick.item_type, pick.item_id, pick.title)} className="text-sm font-semibold text-white hover:text-brand-400 transition-colors line-clamp-1">
             {pick.title}
           </Link>
           {pick.note && <p className="text-xs text-surface-500 mt-1 line-clamp-2">{pick.note}</p>}

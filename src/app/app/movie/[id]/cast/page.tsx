@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { parseRouteId, titlePath } from "@/utils/urls";
+import { parseRouteId, personPath, titlePath } from "@/utils/urls";
 
 // Types
 type PageProps = {
@@ -194,70 +194,81 @@ export default async function Page({ params }: PageProps) {
             <div className="flex-2 w-full">
               <Link
                 className="hover:text-surface-200 hover:underline"
-                href={`/app/movie/${movie.id}-${movie.title
-                  .trim()
-                  .replace(/[^a-zA-Z0-9]/g, "-")
-                  .toLowerCase()
-                  .replace(/-+/g, "-")}`}
+                href={titlePath("movie", movie.id, movie.title)}
               >
                 <h1 className="text-xl font-bold">{movie.title}</h1>
               </Link>
               <span className="text-4xl font-bold mt-10 block">
-                Cast ~ Crew
+                Cast &amp; Crew
               </span>
             </div>
           </div>
         </div>
 
-        <div className="max-w-5xl w-full m-auto my-3">
-          <h2 className="text-2xl font-bold mb-4">Cast ~</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {cast.map((item, index: number) => (
-              <Link
-                key={index}
-                className="border border-surface-900 bg-surface-800 py-2 px-2 rounded-md hover:border-indigo-600 transition-colors"
-                href={`/app/person/${item.id}-${item.name
-                  .trim()
-                  .replace(/[^a-zA-Z0-9]/g, "-")
-                  .toLowerCase()
-                  .replace(/-+/g, "-")}`}
-              >
-                <div className="flex flex-col md:flex-row gap-4 mb-4">
-                  <img
-                    className="max-w-[100px] object-cover rounded-md h-full"
-                    src={
-                      item.profile_path
-                        ? `https://image.tmdb.org/t/p/w185${item.profile_path}`
-                        : "/avatar.svg"
-                    }
-                    alt={item.name}
-                  />
-                  <div className="flex flex-row gap-2">
-                    <h3 className="font-semibold">{item.name}</h3>
-                    <span>-</span>
-                    <p>{item.character}</p>
-                  </div>
+        {/* Same shape as the series cast page, because they are the same page
+            for two media types and had drifted into two different designs —
+            this one still carried indigo borders and a "Cast ~ Crew" heading
+            from before the palette existed. */}
+        <div className="mx-auto my-3 w-full max-w-6xl px-4 pb-16">
+          {cast.length > 0 && (
+            <>
+              <div className="mb-4 flex items-baseline gap-2">
+                <div className="h-5 w-1 rounded-full bg-brand-500" />
+                <div>
+                  <h2 className="text-lg font-bold text-white">Cast</h2>
+                  <p className="text-xs text-surface-500">{cast.length} people</p>
                 </div>
-              </Link>
-            ))}
-          </div>
+              </div>
+              <div className="mb-12 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {cast.map((item) => (
+                  <Link
+                    key={item.id}
+                    className="flex items-center gap-3 rounded-xl border border-surface-800/50 bg-surface-900/30 p-2.5 transition-colors hover:border-brand-500/40 hover:bg-surface-800/40"
+                    href={personPath(item.id, item.name)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      className="size-14 shrink-0 rounded-lg object-cover"
+                      src={
+                        item.profile_path
+                          ? `https://image.tmdb.org/t/p/w185${item.profile_path}`
+                          : "/avatar.svg"
+                      }
+                      alt=""
+                      loading="lazy"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-white">{item.name}</p>
+                      {item.character && (
+                        <p className="truncate text-xs text-surface-400">{item.character}</p>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
 
-          <div className="max-w-5xl w-full m-auto my-3">
-            {crew.length > 0 && <h2 className="my-3 mt-10">Prod. ~ Crew</h2>}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {crew?.map((item: any, index: number) => (
-                <Link
-                  className="flex flex-col items-center justify-center hover:opacity-75"
-                  key={index}
-                  href={`/app/person/${item.id}-${item.name
-                    .trim()
-                    .replace(/[^a-zA-Z0-9]/g, "-")
-                    .replace(/-+/g, "-")}`}
-                >
-                  <div>
-                    <div className="aspect-[2/3] w-32 overflow-hidden rounded-md bg-surface-800">
+          {crew.length > 0 && (
+            <>
+              <div className="mb-4 flex items-baseline gap-2">
+                <div className="h-5 w-1 rounded-full bg-brand-500" />
+                <div>
+                  <h2 className="text-lg font-bold text-white">Crew</h2>
+                  <p className="text-xs text-surface-500">{crew.length} people</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+                {crew.map((item: any, index: number) => (
+                  <Link
+                    className="group flex flex-col items-center"
+                    key={`${item.id}-${item.job ?? ""}-${index}`}
+                    href={personPath(item.id, item.name)}
+                  >
+                    <div className="aspect-[2/3] w-full overflow-hidden rounded-lg bg-surface-800">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        className="size-full object-cover"
+                        className="size-full object-cover transition-opacity group-hover:opacity-80"
                         src={
                           item.profile_path
                             ? `https://image.tmdb.org/t/p/w342${item.profile_path}`
@@ -267,18 +278,15 @@ export default async function Page({ params }: PageProps) {
                         loading="lazy"
                       />
                     </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <h1 className="text-center">{item.name}</h1>{" "}
-                    <p className="text-center text-xs flex flex-col gap-1">
-                      {item.department}{" "}
-                      <span className="font-bold">({item.job})</span>
+                    <p className="mt-2 text-center text-sm text-white">{item.name}</p>
+                    <p className="text-center text-xs text-surface-500">
+                      {item.job || item.department}
                     </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </Suspense>

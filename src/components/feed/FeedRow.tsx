@@ -6,6 +6,7 @@ import Avatar from "@components/ui/Avatar";
 import { getPosterUrl } from "@/utils/imageUrl";
 import { formatStars } from "@/utils/ratingScale";
 
+import { titlePath } from "@/utils/urls";
 export type FeedTitle = {
   itemId: string;
   itemType: string;
@@ -35,7 +36,7 @@ function when(iso: string): string {
 }
 
 function titleHref(t: FeedTitle) {
-  return `/app/${t.itemType}/${t.itemId}`;
+  return titlePath(t.itemType, t.itemId, t.name);
 }
 
 /**

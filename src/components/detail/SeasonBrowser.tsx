@@ -85,12 +85,16 @@ function dayIndex(p: ParsedDate): number {
   return Math.floor(Date.UTC(p.y, p.m - 1, p.d) / 86_400_000);
 }
 
+import { seasonPath } from "@/utils/urls";
 export default function SeasonBrowser({
   showId,
+  showName,
   seasons,
   isAuthenticated,
 }: {
   showId: string | number;
+  /** Only so the links it emits can carry a name. */
+  showName?: string;
   seasons: SeasonSummary[];
   isAuthenticated: boolean;
 }) {
@@ -517,7 +521,7 @@ export default function SeasonBrowser({
                 Show {Math.min(remaining, MORE_STEP)} more
               </button>
               <Link
-                href={`/app/tv/${showId}/season/${activeSeason.season_number}`}
+                href={seasonPath(showId, activeSeason.season_number, showName)}
                 className="inline-flex items-center gap-1 text-sm font-medium text-brand-400 transition-colors hover:text-brand-300"
               >
                 All {episodes.length} episodes

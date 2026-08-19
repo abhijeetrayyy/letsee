@@ -10,7 +10,7 @@ import { fetchTmdb } from "@/utils/tmdbClient";
 import { createClient } from "@/utils/supabase/server";
 import TitleTalk from "@components/takes/TitleTalk";
 import { ArrowLeft, Clock, Calendar, Users, Clapperboard, Star } from "lucide-react";
-import { episodePath, parseRouteId, seasonPath, titlePath } from "@/utils/urls";
+import { episodePath, parseRouteId, personPath, seasonPath, titlePath } from "@/utils/urls";
 import type { Metadata } from "next";
 import JsonLd from "@components/seo/JsonLd";
 import { tvEpisodeLd, breadcrumbLd } from "@/utils/structuredData";
@@ -179,7 +179,7 @@ const EpisodePage = async ({ params }: PageProps) => {
         <div className="glass-card rounded-2xl p-8 max-w-md text-center">
           <p className="text-red-400 text-lg font-semibold">Error loading episode</p>
           <p className="text-surface-400 text-sm mt-2">{(error as Error).message}</p>
-          <Link href={`/app/tv/${id}/season/${seasonNumber}`} className="btn-primary mt-4 inline-block">
+          <Link href={seasonPath(id, seasonNumber)} className="btn-primary mt-4 inline-block">
             Back to Season
           </Link>
         </div>
@@ -232,11 +232,11 @@ const EpisodePage = async ({ params }: PageProps) => {
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
           {/* Breadcrumb */}
           <nav className="flex flex-wrap items-center gap-2 text-sm text-surface-500 mb-6">
-            <Link href={`/app/tv/${id}`} className="hover:text-brand-400 transition-colors">
+            <Link href={titlePath("tv", id, seriesName)} className="hover:text-brand-400 transition-colors">
               {seriesName}
             </Link>
             <FaChevronRight className="w-3 h-3" />
-            <Link href={`/app/tv/${id}/season/${seasonNumber}`} className="hover:text-brand-400 transition-colors">
+            <Link href={seasonPath(id, seasonNum, seriesName)} className="hover:text-brand-400 transition-colors">
               Season {seasonNumber}
             </Link>
             <FaChevronRight className="w-3 h-3" />
@@ -288,7 +288,7 @@ const EpisodePage = async ({ params }: PageProps) => {
           <div className="flex items-center gap-3 mt-6">
             {episode.episode_number > 1 ? (
               <Link
-                href={`/app/tv/${id}/season/${seasonNum}/episode/${episode.episode_number - 1}`}
+                href={episodePath(id, seasonNum, episode.episode_number - 1, seriesName)}
                 className="btn-secondary text-sm"
               >
                 <ArrowLeft className="w-4 h-4" /> Previous
@@ -296,7 +296,7 @@ const EpisodePage = async ({ params }: PageProps) => {
             ) : <div />}
             {data?.episodeCount && episode.episode_number < data.episodeCount && (
               <Link
-                href={`/app/tv/${id}/season/${seasonNum}/episode/${episode.episode_number + 1}`}
+                href={episodePath(id, seasonNum, episode.episode_number + 1, seriesName)}
                 className="btn-primary text-sm"
               >
                 Next <ArrowLeft className="w-4 h-4 rotate-180" />
@@ -367,7 +367,7 @@ const EpisodePage = async ({ params }: PageProps) => {
               {episode.guest_stars.map((star: any) => (
                 <Link
                   key={star.id}
-                  href={`/app/person/${star.id}`}
+                  href={personPath(star.id, star.name)}
                   className="group glass-card rounded-xl overflow-hidden hover:border-surface-600/50 transition-all hover:-translate-y-1"
                 >
                   <div className="aspect-[2/3] overflow-hidden">
@@ -407,7 +407,7 @@ const EpisodePage = async ({ params }: PageProps) => {
               {episode.crew.map((member: any) => (
                 <Link
                   key={member.id}
-                  href={`/app/person/${member.id}`}
+                  href={personPath(member.id, member.name)}
                   className="group glass-card rounded-xl overflow-hidden hover:border-surface-600/50 transition-all hover:-translate-y-1"
                 >
                   <div className="aspect-[2/3] overflow-hidden">

@@ -15,6 +15,7 @@ interface HeroItem {
   overview?: string;
 }
 
+import { titlePath } from "@/utils/urls";
 export default function HomeHero({ items }: { items: HeroItem[] }) {
   const valid = items.filter((m) => m.id && (m.backdrop_path || m.poster_path)).slice(0, 6);
   const [current, setCurrent] = useState(0);
@@ -83,7 +84,7 @@ export default function HomeHero({ items }: { items: HeroItem[] }) {
             {current + 1} of {valid.length}
           </div>
 
-          <Link href={`/app/${mediaType}/${item.id}`}>
+          <Link href={titlePath(mediaType, item.id, title)}>
             <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight hover:text-brand-400 transition-colors">
               {title}
             </h2>
@@ -103,7 +104,7 @@ export default function HomeHero({ items }: { items: HeroItem[] }) {
               </div>
             )}
             <Link
-              href={`/app/${mediaType}/${item.id}`}
+              href={titlePath(mediaType, item.id, title)}
               className="btn-primary text-sm px-5 py-2.5"
             >
               View details

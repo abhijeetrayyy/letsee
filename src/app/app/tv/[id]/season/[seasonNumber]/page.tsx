@@ -193,7 +193,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
         <div className="glass-card rounded-2xl p-8 max-w-md text-center">
           <p className="text-red-400 text-lg font-semibold">Error loading season</p>
           <p className="text-surface-400 text-sm mt-2">{(error as Error).message}</p>
-          <Link href={`/app/tv/${numericId}`} className="btn-primary mt-4 inline-block">
+          <Link href={titlePath("tv", numericId)} className="btn-primary mt-4 inline-block">
             Back to Show
           </Link>
         </div>
@@ -250,7 +250,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
         <div className="absolute inset-0 bg-gradient-to-b from-brand-500/5 via-surface-950 to-surface-950" />
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
           {/* Back Link */}
-          <Link href={`/app/tv/${numericId}`} className="inline-flex items-center gap-2 text-sm text-surface-400 hover:text-brand-400 transition-colors mb-6">
+          <Link href={titlePath("tv", numericId, seriesName)} className="inline-flex items-center gap-2 text-sm text-surface-400 hover:text-brand-400 transition-colors mb-6">
             <ArrowLeft className="w-4 h-4" />
             Back to {seriesName}
           </Link>
@@ -275,7 +275,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
                 <Tv className="w-4 h-4 text-brand-400" />
                 <span className="text-xs text-surface-500 font-medium uppercase tracking-wider">TV Series</span>
               </div>
-              <Link href={`/app/tv/${numericId}`} className="text-2xl sm:text-4xl font-black text-white hover:text-brand-400 transition-colors">
+              <Link href={titlePath("tv", numericId, seriesName)} className="text-2xl sm:text-4xl font-black text-white hover:text-brand-400 transition-colors">
                 {seriesName}
               </Link>
               <p className="text-sm text-surface-400 mt-3 line-clamp-3 max-w-2xl">
@@ -348,7 +348,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
         {/* Season Navigation */}
         <div className="flex flex-wrap items-center justify-between gap-4 mt-8 pt-6 border-t border-white/5">
           {prevSeason ? (
-            <Link href={`/app/tv/${numericId}/season/${prevSeason.season_number}`} className="btn-secondary">
+            <Link href={seasonPath(numericId, prevSeason.season_number, seriesName)} className="btn-secondary">
               <ArrowLeft className="w-4 h-4" />
               Season {prevSeason.season_number}
             </Link>
@@ -356,7 +356,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
             <div />
           )}
           {nextSeason ? (
-            <Link href={`/app/tv/${numericId}/season/${nextSeason.season_number}`} className="btn-primary">
+            <Link href={seasonPath(numericId, nextSeason.season_number, seriesName)} className="btn-primary">
               Season {nextSeason.season_number}
               <ArrowLeft className="w-4 h-4 rotate-180" />
             </Link>
@@ -378,7 +378,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
             {seasons.filter((s: any) => s.season_number > 0).map((season: Season) => (
               <Link
                 key={season.id}
-                href={`/app/tv/${numericId}/season/${season.season_number}`}
+                href={seasonPath(numericId, season.season_number, seriesName)}
                 className={`group rounded-xl overflow-hidden transition-all duration-200 hover:-translate-y-1 ${
                   season.season_number === currentSeasonNum
                     ? "ring-2 ring-brand-500 shadow-lg shadow-brand-500/20"

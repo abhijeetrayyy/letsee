@@ -26,6 +26,7 @@ type PaginatedResponse = {
   perloadLength: number;
 };
 
+import { titlePath } from "@/utils/urls";
 export default function FavoritesSection({
   userId,
   isOwner,
@@ -85,7 +86,7 @@ export default function FavoritesSection({
         {loadedItems.map((item) => (
           <Link
             key={item.id}
-            href={`/app/${item.item_type}/${item.item_id}`}
+            href={titlePath(item.item_type, item.item_id, item.item_name)}
             className="group flex flex-col rounded-xl border border-surface-700/60 bg-surface-900/40 hover:border-surface-500/60 transition-all overflow-hidden"
           >
             <div className="aspect-[2/3] overflow-hidden bg-surface-800">

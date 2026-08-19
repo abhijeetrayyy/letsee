@@ -116,14 +116,18 @@ function agoLabel(from: ParsedDate, today: ParsedDate): string {
   return `${months} month${months === 1 ? "" : "s"} ago`;
 }
 
+import { seasonPath } from "@/utils/urls";
 export default function NextEpisode({
   showId,
+  showName,
   nextEpisode,
   lastEpisode,
   status,
   inProduction,
 }: {
   showId: string | number;
+  /** Only so the links it emits can carry a name. */
+  showName?: string;
   nextEpisode?: EpisodeStub | null;
   lastEpisode?: EpisodeStub | null;
   status?: string | null;
@@ -253,7 +257,7 @@ export default function NextEpisode({
 
           {typeof seasonNumber === "number" && (
             <Link
-              href={`/app/tv/${showId}/season/${seasonNumber}`}
+              href={seasonPath(showId, seasonNumber, showName)}
               className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-surface-400 transition-colors hover:text-white"
             >
               Season {seasonNumber}

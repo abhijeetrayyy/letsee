@@ -7,12 +7,11 @@ import useSWR from "swr";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { getPosterUrl } from "@/utils/imageUrl";
-import { slugify } from "@/utils/urls";
+import { titlePath } from "@/utils/urls";
 
 
 function detailHref(mediaType: string, id: string, title: string): string {
-  const s = slugify(title);
-  return `/app/${mediaType}/${Number(id)}${s ? `-${s}` : ""}`;
+  return titlePath(mediaType, Number(id), title);
 }
 
 function formatDate(iso: string): string {

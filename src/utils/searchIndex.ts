@@ -20,6 +20,7 @@
 
 import Fuse from "fuse.js";
 // Both pure and dependency-free, so importing it here creates no cycle.
+import { personPath, titlePath } from "@/utils/urls";
 import { buildBrowseUrl } from "@/utils/browseUrl";
 
 /**
@@ -259,11 +260,19 @@ export function queryIndex(
     .map((m) => m.row);
 }
 
-/** Where a suggestion goes when chosen. */
+/**
+ * Where a suggestion goes when chosen.
+ *
+ * Through the slug helpers, because this is where most of the app's links are
+ * actually born. Every route in the app grew a `550-fight-club` form and then
+ * search kept handing out `/app/movie/550` — so the address bar went blank the
+ * moment anyone arrived the way most people arrive. `row.n` is the display
+ * name and has been sitting here the whole time.
+ */
 export function rowHref(row: IndexRow): string {
   const id = row.k.slice(row.k.indexOf(":") + 1);
-  if (row.t === "person") return `/app/person/${id}`;
+  if (row.t === "person") return personPath(id, row.n);
   // A network is a browse facet, not a page — D3 already built the destination.
   if (row.t === "network") return buildBrowseUrl({ type: "tv", network: id });
-  return `/app/${row.t}/${id}`;
+  return titlePath(row.t, id, row.n);
 }

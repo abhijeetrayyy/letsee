@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ExternalLink, Info } from "lucide-react";
+import { personPath } from "@/utils/urls";
 import EntityLinks from "@components/detail/EntityLinks";
 import { buildBrowseUrl, type BrowseType } from "@/utils/browseUrl";
 import { formatLongDate, parseTmdbDate, toIso } from "@/utils/person/dates";
@@ -131,7 +132,7 @@ function peopleFact(key: string, label: string, people?: NamedEntity[]): Fact | 
     label,
     links: people
       .filter((p) => p?.id && p.name)
-      .map((p) => ({ id: p.id, name: p.name, href: `/app/person/${p.id}` })),
+      .map((p) => ({ id: p.id, name: p.name, href: personPath(p.id!, p.name!) })),
   };
 }
 

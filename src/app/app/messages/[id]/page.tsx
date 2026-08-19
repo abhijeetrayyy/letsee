@@ -11,6 +11,7 @@ import Avatar from "@components/ui/Avatar";
 
 const PAGE_SIZE = 40;
 
+import { titlePath } from "@/utils/urls";
 type CardMeta = {
   media_type?: string;
   media_id?: string;
@@ -52,7 +53,7 @@ function clockTime(iso: string): string {
 /** A shared film rendered inside the bubble — the reason most DMs start here. */
 function MediaCard({ meta }: { meta: CardMeta }) {
   const type = meta.media_type === "tv" ? "tv" : "movie";
-  const href = meta.media_id ? `/app/${type}/${meta.media_id}` : null;
+  const href = meta.media_id ? titlePath(type, meta.media_id, meta.media_name) : null;
   const body = (
     <div className="flex items-center gap-3 rounded-xl bg-black/25 p-2 transition-colors hover:bg-black/40">
       <img

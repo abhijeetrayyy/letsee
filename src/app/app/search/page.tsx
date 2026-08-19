@@ -1,6 +1,7 @@
 "use client";
 
 import { buildBrowseUrl } from "@/utils/browseUrl";
+import { personPath, titlePath } from "@/utils/urls";
 
 import Link from "next/link";
 import {
@@ -79,11 +80,15 @@ function getTitle(item: SearchResult) {
 }
 
 function getHref(item: SearchResult, mediaType: SearchMediaType) {
-  if (item.media_type === "person") return `/app/person/${item.id}`;
+  // The name is right there in `getTitle`, and every one of these links was
+  // throwing it away — which is how a search result ended up at a URL that
+  // names nothing once you clicked it.
+  const name = getTitle(item);
+  if (item.media_type === "person") return personPath(item.id, name);
   if (item.media_type === "keyword") {
     return buildSearchUrl({ query: String(item.id), mediaType: "keyword", page: 1 });
   }
-  return `/app/${item.media_type}/${item.id}`;
+  return titlePath(item.media_type, item.id, name);
 }
 
 export default function SearchLandingPage() {

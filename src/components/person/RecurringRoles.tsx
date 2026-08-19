@@ -7,6 +7,7 @@ import Link from "next/link";
  * makes you assemble yourself: Woody eleven times over thirty-one years,
  * Ethan Hunt eight.
  */
+import { titlePath } from "@/utils/urls";
 export default function RecurringRoles({
   roles,
 }: {
@@ -26,7 +27,7 @@ export default function RecurringRoles({
           </p>
           <div className="mt-2 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
             {r.titles.map((t) => (
-              <Link key={t.key} href={`/app/${t.mediaType}/${t.id}`} title={t.title} className="shrink-0">
+              <Link key={t.key} href={titlePath(t.mediaType, t.id, t.title)} title={t.title} className="shrink-0">
                 <span className="block h-[96px] w-16 overflow-hidden rounded bg-surface-800 ring-1 ring-surface-700/40 transition hover:ring-brand-500/40">
                   {t.posterPath && (
                     /* eslint-disable-next-line @next/next/no-img-element */

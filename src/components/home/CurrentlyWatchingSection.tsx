@@ -5,6 +5,7 @@ import Link from "next/link";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { getPosterUrl } from "@/utils/imageUrl";
 
+import { titlePath } from "@/utils/urls";
 interface WatchingItem {
   item_id: string;
   item_name: string;
@@ -64,10 +65,7 @@ export default function CurrentlyWatchingSection() {
       <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
         {items.map((item) => {
           const posterUrl = getPosterUrl(item.image_url, "w185");
-          const href =
-            item.item_type === "tv"
-              ? `/app/tv/${item.item_id}`
-              : `/app/movie/${item.item_id}`;
+          const href = titlePath(item.item_type, item.item_id, item.item_name);
           return (
             <Link
               key={item.item_id}

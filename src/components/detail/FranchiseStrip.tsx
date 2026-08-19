@@ -7,7 +7,7 @@ import { swrFetcher } from "@/utils/swrFetcher";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 import { Section } from "@components/detail/TitleChrome";
 import type { CollectionResponse, CollectionPart } from "@/app/api/collection/route";
-import { slugify } from "@/utils/urls";
+import { titlePath } from "@/utils/urls";
 
 /**
  * How far through a franchise you are — the film counterpart of the episode
@@ -159,7 +159,7 @@ export default function FranchiseStrip({
             <div key={p.id} className="w-24 shrink-0 sm:w-28">
               <div className="relative">
                 <Link
-                  href={`/app/movie/${p.id}${p.title ? `-${slugify(p.title)}` : ""}`}
+                  href={titlePath("movie", p.id, p.title)}
                   aria-current={here ? "page" : undefined}
                   className="block"
                 >
@@ -229,7 +229,7 @@ export default function FranchiseStrip({
         <p className="mt-2 text-xs text-surface-500">
           Next in order:{" "}
           <Link
-            href={`/app/movie/${nextUp.id}${nextUp.title ? `-${slugify(nextUp.title)}` : ""}`}
+            href={titlePath("movie", nextUp.id, nextUp.title)}
             className="text-brand-400 hover:text-brand-300"
           >
             {nextUp.title}

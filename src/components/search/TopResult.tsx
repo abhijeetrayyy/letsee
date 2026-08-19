@@ -35,11 +35,12 @@ const TYPE_LABEL: Record<string, string> = { movie: "Film", tv: "TV series", per
  * know. This states it — year, type, rating, and the opening line of the plot —
  * and lets you log it without opening anything.
  */
+import { titlePath } from "@/utils/urls";
 export default function TopResult({ item }: { item: TopResultItem }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<MediaStatus | null>(null);
 
-  const href = `/app/${item.mediaType}/${item.id}${item.title ? `-${slugify(item.title)}` : ""}`;
+  const href = titlePath(item.mediaType, item.id, item.title);
   const release = releaseInfo(item.releaseDate);
   const img = item.posterPath
     ? `https://image.tmdb.org/t/p/${item.mediaType === "person" ? "h632" : "w342"}${item.posterPath}`

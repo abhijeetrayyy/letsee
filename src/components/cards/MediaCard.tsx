@@ -7,14 +7,14 @@ import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
 import { Film, Tv, User, Star, Calendar } from "lucide-react";
 import { releaseInfo } from "@/utils/releaseInfo";
-import { slugify } from "@/utils/urls";
+import { titlePath } from "@/utils/urls";
 
 const TMDB_POSTER = "https://image.tmdb.org/t/p/w342";
 const TMDB_PROFILE = "https://image.tmdb.org/t/p/h632";
 
 
 function href(mediaType: string, id: number, title: string): string {
-  return `/app/${mediaType}/${id}${title ? `-${slugify(title)}` : ""}`;
+  return titlePath(mediaType, id, title);
 }
 
 export type MediaCardProps = {

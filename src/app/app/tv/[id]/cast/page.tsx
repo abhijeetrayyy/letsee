@@ -2,7 +2,7 @@ import Link from "next/link";
 import React from "react";
 import { tmdbFetchJson } from "@/utils/tmdb";
 import { notFound } from "next/navigation";
-import { parseRouteId, titlePath } from "@/utils/urls";
+import { parseRouteId, titlePath, personPath } from "@/utils/urls";
 import { seriesCast } from "@/utils/title/tvCast";
 import { seriesCrew } from "@/utils/title/tvCrew";
 import type { Metadata } from "next";
@@ -205,16 +205,13 @@ async function page({ params }: PageProps) {
               )}
               <Link
                 className="hover:text-surface-200 hover:underline"
-                href={`/app/tv/${show.id}-${show.name
-                  .trim()
-                  .replace(/[^a-zA-Z0-9]/g, "-")
-                  .replace(/-+/g, "-")}`}
+                href={titlePath("tv", show.id, show.name)}
               >
                 <h1 className="text-xl font-bold">{show.name}</h1>
               </Link>
             </h1>
 
-            <div className="text-6xl font-bold my-3">Cast ~ Prod.</div>
+            <div className="text-5xl font-bold my-3">Cast &amp; Crew</div>
             {/* <div className="mb-4  text-gray-400">
               <span>Staring: </span>
               {cast?.slice(0, 5).map((item: any, index: number) =>
@@ -260,10 +257,7 @@ async function page({ params }: PageProps) {
                 <Link
                   key={item.id}
                   className="flex items-center gap-3 rounded-xl border border-surface-800/50 bg-surface-900/30 p-2.5 transition-colors hover:border-brand-500/40 hover:bg-surface-800/40"
-                  href={`/app/person/${item.id}-${item.name
-                    .trim()
-                    .replace(/[^a-zA-Z0-9]/g, "-")
-                    .replace(/-+/g, "-")}`}
+                  href={personPath(item.id, item.name)}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -309,10 +303,7 @@ async function page({ params }: PageProps) {
                 <Link
                   className="group flex flex-col items-center"
                   key={`${item.id}-${item.job ?? item.department ?? ""}`}
-                  href={`/app/person/${item.id}-${item.name
-                    .trim()
-                    .replace(/[^a-zA-Z0-9]/g, "-")
-                    .replace(/-+/g, "-")}`}
+                  href={personPath(item.id, item.name)}
                 >
                   <div className="aspect-[2/3] w-full overflow-hidden rounded-lg bg-surface-800">
                     {/* eslint-disable-next-line @next/next/no-img-element */}

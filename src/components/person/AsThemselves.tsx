@@ -12,6 +12,7 @@ import type { Credit } from "@/utils/person/model";
  * point, and it keeps ~340 images and ~340 context subscribers off a route
  * where they would buy nothing.
  */
+import { titlePath } from "@/utils/urls";
 export default function AsThemselves({ credits }: { credits: Credit[] }) {
   const rows = credits
     .filter((c) => c.bucket === "appearance" || c.bucket === "archive")
@@ -28,7 +29,7 @@ export default function AsThemselves({ credits }: { credits: Credit[] }) {
         {rows.map((c) => (
           <li key={c.key} className="flex gap-2 py-1 text-xs">
             <span className="w-9 shrink-0 font-mono tabular-nums text-surface-600">{c.year ?? "—"}</span>
-            <Link href={`/app/${c.mediaType}/${c.id}`} className="min-w-0 flex-1 truncate text-surface-400 transition hover:text-white">
+            <Link href={titlePath(c.mediaType, c.id, c.title)} className="min-w-0 flex-1 truncate text-surface-400 transition hover:text-white">
               {c.title}
               {c.episodeCount > 1 && <span className="text-surface-600"> · {c.episodeCount} eps</span>}
               {c.bucket === "archive" && <span className="text-surface-600"> · archive</span>}

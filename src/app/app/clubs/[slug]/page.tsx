@@ -37,6 +37,7 @@ function daysLeft(iso: string): string {
   return days === 1 ? "1 day left" : `${days} days left`;
 }
 
+import { titlePath } from "@/utils/urls";
 export default function ClubPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const { isAuthenticated } = useAuth();
@@ -144,7 +145,7 @@ export default function ClubPage({ params }: { params: Promise<{ slug: string }>
           {pick ? (
             <div className="rounded-2xl border border-surface-700/60 bg-surface-900/40 p-4">
               <div className="flex gap-4">
-                <Link href={`/app/${pick.item_type}/${pick.item_id}`} className="shrink-0">
+                <Link href={titlePath(pick.item_type, pick.item_id, pick.title)} className="shrink-0">
                   <img
                     src={getPosterUrl(pick.image_url, "w185")}
                     alt={pick.title}
@@ -153,7 +154,7 @@ export default function ClubPage({ params }: { params: Promise<{ slug: string }>
                 </Link>
                 <div className="min-w-0">
                   <Link
-                    href={`/app/${pick.item_type}/${pick.item_id}`}
+                    href={titlePath(pick.item_type, pick.item_id, pick.title)}
                     className="font-semibold text-white hover:text-brand-400 transition-colors"
                   >
                     {pick.title}

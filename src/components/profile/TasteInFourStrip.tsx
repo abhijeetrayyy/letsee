@@ -11,6 +11,7 @@ type DisplayItem = {
 
 const NO_POSTER = "/no-photo.webp";
 
+import { titlePath } from "@/utils/urls";
 export default function TasteInFourStrip({ items }: { items: DisplayItem[] }) {
   if (!items?.length) return null;
 
@@ -18,7 +19,7 @@ export default function TasteInFourStrip({ items }: { items: DisplayItem[] }) {
     <div className="w-full">
       <div className="flex justify-center sm:justify-start gap-0 overflow-x-auto pb-4 pretty-scrollbar">
         {items.map((it, i) => {
-          const href = `/app/${it.item_type}/${it.item_id}`;
+          const href = titlePath(it.item_type, it.item_id, it.item_name);
           /**
            * Resolve rather than trust the stored string.
            *

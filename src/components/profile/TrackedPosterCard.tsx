@@ -6,6 +6,7 @@ import StatusControl from "@components/buttons/StatusControl";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
 
+import { titlePath } from "@/utils/urls";
 type TrackedPosterCardProps = {
   itemId: string;
   itemType: string;
@@ -42,7 +43,7 @@ export default function TrackedPosterCard({
 
   return (
     <div className="shrink-0 w-32">
-      <Link href={`/app/${itemType}/${itemId}`} className="group block">
+      <Link href={titlePath(itemType, itemId, itemName)} className="group block">
         <div className={`aspect-[2/3] rounded-xl overflow-hidden bg-surface-800 border border-surface-700/30 transition-all ${accent}`}>
           {imageUrl ? (
             <img

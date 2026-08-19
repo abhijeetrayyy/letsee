@@ -3,6 +3,7 @@
 import { useSearch } from "@/app/contextAPI/searchContext";
 import { getDidYouMeanSuggestion } from "@/utils/searchFuzzy";
 import { queryIndex, rowHref, normalizeQuery, type IndexRow } from "@/utils/searchIndex";
+import { titlePath } from "@/utils/urls";
 import { getPosterUrl } from "@/utils/imageUrl";
 import { buildBrowseUrl } from "@/utils/browseUrl";
 import { useSearchIndex } from "./useSearchIndex";
@@ -318,7 +319,8 @@ function SearchBar() {
       ...tmdbRows.map(({ hit, kind }) => ({
         key: `${kind}:${hit.id}`,
         label: hit.title ?? hit.name ?? "",
-        href: `/app/${kind}/${hit.id}`,
+        // The label on the line above is the name; the link was dropping it.
+        href: titlePath(kind, hit.id, hit.title ?? hit.name ?? ""),
         category: kind,
       })),
       // Last, so arrowing down reaches the instant rows first.
@@ -717,7 +719,7 @@ function SearchBar() {
                                 handleSelectResult({
                                   key: `${kind}:${hit.id}`,
                                   label,
-                                  href: `/app/${kind}/${hit.id}`,
+                                  href: titlePath(kind, hit.id, label),
                                   category: kind,
                                 })
                               }

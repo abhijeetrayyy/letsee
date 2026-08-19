@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { episodePath } from "@/utils/urls";
 interface TvShowProgressProps {
   showId: string;
   /** Optional key to trigger a re-fetch from outside */
@@ -82,7 +83,7 @@ export default function TvShowProgress({
     !progress.all_complete &&
     progress.next_season != null &&
     progress.next_episode != null
-      ? `/app/tv/${showId}/season/${progress.next_season}/episode/${progress.next_episode}`
+      ? episodePath(showId, progress.next_season, progress.next_episode, progress.show_name)
       : null;
 
   const percent =

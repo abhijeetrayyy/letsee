@@ -201,6 +201,7 @@ export default function TvDetailClient({
           <div>
             <NextEpisode
               showId={show.id}
+              showName={show.name}
               nextEpisode={show.next_episode_to_air}
               lastEpisode={show.last_episode_to_air}
               status={show.status}
@@ -221,7 +222,12 @@ export default function TvDetailClient({
         />
 
         <Section title="Episodes">
-          <SeasonBrowser showId={show.id} seasons={seasons} isAuthenticated={isAuthenticated} />
+          <SeasonBrowser
+            showId={show.id}
+            showName={show.name}
+            seasons={seasons}
+            isAuthenticated={isAuthenticated}
+          />
         </Section>
 
         {cast.length > 0 && (

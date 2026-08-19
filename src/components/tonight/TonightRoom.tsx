@@ -22,6 +22,8 @@ type Person = { userId: string; username: string; avatarUrl: string | null; mutu
 
 type Provider = { id: number; name: string; logoPath: string | null; heldBy: string[] };
 
+import { seasonPath } from "@/utils/urls";
+import { titlePath } from "@/utils/urls";
 type Episode = {
   seasonNumber: number;
   episodeNumber: number;
@@ -446,7 +448,7 @@ function Answer({
     <div className="space-y-6">
       <div className="grid gap-6 sm:grid-cols-[200px_1fr] sm:gap-8">
         <Link
-          href={`/app/${candidate.itemType}/${candidate.itemId}`}
+          href={titlePath(candidate.itemType, candidate.itemId, candidate.itemName)}
           className="block shrink-0 mx-auto sm:mx-0 w-[180px] sm:w-[200px]"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -465,14 +467,14 @@ function Answer({
               answer, so the show name leads and the episode title sits under
               it rather than replacing it. */}
           <h1 className="mt-2 text-2xl sm:text-3xl font-bold text-white leading-tight">
-            <Link href={`/app/${candidate.itemType}/${candidate.itemId}`} className="hover:text-brand-300 transition">
+            <Link href={titlePath(candidate.itemType, candidate.itemId, candidate.itemName)} className="hover:text-brand-300 transition">
               {candidate.itemName}
             </Link>
           </h1>
           {ep && (
             <p className="mt-1 text-lg text-surface-200">
               <Link
-                href={`/app/tv/${candidate.itemId}/season/${ep.seasonNumber}`}
+                href={seasonPath(candidate.itemId, ep.seasonNumber, candidate.itemName)}
                 className="hover:text-brand-300 transition"
               >
                 {ep.name}
@@ -585,7 +587,7 @@ function Decided({ candidate, onAgain }: { candidate: Candidate; onAgain: () => 
       </p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <Link
-          href={`/app/${candidate.itemType}/${candidate.itemId}`}
+          href={titlePath(candidate.itemType, candidate.itemId, candidate.itemName)}
           className="btn-primary text-sm px-5 py-2.5"
         >
           Open {candidate.itemType === "tv" ? "show" : "film"}

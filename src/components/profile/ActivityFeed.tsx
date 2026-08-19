@@ -58,6 +58,7 @@ function getPosterUrl(imageUrl: string | null | undefined): string {
  * when a score exists. Four visible, the rest behind a control — the reader
  * asks for more rather than scrolling past it.
  */
+import { titlePath } from "@/utils/urls";
 export default function ActivityFeed({ items }: { items: ActivityItem[] }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -77,7 +78,7 @@ export default function ActivityFeed({ items }: { items: ActivityItem[] }) {
     <div>
       <ul className="divide-y divide-surface-800/50 overflow-hidden rounded-xl border border-surface-800/60 bg-surface-900/30">
         {shown.map((item) => {
-          const href = `/app/${item.item_type}/${item.item_id}`;
+          const href = titlePath(item.item_type, item.item_id, item.item_name);
           return (
             <li key={item.id}>
               <Link

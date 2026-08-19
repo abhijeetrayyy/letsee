@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { acceptFollowRequest, rejectFollowRequest } from "@/utils/followerAction";
 import { Heart, UserPlus, UserCheck, Eye, MessageSquare, Star, CheckCheck, Bell, Loader2, Hand, Tv } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
+import { titlePath } from "@/utils/urls";
 
 type ActorProfile = {
   username: string | null;
@@ -107,7 +108,7 @@ function getNotificationText(n: NotificationItem): { text: string; href?: string
       const itemId = n.metadata?.item_id as string ?? "";
       return {
         text: `${username} watched ${name}`,
-        href: itemId ? `/app/${itemType}/${itemId}` : undefined,
+        href: itemId ? titlePath(itemType, itemId, name) : undefined,
       };
     }
     case "friend_reviewed": {
@@ -116,7 +117,7 @@ function getNotificationText(n: NotificationItem): { text: string; href?: string
       const itemId = n.metadata?.item_id as string ?? "";
       return {
         text: `${username} reviewed ${name}`,
-        href: itemId ? `/app/${itemType}/${itemId}` : undefined,
+        href: itemId ? titlePath(itemType, itemId, name) : undefined,
       };
     }
     case "friend_rated":
@@ -126,9 +127,12 @@ function getNotificationText(n: NotificationItem): { text: string; href?: string
     case "comment_reply": {
       const itemType = n.metadata?.item_type as string ?? "movie";
       const itemId = n.metadata?.item_id as string ?? "";
+      // This branch had no local `name`, so the first pass silently bound the
+      // global `window.name` and tsc caught it as `void`. Metadata carries it.
+      const name = (n.metadata?.item_name as string) ?? "";
       return {
         text: `${username} replied to your comment`,
-        href: itemId ? `/app/${itemType}/${itemId}` : undefined,
+        href: itemId ? titlePath(itemType, itemId, name) : undefined,
       };
     }
     case "dm_received":
@@ -139,7 +143,7 @@ function getNotificationText(n: NotificationItem): { text: string; href?: string
       const itemId = n.metadata?.item_id as string ?? "";
       return {
         text: `${username} started watching ${name}`,
-        href: itemId ? `/app/${itemType}/${itemId}` : undefined,
+        href: itemId ? titlePath(itemType, itemId, name) : undefined,
       };
     }
     // The only notification here that isn't about what another user did to
@@ -151,7 +155,11 @@ function getNotificationText(n: NotificationItem): { text: string; href?: string
       const label = season != null && episode != null ? ` S${season}E${episode}` : "";
       return {
         text: `New episode of ${show}${label}`,
-        href: n.metadata?.show_id ? `/app/tv/${n.metadata.show_id}` : undefined,
+        // `show_name` is already read two lines up to build the text; the link
+        // was the one place it went unused.
+        href: n.metadata?.show_id
+          ? titlePath("tv", String(n.metadata.show_id), (n.metadata?.show_name as string) ?? "")
+          : undefined,
       };
     }
     // Waves and achievements were removed from the product; these two cases

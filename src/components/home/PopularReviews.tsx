@@ -29,6 +29,7 @@ type PopularReview = {
  * Renders nothing when there's nothing to show. An empty "Popular reviews"
  * heading on a young community advertises the absence.
  */
+import { titlePath } from "@/utils/urls";
 export default function PopularReviews() {
   const { data } = useSWR<{ reviews: PopularReview[] }>("/api/reviews/popular", swrFetcher);
   const reviews = data?.reviews ?? [];
@@ -54,7 +55,7 @@ export default function PopularReviews() {
           >
             <div className="flex gap-3">
               {review.itemId && (
-                <Link href={`/app/${review.itemType}/${review.itemId}`} className="shrink-0">
+                <Link href={titlePath(review.itemType, review.itemId, review.itemName)} className="shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={getPosterUrl(review.imageUrl, "w92")}
@@ -81,7 +82,7 @@ export default function PopularReviews() {
                   <span className="text-xs text-surface-600">on</span>
                   {review.itemId ? (
                     <Link
-                      href={`/app/${review.itemType}/${review.itemId}`}
+                      href={titlePath(review.itemType, review.itemId, review.itemName)}
                       className="truncate text-xs font-medium text-brand-400 hover:text-brand-300 transition-colors"
                     >
                       {review.itemName}
