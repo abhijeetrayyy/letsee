@@ -171,7 +171,32 @@ export async function generateMetadata({
   const p = parseBrowseParams(await searchParams);
   const labels = await resolveLabels(p);
   const what = headline(p, labels);
-  return { title: what === "films" || what === "TV shows" ? "Browse" : `${what}` };
+  const noun = p.type === "tv" ? "series" : "films";
+
+  /**
+   * Self-canonical, built from the parsed params rather than the raw URL.
+   *
+   * Faceted navigation generates the same page under many addresses — the same
+   * filters in a different order, a stray empty parameter, a default written
+   * out explicitly. `buildBrowseUrl` normalises all of those to one string, so
+   * canonicalising to it collapses the duplicates without needing a rule per
+   * facet. This page had no canonical at all, and it is in the sitemap.
+   *
+   * Deliberately *not* canonicalising page 2+ back to page 1: that is the
+   * common instinct and it hides everything past the first grid from a crawler.
+   * Each page points at itself.
+   */
+  const canonical = buildBrowseUrl(p);
+  const generic = what === "films" || what === "TV shows";
+
+  return {
+    title: generic ? "Browse" : `${what}`,
+    description: generic
+      ? `Browse ${noun} by genre, keyword, studio, network and where they are streaming.`
+      : `${what} — ${noun} on LetSee, with what people here have watched, rated and written about them.`,
+    alternates: { canonical },
+    openGraph: { title: generic ? "Browse" : `${what}`, url: canonical, type: "website" },
+  };
 }
 
 export default async function BrowsePage({

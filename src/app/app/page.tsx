@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { getHomeContent } from "@/utils/homeData";
 import { createClient } from "@/utils/supabase/server";
 import HomeHero from "@components/home/HomeHero";
@@ -36,6 +37,24 @@ async function getUsername(): Promise<string | null> {
     return data?.username ?? null;
   } catch { return null; }
 }
+
+/**
+ * On the page, deliberately not on the layout.
+ *
+ * `/app` is the sitemap's second-highest priority URL and had no title of its
+ * own — the landing page and the logged-in home read identically to a crawler.
+ * The obvious fix is a layout, and it is a trap: `alternates.canonical` is
+ * inherited, and thirteen routes under `/app` set none of their own. Every one
+ * of them — including `/app/review/[id]`, which carries Review JSON-LD — would
+ * have started announcing `/app` as its canonical, which is a request to be
+ * de-indexed as a duplicate. A page's metadata is inherited by nothing.
+ */
+export const metadata: Metadata = {
+  title: "Home",
+  description:
+    "What the people you follow are watching, what is out this week, and what you left half-finished.",
+  alternates: { canonical: "/app" },
+};
 
 export default async function Home() {
   const [{ content, errors }, username] = await Promise.all([

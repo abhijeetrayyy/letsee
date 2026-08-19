@@ -44,7 +44,14 @@ function formatDate(iso: string | null): string {
  * that reveals nothing.
  */
 export async function generateMetadata({ params }: RouteParams) {
-  const fallback = { title: "Review" };
+  /**
+   * `index: false` on the fallback, matching the profile and list pages.
+   * Everything that lands here — a review that does not exist, one whose author
+   * is private, one with the public text removed — is a page with nothing on it
+   * that a stranger may read. Without this it was indexable under the generic
+   * title "Review", which is a thin page inviting a crawler in.
+   */
+  const fallback = { title: "Review", robots: { index: false, follow: false } };
   const reviewId = Number((await params).id);
   if (!Number.isInteger(reviewId)) return fallback;
 
@@ -79,7 +86,13 @@ export async function generateMetadata({ params }: RouteParams) {
     return {
       title,
       description,
+      // No canonical here meant this page had none at all. It is also why the
+      // /app title and description live on the page rather than the layout —
+      // `alternates` is inherited, so a layout-level canonical would have
+      // pointed this review at the app home.
+      alternates: { canonical: `/app/review/${reviewId}` },
       openGraph: {
+        url: `/app/review/${reviewId}`,
         title,
         description,
         type: "article",

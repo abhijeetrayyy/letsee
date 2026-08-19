@@ -9,6 +9,7 @@ import { useAuth } from "@/app/contextAPI/AuthProvider";
 import { getPosterUrl } from "@/utils/imageUrl";
 import Avatar from "@components/ui/Avatar";
 import Comments from "@components/social/Comments";
+import { titlePath } from "@/utils/urls";
 
 type Member = { userId: string; username: string; avatarUrl: string | null; role: string };
 type Pick = {
@@ -37,7 +38,6 @@ function daysLeft(iso: string): string {
   return days === 1 ? "1 day left" : `${days} days left`;
 }
 
-import { titlePath } from "@/utils/urls";
 export default function ClubPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const { isAuthenticated } = useAuth();
