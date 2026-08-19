@@ -6,6 +6,7 @@ import type { PreferenceType } from "@/app/contextAPI/userPrefrence";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { useMounted } from "@/hooks/useMounted";
 
 export interface CardMovieButtonProps {
   icon: React.ReactNode;
@@ -138,10 +139,7 @@ const CardMovieButton: React.FC<CardMovieButtonProps> = ({
     }
   };
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useMounted();
 
   const unwatchedConfirmModal = unwatchedConfirmOpen && (
     <div

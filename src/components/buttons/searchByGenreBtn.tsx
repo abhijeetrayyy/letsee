@@ -17,6 +17,7 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages }) => {
   const [NextLoading, setnextLoading] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets the spinner when the page changes under it
     setlastLoading(false);
     setnextLoading(false);
   }, [currentPage]);

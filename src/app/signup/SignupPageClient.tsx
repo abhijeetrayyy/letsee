@@ -28,6 +28,7 @@ export default function SignupPageClient() {
     const errorParam = searchParams.get("error");
     const statusParam = searchParams.get("status");
     if (errorParam) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- useSearchParams resolves on the client; deriving in render would flash the wrong state
       setError(decodeURIComponent(errorParam));
     }
     if (statusParam === "check-email") {

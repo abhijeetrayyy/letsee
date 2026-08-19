@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Clock, ChevronRight } from "lucide-react";
+import { useToday } from "@/hooks/useToday";
 import {
   formatLongDate,
   parseTmdbDate,
@@ -138,11 +138,7 @@ export default function NextEpisode({
    * itself is a property of the episode and renders on the server; the
    * countdown is a property of the reader's calendar and arrives a tick later.
    */
-  const [today, setToday] = useState<ParsedDate | null>(null);
-  useEffect(() => {
-    const n = new Date();
-    setToday({ y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate() });
-  }, []);
+  const today = useToday();
 
   const next = usable(nextEpisode);
   const last = usable(lastEpisode);

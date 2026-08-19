@@ -79,7 +79,7 @@ export default async function Home() {
                   <h2 className="text-white font-semibold mb-2">Join the community</h2>
                   <p className="text-surface-400 text-sm mb-4">Track what you watch, write reviews, and discover with friends.</p>
                   <Link href="/signup" className="btn-primary text-sm w-full justify-center py-2.5">
-                    Get started — it's free
+                    Get started — it’s free
                   </Link>
                   <p className="text-surface-600 text-xs mt-3">
                     Already have an account? <Link href="/login" className="text-brand-400 hover:text-brand-300">Sign in</Link>
@@ -99,7 +99,7 @@ export default async function Home() {
               {/* Errors */}
               {errors.length > 0 && (
                 <div className="rounded-xl border border-amber-500/10 bg-amber-500/5 p-3 text-amber-300/80 text-xs">
-                  Some sections couldn't load. Refresh to try again.
+                  Some sections couldn’t load. Refresh to try again.
                 </div>
               )}
 

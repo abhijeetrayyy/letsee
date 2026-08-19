@@ -143,6 +143,7 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
   useEffect(() => {
     if (!myId) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a fetch is an external system; the loading flag is the standard shape for one
     setLoading(true);
     loadMessages().then((page) => {
       if (cancelled || !page) return;

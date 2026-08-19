@@ -13,6 +13,7 @@ import CountrySelector from "./CountrySelector";
 import Link from "next/link";
 import Avatar from "@components/ui/Avatar";
 import type { AuthUser } from "@/app/contextAPI/AuthProvider";
+import { useMounted } from "@/hooks/useMounted";
 
 interface BurgerMenuProps {
   status: "loading" | "anon" | "needs_profile" | "ok";
@@ -25,7 +26,7 @@ const menuItemClass =
 const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
   const username = user?.username ?? null;
   const [isOpen, setIsOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
@@ -69,7 +70,7 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
 
   const close = useCallback(() => setIsOpen(false), []);
 
-  useEffect(() => setMounted(typeof document !== "undefined"), []);
+
 
   useEffect(() => {
     if (!mounted) return;

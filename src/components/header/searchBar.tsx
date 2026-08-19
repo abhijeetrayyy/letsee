@@ -89,6 +89,7 @@ function useRecentSearches() {
     if (!raw) return;
     try {
       const parsed = JSON.parse(raw);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage does not exist during SSR
       if (Array.isArray(parsed)) setRecentSearches(parsed);
     } catch {
       setRecentSearches([]);
@@ -176,6 +177,7 @@ function SearchBar() {
 
   useEffect(() => {
     if (!isModalOpen || query.trim().length < 3) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clears stale remote results when the query stops qualifying for a search
       setRemote({});
       setTmdb([]);
       setCorrectedFrom(null);
@@ -334,6 +336,7 @@ function SearchBar() {
 
   useEffect(() => {
     if (flatResults.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clamps the keyboard cursor when the result list shrinks under it
       setActiveIndex(-1);
     } else if (activeIndex >= flatResults.length) {
       setActiveIndex(flatResults.length - 1);

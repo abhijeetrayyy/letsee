@@ -2,7 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 
-function imdbRating({ id }: any) {
+function ImdbRating({ id }: any) {
+  // The declaration was `imdbRating`, shadowed immediately by a state variable
+  // of the same name — so the identifier meant two different things inside one
+  // function body. Capitalising the component fixes the rules-of-hooks error
+  // and the shadowing in one move.
   const [imdbRating, setImdbRating] = useState("loading..");
 
   useEffect(() => {
@@ -35,4 +39,4 @@ function imdbRating({ id }: any) {
   );
 }
 
-export default imdbRating;
+export default ImdbRating;

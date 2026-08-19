@@ -21,6 +21,7 @@ export default function CurrentlyWatchingSection() {
 
   useEffect(() => {
     if (!user || watchingIds.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- a fetch is an external system; the loading flag is the standard shape for one
       setItems([]);
       setLoading(false);
       return;

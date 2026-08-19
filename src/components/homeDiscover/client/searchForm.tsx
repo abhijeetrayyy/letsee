@@ -270,7 +270,7 @@ function Page() {
           {results.total_results > 0 && (
             <div className="mb-4">
               <p>
-                Search Results: "{displayquery}" - {results.total_results} items
+                Search Results: “{displayquery}” — {results.total_results} items
               </p>
             </div>
           )}
@@ -278,8 +278,8 @@ function Page() {
           {results.total_results === 0 && results.searched && (
             <div className="flex flex-col h-full w-full gap-5 items-center justify-center">
               <p className="text-lg">
-                Result for "
-                <span className="text-pink-600">{displayquery}</span>"
+                Result for “
+                <span className="text-pink-600">{displayquery}</span>”
                 <span className="font-bold text-purple-600"> is not found</span>{" "}
                 - or check your spelling
               </p>

@@ -44,6 +44,7 @@ export function CountryProvider({ children }: { children: React.ReactNode }) {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored && stored.length === 2) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage does not exist during SSR; reading it in render desyncs hydration
         setCountryState(stored.toUpperCase());
         return;
       }

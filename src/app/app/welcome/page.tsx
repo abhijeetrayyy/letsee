@@ -73,6 +73,7 @@ export default function WelcomePage() {
      * bounced them out of every /app route back to this page, forever. The
      * comment said "already has a handle"; the code never checked.
      */
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- advancing onboarding depends on a session that resolves after mount
     if (status === "ok" && user?.username) setStep((s) => (s === 1 ? 2 : s));
   }, [status, user?.username, router]);
 
@@ -149,6 +150,7 @@ function StepUsername({ onDone }: { onDone: () => void }) {
   const validationError = validateUsername(clean);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing the previous availability result is what starts the debounce
     setAvailable(null);
     if (timer.current) clearTimeout(timer.current);
     if (validationError) return;

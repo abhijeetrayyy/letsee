@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useCountry } from "@/app/contextAPI/countryContext";
 import { Section } from "@components/detail/TitleChrome";
 import { Countrydata } from "@/staticData/countryName";
 import { parseTmdbDate, formatLongDate, toIso, type ParsedDate } from "@/utils/person/dates";
+import { useToday } from "@/hooks/useToday";
 
 /**
  * When you can actually watch this at home.
@@ -70,10 +71,6 @@ function countryName(code: string): string {
   return Countrydata.find((c) => c.iso_3166_1 === code)?.english_name ?? code;
 }
 
-function todayParts(): ParsedDate {
-  const n = new Date();
-  return { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate() };
-}
 
 /**
  * Whole days between two dates, by explicit UTC arithmetic on the parsed parts.
@@ -234,8 +231,7 @@ export default function ReleaseTimeline({
    * until the component is mounted; the absolute date is there from the first
    * paint either way.
    */
-  const [today, setToday] = useState<ParsedDate | null>(null);
-  useEffect(() => setToday(todayParts()), []);
+  const today = useToday();
 
   if (rows.length === 0) return null;
 

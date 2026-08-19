@@ -30,7 +30,7 @@ export default function ClubPickWidget() {
     <div className="rounded-xl border border-surface-800/50 bg-surface-900/30 p-4">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="size-3.5 text-accent-gold" />
-        <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider">This Week's Club Pick</h3>
+        <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider">This Week’s Club Pick</h3>
       </div>
       <div className="flex gap-3">
         <Link href={`/app/${pick.item_type}/${pick.item_id}`} className="shrink-0 w-16 aspect-[2/3] rounded-lg overflow-hidden bg-surface-800">

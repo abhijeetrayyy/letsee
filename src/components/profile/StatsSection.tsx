@@ -77,7 +77,7 @@ export default function StatsSection({
   if (error) {
     return (
       <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6 flex flex-col items-center justify-center gap-3 min-h-[200px]">
-        <p className="text-sm text-red-300">Couldn't load stats.</p>
+        <p className="text-sm text-red-300">Couldn’t load stats.</p>
         <button
           onClick={() => fetchData()}
           className="text-xs px-3 py-1.5 rounded-full border border-red-500/30 text-red-300 hover:bg-red-500/10 transition-colors"

@@ -23,6 +23,7 @@ import TitleFacts, { tvFacts } from "@components/detail/TitleFacts";
 import KeywordChips from "@components/detail/KeywordChips";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import ShareModal from "@components/social/ShareModal";
+import { useMounted } from "@/hooks/useMounted";
 
 /**
  * A series page, which is not a film page with more rows.
@@ -75,8 +76,7 @@ export default function TvDetailClient({
    * waits for mount; the date itself is a fact about the show and is safe
    * either side.
    */
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useMounted();
 
   const firstAir = releaseInfo(show.first_air_date);
   const premiereAhead = mounted && firstAir.isUpcoming && Boolean(firstAir.full);

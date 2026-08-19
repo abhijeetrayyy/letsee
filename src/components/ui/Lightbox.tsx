@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
+import { useMounted } from "@/hooks/useMounted";
 
 export type LightboxImage = {
   /** Full-size source. */
@@ -26,17 +27,18 @@ type LightboxProps = {
  * library, and double-tap maps to the same toggle on touch.
  */
 export default function Lightbox({ images, index, onClose, onIndexChange }: LightboxProps) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const [zoomed, setZoomed] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState<{ x: number; y: number } | null>(null);
 
   const isOpen = index !== null && index >= 0 && index < images.length;
 
-  useEffect(() => setMounted(true), []);
+
 
   // Reset zoom whenever the visible image changes.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets zoom and pan when the visible image changes
     setZoomed(false);
     setOffset({ x: 0, y: 0 });
   }, [index]);

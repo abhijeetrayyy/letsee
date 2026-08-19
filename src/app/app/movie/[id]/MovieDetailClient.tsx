@@ -21,6 +21,7 @@ import TmdbReviews, { prepareReviews } from "@components/detail/TmdbReviews";
 import TitleFacts, { movieFacts } from "@components/detail/TitleFacts";
 import KeywordChips from "@components/detail/KeywordChips";
 import ShareModal from "@components/social/ShareModal";
+import { useMounted } from "@/hooks/useMounted";
 
 /**
  * A film page, ordered the way a journal owes it.
@@ -69,8 +70,7 @@ export default function MovieDetailClient({
    * text node it did not render. TMDB's production status is a fact about the
    * film and is safe on the server; the date comparison waits for mount.
    */
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useMounted();
 
   const release = releaseInfo(movie.release_date);
   const inProduction = Boolean(movie.status && movie.status !== "Released");

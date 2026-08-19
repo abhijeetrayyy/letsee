@@ -6,7 +6,18 @@ interface pageProps {
   message: string;
 }
 
-function logornot({ message }: pageProps) {
+/**
+ * Named `logornot` until the linter could see it.
+ *
+ * React decides what is a component by the *call site* — `<Logornot />` is a
+ * component, `<logornot />` is an unknown HTML tag — and the profile page
+ * imports the default export under a capital, so this always rendered
+ * correctly. But react-hooks cannot see through a default import to the alias,
+ * so a lowercase declaration reads as "hooks called outside a component" and
+ * the rule fires on a file that works. Renaming the declaration is the honest
+ * fix; the alias was doing the work.
+ */
+function Logornot({ message }: pageProps) {
   const [modal, setModal] = useState(false);
   const onClose = () => {
     setModal(!modal);
@@ -46,4 +57,4 @@ function logornot({ message }: pageProps) {
   );
 }
 
-export default logornot;
+export default Logornot;

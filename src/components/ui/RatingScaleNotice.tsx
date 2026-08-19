@@ -26,6 +26,7 @@ export default function RatingScaleNotice() {
   // in useState would desync the first client render from the server's HTML.
   useEffect(() => {
     try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage does not exist during SSR
       setShow(localStorage.getItem(KEY) !== "1");
     } catch {
       // Private browsing or storage disabled: just don't nag.

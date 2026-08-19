@@ -72,7 +72,7 @@ export default function ReviewsSection({
   if (error) {
     return (
       <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-12 text-center flex flex-col items-center gap-3">
-        <p className="text-sm text-red-300">Couldn't load reviews.</p>
+        <p className="text-sm text-red-300">Couldn’t load reviews.</p>
         <button
           onClick={() => mutate()}
           className="text-xs px-3 py-1.5 rounded-full border border-red-500/30 text-red-300 hover:bg-red-500/10 transition-colors"
