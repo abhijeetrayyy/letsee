@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import { absoluteUrl } from "@/utils/siteUrl";
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { ShowFollowing, ShowFollower, FollowerBtnClient } from "@/components/profile/profileBtn";
@@ -27,6 +28,60 @@ import DeferredSection from "@components/profile/DeferredSection";
 import { computeTasteSummary, buildTasteInsight, type TasteProfile, type TasteInsight } from "@/utils/tasteProfile";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * A profile is one of the two most-shared URLs in the product and had no
+ * metadata at all, so every link to one rendered as a bare address.
+ *
+ * Built ONLY from a profile whose visibility is `public`. A followers-only or
+ * private account gets the generic fallback and `robots: { index: false }` —
+ * metadata is served before any session check the page itself performs, so
+ * reading a display name or bio out of a non-public profile here would leak it
+ * to anyone who pasted the link into a chat window that unfurls previews.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const fallback = { title: "Profile · LetSee", robots: { index: false, follow: false } };
+
+  try {
+    const username = decodeURIComponent((await params).id ?? "");
+    if (!username) return fallback;
+
+    const supabase = await createClient();
+    const { data: profile } = await supabase
+      .from("users")
+      .select("username, about, tagline, avatar_url, visibility, deleted_at")
+      .eq("username", username)
+      .maybeSingle();
+
+    if (!profile || profile.deleted_at || profile.visibility !== "public") return fallback;
+
+    const name = profile.username as string;
+    const description =
+      (profile.tagline as string | null)?.trim() ||
+      (profile.about as string | null)?.trim() ||
+      `What ${name} is watching, and what they thought of it.`;
+
+    return {
+      title: `${name} · LetSee`,
+      description,
+      alternates: { canonical: absoluteUrl(`/app/profile/${encodeURIComponent(name)}`) },
+      openGraph: {
+        title: `${name} on LetSee`,
+        description,
+        url: absoluteUrl(`/app/profile/${encodeURIComponent(name)}`),
+        type: "profile",
+        ...(profile.avatar_url ? { images: [{ url: profile.avatar_url as string }] } : {}),
+      },
+      twitter: {
+        card: "summary",
+        title: `${name} on LetSee`,
+        description,
+      },
+    };
+  } catch {
+    return fallback;
+  }
+}
 
 async function fetchProfileData(username: string | null, currentUserId: string | null) {
   const supabase = await createClient();
@@ -78,10 +133,30 @@ async function fetchProfileData(username: string | null, currentUserId: string |
   // Recent activity. review_text is the PRIVATE diary note — public_review_text
   // is the one meant for sharing — and ActivityFeed renders it inline, so it
   // only ever leaves the server for the owner.
-  const { data: recentActivityRaw } = await supabase.from("watched_items").select("id, item_id, item_type, item_name, image_url, watched_at, review_text").eq("user_id", profileId).eq("is_watched", true).order("watched_at", { ascending: false }).limit(10);
-  const recentActivity = (recentActivityRaw ?? []).map((item) =>
-    isOwner ? item : { ...item, review_text: null },
-  );
+  const { data: recentActivityRaw } = await supabase.from("watched_items").select("id, item_id, item_type, item_name, image_url, watched_at").eq("user_id", profileId).eq("is_watched", true).order("watched_at", { ascending: false }).limit(10);
+
+  /**
+   * Nulling the column for visitors was the right intent and the wrong layer.
+   * 019's policy makes the whole row readable to anyone who may see the
+   * profile, so a visitor never had to come through this page to get the diary
+   * — the anon key reads `select=review_text` off PostgREST directly. 076
+   * revoked the column instead, which is why it is no longer in the select
+   * above, and why the owner's copy now arrives through a SECURITY DEFINER
+   * accessor that cannot be aimed at anybody else.
+   */
+  let diaryByKey = new Map<string, string | null>();
+  if (isOwner) {
+    const { data: notes } = await supabase.rpc("my_diary_notes");
+    diaryByKey = new Map(
+      ((notes ?? []) as { item_id: string; item_type: string; review_text: string | null }[]).map(
+        (n) => [`${n.item_type}:${n.item_id}`, n.review_text],
+      ),
+    );
+  }
+  const recentActivity = (recentActivityRaw ?? []).map((item) => ({
+    ...item,
+    review_text: diaryByKey.get(`${item.item_type}:${item.item_id}`) ?? null,
+  }));
 
   // Currently watching
   const { data: currentlyWatching } = await supabase.from("user_media_status").select("item_id, item_type, item_name, image_url, genres").eq("user_id", profileId).eq("status", "watching").order("updated_at", { ascending: false }).limit(6);

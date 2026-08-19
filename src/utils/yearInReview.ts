@@ -74,10 +74,13 @@ export async function buildYearInReview(
   const start = `${year}-01-01T00:00:00.000Z`;
   const end = `${year + 1}-01-01T00:00:00.000Z`;
 
-  const [watchedRes, episodesRes, ratingsRes] = await Promise.all([
+  const [watchedRes, episodesRes, ratingsRes, notesRes] = await Promise.all([
     supabase
       .from("watched_items")
-      .select("item_id, item_type, item_name, image_url, genres, watched_at, review_text")
+      // No `review_text`: 076 revoked SELECT on it, and this only ever needed
+      // to know WHICH titles carry a note, not what any of them says. That
+      // count comes from my_diary_notes() below.
+      .select("item_id, item_type, item_name, image_url, genres, watched_at")
       .eq("user_id", userId)
       .eq("is_watched", true)
       .gte("watched_at", start)
@@ -90,6 +93,7 @@ export async function buildYearInReview(
       .gte("watched_at", start)
       .lt("watched_at", end),
     supabase.from("user_ratings").select("item_id, score").eq("user_id", userId),
+    supabase.rpc("my_diary_notes"),
   ]);
 
   const watched = watchedRes.data ?? [];
@@ -99,7 +103,16 @@ export async function buildYearInReview(
 
   const movies = watched.filter((w) => w.item_type === "movie").length;
   const shows = watched.filter((w) => w.item_type === "tv").length;
-  const reviewsWritten = watched.filter((w) => !!w.review_text).length;
+  // Keyed `type:id`, so a film and a series sharing a TMDB id are not conflated
+  // — the same reason every other map in this codebase carries the type.
+  const noteKeys = new Set(
+    ((notesRes.data ?? []) as { item_id: string; item_type: string }[]).map(
+      (n) => `${n.item_type}:${n.item_id}`,
+    ),
+  );
+  const reviewsWritten = watched.filter((w) =>
+    noteKeys.has(`${w.item_type}:${w.item_id}`),
+  ).length;
 
   // Ratings counted for *this year's* films, not all-time — the card is about
   // the year, and an all-time total sitting among year figures reads as a lie.

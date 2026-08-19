@@ -10,10 +10,7 @@ export async function POST(request: Request) {
     return jsonError("User ID is required", 400);
   }
 
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
-  const viewerId = viewer?.id ?? null;
+  const viewerId = await getAuthUserId();
 
   const { data: profile, error: profileError } = await supabase
     .from("users")
@@ -53,7 +50,12 @@ export async function POST(request: Request) {
   let query = supabase
     .from("watched_items")
     .select(
-      "item_id, item_type, item_name, image_url, item_adult, genres, watched_at, review_text, public_review_text",
+      // No `review_text`: 076 revoked SELECT on the private diary column,
+      // because nulling it here only ever protected callers of this route —
+      // 019's row policy let a visitor read it straight off PostgREST. The
+      // owner's copy is merged back in below, from a SECURITY DEFINER accessor
+      // scoped to auth.uid().
+      "item_id, item_type, item_name, image_url, item_adult, genres, watched_at, public_review_text",
       { count: "exact" },
     )
     .eq("user_id", userID)
@@ -120,19 +122,38 @@ export async function POST(request: Request) {
     }
   }
 
+  // The owner's own diary notes for the titles on this page. A visitor never
+  // asks for these — my_diary_notes() is scoped to auth.uid() and takes no user
+  // parameter, so there is nothing to ask with.
+  let diaryMap: Record<string, string | null> = {};
+  if (isOwner && items?.length) {
+    const pageItemIds = Array.from(new Set((items as { item_id: string }[]).map((i) => i.item_id)));
+    const { data: notes } = await supabase.rpc("my_diary_notes", {
+      p_item_ids: pageItemIds,
+      p_limit: null,
+    });
+    for (const n of (notes ?? []) as { item_id: string; item_type: string; review_text: string | null }[]) {
+      diaryMap[`${n.item_id}:${n.item_type}`] = n.review_text;
+    }
+  }
+
   // Merge score and tv_status into each item and apply visibility for visitors
   type Row = { item_id: string; item_type: string; review_text?: string | null; public_review_text?: string | null; [k: string]: unknown };
   const data = (items ?? []).map((row: Row) => {
     const key = `${row.item_id}:${row.item_type}`;
     const score = ratingsMap[key] ?? null;
     const tv_status = row.item_type === "tv" ? (tvStatusMap[row.item_id] ?? null) : null;
-    let out: Row & { score: number | null; tv_status?: string | null } = { ...row, score, tv_status };
+    // review_text is the private diary note; public_review_text is the one
+    // meant for sharing. The diary is now absent from the row entirely rather
+    // than fetched and blanked, so a visitor gets null because there was never
+    // anything to null — see the select above and migration 076.
+    let out: Row & { score: number | null; tv_status?: string | null } = {
+      ...row,
+      score,
+      tv_status,
+      review_text: isOwner ? (diaryMap[key] ?? null) : null,
+    };
     if (!isOwner) {
-      // review_text is the private diary note; public_review_text is the one
-      // meant for sharing. It is never a visitor's to read, so this isn't
-      // gated on a preference — a toggle defaulting to true meant the Films
-      // grid handed private notes to anyone who opened the profile.
-      out.review_text = null;
       if (!profileShowPublicReviews) out.public_review_text = null;
       if (!profileShowRatings) out.score = null;
     }

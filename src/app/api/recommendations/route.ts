@@ -12,10 +12,8 @@ export async function POST(request: Request) {
       return jsonError("User ID required", 400);
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const viewerId = user?.id ?? null;
+    const authUserId = await getAuthUserId();
+    const viewerId = authUserId ?? null;
     const isOwner = viewerId === userId;
 
     const { data: profile, error: profileError } = await supabase
@@ -62,7 +60,9 @@ export async function POST(request: Request) {
     if (isOwner) {
       const watchedResponse = await supabase
         .from("watched_items")
-        .select("*")
+        // Not `select("*")`: migration 076 revoked SELECT on `review_text`, the
+        // private diary, so a star select now answers 42501. Nothing here wants it.
+        .select("id, user_id, item_id, item_name, item_type, image_url, item_adult, genres, watched_at, is_watched, public_review_text")
         .eq("user_id", userId)
         .order("watched_at", { ascending: false })
         .limit(10);

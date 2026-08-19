@@ -58,9 +58,13 @@ export const getUserProfile = async () => {
       throw new Error("Failed to fetch user: " + userError.message);
     if (!user) return null;
 
+    // Not `select("*")`: migration 072 revoked table-level SELECT on
+    // public.users from anon/authenticated and re-granted it per column
+    // without `email`, so a star select answers 42501. The address is on
+    // `user` above, from the auth schema, which owns it anyway.
     const { data: profile, error: profileError } = await supabase
       .from("users")
-      .select("*")
+      .select("id, username, about, visibility, watch_region, avatar_url, banner_url, tagline, featured_list_id, pinned_review_id, profile_show_diary, profile_show_ratings, profile_show_public_reviews, deleted_at, deletion_scheduled_at, created_at, updated_at")
       .eq("id", user.id)
       .maybeSingle();
 

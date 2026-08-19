@@ -12,19 +12,18 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const userId = await getAuthUserId();
 
-    if (authError || !user) {
+    if (!userId) {
       return jsonError("Unauthorized", 401);
     }
 
     const { data, error } = await supabase
       .from("watched_items")
-      .select("*")
-      .eq("user_id", user.id)
+      // Not `select("*")`: migration 076 revoked SELECT on `review_text`, the
+      // private diary, so a star select now answers 42501. Nothing here wants it.
+      .select("id, user_id, item_id, item_name, item_type, image_url, item_adult, genres, watched_at, is_watched, public_review_text")
+      .eq("user_id", userId)
       .ilike("item_name", `%${query}%`)
       .order("item_name", { ascending: true })
       .limit(10);
