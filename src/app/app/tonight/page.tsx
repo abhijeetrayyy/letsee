@@ -8,6 +8,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Tonight",
+  // In the sitemap at priority 0.7 with no canonical of its own.
+  alternates: { canonical: "/app/tonight" },
   description: "Two people, one evening, the services you actually have. We'll decide.",
 };
 

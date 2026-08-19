@@ -72,7 +72,6 @@ export const metadata: Metadata = {
       "Track what you watch. Write reviews. Share with friends.",
   },
   manifest: "/manifest.json",
-  alternates: { canonical: "/" },
   robots: {
     index: true,
     follow: true,

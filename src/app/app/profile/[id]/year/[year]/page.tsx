@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient, createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
@@ -12,12 +13,59 @@ type Ctx = { params: Promise<{ id: string; year: string }> };
 /** Nothing before this app existed, and next year isn't over. */
 const MIN_YEAR = 2000;
 
-export async function generateMetadata(ctx: Ctx) {
+/**
+ * The page gates on `year_reviews.is_public`; this did not, so a year somebody
+ * chose not to publish was still indexable under a title claiming to be their
+ * year in review, over a body that reads "Not shared". A thin page with an
+ * inviting title is the worst of both.
+ *
+ * Now the metadata asks the same question the component does, and refuses to
+ * describe what it is not allowed to show.
+ */
+export async function generateMetadata(ctx: Ctx): Promise<Metadata> {
   const { id, year } = await ctx.params;
-  return {
-    title: `@${id}'s ${year} in review`,
-    description: `What @${id} watched in ${year}.`,
+  const fallback: Metadata = {
+    title: `${year} in review`,
+    robots: { index: false, follow: false },
   };
+
+  try {
+    const yearNum = Number(year);
+    if (!Number.isInteger(yearNum)) return fallback;
+
+    const supabase = await createClient();
+    const { data: profile } = await supabase
+      .from("users")
+      .select("id, visibility, deleted_at")
+      .eq("username", id)
+      .maybeSingle();
+
+    if (!profile?.id || profile.deleted_at) return fallback;
+    if (String(profile.visibility ?? "public").toLowerCase().trim() !== "public") return fallback;
+
+    const { data: yearFlag } = await supabase
+      .from("year_reviews")
+      .select("is_public")
+      .eq("user_id", profile.id)
+      .eq("year", yearNum)
+      .maybeSingle();
+
+    if (yearFlag?.is_public !== true) return fallback;
+
+    const canonical = `/app/profile/${encodeURIComponent(id)}/year/${yearNum}`;
+    const title = `@${id}'s ${yearNum} in review`;
+    const description = `What @${id} watched in ${yearNum} — the films, the count, and the ones that stuck.`;
+
+    return {
+      title,
+      description,
+      alternates: { canonical },
+      openGraph: { title, description, url: canonical, type: "profile" },
+      twitter: { card: "summary", title, description },
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 export default async function YearInReviewPage(ctx: Ctx) {

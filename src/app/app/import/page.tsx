@@ -6,6 +6,9 @@ import ImportFlow from "@components/import/ImportFlow";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
+  // No index: it is a signed-in tool, so a crawler only ever sees a redirect
+  // or a form it cannot use.
+  robots: { index: false, follow: false },
   title: "Import from Letterboxd",
   description: "Bring your watched films, ratings, watchlist and reviews across.",
 };

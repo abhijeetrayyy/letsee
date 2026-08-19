@@ -10,16 +10,19 @@ import type { Metadata } from "next";
  * live, which is the part worth having — a results page is a good way into the
  * catalogue and a bad thing to rank.
  *
- * The sitemap lists `/app/search` itself; this makes the two disagree, and the
- * disagreement is intentional. Removing it from the sitemap instead is the
- * tidier-looking option and the wrong one — the page is a legitimate
- * destination for a person, just not a result.
+ * No canonical here. It was set to `/app/search`, and because `alternates` is
+ * inherited that made `/app/search/matrix` announce the bare landing page as
+ * its canonical — a results page is not a duplicate of the search box. Both
+ * are `noindex` so nothing was lost in practice, but the tag was a lie.
+ *
+ * `/app/search` has also been dropped from the sitemap. Submitting a URL you
+ * have told the crawler to ignore is the contradiction Search Console reports
+ * as "Submitted URL marked noindex".
  */
 export const metadata: Metadata = {
   title: "Search",
   description:
     "Search films, series, people and keywords. Everything you find can be logged, rated and argued about.",
-  alternates: { canonical: "/app/search" },
   robots: { index: false, follow: true },
 };
 

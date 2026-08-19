@@ -1,4 +1,10 @@
 import SearchAndFilters from "@components/profile/SearchAndFilters";
+import type { Metadata } from "next";
+
+/** On the page, so no route beneath `/app/profile` can inherit it. */
+export const metadata: Metadata = {
+  alternates: { canonical: "/app/profile" },
+};
 
 /**
  * "Discover people" directory. Data is fetched client-side from

@@ -72,7 +72,10 @@ const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataR
   { path: "/", priority: 1, changeFrequency: "weekly" },
   { path: "/app", priority: 0.9, changeFrequency: "daily" },
   { path: "/app/browse", priority: 0.8, changeFrequency: "daily" },
-  { path: "/app/search", priority: 0.5, changeFrequency: "monthly" },
+  // `/app/search` is deliberately absent. It is `noindex`, and a sitemap is a
+  // list of URLs you are asking a crawler to index — submitting one you have
+  // told it to ignore is the contradiction Search Console reports as
+  // "Submitted URL marked noindex". It stays a fine destination for a person.
   { path: "/app/person", priority: 0.5, changeFrequency: "weekly" },
   { path: "/app/clubs", priority: 0.6, changeFrequency: "weekly" },
   { path: "/app/tonight", priority: 0.7, changeFrequency: "weekly" },

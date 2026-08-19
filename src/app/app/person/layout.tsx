@@ -8,7 +8,6 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "People",
   description: "Directors, actors and crew — every name behind the films and series people here are tracking.",
-  alternates: { canonical: "/app/person" },
   openGraph: {
     title: "People · LetSee",
     description: "Directors, actors and crew — every name behind the films and series people here are tracking.",

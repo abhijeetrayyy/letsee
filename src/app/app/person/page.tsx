@@ -1,4 +1,10 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+
+/** On the page so `/app/person/[id]` cannot inherit it. */
+export const metadata: Metadata = {
+  alternates: { canonical: "/app/person" },
+};
 
 export default function PersonIndexPage() {
   return (
