@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/utils/supabase/client";
+import toast from "react-hot-toast";
 import { acceptFollowRequest, rejectFollowRequest } from "@/utils/followerAction";
 import { Heart, UserPlus, UserCheck, Eye, MessageSquare, Star, CheckCheck, Bell, Loader2, Hand, Tv } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
@@ -260,20 +261,27 @@ export default function NotificationsPage() {
   };
 
   // Accept follow request
-  const handleAccept = async (requestId: number, senderId: string) => {
+  const handleAccept = async (requestId: number) => {
     if (!userId) return;
-    const { error } = await acceptFollowRequest(requestId, senderId, userId);
-    if (!error) {
-      setFollowRequests((prev) => prev.filter((r) => r.id !== requestId));
+    const { error } = await acceptFollowRequest(requestId);
+    if (error) {
+      // Silence here is what kept migration 080's bug invisible: the insert was
+      // rejected by RLS on every attempt and this branch did nothing, so the
+      // button looked like a missed tap rather than a failure.
+      toast.error(error.message || "Couldn't accept that request.");
+      return;
     }
+    setFollowRequests((prev) => prev.filter((r) => r.id !== requestId));
   };
 
   // Reject follow request
   const handleReject = async (requestId: number) => {
     const { error } = await rejectFollowRequest(requestId);
-    if (!error) {
-      setFollowRequests((prev) => prev.filter((r) => r.id !== requestId));
+    if (error) {
+      toast.error(error.message || "Couldn't decline that request.");
+      return;
     }
+    setFollowRequests((prev) => prev.filter((r) => r.id !== requestId));
   };
 
   return (
@@ -333,7 +341,7 @@ export default function NotificationsPage() {
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <button
-                    onClick={() => handleAccept(req.id, req.sender_id)}
+                    onClick={() => handleAccept(req.id)}
                     className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 transition-colors"
                   >
                     Accept

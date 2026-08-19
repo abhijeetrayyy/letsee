@@ -252,10 +252,21 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
 
           setMessages((prev) => {
             if (prev.some((p) => p.id === m.id)) return prev;
-            // Drop the optimistic twin once the real row arrives.
-            const withoutOptimistic = prev.filter(
-              (p) => !(p.pending && p.content === m.content && p.sender_id === m.sender_id),
+            /**
+             * Drop ONE optimistic twin, not every row that happens to match.
+             *
+             * The match is on content, because the echo carries no reference to
+             * the optimistic row it replaces. Filtering on it removed *all*
+             * pending rows with that text — so sending "ok" twice in quick
+             * succession and getting the first echo back deleted both, and the
+             * second message's own insert response had to put it back. One echo
+             * is one row, so it should consume exactly one twin: the oldest.
+             */
+            const twin = prev.findIndex(
+              (p) => p.pending && p.content === m.content && p.sender_id === m.sender_id,
             );
+            const withoutOptimistic =
+              twin === -1 ? prev : [...prev.slice(0, twin), ...prev.slice(twin + 1)];
             return [...withoutOptimistic, m];
           });
           requestAnimationFrame(() => scrollToBottom("smooth"));
@@ -344,9 +355,22 @@ export default function ChatThreadPage({ params }: { params: Promise<{ id: strin
           m.id === optimisticId ? { ...m, pending: false, failed: true } : m,
         );
       }
-      // Realtime may have already inserted the real row; don't duplicate it.
-      const withoutDupe = prev.filter((m) => m.id !== saved.id);
-      return withoutDupe.map((m) => (m.id === optimisticId ? (saved as Message) : m));
+      /**
+       * Upsert, not filter-then-map.
+       *
+       * This used to strip `saved.id` and then substitute it in for the
+       * optimistic row. That is only correct while the optimistic row is still
+       * there. If the realtime echo won the race it had already replaced the
+       * optimistic row with the real one — so the filter deleted the real row,
+       * the map found no `optimisticId` to put it back in, and the message
+       * vanished from the sender's screen while sitting perfectly fine in the
+       * database and on the recipient's. Removing both ids and appending once
+       * is correct whichever arrives first.
+       */
+      const rest = prev.filter((m) => m.id !== optimisticId && m.id !== saved.id);
+      return [...rest, saved as Message].sort((a, b) =>
+        a.created_at.localeCompare(b.created_at),
+      );
     });
 
     inputRef.current?.focus();

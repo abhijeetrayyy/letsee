@@ -59,29 +59,25 @@ export const sendFollowRequest = async (
 };
 
 /**
- * Accepts a follow request:
- * - Inserts the sender into `user_connections`
- * - Deletes the request from `user_follow_requests`
+ * Accepts a follow request.
+ *
+ * This used to insert into `user_connections` from the browser, under the
+ * receiver's session — and 042's insert policy is
+ * `WITH CHECK (auth.uid() = follower_id)`, where follower_id is the SENDER. The
+ * receiver is never the sender, so it failed on every account, every time, and
+ * the caller's `if (!error)` hid it. See migration 080.
+ *
+ * `accept_follow_request` is SECURITY DEFINER: it proves the caller is the
+ * recipient of that exact request, re-applies the block check the policy would
+ * have made, writes the connection, notifies the sender, and deletes the
+ * request row. The row is deleted rather than marked accepted because
+ * `sendFollowRequest` below refuses while any row exists — leaving an accepted
+ * row behind would permanently block re-following after an unfollow.
  */
-export const acceptFollowRequest = async (
-  requestId: number,
-  senderId: string,
-  receiverId: string
-) => {
-  // Add to user_connections
-  const { error: connError } = await supabase.from("user_connections").insert({
-    follower_id: senderId,
-    followed_id: receiverId,
+export const acceptFollowRequest = async (requestId: number) => {
+  const { error } = await supabase.rpc("accept_follow_request", {
+    p_request_id: requestId,
   });
-
-  if (connError) return { error: connError };
-
-  // Update request status to "accepted"
-  const { error } = await supabase
-    .from("user_follow_requests")
-    .update({ status: "accepted" })
-    .eq("id", requestId);
-
   return { error };
 };
 

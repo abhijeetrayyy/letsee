@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { getAuthUserId } from "@/utils/apiAuth";
 import { NextResponse } from "next/server";
 import { getBlockedUserIds } from "@/utils/blocks";
 
@@ -108,16 +109,14 @@ function parseCursor(raw: string | null) {
 
 export async function GET(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const viewerId = await getAuthUserId();
 
   const { searchParams } = new URL(request.url);
   const cursor = parseCursor(searchParams.get("cursor"));
   const limit = Math.min(50, Math.max(1, Number(searchParams.get("limit")) || 20));
 
-  const { data: following } = user
-    ? await supabase.from("user_connections").select("followed_id").eq("follower_id", user.id)
+  const { data: following } = viewerId
+    ? await supabase.from("user_connections").select("followed_id").eq("follower_id", viewerId)
     : { data: null };
 
   const followedIds = following?.map((f) => f.followed_id) ?? [];
@@ -134,7 +133,7 @@ export async function GET(request: Request) {
   const isSupplemented = followedIds.length < SUPPLEMENT_THRESHOLD;
 
   if (isSupplemented) {
-    if (user?.id && !targetUserIds.includes(user.id)) targetUserIds.push(user.id);
+    if (viewerId && !targetUserIds.includes(viewerId)) targetUserIds.push(viewerId);
 
     const { data: recentActors } = await supabase
       .from("user_activity")
@@ -152,7 +151,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const blockedIds = await getBlockedUserIds(supabase, user?.id ?? null);
+  const blockedIds = await getBlockedUserIds(supabase, viewerId ?? null);
   if (blockedIds.size > 0) targetUserIds = targetUserIds.filter((id) => !blockedIds.has(id));
 
   const empty = {
@@ -161,7 +160,7 @@ export async function GET(request: Request) {
     hasMore: false,
     followedCount: followedIds.length,
     isSupplemented,
-    isSignedIn: Boolean(user),
+    isSignedIn: Boolean(viewerId),
   };
 
   if (targetUserIds.length === 0) {
@@ -377,41 +376,95 @@ export async function GET(request: Request) {
   // does, and nothing is lost by letting it sit below. This is the same
   // hierarchy the row components already express typographically — a take is a
   // card, a watch is a quiet line — applied to order as well as to weight.
+  /**
+   * Pagination order is time, and only time.
+   *
+   * The kind-first sort used to be global: every take in the fetched window was
+   * ranked ahead of every watch line regardless of when either happened. That
+   * cannot coexist with a timestamp cursor. `consumedUpTo` was taken from the
+   * last *rendered* row, and the next request filters `created_at < that` — so
+   * an author whose three kept rows were old takes had their newer watch lines
+   * sitting past the page boundary with `created_at > consumedUpTo`, and the
+   * `lt` filter excluded them from every subsequent page. Permanently, with no
+   * sequence of requests that could reach them.
+   *
+   * So the two orders are separated: a total order by time for paging, and the
+   * kind ranking applied to the page for display, below. Writing still rises
+   * above logging in what the reader sees; it just no longer decides which rows
+   * the cursor has passed.
+   */
+  rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.key.localeCompare(b.key));
+
+  /**
+   * Walk in time order, capping per author, and remember how far we LOOKED —
+   * not how far we rendered.
+   *
+   * A capped row is consumed: it was considered for this page and deliberately
+   * not shown, so the cursor has to move past it or the next page returns it
+   * again forever. With three users on the platform, one person's evening would
+   * otherwise be the entire page — the cap is per page, so the same author is
+   * free to appear again further down the timeline.
+   */
+  const perAuthorCount = new Map<string, number>();
+  const page: FeedRow[] = [];
+  const overflow: FeedRow[] = [];
+  let examined = 0;
+  for (const r of rows) {
+    if (page.length >= limit) break;
+    examined++;
+    const n = perAuthorCount.get(r.author.id) ?? 0;
+    if (n >= MAX_ROWS_PER_AUTHOR) {
+      overflow.push(r);
+      continue;
+    }
+    perAuthorCount.set(r.author.id, n + 1);
+    page.push(r);
+  }
+
+  /**
+   * A short page takes its capped-out rows back.
+   *
+   * The cap exists so one author cannot own the page, not so that content
+   * disappears. If everyone else put together did not fill `limit`, holding
+   * these back serves nobody: they are already behind the cursor, so refusing
+   * them here is refusing them for good. It also stops the client asking for
+   * another page and getting a nearly empty one.
+   *
+   * A page that filled without them still drops them, which is the cap doing
+   * the job it was written for.
+   */
+  if (page.length < limit && overflow.length > 0) {
+    page.push(...overflow.slice(0, limit - page.length));
+  }
+
+  // Everything at or after this has been considered. Rows the cap dropped are
+  // behind it, which is what makes advancing the cursor safe.
+  const consumedUpTo = examined > 0 ? rows[examined - 1].createdAt : null;
+  const hasMore =
+    examined < rows.length || activity.length >= window || takes.length >= window;
+
+  const lastActivityId =
+    activity.filter((a) => !consumedUpTo || a.created_at >= consumedUpTo).at(-1)?.id ?? 0;
+
+  // Presentation only: a take is a card, a watch is a quiet line, and the one
+  // person who said something should not land beneath two lines of logging.
+  // This reorders the page; it does not decide what is on it.
   const kindRank = (k: FeedRow["kind"]) => (k === "take" ? 0 : 1);
-  rows.sort(
+  const items = [...page].sort(
     (a, b) =>
       kindRank(a.kind) - kindRank(b.kind) ||
       b.createdAt.localeCompare(a.createdAt) ||
       a.key.localeCompare(b.key),
   );
 
-  // With three users on the platform, one person's evening would otherwise be
-  // the entire page.
-  const perAuthorCount = new Map<string, number>();
-  const capped = rows.filter((r) => {
-    const n = perAuthorCount.get(r.author.id) ?? 0;
-    if (n >= MAX_ROWS_PER_AUTHOR) return false;
-    perAuthorCount.set(r.author.id, n + 1);
-    return true;
-  });
-
-  const page = capped.slice(0, limit);
-  const hasMore = capped.length > limit || activity.length >= window || takes.length >= window;
-
-  // The cursor must advance past everything consumed, not just what was
-  // rendered — collapsed rows are still consumed.
-  const last = page[page.length - 1];
-  const consumedUpTo = last?.createdAt ?? null;
-  const lastActivityId = activity.filter((a) => !consumedUpTo || a.created_at >= consumedUpTo).at(-1)?.id ?? 0;
-
   return NextResponse.json(
     {
-      items: page,
+      items,
       nextCursor: consumedUpTo ? `${consumedUpTo}|${lastActivityId}` : null,
       hasMore,
       followedCount: followedIds.length,
       isSupplemented,
-      isSignedIn: Boolean(user),
+      isSignedIn: Boolean(viewerId),
     },
     { headers: { "Cache-Control": "private, no-store" } },
   );

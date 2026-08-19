@@ -20,24 +20,21 @@ export async function POST(req: NextRequest) {
   if (!profileId) return jsonError("profileId is required", 400);
   if (profileId === userId) return jsonError("Cannot block yourself", 400);
 
-  // Remove any existing follow relationship
-  await supabase
-    .from("user_connections")
-    .delete()
-    .or(`follower_id.eq.${userId},followed_id.eq.${userId}`)
-    .or(`follower_id.eq.${profileId},followed_id.eq.${profileId}`);
-
-  // Remove follow requests
-  await supabase
-    .from("user_follow_requests")
-    .delete()
-    .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-    .or(`sender_id.eq.${profileId},receiver_id.eq.${profileId}`);
-
-  const { error } = await supabase.from("user_blocks").upsert(
-    { blocker_id: userId, blocked_id: profileId },
-    { onConflict: "blocker_id,blocked_id" }
-  );
+  /**
+   * One authorised unit, server-side — see migration 081.
+   *
+   * The three statements this replaces ran on the blocker's own client, and the
+   * connection delete could not touch the row that mattered: the only DELETE
+   * policy on user_connections is `USING (auth.uid() = follower_id)`, and on the
+   * row where the blocked user follows the blocker, follower_id is the *other*
+   * person. RLS filtered it out, PostgREST returned 200 having deleted nothing,
+   * and this route never checked the count — so blocking reported success and
+   * left them following you.
+   *
+   * It also removes the only place in this codebase where a caller-supplied id
+   * was interpolated into a PostgREST filter expression.
+   */
+  const { error } = await supabase.rpc("block_user", { p_blocked: profileId });
 
   if (error) return jsonError(error.message, 500);
 
