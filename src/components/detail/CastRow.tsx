@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Users } from "lucide-react";
+import { personPath } from "@/utils/urls";
 
 type CastMember = {
   id: number;
@@ -20,7 +21,7 @@ export default function CastRow({ cast = [] }: { cast?: CastMember[] }) {
       {cast.slice(0, 20).map((actor) => (
         <Link
           key={actor.id}
-          href={`/app/person/${actor.id}`}
+          href={personPath(actor.id, actor.name)}
           className="group w-28 shrink-0 sm:w-32"
         >
           <div className="aspect-[2/3] w-full overflow-hidden rounded-xl bg-surface-800 ring-1 ring-surface-700/50 transition-all group-hover:ring-brand-500/40">

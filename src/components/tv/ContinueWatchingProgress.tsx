@@ -7,6 +7,7 @@ import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 import Link from "next/link";
 import { Play, ChevronRight, Tv, Check, Loader2 } from "lucide-react";
 import EmptyState from "@components/ui/EmptyState";
+import { titlePath } from "@/utils/urls";
 
 const continueWatchingFetcher = (url: string) =>
   fetch(url, { cache: "no-store" }).then((r) => r.json());
@@ -135,7 +136,7 @@ export default function ContinueWatchingProgress() {
           // The button cannot live inside the Link — a <button> inside an <a>
           // is invalid HTML — so the card is a div holding both.
           <div key={item.show_id} className="shrink-0 w-44 group relative">
-          <Link href={`/app/tv/${item.show_id}`} className="block">
+          <Link href={titlePath("tv", item.show_id, item.show_name)} className="block">
             <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-surface-800">
               {item.poster_path ? (
                 <img

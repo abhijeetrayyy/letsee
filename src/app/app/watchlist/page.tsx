@@ -4,6 +4,18 @@ import Link from "next/link";
 import MediaCard from "@/components/cards/MediaCard";
 import { ArrowLeft, Filter, Star, Clock, Film, Tv, Sparkles, Trash2, Check } from "lucide-react";
 
+/**
+ * Not for an index. robots.txt asks a crawler not to fetch this; `noindex` says
+ * what to do if one arrives anyway — from a pasted link, a referrer, or a
+ * crawler that ignores the file. Belt and braces on pages that are either
+ * private or pure funnel.
+ */
+export const metadata = {
+  title: "Your watchlist",
+  robots: { index: false, follow: false },
+};
+
+
 type SmartItem = {
   itemId: string;
   itemName: string;

@@ -6,7 +6,7 @@ import ImportFlow from "@components/import/ImportFlow";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Import from Letterboxd · LetSee",
+  title: "Import from Letterboxd",
   description: "Bring your watched films, ratings, watchlist and reviews across.",
 };
 

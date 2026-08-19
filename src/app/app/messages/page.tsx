@@ -1,5 +1,17 @@
 import { MessageSquare } from "lucide-react";
 
+/**
+ * Not for an index. robots.txt asks a crawler not to fetch this; `noindex` says
+ * what to do if one arrives anyway — from a pasted link, a referrer, or a
+ * crawler that ignores the file. Belt and braces on pages that are either
+ * private or pure funnel.
+ */
+export const metadata = {
+  title: "Messages",
+  robots: { index: false, follow: false },
+};
+
+
 export const dynamic = "force-dynamic";
 
 /**

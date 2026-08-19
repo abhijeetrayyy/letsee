@@ -7,6 +7,7 @@ import { swrFetcher } from "@/utils/swrFetcher";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 import { Section } from "@components/detail/TitleChrome";
 import type { CollectionResponse, CollectionPart } from "@/app/api/collection/route";
+import { slugify } from "@/utils/urls";
 
 /**
  * How far through a franchise you are — the film counterpart of the episode
@@ -38,9 +39,6 @@ type MinimalCollection = {
   poster_path?: string | null;
 };
 
-function slug(title: string): string {
-  return title.trim().replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-");
-}
 
 function year(date: string | null): string {
   const y = date?.slice(0, 4);
@@ -161,7 +159,7 @@ export default function FranchiseStrip({
             <div key={p.id} className="w-24 shrink-0 sm:w-28">
               <div className="relative">
                 <Link
-                  href={`/app/movie/${p.id}${p.title ? `-${slug(p.title)}` : ""}`}
+                  href={`/app/movie/${p.id}${p.title ? `-${slugify(p.title)}` : ""}`}
                   aria-current={here ? "page" : undefined}
                   className="block"
                 >
@@ -231,7 +229,7 @@ export default function FranchiseStrip({
         <p className="mt-2 text-xs text-surface-500">
           Next in order:{" "}
           <Link
-            href={`/app/movie/${nextUp.id}${nextUp.title ? `-${slug(nextUp.title)}` : ""}`}
+            href={`/app/movie/${nextUp.id}${nextUp.title ? `-${slugify(nextUp.title)}` : ""}`}
             className="text-brand-400 hover:text-brand-300"
           >
             {nextUp.title}

@@ -7,6 +7,7 @@ import { getTvShowWithSeasons, getSeasonEpisodes } from "@/utils/tmdbTvShow";
 import { createClient } from "@/utils/supabase/server";
 import TvStatusSelector from "@/components/tv/TvStatusSelector";
 import { ArrowLeft, Tv, Calendar, Film } from "lucide-react";
+import { parseRouteId } from "@/utils/urls";
 
 interface Episode {
   id: number;
@@ -31,10 +32,6 @@ type SeasonPageProps = {
   params: Promise<{ id: string; seasonNumber: string }>;
 };
 
-const getNumericId = (value: string) => {
-  const match = String(value).match(/^\d+/);
-  return match ? match[0] : null;
-};
 
 const fetchSeriesAndSeasonData = async (
   seriesId: string,
@@ -87,7 +84,7 @@ const fetchSeriesAndSeasonData = async (
 
 const SeasonPage = async ({ params }: SeasonPageProps) => {
   const { id: rawId, seasonNumber }: any = await params;
-  const numericId = getNumericId(rawId);
+  const numericId = parseRouteId(rawId);
   if (!numericId) {
     return notFound();
   }

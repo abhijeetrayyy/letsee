@@ -13,6 +13,9 @@ import { getPerson } from "@/utils/person/fetch";
 import { buildCredits, recurringRoles } from "@/utils/person/model";
 import { definingWork, careerLine } from "@/utils/person/rank";
 import { personLife } from "@/utils/person/dates";
+import JsonLd from "@components/seo/JsonLd";
+import { personLd, breadcrumbLd } from "@/utils/structuredData";
+import { personPath } from "@/utils/urls";
 
 const TMDB_IMAGE = "https://image.tmdb.org/t/p";
 
@@ -38,13 +41,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const image = p.profile_path ? `${TMDB_IMAGE}/w500${p.profile_path}` : undefined;
 
   return {
-    title: `${p.name} | Letsee`,
+    title: `${p.name}`,
     description,
-    // Three URLs served identical content and none declared a canonical.
-    alternates: { canonical: `/app/person/${n}` },
+    // Three URLs served identical content and none declared a canonical. It
+    // now names the slugged form, so an index consolidates on the URL that
+    // carries the name rather than the bare id.
+    alternates: { canonical: personPath(n, p.name) },
     openGraph: {
-      title: `${p.name} | Letsee`,
+      type: "profile",
+      title: `${p.name}`,
       description,
+      url: personPath(n, p.name),
       ...(image && { images: [{ url: image, width: 500, height: 750, alt: p.name }] }),
     },
     twitter: { card: "summary_large_image", title: p.name, description },
@@ -91,6 +98,16 @@ export default async function PersonPage({ params }: PageProps) {
   const seeds = definingWork(credits, kfd ?? undefined, 14).filter((c) => c.bucket === "performance");
 
   return (
+    <>
+      <JsonLd
+        data={[
+          personLd(person),
+          breadcrumbLd([
+            { name: "People", path: "/app/person" },
+            { name: person.name, path: personPath(person.id, person.name) },
+          ]),
+        ]}
+      />
     <div className="min-h-screen bg-surface-950">
       <div className="mx-auto max-w-[1400px] space-y-12 px-4 py-8 sm:px-6 lg:px-8">
         <PersonHero
@@ -161,5 +178,6 @@ export default async function PersonPage({ params }: PageProps) {
         )}
       </div>
     </div>
+    </>
   );
 }

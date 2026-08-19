@@ -8,6 +8,9 @@ import AuthProvider from "./contextAPI/AuthProvider";
 import { LogedNavbar } from "@components/header/navbar";
 import { ScrollToTop } from "@components/ui/ScrollToTop";
 import RegisterServiceWorker from "@/components/pwa/RegisterServiceWorker";
+import { siteUrl } from "@/utils/siteUrl";
+import JsonLd from "@components/seo/JsonLd";
+import { organisationLd } from "@/utils/structuredData";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,7 +25,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LetSee — Social Film Journal",
+  /**
+   * Every relative URL in every page's metadata resolves against this.
+   *
+   * Without it Next cannot turn a relative OG image into the absolute URL the
+   * Open Graph spec requires, and canonicals from child routes have no origin
+   * to hang off. It was unset, which is why nothing shared with a preview.
+   *
+   * The origin comes from siteUrl(), so one place decides it — the share sheet,
+   * robots, the sitemap and every canonical agree by construction.
+   */
+  metadataBase: new URL(siteUrl()),
+  title: {
+    default: "LetSee — Social Film Journal",
+    // Child pages set a bare title; this gives them the brand without every
+    // page having to remember to append it.
+    template: "%s · LetSee",
+  },
   description:
     "Track what you watch. Write reviews. Share with friends. Your personal film journal and social hub for cinephiles.",
   keywords: [
@@ -53,6 +72,20 @@ export const metadata: Metadata = {
       "Track what you watch. Write reviews. Share with friends.",
   },
   manifest: "/manifest.json",
+  alternates: { canonical: "/" },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      // Let Google show a full-size preview image and an unclipped snippet;
+      // the defaults truncate both.
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
 };
 
 export const viewport = {
@@ -78,6 +111,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-surface-950 text-surface-200 min-h-screen`}
       >
+        {/*
+          Site-level graph, emitted once for every page. The SearchAction is
+          what lets a result render a search box for this site rather than only
+          a link to it.
+        */}
+        <JsonLd data={organisationLd()} />
         <RegisterServiceWorker />
         <AuthProvider>
           <SearchProvider>

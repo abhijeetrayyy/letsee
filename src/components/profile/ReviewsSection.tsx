@@ -7,16 +7,11 @@ import useSWR from "swr";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { getPosterUrl } from "@/utils/imageUrl";
+import { slugify } from "@/utils/urls";
 
-function slug(title: string): string {
-  return title
-    .trim()
-    .replace(/[^a-zA-Z0-9]/g, "-")
-    .replace(/-+/g, "-");
-}
 
 function detailHref(mediaType: string, id: string, title: string): string {
-  const s = slug(title);
+  const s = slugify(title);
   return `/app/${mediaType}/${Number(id)}${s ? `-${s}` : ""}`;
 }
 

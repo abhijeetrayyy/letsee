@@ -7,6 +7,7 @@ import { Check, Link as LinkIcon, MessageCircle, Search, Send, Share2, Twitter, 
 import Avatar from "@components/ui/Avatar";
 import { supabase } from "@/utils/supabase/client";
 import { swrFetcher } from "@/utils/swrFetcher";
+import { titlePath } from "@/utils/urls";
 
 /**
  * Sharing a title, in one sheet.
@@ -79,7 +80,23 @@ export default function ShareModal({
   const toggle = (p: Person) =>
     setPicked((cur) => (cur.some((x) => x.id === p.id) ? cur.filter((x) => x.id !== p.id) : [...cur, p]));
 
-  const url = typeof window !== "undefined" ? window.location.href : "";
+  /**
+   * The canonical link, not whatever is in the address bar.
+   *
+   * `window.location.href` copies the URL the reader happened to arrive on —
+   * which for an old link is `/app/movie/550`, a nameless address that then
+   * spreads through every chat it is pasted into. The modal already knows the
+   * title and the id, so it can build the form that carries the name, and that
+   * is the one worth sharing. It also matches the canonical the page declares,
+   * so a share and a crawl agree on one URL.
+   *
+   * Query strings and hashes are dropped for the same reason: a `?tab=cast`
+   * that meant something to the sender means nothing to the recipient.
+   */
+  const url =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${titlePath(mediaType, itemId, title)}`
+      : "";
   const hasNativeShare = typeof window !== "undefined" && "share" in navigator;
 
   const copy = async () => {

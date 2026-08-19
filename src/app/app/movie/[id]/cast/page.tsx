@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { parseRouteId } from "@/utils/urls";
 
 // Types
 type PageProps = {
@@ -39,10 +40,6 @@ interface CreditResponse {
   crew: CrewMember[];
 }
 
-const getNumericId = (value: string) => {
-  const match = String(value).match(/^\d+/);
-  return match ? match[0] : null;
-};
 
 type MovieWithCredits = MovieDetails & { credits?: CreditResponse };
 
@@ -59,7 +56,7 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const rawId = (await params).id;
-  const numericId = getNumericId(rawId);
+  const numericId = parseRouteId(rawId);
   if (!numericId) {
     return {
       title: "Cast & Crew",
@@ -80,7 +77,7 @@ export async function generateMetadata({
 
 export default async function Page({ params }: PageProps) {
   const rawId = (await params).id;
-  const numericId = getNumericId(rawId);
+  const numericId = parseRouteId(rawId);
   if (!numericId) {
     return notFound();
   }

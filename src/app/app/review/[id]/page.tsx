@@ -5,14 +5,15 @@ import { getPosterUrl } from "@/utils/imageUrl";
 import Avatar from "@components/ui/Avatar";
 import Comments from "@components/social/Comments";
 import LikeButton from "@components/reactions/LikeButton";
+import { slugify } from "@/utils/urls";
+import JsonLd from "@components/seo/JsonLd";
+import { reviewLd, breadcrumbLd } from "@/utils/structuredData";
+import { titlePath, profilePath } from "@/utils/urls";
 
 export const dynamic = "force-dynamic";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
-function slug(title: string): string {
-  return title.trim().replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-");
-}
 
 function formatDate(iso: string | null): string {
   if (!iso) return "";
@@ -43,7 +44,7 @@ function formatDate(iso: string | null): string {
  * that reveals nothing.
  */
 export async function generateMetadata({ params }: RouteParams) {
-  const fallback = { title: "Review · LetSee" };
+  const fallback = { title: "Review" };
   const reviewId = Number((await params).id);
   if (!Number.isInteger(reviewId)) return fallback;
 
@@ -148,9 +149,36 @@ export default async function ReviewPage({ params }: RouteParams) {
     }
   }
 
-  const detailHref = `/app/${review.item_type}/${review.item_id}-${slug(review.item_name ?? "")}`;
+  const detailHref = titlePath(review.item_type, review.item_id, review.item_name);
 
   return (
+    <>
+      {/*
+        A review is the one page here that can earn a rich result of its own —
+        the author, the rating and the film it is about are all facts the page
+        already shows. It only reaches this point when the review is public and
+        the author's visibility allows it, so the graph never asserts anything a
+        visitor cannot already read.
+      */}
+      <JsonLd
+        data={[
+          reviewLd({
+            body: review.public_review_text as string,
+            authorName: author.username as string,
+            authorUrl: profilePath(author.username as string),
+            datePublished: review.watched_at as string | null,
+            itemName: (review.item_name as string) ?? "",
+            itemType: review.item_type === "tv" ? "tv" : "movie",
+            itemId: review.item_id as string,
+            itemImage: review.image_url as string | null,
+            url: `/app/review/${review.id}`,
+          }),
+          breadcrumbLd([
+            { name: (review.item_name as string) ?? "Title", path: detailHref },
+            { name: `Review by ${author.username}`, path: `/app/review/${review.id}` },
+          ]),
+        ]}
+      />
     <div className="min-h-screen w-full bg-surface-950 text-white">
       <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
         <article className="rounded-2xl border border-surface-700/60 bg-surface-900/40 p-5 sm:p-6">
@@ -204,5 +232,6 @@ export default async function ReviewPage({ params }: RouteParams) {
         </section>
       </div>
     </div>
+    </>
   );
 }

@@ -2,15 +2,12 @@ import Link from "next/link";
 import React from "react";
 import { tmdbFetchJson } from "@/utils/tmdb";
 import { notFound } from "next/navigation";
+import { parseRouteId } from "@/utils/urls";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-const getNumericId = (value: string) => {
-  const match = String(value).match(/^\d+/);
-  return match ? match[0] : null;
-};
 
 async function getShowDetails(id: string) {
   return tmdbFetchJson<any>(
@@ -30,7 +27,7 @@ async function getShowCredit(id: string) {
 
 async function page({ params }: PageProps) {
   const rawId = (await params).id;
-  const numericId = getNumericId(rawId);
+  const numericId = parseRouteId(rawId);
   if (!numericId) {
     return notFound();
   }

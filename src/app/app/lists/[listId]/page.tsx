@@ -16,7 +16,7 @@ type PageProps = { params: Promise<{ listId: string }> };
  * preview. Anything else is marked `noindex`.
  */
 export async function generateMetadata({ params }: PageProps) {
-  const fallback = { title: "List · LetSee", robots: { index: false, follow: false } };
+  const fallback = { title: "List", robots: { index: false, follow: false } };
 
   try {
     const id = Number((await params).listId);
@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: PageProps) {
       String(list.description ?? "").trim() || `A list of films and shows${by} on LetSee.`;
 
     return {
-      title: `${name}${by} · LetSee`,
+      title: `${name}${by}`,
       description,
       alternates: { canonical: absoluteUrl(`/app/lists/${id}`) },
       openGraph: {

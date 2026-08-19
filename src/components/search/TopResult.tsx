@@ -7,6 +7,7 @@ import { releaseInfo } from "@/utils/releaseInfo";
 import StatusControl from "@components/buttons/StatusControl";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
+import { slugify } from "@/utils/urls";
 
 export type TopResultItem = {
   id: number;
@@ -23,9 +24,6 @@ export type TopResultItem = {
   genres?: string[];
 };
 
-function slug(title: string) {
-  return title.trim().replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-");
-}
 
 const TYPE_LABEL: Record<string, string> = { movie: "Film", tv: "TV series", person: "Person" };
 
@@ -41,7 +39,7 @@ export default function TopResult({ item }: { item: TopResultItem }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<MediaStatus | null>(null);
 
-  const href = `/app/${item.mediaType}/${item.id}${item.title ? `-${slug(item.title)}` : ""}`;
+  const href = `/app/${item.mediaType}/${item.id}${item.title ? `-${slugify(item.title)}` : ""}`;
   const release = releaseInfo(item.releaseDate);
   const img = item.posterPath
     ? `https://image.tmdb.org/t/p/${item.mediaType === "person" ? "h632" : "w342"}${item.posterPath}`

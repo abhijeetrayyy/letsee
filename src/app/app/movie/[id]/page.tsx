@@ -5,13 +5,14 @@ import MovieDetailClient from "./MovieDetailClient";
 import { Countrydata } from "@/staticData/countryName";
 import { Suspense } from "react";
 import RelatedStream from "@components/detail/RelatedStream";
+import { parseRouteId } from "@/utils/urls";
+import { absoluteUrl } from "@/utils/siteUrl";
+import { titlePath } from "@/utils/urls";
+import JsonLd from "@components/seo/JsonLd";
+import { movieLd, breadcrumbLd } from "@/utils/structuredData";
 
 type PageProps = { params: Promise<{ id: string }> };
 
-function getNumericId(value: string) {
-  const match = String(value).match(/^\d+/);
-  return match ? match[0] : null;
-}
 
 /**
  * Eight appended keys on one request.
@@ -37,24 +38,48 @@ async function getMovie(id: string) {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const numericId = getNumericId(id);
+  const numericId = parseRouteId(id);
   if (!numericId) return { title: "Movie Not Found" };
   const result = await getMovie(numericId);
   const movie = result.data;
+  if (!movie) return { title: "Movie Not Found" };
+
+  const year = movie.release_date ? String(movie.release_date).slice(0, 4) : null;
+  // The year disambiguates the many films that share a title, in the one place
+  // a person scanning results actually reads.
+  const title = year ? `${movie.title} (${year})` : movie.title;
+  const description =
+    (movie.tagline && String(movie.tagline).trim()) ||
+    (movie.overview ? String(movie.overview).slice(0, 200) : "") ||
+    `Where to watch ${movie.title}, what people thought of it, and who made it.`;
+  const canonical = absoluteUrl(titlePath("movie", movie.id, movie.title));
+  const poster = movie.poster_path ? `https://image.tmdb.org/t/p/w780${movie.poster_path}` : null;
+
   return {
-    title: movie?.title || "Movie Not Found",
-    description: movie?.tagline || "Discover movies on LetSee",
+    title,
+    description,
+    // Points at the slugged form, so an index consolidates there rather than
+    // treating /app/movie/550 and /app/movie/550-fight-club as two pages.
+    alternates: { canonical },
     openGraph: {
-      title: movie?.title,
-      description: movie?.tagline,
-      images: movie?.poster_path ? [`https://image.tmdb.org/t/p/w342${movie.poster_path}`] : [],
+      type: "video.movie",
+      title,
+      description,
+      url: canonical,
+      images: poster ? [{ url: poster, width: 780, height: 1170, alt: movie.title }] : [],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: poster ? [poster] : [],
     },
   };
 }
 
 export default async function MoviePage({ params }: PageProps) {
   const { id } = await params;
-  const numericId = getNumericId(id);
+  const numericId = parseRouteId(id);
   if (!numericId) return notFound();
 
   const result = await getMovie(numericId);
@@ -124,6 +149,17 @@ export default async function MoviePage({ params }: PageProps) {
     ?? videos.find((v: any) => v.site === "YouTube");
 
   return (
+    <>
+      {/* Served in the HTML, not added on hydration — crawlers read the former. */}
+      <JsonLd
+        data={[
+          movieLd(movie),
+          breadcrumbLd([
+            { name: "Films", path: "/app/browse" },
+            { name: movie.title, path: titlePath("movie", movie.id, movie.title) },
+          ]),
+        ]}
+      />
     <div className="bg-surface-950 min-h-screen">
       <MovieDetailClient
         movie={movieForClient}
@@ -148,5 +184,6 @@ export default async function MoviePage({ params }: PageProps) {
         </Suspense>
       </div>
     </div>
+    </>
   );
 }

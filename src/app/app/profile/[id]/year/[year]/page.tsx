@@ -15,7 +15,7 @@ const MIN_YEAR = 2000;
 export async function generateMetadata(ctx: Ctx) {
   const { id, year } = await ctx.params;
   return {
-    title: `@${id}'s ${year} in review · LetSee`,
+    title: `@${id}'s ${year} in review`,
     description: `What @${id} watched in ${year}.`,
   };
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { personPath } from "@/utils/urls";
 
 export type CrewMember = {
   id: number;
@@ -194,7 +195,7 @@ export default function CrewBlock({
           {keyPeople.map((person) => (
             <Link
               key={person.id}
-              href={`/app/person/${person.id}`}
+              href={personPath(person.id, person.name)}
               className="group w-28 shrink-0 sm:w-32"
             >
               <div className="aspect-[2/3] w-full overflow-hidden rounded-xl bg-surface-800 ring-1 ring-surface-700/50 transition-all group-hover:ring-brand-500/40">
@@ -229,7 +230,7 @@ export default function CrewBlock({
               // collide across groups.
               <div key={`${group.department}:${person.id}`} className="min-w-0">
                 <Link
-                  href={`/app/person/${person.id}`}
+                  href={personPath(person.id, person.name)}
                   className="block truncate text-sm text-surface-200 transition-colors hover:text-brand-400"
                 >
                   {person.name}

@@ -35,6 +35,16 @@ function relativeTime(iso: string): string {
 
 import MessagesShell from "@components/messages/MessagesShell";
 
+/**
+ * Covers /app/messages and /app/messages/[id]. Both are private; robots.txt
+ * disallows them and this answers anything that arrives regardless.
+ */
+export const metadata = {
+  title: "Messages",
+  robots: { index: false, follow: false },
+};
+
+
 async function getConversations(userId: string): Promise<Conversation[]> {
   const supabase = await createClient();
 

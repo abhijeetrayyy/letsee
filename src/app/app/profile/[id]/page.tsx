@@ -40,7 +40,7 @@ export const dynamic = "force-dynamic";
  * to anyone who pasted the link into a chat window that unfurls previews.
  */
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
-  const fallback = { title: "Profile · LetSee", robots: { index: false, follow: false } };
+  const fallback = { title: "Profile", robots: { index: false, follow: false } };
 
   try {
     const username = decodeURIComponent((await params).id ?? "");
@@ -62,7 +62,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       `What ${name} is watching, and what they thought of it.`;
 
     return {
-      title: `${name} · LetSee`,
+      title: `${name}`,
       description,
       alternates: { canonical: absoluteUrl(`/app/profile/${encodeURIComponent(name)}`) },
       openGraph: {

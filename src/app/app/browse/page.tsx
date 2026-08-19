@@ -171,7 +171,7 @@ export async function generateMetadata({
   const p = parseBrowseParams(await searchParams);
   const labels = await resolveLabels(p);
   const what = headline(p, labels);
-  return { title: what === "films" || what === "TV shows" ? "Browse · LetSee" : `${what} · LetSee` };
+  return { title: what === "films" || what === "TV shows" ? "Browse" : `${what}` };
 }
 
 export default async function BrowsePage({

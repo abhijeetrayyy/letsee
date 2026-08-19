@@ -7,13 +7,14 @@ import RelatedStream from "@components/detail/RelatedStream";
 import { seriesCast } from "@/utils/title/tvCast";
 import { seriesCrew } from "@/utils/title/tvCrew";
 import { Countrydata } from "@/staticData/countryName";
+import { parseRouteId } from "@/utils/urls";
+import { absoluteUrl } from "@/utils/siteUrl";
+import { titlePath } from "@/utils/urls";
+import JsonLd from "@components/seo/JsonLd";
+import { tvSeriesLd, breadcrumbLd } from "@/utils/structuredData";
 
 type PageProps = { params: Promise<{ id: string }> };
 
-function getNumericId(value: string) {
-  const match = String(value).match(/^\d+/);
-  return match ? match[0] : null;
-}
 
 /**
  * Nine appended keys, well inside the twenty-remote-call cap append_to_response
@@ -39,24 +40,44 @@ async function getShow(id: string) {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const numericId = getNumericId(id);
+  const numericId = parseRouteId(id);
   if (!numericId) return { title: "TV Show Not Found" };
   const result = await getShow(numericId);
   const show = result.data;
+  if (!show) return { title: "TV Show Not Found" };
+
+  const year = show.first_air_date ? String(show.first_air_date).slice(0, 4) : null;
+  const title = year ? `${show.name} (${year})` : show.name;
+  const description =
+    (show.tagline && String(show.tagline).trim()) ||
+    (show.overview ? String(show.overview).slice(0, 200) : "") ||
+    `Where to watch ${show.name}, episode by episode, and what people thought.`;
+  const canonical = absoluteUrl(titlePath("tv", show.id, show.name));
+  const poster = show.poster_path ? `https://image.tmdb.org/t/p/w780${show.poster_path}` : null;
+
   return {
-    title: show?.name || "TV Show Not Found",
-    description: show?.tagline || "Discover TV shows on LetSee",
+    title,
+    description,
+    alternates: { canonical },
     openGraph: {
-      title: show?.name,
-      description: show?.tagline,
-      images: show?.poster_path ? [`https://image.tmdb.org/t/p/w342${show.poster_path}`] : [],
+      type: "video.tv_show",
+      title,
+      description,
+      url: canonical,
+      images: poster ? [{ url: poster, width: 780, height: 1170, alt: show.name }] : [],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: poster ? [poster] : [],
     },
   };
 }
 
 export default async function TvPage({ params }: PageProps) {
   const { id } = await params;
-  const numericId = getNumericId(id);
+  const numericId = parseRouteId(id);
   if (!numericId) return notFound();
 
   const result = await getShow(numericId);
@@ -132,6 +153,16 @@ export default async function TvPage({ params }: PageProps) {
   } as const;
 
   return (
+    <>
+      <JsonLd
+        data={[
+          tvSeriesLd(show),
+          breadcrumbLd([
+            { name: "TV", path: "/app/browse?type=tv" },
+            { name: show.name, path: titlePath("tv", show.id, show.name) },
+          ]),
+        ]}
+      />
     <div className="bg-surface-950 min-h-screen">
       <TvDetailClient
         show={showForClient}
@@ -157,5 +188,6 @@ export default async function TvPage({ params }: PageProps) {
         </Suspense>
       </div>
     </div>
+    </>
   );
 }

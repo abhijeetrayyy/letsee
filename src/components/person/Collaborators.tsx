@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Users } from "lucide-react";
 import type { Collaborator } from "@/utils/person/collaborators";
+import { personPath } from "@/utils/urls";
 
 /**
  * The "related people" ask, answered by computation.
@@ -16,7 +17,7 @@ function List({ title, people }: { title: string; people: Collaborator[] }) {
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">{title}</h3>
       <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
         {people.map((p) => (
-          <Link key={p.id} href={`/app/person/${p.id}`} className="group w-28 shrink-0 sm:w-32">
+          <Link key={p.id} href={personPath(p.id, p.name)} className="group w-28 shrink-0 sm:w-32">
             <div className="aspect-[2/3] w-full overflow-hidden rounded-xl bg-surface-800 ring-1 ring-surface-700/50 transition-all group-hover:ring-brand-500/40">
               {p.profilePath ? (
                 /* eslint-disable-next-line @next/next/no-img-element */

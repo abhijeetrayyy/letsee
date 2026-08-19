@@ -10,6 +10,7 @@ import { fetchTmdb } from "@/utils/tmdbClient";
 import { createClient } from "@/utils/supabase/server";
 import TitleTalk from "@components/takes/TitleTalk";
 import { ArrowLeft, Clock, Calendar, Users, Clapperboard, Star } from "lucide-react";
+import { parseRouteId } from "@/utils/urls";
 
 interface EpisodeDetails {
   id: number;
@@ -41,10 +42,6 @@ interface PageProps {
   params: Promise<{ id: string; seasonNumber: string; episodeId: string }>;
 }
 
-const getNumericId = (value: string) => {
-  const match = String(value).match(/^\d+/);
-  return match ? match[0] : null;
-};
 
 const EPISODE_REVALIDATE_SEC = 300;
 
@@ -100,7 +97,7 @@ const fetchEpisodeData = async (
 
 const EpisodePage = async ({ params }: PageProps) => {
   const rawId = (await params).id;
-  const id = getNumericId(rawId);
+  const id = parseRouteId(rawId);
   const seasonNumber = (await params).seasonNumber;
   const episodeId = (await params).episodeId;
 

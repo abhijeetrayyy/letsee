@@ -7,6 +7,7 @@ import TvShowCard from "@components/profile/TvShowCard";
 import TvCalendarView from "@components/profile/TvCalendarView";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import { swrFetcher, SwrFetchError } from "@/utils/swrFetcher";
+import { titlePath } from "@/utils/urls";
 
 const PAGE_SIZE = 12;
 
@@ -334,7 +335,7 @@ export default function ProfileTvProgress({
                       >
                         <td className="px-4 py-3">
                           <a
-                            href={`/app/tv/${item.show_id}`}
+                            href={titlePath("tv", item.show_id, item.show_name)}
                             className="font-medium text-white hover:text-brand-400 hover:underline flex items-center gap-3"
                           >
                             {item.poster_path ? (

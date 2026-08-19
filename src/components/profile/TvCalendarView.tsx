@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { titlePath } from "@/utils/urls";
 
 type CalendarData = Record<string, Array<{
   show_id: string;
@@ -153,7 +154,7 @@ export default function TvCalendarView({
                 {episodes.map((ep, idx) => (
                   <Link
                     key={`${ep.show_id}-${ep.season_number}-${ep.episode_number}-${idx}`}
-                    href={`/app/tv/${ep.show_id}`}
+                    href={titlePath("tv", ep.show_id, ep.show_name)}
                     className="flex items-center gap-3 p-3 rounded-lg border border-surface-700/50 bg-surface-900/40 hover:border-surface-500/60 hover:bg-surface-800/50 transition-all group"
                   >
                     {/* Show Poster */}

@@ -5,6 +5,7 @@ import { useState } from "react";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
+import { titlePath } from "@/utils/urls";
 
 type TvShowCardProps = {
   showId: string;
@@ -82,7 +83,7 @@ export default function TvShowCard({
       <div className="group flex flex-col rounded-xl border border-surface-700/60 bg-surface-900/40 overflow-hidden hover:border-surface-500/60 transition-all duration-300">
         {/* Poster & Overlay */}
         <Link
-          href={`/app/tv/${showId}`}
+          href={titlePath("tv", showId, showName)}
           className="relative aspect-[2/3] overflow-hidden"
         >
           <img
@@ -129,7 +130,7 @@ export default function TvShowCard({
         <div className="flex flex-col bg-surface-900/40">
           <div className="p-3 flex flex-col gap-2">
             <Link
-              href={`/app/tv/${showId}`}
+              href={titlePath("tv", showId, showName)}
               className="text-sm font-semibold text-surface-100 line-clamp-1 hover:text-brand-400 transition-colors"
             >
               {showName}

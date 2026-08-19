@@ -7,7 +7,7 @@ import TonightRoom from "@components/tonight/TonightRoom";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Tonight · LetSee",
+  title: "Tonight",
   description: "Two people, one evening, the services you actually have. We'll decide.",
 };
 

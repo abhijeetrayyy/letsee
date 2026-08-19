@@ -4,6 +4,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import { Tv } from "lucide-react";
 import { swrFetcher } from "@/utils/swrFetcher";
+import { titlePath } from "@/utils/urls";
 
 interface Episode {
   show_id: string;
@@ -44,7 +45,7 @@ export default function AiringSoon() {
         {episodes.slice(0, 6).map((e) => (
           <Link
             key={`${e.show_id}-${e.season_number}-${e.episode_number}`}
-            href={`/app/tv/${e.show_id}`}
+            href={titlePath("tv", e.show_id, e.show_name)}
             className="shrink-0 w-28 group"
           >
             <div className="aspect-[2/3] rounded-xl overflow-hidden bg-surface-800 border border-surface-700/30 group-hover:border-brand-500/30 transition-all relative">
