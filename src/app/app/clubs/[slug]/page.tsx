@@ -25,6 +25,8 @@ type ClubData = {
   members: Member[];
   pick: Pick | null;
   isMember: boolean;
+  /** "none" | "pending" | "active" | "banned" — pending is a real state as of 083. */
+  membership?: string;
   isAdmin: boolean;
 };
 
@@ -45,8 +47,10 @@ export default function ClubPage({ params }: { params: Promise<{ slug: string }>
     if (!data || busy) return;
     setBusy(true);
     try {
+      // Leaving and withdrawing a pending request are the same DELETE.
+      const joined = data.isMember || data.membership === "pending";
       await fetch(`/api/clubs/${slug}/members`, {
-        method: data.isMember ? "DELETE" : "POST",
+        method: joined ? "DELETE" : "POST",
       });
       mutate();
     } finally {
@@ -74,6 +78,7 @@ export default function ClubPage({ params }: { params: Promise<{ slug: string }>
   }
 
   const { club, members, pick, isMember } = data;
+  const pending = data.membership === "pending";
 
   return (
     <div className="min-h-screen w-full bg-surface-950 text-white">
@@ -99,12 +104,12 @@ export default function ClubPage({ params }: { params: Promise<{ slug: string }>
                 onClick={toggleMembership}
                 disabled={busy}
                 className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
-                  isMember
+                  isMember || pending
                     ? "border border-surface-700 bg-surface-800 text-surface-300 hover:bg-surface-700"
                     : "bg-brand-500 text-surface-950 hover:bg-brand-400"
                 }`}
               >
-                {busy ? "…" : isMember ? "Leave" : "Join"}
+                {busy ? "…" : isMember ? "Leave" : pending ? "Requested" : "Join"}
               </button>
             )}
           </div>

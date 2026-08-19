@@ -77,13 +77,15 @@ export async function POST(req: NextRequest) {
 
   if (error) return jsonError(error.message, 500);
 
-  const { error: memberError } = await supabase
-    .from("club_members")
-    .insert({ club_id: club.id, user_id: userId, role: "owner", status: "active" });
-
-  if (memberError) {
-    console.error("club owner membership:", memberError);
-  }
-
+  /**
+   * The owner row is written by 083's AFTER INSERT trigger on `clubs`, in this
+   * same transaction.
+   *
+   * It used to be inserted here, from the caller's own client — which is why
+   * `club_members_insert_self` had to permit `role: 'owner'`, and why anyone
+   * could POST themselves owner of any club straight to PostgREST. The policy
+   * is now locked to `role = 'member'`, so the one place an owner row can be
+   * created is the moment the club itself is.
+   */
   return jsonSuccess({ club });
 }

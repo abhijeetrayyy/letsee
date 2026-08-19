@@ -38,6 +38,26 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       .limit(1),
   ]);
 
+  /**
+   * The viewer's own row, at any status.
+   *
+   * `members` above is filtered to `active`, which is right for the face pile
+   * and wrong for answering "am I in?" now that 083 makes `pending` a state a
+   * user can actually be in. Without this a pending request read as "not a
+   * member", so the button said Join, the insert came back 23505, and the
+   * request was invisible to the person who made it.
+   */
+  let viewerStatus: string | null = null;
+  if (viewerId) {
+    const { data: mine } = await supabase
+      .from("club_members")
+      .select("status")
+      .eq("club_id", club.id)
+      .eq("user_id", viewerId)
+      .maybeSingle();
+    viewerStatus = (mine?.status as string | undefined) ?? null;
+  }
+
   const pick = picks?.[0] ?? null;
   const activePick = pick && new Date(pick.ends_at).getTime() > Date.now() ? pick : null;
 
@@ -55,7 +75,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     club,
     members: normalized,
     pick: activePick,
-    isMember: !!viewerId && normalized.some((m) => m.userId === viewerId),
+    isMember: viewerStatus === "active",
+    membership: (viewerStatus ?? "none") as "none" | "pending" | "active" | "banned",
     isAdmin:
       !!viewerId &&
       normalized.some((m) => m.userId === viewerId && (m.role === "owner" || m.role === "moderator")),
