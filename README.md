@@ -97,6 +97,38 @@ A **social app for deciding what to watch**: who's in the room, how long you've 
 | `npm run build` | Production build        |
 | `npm run start` | Start production server |
 | `npm run lint` | Run ESLint               |
+| `npm test` | Run the test suite once |
+| `npm run test:watch` | Run tests in watch mode |
+
+## Tests
+
+`npm test` — 40 tests, under half a second, no database and no network.
+
+They are shaped around how this codebase actually breaks. The failures worth
+catching here have not been logic errors in a function; they have been *rules
+written down in one place and broken in another* — a comment explaining that a
+positive `maxAge` is only for responses identical for every visitor, four lines
+above the routes that passed one; a migration widening a unique key that four
+call sites adopted and a fifth did not.
+
+So there are two suites:
+
+- **`tests/unit`** covers the pure logic where real bugs have lived: the
+  hand-rolled RFC 4180 scanner (a Letterboxd review contains commas, quotes and
+  newlines, and getting it wrong corrupts writing without erroring), the take
+  identity that mirrors a CHECK constraint, the rating scale, the cache-header
+  mapping, and the fail-closed cron guard.
+
+- **`tests/invariants`** reads the source and `migrations/000_baseline.sql` and
+  enforces the rules mechanically: no shared cache on a response that depends on
+  who is asking, no select naming a column the schema does not have or has
+  revoked, every `onConflict` matching a real unique key, every cron route
+  behind the guard.
+
+Each invariant was checked by re-introducing the bug it exists for and
+confirming the suite goes red. The `onConflict` test found a live one while
+being written.
+
 
 ## Deployment (e.g. Vercel)
 

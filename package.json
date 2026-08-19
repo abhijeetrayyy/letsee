@@ -6,9 +6,11 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint src tests",
     "db:dump": "npx supabase db dump -f migrations/000_baseline.sql -s public",
-    "build:check": "NEXT_DIST_DIR=.next-build next build"
+    "build:check": "NEXT_DIST_DIR=.next-build next build",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
@@ -41,6 +43,7 @@
     "eslint-config-next": "16.1.6",
     "postcss": "^8",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }
