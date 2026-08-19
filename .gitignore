@@ -45,3 +45,8 @@ next-env.d.ts
 # Supabase CLI scratch state — machine-specific, and a future CLI version
 # could write a connection string here.
 supabase/.temp/
+
+# Security audits. These enumerate findings that are not yet remediated, and
+# this repository is public — a published audit is a published roadmap. Keep
+# them local until everything they name is closed.
+/docs/SYSTEM_AUDIT_*.md
