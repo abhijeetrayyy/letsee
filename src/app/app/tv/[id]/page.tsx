@@ -17,11 +17,16 @@ type PageProps = { params: Promise<{ id: string }> };
 
 
 /**
- * Nine appended keys, well inside the twenty-remote-call cap append_to_response
+ * Ten appended keys, well inside the twenty-remote-call cap append_to_response
  * enforces with a 400.
  *
- * `external_ids` came off this list: it was fetched, handed to the client and
- * read by nothing. Watch providers cannot be appended at all — TMDB serves them
+ * `external_ids` is back on this list, and the round trip is worth recording.
+ * It was dropped once for being fetched, handed to the client and read by
+ * nothing — correct at the time. It returns because something now reads it: a
+ * series payload carries no `imdb_id` of its own, and this is the only way to
+ * offer the IMDb link that films have had for free all along.
+ *
+ * Watch providers cannot be appended at all — TMDB serves them
  * from `watch/providers`, with a slash, which append rejects — so Availability
  * fetches them itself, keyed on the reader's region so switching regions
  * actually changes the answer.
@@ -32,7 +37,7 @@ type PageProps = { params: Promise<{ id: string }> };
  */
 async function getShow(id: string) {
   return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar,keywords,content_ratings,aggregate_credits,reviews`,
+    `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar,keywords,content_ratings,aggregate_credits,reviews,external_ids`,
     "TV detail",
     { revalidate: 600 }
   );

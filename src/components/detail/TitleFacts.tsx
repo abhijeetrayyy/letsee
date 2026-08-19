@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Info } from "lucide-react";
+import { ExternalLink, Info } from "lucide-react";
 import EntityLinks from "@components/detail/EntityLinks";
 import { buildBrowseUrl, type BrowseType } from "@/utils/browseUrl";
 import { formatLongDate, parseTmdbDate, toIso } from "@/utils/person/dates";
@@ -42,6 +42,14 @@ export type Fact = {
   links?: FactLink[];
   /** A dimmed trailing clause: "worldwide", "5.4× budget", "62 episodes". */
   hint?: string;
+  /**
+   * A short figure that should survive a skim — the box-office ratio, which as
+   * a dimmed hint was the most interesting number on the page rendered as the
+   * least visible one.
+   */
+  badge?: string;
+  /** Links that leave the site. Rendered as anchors, not internal routes. */
+  external?: { label: string; href: string }[];
   /** Makes the hint itself a door — the decade beside a release date. */
   hintHref?: string;
 };
@@ -107,7 +115,11 @@ function compact(rows: (Fact | null | false | undefined)[]): Fact[] {
     if (!row) continue;
     const hasText = typeof row.text === "string" && row.text.trim() !== "";
     const hasLinks = (row.links?.length ?? 0) > 0;
-    if (hasText || hasLinks) out.push(row);
+    // `external` counts too. The Elsewhere row carries only anchors — no text,
+    // no internal links — and this guard silently swallowed it whole until the
+    // rendered HTML was checked for an imdb.com href and did not have one.
+    const hasExternal = (row.external?.length ?? 0) > 0;
+    if (hasText || hasLinks || hasExternal) out.push(row);
   }
   return out;
 }
@@ -225,6 +237,25 @@ function originalTitleFact(displayed?: string, original?: string): Fact | null {
   return { key: "original-title", label: "Original title", text: original };
 }
 
+/**
+ * IMDb and the official site, both of which TMDB has been sending all along and
+ * the page has been throwing away — `imdb_id` sits on every film payload, and
+ * `homepage` on most. They are the two links a reader is most likely to want
+ * that this app cannot itself provide, so keeping them off the page was not
+ * restraint, it was waste.
+ *
+ * `homepage` is only worth a row when it is a real absolute URL. TMDB stores
+ * the field as free text and a handful of titles carry "" or a bare domain.
+ */
+function elsewhereFact(imdbId?: string | null, homepage?: string | null, kind: "title" | "name" = "title"): Fact | null {
+  const external: { label: string; href: string }[] = [];
+  if (imdbId) external.push({ label: "IMDb", href: `https://www.imdb.com/${kind}/${imdbId}/` });
+  if (homepage && /^https?:\/\//i.test(homepage.trim())) {
+    external.push({ label: "Official site", href: homepage.trim() });
+  }
+  return external.length > 0 ? { key: "elsewhere", label: "Elsewhere", external } : null;
+}
+
 export type MovieFactsSource = {
   title?: string;
   original_title?: string;
@@ -237,6 +268,8 @@ export type MovieFactsSource = {
   spoken_languages?: SpokenLanguage[];
   production_countries?: { name?: string }[];
   production_companies?: NamedEntity[];
+  imdb_id?: string | null;
+  homepage?: string | null;
 };
 
 /**
@@ -283,11 +316,16 @@ export function movieFacts(
       key: "revenue",
       label: "Box office",
       text: revenue ?? undefined,
-      hint:
+      hint: "worldwide",
+      // Promoted out of the hint. "7.4× budget" is the line most people come to
+      // a box-office row to read, and it was set in the same dim grey as the
+      // word "worldwide". It stays a ratio and not a profit — see above.
+      badge:
         ratio != null
-          ? `worldwide · ${(Math.round(ratio * 10) / 10).toLocaleString("en-US")}× budget`
-          : "worldwide",
+          ? `${(Math.round(ratio * 10) / 10).toLocaleString("en-US")}× budget`
+          : undefined,
     },
+    elsewhereFact(movie.imdb_id, movie.homepage, "title"),
   ]);
 }
 
@@ -310,6 +348,9 @@ export type TvFactsSource = {
   spoken_languages?: SpokenLanguage[];
   production_countries?: { name?: string }[];
   production_companies?: NamedEntity[];
+  homepage?: string | null;
+  /** From `append_to_response=external_ids`; a series payload has no `imdb_id` of its own. */
+  external_ids?: { imdb_id?: string | null } | null;
 };
 
 /** TMDB's own word for a show that hasn't ended, which reads like a category
@@ -380,6 +421,7 @@ export function tvFacts(
       : null,
     languageFact("tv", show.original_language, show.spoken_languages),
     countryFact(opts.countryNames, show.production_countries),
+    elsewhereFact(show.external_ids?.imdb_id, show.homepage, "title"),
   ]);
 }
 
@@ -414,6 +456,22 @@ function FactRow({ fact, stacked = false }: { fact: Fact; stacked?: boolean }) {
         ) : (
           fact.text
         )}
+        {fact.external && (
+          <span className="flex flex-wrap gap-x-3">
+            {fact.external.map((l) => (
+              <a
+                key={l.href}
+                href={l.href}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex items-center gap-1 transition-colors hover:text-brand-400"
+              >
+                {l.label}
+                <ExternalLink className="size-3 opacity-60" aria-hidden />
+              </a>
+            ))}
+          </span>
+        )}
         {fact.hint && (
           <span className="text-surface-500">
             {" · "}
@@ -424,6 +482,11 @@ function FactRow({ fact, stacked = false }: { fact: Fact; stacked?: boolean }) {
             ) : (
               fact.hint
             )}
+          </span>
+        )}
+        {fact.badge && (
+          <span className="ml-2 inline-block rounded-md bg-surface-800/80 px-1.5 py-0.5 align-middle text-xs font-medium tabular-nums text-surface-200">
+            {fact.badge}
           </span>
         )}
       </dd>
