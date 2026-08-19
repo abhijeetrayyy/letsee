@@ -8,7 +8,7 @@ import LikeButton from "@components/reactions/LikeButton";
 import { slugify } from "@/utils/urls";
 import JsonLd from "@components/seo/JsonLd";
 import { reviewLd, breadcrumbLd } from "@/utils/structuredData";
-import { titlePath, profilePath } from "@/utils/urls";
+import { parseRouteId, reviewPath, titlePath, profilePath } from "@/utils/urls";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +52,7 @@ export async function generateMetadata({ params }: RouteParams) {
    * title "Review", which is a thin page inviting a crawler in.
    */
   const fallback = { title: "Review", robots: { index: false, follow: false } };
-  const reviewId = Number((await params).id);
+  const reviewId = Number(parseRouteId((await params).id));
   if (!Number.isInteger(reviewId)) return fallback;
 
   try {
@@ -90,9 +90,9 @@ export async function generateMetadata({ params }: RouteParams) {
       // /app title and description live on the page rather than the layout —
       // `alternates` is inherited, so a layout-level canonical would have
       // pointed this review at the app home.
-      alternates: { canonical: `/app/review/${reviewId}` },
+      alternates: { canonical: reviewPath(reviewId, review.item_name) },
       openGraph: {
-        url: `/app/review/${reviewId}`,
+        url: reviewPath(reviewId, review.item_name),
         title,
         description,
         type: "article",
@@ -118,7 +118,7 @@ export async function generateMetadata({ params }: RouteParams) {
  * but without this page the resulting notification linked to a 404.
  */
 export default async function ReviewPage({ params }: RouteParams) {
-  const reviewId = Number((await params).id);
+  const reviewId = Number(parseRouteId((await params).id));
   if (!Number.isInteger(reviewId)) notFound();
 
   const supabase = await createClient();
@@ -184,11 +184,11 @@ export default async function ReviewPage({ params }: RouteParams) {
             itemType: review.item_type === "tv" ? "tv" : "movie",
             itemId: review.item_id as string,
             itemImage: review.image_url as string | null,
-            url: `/app/review/${review.id}`,
+            url: reviewPath(review.id, review.item_name),
           }),
           breadcrumbLd([
             { name: (review.item_name as string) ?? "Title", path: detailHref },
-            { name: `Review by ${author.username}`, path: `/app/review/${review.id}` },
+            { name: `Review by ${author.username}`, path: reviewPath(review.id, review.item_name) },
           ]),
         ]}
       />

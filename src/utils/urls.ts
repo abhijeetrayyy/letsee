@@ -75,6 +75,18 @@ export function titlePath(
 }
 
 /**
+ * `/app/review/146-interstellar`
+ *
+ * A review page is one person's writing about one title, and its URL named
+ * neither. The title is the part a reader recognises and the part a search
+ * result needs — "@someone on Interstellar" is the page, so Interstellar
+ * belongs in the address.
+ */
+export function reviewPath(id: string | number, itemName?: string | null): string {
+  return `/app/review/${withSlug(id, itemName)}`;
+}
+
+/**
  * `/app/lists/12-films-that-ruined-me`
  *
  * A list's whole identity is the name someone gave it, and its URL was the one

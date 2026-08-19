@@ -7,7 +7,7 @@ import useSWR from "swr";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { getPosterUrl } from "@/utils/imageUrl";
-import { titlePath } from "@/utils/urls";
+import { reviewPath, titlePath } from "@/utils/urls";
 
 
 function detailHref(mediaType: string, id: string, title: string): string {
@@ -154,7 +154,7 @@ export default function ReviewsSection({
 
                 {/* The review's own page — where it can be replied to. */}
                 <Link
-                  href={`/app/review/${item.id}`}
+                  href={reviewPath(item.id, item.item_name)}
                   className="text-xs text-brand-400 hover:text-brand-300 transition-colors mt-auto"
                 >
                   Read &amp; discuss →

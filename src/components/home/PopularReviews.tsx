@@ -29,7 +29,7 @@ type PopularReview = {
  * Renders nothing when there's nothing to show. An empty "Popular reviews"
  * heading on a young community advertises the absence.
  */
-import { titlePath } from "@/utils/urls";
+import { reviewPath, titlePath } from "@/utils/urls";
 export default function PopularReviews() {
   const { data } = useSWR<{ reviews: PopularReview[] }>("/api/reviews/popular", swrFetcher);
   const reviews = data?.reviews ?? [];
@@ -94,7 +94,7 @@ export default function PopularReviews() {
 
                 {/* Links to the permalink, not the title page — the review is
                     the thing being recommended here. */}
-                <Link href={`/app/review/${review.id}`} className="group mt-2 block">
+                <Link href={reviewPath(review.id, review.itemName)} className="group mt-2 block">
                   <p className="line-clamp-3 text-sm text-surface-200 group-hover:text-white transition-colors">
                     {review.reviewText}
                   </p>

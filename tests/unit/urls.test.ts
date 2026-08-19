@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { episodePath, listPath, parseRouteId, personPath, seasonPath, slugify, titlePath } from "@/utils/urls";
+import { episodePath, listPath, parseRouteId, personPath, reviewPath, seasonPath, slugify, titlePath } from "@/utils/urls";
 
 /**
  * The slug is the part of a URL a person reads before they click it, so it has
@@ -121,5 +121,27 @@ describe("listPath", () => {
     const segment = listPath(12, "Films that ruined me").split("/").pop()!;
     expect(parseRouteId(segment)).toBe("12");
     expect(Number(parseRouteId(segment))).toBe(12);
+  });
+});
+
+/**
+ * Reviews are the only pages here whose text exists nowhere else, and their
+ * URL named neither the writer nor what they wrote about.
+ */
+describe("reviewPath", () => {
+  it("carries the title being reviewed", () => {
+    expect(reviewPath(146, "Interstellar")).toBe("/app/review/146-interstellar");
+  });
+
+  it("falls back to the bare id", () => {
+    // The notification deep link has a review id and no item name.
+    expect(reviewPath(146)).toBe("/app/review/146");
+  });
+
+  it("round-trips through parseRouteId", () => {
+    // The route does Number(parseRouteId(id)) in both generateMetadata and the
+    // component; if those disagree the page 404s only for crawlers.
+    const seg = reviewPath(146, "Interstellar").split("/").pop()!;
+    expect(Number(parseRouteId(seg))).toBe(146);
   });
 });

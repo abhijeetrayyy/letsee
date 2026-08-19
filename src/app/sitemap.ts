@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { siteUrl } from "@/utils/siteUrl";
-import { listPath, seasonPath, titlePath } from "@/utils/urls";
+import { listPath, reviewPath, seasonPath, titlePath } from "@/utils/urls";
 
 /**
  * Static routes plus every public profile and public list.
@@ -246,6 +246,62 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         // Below a title page: a season is a subdivision of one, and should not
         // compete with it for the show's own name.
         priority: 0.6,
+      });
+    }
+
+    /**
+     * Public reviews.
+     *
+     * These are the only pages on the site whose text exists nowhere else — a
+     * TMDB overview is on ten thousand sites, and somebody's paragraph about
+     * why Interstellar did not work for them is on one. Leaving them out of the
+     * sitemap while listing seven static routes was backwards.
+     *
+     * The visibility test has to match the page's own, or the sitemap
+     * advertises URLs that render a `noindex` fallback. A review is listed only
+     * when it has public text, its author's profile is public and not deleted,
+     * and that author has not switched public reviews off — the same three
+     * conditions `generateMetadata` checks before it will describe one.
+     *
+     * `users!user_id` is an inner join here rather than a left one, so a review
+     * whose author row is filtered out drops rather than arriving with a null.
+     */
+    const reviews = await fetchAllRows<{
+      id: number;
+      item_name: string | null;
+      watched_at: string | null;
+      /**
+       * supabase-js infers an embedded relation as an array, while PostgREST
+       * returns a bare object for a many-to-one like this. Typed as declared
+       * and normalised on read, rather than cast — the shape genuinely differs
+       * between what the types promise and what arrives.
+       */
+      users:
+        | { visibility: string | null; deleted_at: string | null; profile_show_public_reviews: boolean | null }[]
+        | null;
+    }>((from, to) =>
+      supabase
+        .from("watched_items")
+        .select(
+          "id, item_name, watched_at, users!user_id!inner(visibility, deleted_at, profile_show_public_reviews)",
+        )
+        .not("public_review_text", "is", null)
+        .eq("users.visibility", "public")
+        .is("users.deleted_at", null)
+        .order("id")
+        .range(from, to),
+    );
+
+    for (const r of reviews) {
+      const author = Array.isArray(r.users) ? r.users[0] : r.users;
+      if (!author || author.profile_show_public_reviews === false) continue;
+      entries.push({
+        url: `${base}${reviewPath(r.id, r.item_name)}`,
+        lastModified: r.watched_at ? new Date(r.watched_at) : now,
+        // A review is written once and then argued with; the page changes when
+        // its comments do.
+        changeFrequency: "monthly",
+        priority: 0.5,
       });
     }
   } catch (err) {

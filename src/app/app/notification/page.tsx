@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import { acceptFollowRequest, rejectFollowRequest } from "@/utils/followerAction";
 import { Heart, UserPlus, UserCheck, Eye, MessageSquare, Star, CheckCheck, Bell, Loader2, Hand, Tv } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
-import { titlePath } from "@/utils/urls";
+import { reviewPath, titlePath } from "@/utils/urls";
 
 type ActorProfile = {
   username: string | null;
@@ -91,7 +91,7 @@ function getNotificationText(n: NotificationItem): { text: string; href?: string
       // older rows may have no metadata to link with — hence the fallbacks.
       const href =
         n.metadata?.target_type === "review" && n.target_id
-          ? `/app/review/${n.target_id}`
+          ? reviewPath(n.target_id)
           : n.metadata?.target_type === "list" && n.target_id
             ? `/app/lists/${n.target_id}`
             : undefined;
