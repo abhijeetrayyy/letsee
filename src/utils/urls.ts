@@ -74,6 +74,18 @@ export function titlePath(
   return `/app/${kind}/${withSlug(id, name)}`;
 }
 
+/**
+ * `/app/lists/12-films-that-ruined-me`
+ *
+ * A list's whole identity is the name someone gave it, and its URL was the one
+ * place that name never appeared — on a page type the sitemap publishes. The
+ * route reads the id with `parseRouteId` like every other route, so both the
+ * bare and slugged forms keep resolving.
+ */
+export function listPath(id: string | number, name?: string | null): string {
+  return `/app/lists/${withSlug(id, name)}`;
+}
+
 /** `/app/person/287-brad-pitt` */
 export function personPath(id: string | number, name?: string | null): string {
   return `/app/person/${withSlug(id, name)}`;

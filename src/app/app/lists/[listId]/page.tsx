@@ -2,6 +2,7 @@ import ListDetail from "@components/profile/ListDetail";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { absoluteUrl } from "@/utils/siteUrl";
+import { listPath, parseRouteId } from "@/utils/urls";
 
 type PageProps = { params: Promise<{ listId: string }> };
 
@@ -19,7 +20,7 @@ export async function generateMetadata({ params }: PageProps) {
   const fallback = { title: "List", robots: { index: false, follow: false } };
 
   try {
-    const id = Number((await params).listId);
+    const id = Number(parseRouteId((await params).listId));
     if (!Number.isInteger(id)) return fallback;
 
     const supabase = await createClient();
@@ -44,11 +45,11 @@ export async function generateMetadata({ params }: PageProps) {
     return {
       title: `${name}${by}`,
       description,
-      alternates: { canonical: absoluteUrl(`/app/lists/${id}`) },
+      alternates: { canonical: absoluteUrl(listPath(id, name)) },
       openGraph: {
         title: `${name}${by}`,
         description,
-        url: absoluteUrl(`/app/lists/${id}`),
+        url: absoluteUrl(listPath(id, name)),
         type: "website",
       },
       twitter: { card: "summary", title: `${name}${by}`, description },
@@ -60,7 +61,7 @@ export async function generateMetadata({ params }: PageProps) {
 
 export default async function ListPage({ params }: PageProps) {
   const { listId } = await params;
-  const id = Number(listId);
+  const id = Number(parseRouteId(listId));
   if (!Number.isInteger(id)) {
     notFound();
   }

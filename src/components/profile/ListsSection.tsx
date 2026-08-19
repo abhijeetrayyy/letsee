@@ -7,6 +7,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { swrFetcher } from "@/utils/swrFetcher";
 import LikeButton from "@components/reactions/LikeButton";
 import CreateListModal from "./CreateListModal";
+import { listPath } from "@/utils/urls";
 
 type List = {
   id: number;
@@ -129,7 +130,7 @@ export default function ListsSection({
             key={list.id}
             className="group flex flex-col rounded-xl border border-surface-700/60 bg-surface-900/40 hover:border-surface-500/60 transition-all duration-300 overflow-hidden"
           >
-            <Link href={`/app/lists/${list.id}`} className="flex flex-col flex-1">
+            <Link href={listPath(list.id, list.name)} className="flex flex-col flex-1">
               {/* Cover Image (if available) */}
               {list.cover_image ? (
                 <div className="aspect-[16/9] overflow-hidden">

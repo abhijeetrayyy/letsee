@@ -6,6 +6,7 @@ import { ListPlus, Loader2 } from "lucide-react";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import Avatar from "@components/ui/Avatar";
+import { listPath } from "@/utils/urls";
 
 type PublicList = {
   id: number;
@@ -74,7 +75,7 @@ export default function ListsPage() {
           {lists.map((list) => (
             <Link
               key={list.id}
-              href={`/app/lists/${list.id}`}
+              href={listPath(list.id, list.name)}
               className="group rounded-2xl border border-surface-800/70 bg-surface-900/40 p-4 hover:border-surface-600/60 hover:bg-surface-900/70 transition-colors"
             >
               <h2 className="font-semibold text-white group-hover:text-brand-400 transition-colors line-clamp-1">

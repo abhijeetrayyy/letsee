@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { siteUrl } from "@/utils/siteUrl";
-import { seasonPath, titlePath } from "@/utils/urls";
+import { listPath, seasonPath, titlePath } from "@/utils/urls";
 
 /**
  * Static routes plus every public profile and public list.
@@ -108,10 +108,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           .order("id")
           .range(from, to),
       ),
-      fetchAllRows<{ id: string; updated_at: string | null }>((from, to) =>
+      fetchAllRows<{ id: string; name: string | null; updated_at: string | null }>((from, to) =>
         supabase
           .from("user_lists")
-          .select("id, updated_at")
+          .select("id, name, updated_at")
           .eq("visibility", "public")
           .order("id")
           .range(from, to),
@@ -129,7 +129,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     for (const l of lists) {
       entries.push({
-        url: `${base}/app/lists/${l.id}`,
+        url: `${base}${listPath(l.id, l.name)}`,
         lastModified: l.updated_at ? new Date(l.updated_at as string) : now,
         changeFrequency: "weekly",
         priority: 0.6,

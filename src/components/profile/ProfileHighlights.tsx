@@ -2,7 +2,7 @@ import Link from "next/link";
 import { HiOutlineBookmark, HiOutlineStar } from "react-icons/hi2";
 
 type FeaturedList = { id: number; name: string };
-import { titlePath } from "@/utils/urls";
+import { listPath, titlePath } from "@/utils/urls";
 type PinnedReview = { item_id: string; item_type: string; item_name: string };
 
 export default function ProfileHighlights({
@@ -18,7 +18,7 @@ export default function ProfileHighlights({
     <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {featuredList && (
         <Link
-          href={`/app/lists/${featuredList.id}`}
+          href={listPath(featuredList.id, featuredList.name)}
           className="group flex items-center gap-4 p-4 sm:p-5 rounded-2xl border border-surface-700/60 bg-surface-900/40 hover:bg-surface-800/60 hover:border-amber-500/30 transition-all"
         >
           <span className="shrink-0 w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 group-hover:bg-amber-500/30 transition-colors">

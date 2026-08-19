@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { slugify, parseRouteId, titlePath, personPath, seasonPath, episodePath } from "@/utils/urls";
+import { episodePath, listPath, parseRouteId, personPath, seasonPath, slugify, titlePath } from "@/utils/urls";
 
 /**
  * The slug is the part of a URL a person reads before they click it, so it has
@@ -97,5 +97,29 @@ describe("path builders", () => {
       const path = titlePath("movie", 550, name);
       expect(parseRouteId(path.split("/").pop()!)).toBe("550");
     }
+  });
+});
+
+/**
+ * Lists were the last public page type whose URL never carried its own name —
+ * and a list's entire identity is the name someone gave it. They are published
+ * in the sitemap, so the nameless form was the one Google indexed.
+ */
+describe("listPath", () => {
+  it("carries the list name", () => {
+    expect(listPath(12, "Films that ruined me")).toBe("/app/lists/12-films-that-ruined-me");
+  });
+
+  it("falls back to the bare id when a list is unnamed", () => {
+    expect(listPath(12, "")).toBe("/app/lists/12");
+    expect(listPath(12, null)).toBe("/app/lists/12");
+  });
+
+  it("round-trips through parseRouteId, which is how the route reads it", () => {
+    // The route does Number(parseRouteId(listId)); a slug it cannot parse back
+    // to a bigint is a 404 on a page the sitemap advertises.
+    const segment = listPath(12, "Films that ruined me").split("/").pop()!;
+    expect(parseRouteId(segment)).toBe("12");
+    expect(Number(parseRouteId(segment))).toBe(12);
   });
 });
