@@ -1,6 +1,8 @@
 # Schema migrations
 
-One SQL file per task. Run only the migrations you need (e.g. if you already applied the full `schema.sql`, you may only need later numbered files).
+One SQL file per task, applied in numeric order.
+
+`000_baseline.sql` is the whole schema as it exists in production. A **fresh** database needs that file and nothing else. An **existing** database needs only the numbered migrations it is missing — never the baseline.
 
 **How to run:** Supabase Dashboard → SQL Editor → paste the contents of the file → Run.
 
@@ -24,4 +26,4 @@ One SQL file per task. Run only the migrations you need (e.g. if you already app
 | `020_remove_runtime_minutes.sql` | Drops `watched_items.runtime_minutes` and `watched_episodes.runtime_minutes`. Profile stats use Movies, TV, Episodes (count on fetch); no Hours. |
 | `055_drop_default_tv_status.sql` | Drops `users.default_tv_status` (added by 021, constraint tightened by 022). Nothing ever read it; the five-status control replaced the flow it was for. |
 
-**Source of truth:** `schema.sql` is the consolidated reference schema (tables + RLS). It is kept in sync with migrations so that future prompts and tooling have a single place to see the full picture. To sync your **live** Supabase DB with the repo, see [Pulling schema from Supabase](../docs/PULL_SCHEMA_FROM_SUPABASE.md).
+**Source of truth:** `000_baseline.sql`, regenerated from production with `npm run db:dump` after every applied migration. It replaced `schema.sql` and `schema_from_supabase.sql`, which had drifted 20+ and 29 tables behind respectively and could not build a working database between them.
