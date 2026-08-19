@@ -5,33 +5,31 @@ import TitleFacts, { type Fact } from "./TitleFacts";
 import KeywordChips from "./KeywordChips";
 
 /**
- * The column the hero never had.
+ * What this title is, in one band directly under the hero.
  *
- * Measured at 1440px, the hero was a 256px poster, a text column capped at
- * `max-w-2xl`, and then 392px of nothing — 28% of the page width, running the
- * full 760px height of the banner. The cap is not the bug: 1064px lines are
- * unreadable and the measure is right. The bug is that nothing was standing in
- * the space the cap leaves over.
+ * Genres, the production facts and the keywords — three things that were in
+ * three places, none of them good. The facts were a single-column <dl>
+ * stretched across 1336px: a 128px label, a value like "2h 16m", and roughly a
+ * thousand pixels of empty row after it, six rows deep. Keywords were the last
+ * card in a sidebar under the TMDB reviews, six thousand pixels down, which is
+ * no place for the finest-grained set of internal links on the page. Genres
+ * were three of TMDB's five in the line under the title, the other two fetched
+ * and dropped.
  *
- * So the facts move into it. They were previously a standalone "Details" band
- * directly below the hero, rendered as a single-column `<dl>` stretched across
- * 1336px — a 128px label, a value like "2h 16m", and roughly a thousand pixels
- * of empty row after it, six times over. Reading that list in the leftover
- * column instead costs the page no width at all, and puts the director and the
- * studio beside the title they belong to rather than below the fold.
+ * This was first built as a rail inside the hero, filling the 392px that the
+ * text column's `max-w-2xl` measure cap leaves empty at 1440px. That was wrong,
+ * and wrong in a way worth recording: a vitals column is as tall as TMDB is
+ * talkative, and that is always taller than a poster and four lines of
+ * synopsis. Measured at 1920px it ran 871px against a left column that ended at
+ * 705px, stretched the hero to match, and opened a 1304x488 void in the middle
+ * of the page — a far bigger hole than the one it was closing. A tall thin gap
+ * traded for a vast one is not a trade.
  *
- * Keywords come with them, from the very bottom of the page. They were the last
- * card in a sidebar under the TMDB reviews, six thousand pixels down — which is
- * no place for the finest-grained set of internal links on the page.
+ * Full width, its height is nobody else's problem, and the facts spend the
+ * page's width rather than the hero's — four columns where there is room.
  *
- * One panel, not three cards. Three bordered boxes stacked in a 304px column
- * read as a pile of boxes and spend 40px on chrome between them; one panel with
- * hairlines between its sections says the same thing in less.
- *
- * Below `xl` there is no leftover column to fill, so the rail stops being a
- * rail — it goes full width and the facts inside it reflow into two or three
- * columns. That is a layout change, not a second copy: one node, moved by CSS,
- * so nothing here is rendered twice into the HTML.
+ * One panel with hairlines, not three cards: three bordered boxes read as a
+ * pile and spend 40px of chrome on the gaps between them.
  */
 export default function TitleVitals({
   genres = [],
@@ -54,9 +52,8 @@ export default function TitleVitals({
          *
          * That cap is right where it is — three is the whole width of a
          * sentence that also carries the year, the runtime and the certificate
-         * — but it means TMDB's fourth and fifth genres were fetched and then
-         * dropped on the floor. Here there is room for all of them, and each
-         * one is a door.
+         * — but it means TMDB's fourth and fifth genres were dropped on the
+         * floor. Here there is room for all of them, and each one is a door.
          */
         <section className="p-4">
           <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
@@ -85,7 +82,7 @@ export default function TitleVitals({
           <h3 className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
             <Info className="size-3.5" /> Details
           </h3>
-          <TitleFacts facts={facts} variant="rail" />
+          <TitleFacts facts={facts} variant="grid" />
         </section>
       )}
 

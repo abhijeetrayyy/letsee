@@ -144,19 +144,7 @@ export default function MovieDetailClient({
         onClose={() => setShareModalOpen(false)}
       />
 
-      <TitleHero
-        backdropUrl={backdropUrl}
-        posterUrl={posterUrl}
-        title={movie.title}
-        aside={
-          <TitleVitals
-            genres={movie.genres ?? []}
-            facts={facts}
-            keywords={keywords}
-            mediaType="movie"
-          />
-        }
-      >
+      <TitleHero backdropUrl={backdropUrl} posterUrl={posterUrl} title={movie.title}>
         <TitleIdentity
           kind="movie"
           view={movieIdentity(movie, releaseDates)}
@@ -178,13 +166,18 @@ export default function MovieDetailClient({
       </TitleHero>
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
-        {/* Movement one used to be a standalone Details band here, on the
-            reasoning that those facts are what a reader reaches for first. That
-            reasoning was right and the placement was what argued against it:
-            "first" meant a full-width scroll past the hero, and the band spent
-            1336px printing a single column of short values. The facts now sit
-            in the hero itself, beside the poster, which is earlier than a band
-            below it could ever be. See TitleVitals. */}
+        {/* Movement one: what this is.
+            First, because this is when a reader is forming their assumption —
+            what kind of film it is, who directed it, what it cost and what it
+            made. The band replaces a Details card that printed one column of
+            short values across the full page width, and it carries the genres
+            and keywords that were scattered elsewhere. */}
+        <TitleVitals
+          genres={movie.genres ?? []}
+          facts={facts}
+          keywords={keywords}
+          mediaType="movie"
+        />
 
         {/* Movement two: the film itself. Both of these render their own
             Section and return null when they have nothing, so a standalone

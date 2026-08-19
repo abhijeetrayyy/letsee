@@ -161,19 +161,7 @@ export default function TvDetailClient({
         onClose={() => setShareModalOpen(false)}
       />
 
-      <TitleHero
-        backdropUrl={backdropUrl}
-        posterUrl={posterUrl}
-        title={show.name}
-        aside={
-          <TitleVitals
-            genres={show.genres ?? []}
-            facts={facts}
-            keywords={keywords}
-            mediaType="tv"
-          />
-        }
-      >
+      <TitleHero backdropUrl={backdropUrl} posterUrl={posterUrl} title={show.name}>
         <TitleIdentity
           kind="tv"
           view={tvIdentity(show, contentRatings)}
@@ -221,11 +209,16 @@ export default function TvDetailClient({
           </div>
         </div>
 
-        {/* The facts stood here, straight after your progress, on the
-            reasoning that this is the moment a reader forms an assumption —
-            who made it, which network, how long a season runs. Same reasoning,
-            better address: they are in the hero rail now, level with the
-            poster, which is earlier still and costs the page no width. */}
+        {/* The facts, straight after your progress. This is the moment a
+            reader forms an assumption — who made it, which network, how long a
+            season runs — and the band now carries the genres and keywords with
+            them instead of leaving those at the bottom of the page. */}
+        <TitleVitals
+          genres={show.genres ?? []}
+          facts={facts}
+          keywords={keywords}
+          mediaType="tv"
+        />
 
         <Section title="Episodes">
           <SeasonBrowser showId={show.id} seasons={seasons} isAuthenticated={isAuthenticated} />

@@ -83,14 +83,11 @@ export function TitleHero({
   posterUrl,
   title,
   children,
-  aside,
 }: {
   backdropUrl: string | null;
   posterUrl: string;
   title: string;
   children: React.ReactNode;
-  /** The vitals rail. Sits in the leftover column on `xl`, wraps below it. */
-  aside?: React.ReactNode;
 }) {
   return (
     <div className="relative overflow-hidden">
@@ -116,36 +113,27 @@ export function TitleHero({
         </Link>
 
         {/*
-          Three columns on `xl`, two rows below it, and `flex-wrap` is what
-          switches between them — no breakpoint duplicated in JS, no second copy
-          of the rail in the HTML.
+          Two columns, and a third was tried here and reverted.
 
-          The mechanism is the aside's own width. It is `w-full` by default, so
-          its flex basis is the whole row and it cannot share one: it wraps
-          underneath the poster and the text. At `xl` that becomes a fixed
-          19rem, the three basises fit, and it settles into the column the
-          text's `max-w-2xl` measure cap leaves empty.
+          The reasoning for it was sound — the text stops at `max-w-2xl` and
+          left 392px of the hero empty at 1440px — but the fix was worse than
+          the fault. A vitals column's height is set by how much TMDB knows
+          about the title, and that is always more than a poster and four lines
+          of synopsis: measured at 1920px the rail ran 871px against a left
+          column that ended at 705px, so it stretched the hero and opened a
+          1304x488 hole in the middle of the page. Trading a tall thin gap for
+          a vast one is not a trade.
 
-          `md:basis-[26rem]` on the text is what stops the middle column
-          collapsing toward zero while the poster and rail hold their widths.
+          The vitals are a full-width band below instead, where their height is
+          nobody else's problem and their width is the whole page. See
+          TitleVitals.
         */}
-        <div className="flex flex-col gap-8 md:flex-row md:flex-wrap md:gap-12 xl:gap-10">
+        <div className="flex flex-col md:flex-row gap-8 md:gap-12">
           <div className="shrink-0 w-52 sm:w-60 lg:w-64 mx-auto md:mx-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={posterUrl} alt={title} className="w-full rounded-2xl shadow-2xl" />
           </div>
-          <div className="min-w-0 flex-1 md:basis-[26rem]">{children}</div>
-          {/*
-            `empty:hidden` because `aside` is a React element even when the
-            component inside it renders nothing — a title with no genres, no
-            facts and no keywords would otherwise get a 304px column of air on
-            `xl`, and a full-width row of it plus a 32px flex gap below that.
-            `:empty` matches the wrapper only when that component returned null,
-            and `display:none` takes the gap with it.
-          */}
-          {aside && (
-            <div className="w-full min-w-0 empty:hidden xl:w-[19rem] xl:shrink-0">{aside}</div>
-          )}
+          <div className="flex-1 min-w-0">{children}</div>
         </div>
       </div>
     </div>

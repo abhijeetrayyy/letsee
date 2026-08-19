@@ -445,7 +445,7 @@ export default function TitleFacts({
 }: {
   facts: Fact[];
   title?: string;
-  variant?: "card" | "hero" | "rail";
+  variant?: "card" | "hero" | "grid";
   className?: string;
 }) {
   if (facts.length === 0) return null;
@@ -459,14 +459,20 @@ export default function TitleFacts({
   );
 
   /**
-   * Bare, stacked, and reflowing by width. The rail is 304px on `xl` and the
-   * full page below it, so the same list has to read as a column in one place
-   * and a table in the other — which is three grid classes, not two renders.
+   * Bare and stacked, across as many columns as the page is wide.
+   *
+   * This is the shape that fixes the original complaint. The facts used to be
+   * one column of short values stretched across 1336px — a 128px label, "2h
+   * 16m", and a thousand pixels of nothing after it, six rows deep. Four
+   * columns of 330px is the same list with the width actually spent.
+   *
+   * Stacked rather than label-beside-value, because at 330px an 8rem label
+   * eats a quarter of the cell and wraps the studios into a paragraph.
    */
-  if (variant === "rail") {
+  if (variant === "grid") {
     return (
       <dl
-        className={`grid grid-cols-1 gap-x-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 [&>div]:border-b [&>div]:border-surface-800/40 ${className}`}
+        className={`grid grid-cols-1 gap-x-8 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 [&>div]:border-b [&>div]:border-surface-800/40 ${className}`}
       >
         {facts.map((fact) => (
           <FactRow key={fact.key} fact={fact} stacked />
