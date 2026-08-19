@@ -7,6 +7,7 @@ import { FaTwitter, FaWhatsapp } from "react-icons/fa6";
 import { IoIosCopy } from "react-icons/io";
 import Link from "next/link";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { siteUrl } from "@/utils/siteUrl";
 
 const CONTENT_MAX_LENGTH = 2000;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -16,9 +17,12 @@ const COPY_FEEDBACK_MS = 2000;
 function getBaseUrl(): string {
   try {
     if (typeof window !== "undefined" && window?.location?.origin) return window.location.origin;
-    return process.env.NEXT_PUBLIC_APP_URL ?? "https://letsee-dusky.vercel.app";
+    // The production hostname used to be written out twice here as the fallback
+    // for an env var the README never mentioned. One source now, shared with
+    // robots, sitemap and every canonical/OG tag.
+    return siteUrl();
   } catch {
-    return "https://letsee-dusky.vercel.app";
+    return siteUrl();
   }
 }
 
