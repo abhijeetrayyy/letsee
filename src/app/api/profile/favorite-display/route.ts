@@ -20,8 +20,7 @@ export async function GET(request: NextRequest) {
     return jsonError("Missing userId", 400);
   }
 
-  const { data: viewer } = await supabase.auth.getUser();
-  const viewerId = viewer?.user?.id ?? null;
+  const viewerId = await getAuthUserId();
 
   if (viewerId !== userId) {
     const { data: profile, error: profileError } = await supabase
@@ -66,14 +65,19 @@ export async function GET(request: NextRequest) {
     item_name: r.item_name,
   }));
 
-  return jsonSuccess({ items }, { maxAge: 60 });
+  // Private, never shared — same reason as /api/profile/ai-summary. The
+  // visibility gate above reads the viewer's session; the cache key is only
+  // `?userId=`, the subject. Sixty seconds is still long enough for one
+  // authorised follower to publish a private profile's four chosen titles to
+  // everyone who asks for the same URL.
+  return jsonSuccess({ items }, { maxAge: 0 });
 }
 
 /** PUT /api/profile/favorite-display — body: { items: { item_id, item_type, image_url?, item_name }[] } (up to 4). Owner only. */
 export async function PUT(request: NextRequest) {
   const supabase = await createClient();
-  const { data: user, error: authError } = await supabase.auth.getUser();
-  if (authError || !user?.user) {
+  const userId = await getAuthUserId();
+  if (!userId) {
     return jsonError("Not logged in", 401);
   }
 
@@ -96,7 +100,6 @@ export async function PUT(request: NextRequest) {
     }
   }
 
-  const userId = user.user.id;
 
   const { error: deleteError } = await supabase
     .from("user_favorite_display")

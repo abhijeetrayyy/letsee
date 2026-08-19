@@ -88,5 +88,12 @@ export async function GET(req: NextRequest) {
   const results = perShowResults.filter((r): r is UpcomingEpisode => r !== null);
   results.sort((a, b) => a.air_date.localeCompare(b.air_date));
 
-  return jsonSuccess({ episodes: results }, { maxAge: 300 });
+  // Private, never shared. This response is built entirely from `userId` —
+  // the caller's in-progress shows and their per-episode watched flags — and
+  // the request carries no discriminator at all, so a shared cache would key
+  // every user's answer under the bare path `/api/upcoming-episodes` and hand
+  // the first caller's viewing history to everyone else for the next five
+  // minutes. `maxAge: 0` is what jsonSuccess defaults to and what its comment
+  // asks for; the 300 that used to sit here was a straight violation of it.
+  return jsonSuccess({ episodes: results }, { maxAge: 0 });
 }

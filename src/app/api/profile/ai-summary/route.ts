@@ -58,5 +58,16 @@ export async function GET(req: NextRequest) {
 
   const insight = buildTasteInsight(profile.username, tasteProfile, totalWatched, avgRating);
 
-  return jsonSuccess(insight, { maxAge: 3600 });
+  // Private, never shared. The 403 above is decided by the *viewer* — whether
+  // they own the profile, or follow it when visibility is 'followers' — but the
+  // only thing in the URL is `userId`, the subject. A shared cache therefore
+  // keys one authorised follower's answer under a URL that an anonymous
+  // visitor can request verbatim, and the 403 branch never runs again because
+  // the function is never invoked. Caching this made the privacy setting work
+  // exactly once, which is worse than not working at all.
+  //
+  // If the recomputation ever costs enough to matter, cache the *computation*
+  // server-side with unstable_cache keyed on profileId — as /api/calendar
+  // does — and leave the HTTP response private.
+  return jsonSuccess(insight, { maxAge: 0 });
 }

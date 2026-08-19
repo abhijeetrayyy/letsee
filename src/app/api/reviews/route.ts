@@ -112,6 +112,14 @@ export async function GET(request: NextRequest) {
       page,
       limit,
     },
-    { maxAge: 60 }
+    // Private, for the same reason the RPC path above is. This query reads
+    // watched_items under the caller's own RLS, so the row set it returns
+    // depends on who is asking — a follower of a followers-only profile sees
+    // reviews an anonymous visitor does not. Nothing in the URL says which,
+    // so a shared cache would hand the follower's wider answer to everyone.
+    // Migration 073 sharpens this: once watched_items_select_public_reviews is
+    // gone, `watched_items_select_profile_visible` is the only gate left, and
+    // it is viewer-dependent by definition.
+    { maxAge: 0 }
   );
 }
