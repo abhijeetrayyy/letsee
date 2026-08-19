@@ -60,7 +60,29 @@ export async function GET(request: Request) {
 
   const { data: items, error, count } = await supabase
     .from("watched_items")
-    .select("*", { count: "exact" })
+    /**
+     * Named columns, and `review_text` is deliberately not among them.
+     *
+     * This was `select("*")`, on an endpoint whose entire job is *public*
+     * reviews — so every response shipped the private diary to the browser
+     * alongside them, for any profile the viewer was allowed to see. The UI
+     * never wanted it: ReviewsSection reads exactly the eight fields below.
+     *
+     * Migration 076 revoked SELECT on that column, which turns the old star
+     * select into a 42501 and takes the whole section down with it. Naming the
+     * columns fixes both the outage and the leak that preceded it.
+     *
+     * No `score` either, and not by omission: `watched_items` has no such
+     * column. ReviewsSection's row type declares one and reads `item.score`,
+     * so that field has been `undefined` on every review ever rendered —
+     * `select("*")` never returned it either. Naming the columns is what made
+     * that visible. Left alone here; wiring a real rating in means joining
+     * user_ratings, which changes what this endpoint means.
+     */
+    .select(
+      "id, item_id, item_type, item_name, image_url, watched_at, public_review_text",
+      { count: "exact" },
+    )
     .eq("user_id", userId)
     .not("public_review_text", "is", null)
     // A unique tiebreaker makes the sort total. Without it, rows sharing a
