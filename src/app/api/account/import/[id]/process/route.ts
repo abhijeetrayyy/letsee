@@ -119,30 +119,50 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
     }
   }
 
-  await applyRows(supabase, userId, applicable);
+  const { errors: applyErrors } = await applyRows(supabase, userId, applicable);
+  const applyFailed = applyErrors.length > 0;
 
-  // Mark what happened. Applied rows carry the match so the summary can show
-  // what a title actually became.
+  /**
+   * A row is only `applied` if its write actually landed.
+   *
+   * This used to mark every resolved row applied unconditionally, because
+   * applyRows swallowed its errors and had nothing to report. A single
+   * rejected statement — two CSV lines resolving to one TMDB id was enough —
+   * left a whole chunk of films with no status and no watched_items row, all
+   * stamped `applied`, all counted in the progress bar, and unreachable by a
+   * re-run because the importer skips anything already applied.
+   *
+   * Leaving them `pending` is the repair: this route selects on
+   * `status = 'pending'`, so the next attempt picks up exactly the rows that
+   * did not make it. Every write is an upsert or DO NOTHING, so retrying rows
+   * that partially succeeded is a no-op rather than a duplicate.
+   */
   await Promise.all([
-    ...applicable.map((r) =>
-      supabase
-        .from("import_rows")
-        .update({
-          status: "applied",
-          tmdb_id: r.tmdbId,
-          tmdb_type: r.tmdbType,
-          matched_title: r.matchedTitle,
-        })
-        .eq("id", r.id),
-    ),
+    ...(applyFailed
+      ? []
+      : applicable.map((r) =>
+          supabase
+            .from("import_rows")
+            .update({
+              status: "applied",
+              tmdb_id: r.tmdbId,
+              tmdb_type: r.tmdbType,
+              matched_title: r.matchedTitle,
+            })
+            .eq("id", r.id),
+        )),
     unresolvedIds.length
       ? supabase.from("import_rows").update({ status: "unresolved" }).in("id", unresolvedIds)
       : null,
   ]);
 
-  const processed = job.processed_rows + pending.length;
-  const resolved = job.resolved_rows + applicable.length;
-  const done = processed >= job.total_rows;
+  // Counters advance only over rows that were actually settled. Counting a
+  // failed chunk as processed would let `done` arrive with rows still pending,
+  // and the job would report itself completed having skipped them.
+  const settled = applyFailed ? unresolvedIds.length : pending.length;
+  const processed = job.processed_rows + settled;
+  const resolved = job.resolved_rows + (applyFailed ? 0 : applicable.length);
+  const done = !applyFailed && processed >= job.total_rows;
 
   await supabase
     .from("import_jobs")
@@ -159,6 +179,19 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
     if (done) await supabase.rpc("recount_user_stats", { p_user_id: userId });
   } catch {
     // Non-critical; stats are eventually consistent.
+  }
+
+  /**
+   * Stop the client's loop rather than spinning on rows that cannot advance.
+   *
+   * ImportFlow drives /process in a `for (;;)` until `done`, and bails on a
+   * non-ok response — so surfacing the failure here ends the run with a real
+   * message instead of hammering a chunk that will keep failing. The job row
+   * above has already been updated, so nothing is lost: reopening the import
+   * resumes from the rows still marked pending.
+   */
+  if (applyFailed) {
+    return jsonError(`The import could not save part of this batch. ${applyErrors[0]}`, 500);
   }
 
   return jsonSuccess({
