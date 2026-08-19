@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { notifyNewEpisodes } from "@/utils/jobs/newEpisodeNotifier";
 import { jsonError } from "@/utils/apiResponse";
+import { guardCron } from "@/utils/cronAuth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -19,12 +20,10 @@ export const maxDuration = 60;
  * anyone who guesses the path.
  */
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  const expectedToken = process.env.CRON_SECRET;
-
-  if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
-    return jsonError("Unauthorized", 401);
-  }
+  // Fail closed. This used to skip the check entirely when CRON_SECRET was
+  // unset, which left a service-role endpoint open to anyone with the URL.
+  const denied = guardCron(request);
+  if (denied) return denied;
 
   try {
     const result = await notifyNewEpisodes();

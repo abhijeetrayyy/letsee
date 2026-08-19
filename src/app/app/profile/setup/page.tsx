@@ -38,6 +38,22 @@ function validateUsername(sanitized: string): { valid: boolean; error: string } 
 export default function SettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+
+  /**
+   * Account deletion, which the button above used to announce was unimplemented
+   * while a complete endpoint sat unreachable behind it — password re-auth, a
+   * 30-day grace period, a reactivation route and a middleware branch, all
+   * finished, all with no caller.
+   *
+   * The password is required by /api/account/delete rather than invented here:
+   * it re-authenticates server-side, so a borrowed unlocked laptop cannot
+   * schedule someone's account for deletion. That is also why this is an inline
+   * form and not a `confirm()` — a native dialog cannot collect one.
+   */
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
@@ -290,6 +306,36 @@ export default function SettingsPage() {
       toast.error((err as Error).message ?? "Something went wrong.", { id: toastId });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const confirmDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!deletePassword || deleting) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: deletePassword }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // The route distinguishes a wrong password (401) from everything else,
+        // and saying so is the difference between "try again" and "give up".
+        setDeleteError(payload?.error || "Couldn't delete your account.");
+        return;
+      }
+      // The route already signed the session out server-side. Clear the local
+      // one too, or the client keeps a token the middleware will now bounce.
+      await supabase.auth.signOut().catch(() => {});
+      toast.success(payload?.message || "Account scheduled for deletion.");
+      router.replace("/login?status=account-deleted");
+    } catch {
+      setDeleteError("Couldn't reach the server. Try again.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -640,19 +686,68 @@ export default function SettingsPage() {
             <section className="rounded-xl border border-red-500/30 bg-red-500/10 p-5 sm:p-6">
               <h2 className="text-lg font-semibold text-red-400 mb-4">Danger Zone</h2>
               <p className="text-sm text-surface-400 mb-4">
-                Once you delete your account, there is no going back. Please be certain.
+                Deleting deactivates your account immediately and erases it permanently
+                after 30 days. You can cancel by signing back in before then.
               </p>
-              <button
-                className="rounded-lg bg-red-600 px-4 py-2 text-white font-medium hover:bg-red-500 transition-colors"
-                onClick={() => {
-                  if (confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
-                    // TODO: Implement account deletion
-                    toast.error("Account deletion is not yet implemented.");
-                  }
-                }}
-              >
-                Delete account
-              </button>
+              {!deleteOpen ? (
+                <button
+                  className="rounded-lg bg-red-600 px-4 py-2 text-white font-medium hover:bg-red-500 transition-colors"
+                  onClick={() => {
+                    setDeleteOpen(true);
+                    setDeleteError("");
+                    setDeletePassword("");
+                  }}
+                >
+                  Delete account
+                </button>
+              ) : (
+                <form
+                  onSubmit={confirmDelete}
+                  className="space-y-3 rounded-lg border border-red-500/30 bg-surface-950/60 p-4"
+                >
+                  <p className="text-sm text-surface-300">
+                    Your account will be deactivated now and{" "}
+                    <strong className="text-white">permanently deleted after 30 days</strong>.
+                    Signing back in during that window cancels it. After that, your
+                    diary, ratings, reviews, lists and messages are gone for good.
+                  </p>
+                  <label className="block text-sm text-surface-300" htmlFor="delete-password">
+                    Enter your password to confirm
+                  </label>
+                  <input
+                    id="delete-password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    disabled={deleting}
+                    className="w-full rounded-lg border border-surface-700 bg-surface-900 px-3 py-2 text-white min-h-[44px] placeholder:text-surface-500"
+                    placeholder="Your password"
+                  />
+                  {deleteError ? (
+                    <p role="alert" className="text-sm text-red-400">
+                      {deleteError}
+                    </p>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="submit"
+                      disabled={deleting || !deletePassword}
+                      className="rounded-lg bg-red-600 px-4 py-2 text-white font-medium min-h-[44px] hover:bg-red-500 disabled:opacity-50 transition-colors"
+                    >
+                      {deleting ? "Scheduling…" : "Delete my account"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteOpen(false)}
+                      disabled={deleting}
+                      className="rounded-lg border border-surface-700 px-4 py-2 text-surface-200 min-h-[44px] hover:bg-surface-800 disabled:opacity-50 transition-colors"
+                    >
+                      Keep my account
+                    </button>
+                  </div>
+                </form>
+              )}
             </section>
           </div>
         )}
