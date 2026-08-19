@@ -33,8 +33,6 @@ export default function robots(): MetadataRoute.Robots {
           "/app/profile/setup",
           "/app/import",
           "/app/quick-add",
-          "/app/admin",
-          "/app/genre-start",
         ],
       },
     ],
