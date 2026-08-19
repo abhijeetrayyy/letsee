@@ -124,7 +124,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         ...(imageUrl ? { image_url: imageUrl } : {}),
         genres,
         status: "watching",
-        ...(Number.isFinite(runtime) && runtime > 0 ? { runtime_minutes: Math.round(runtime) } : {}),
+        // `runtime_minutes` was dropped from user_media_status by 054. Writing it
+        // made every commit-to-a-film-with-a-known-runtime fail on PGRST204 and
+        // return "Failed to save that" — so the one action Tonight exists to
+        // close, actually starting the thing you picked, wrote no status at all.
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id,item_id,item_type" },

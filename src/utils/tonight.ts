@@ -250,12 +250,21 @@ async function watchlistPool(
   const userIds = participants.map((p) => p.userId);
   const { data, error } = await supabase
     .from("user_media_status")
-    .select("user_id, item_id, item_type, item_name, image_url, genres, item_adult, runtime_minutes")
+    // No `runtime_minutes`. 053 added the column, 054 dropped it again, and this
+    // select kept naming it — so PostgREST answered 42703 and the error branch
+    // below turned the whole pool into an empty array. The strongest signal
+    // Tonight has, titles the room actually put on their watchlists, has
+    // therefore contributed nothing since 054. It was never even read: runtime
+    // is fetched per candidate from TMDB during hydration, and PoolEntry has no
+    // field for it.
+    .select("user_id, item_id, item_type, item_name, image_url, genres, item_adult")
     .in("user_id", userIds)
     .eq("status", "watchlist");
 
   if (error) {
-    console.error("tonight watchlistPool:", error);
+    // Loud, because `[]` here is indistinguishable from "nobody has a watchlist"
+    // and that is exactly how this stayed broken through several releases.
+    console.error("tonight watchlistPool FAILED — falling back to discover only:", error);
     return [];
   }
 
@@ -381,10 +390,19 @@ async function socialProofCounts(
   const counts = new Map<string, number>();
   if (itemIds.length === 0) return counts;
 
-  const { data: connections } = await supabase
+  const { data: connections, error: connectionsError } = await supabase
     .from("user_connections")
     .select("followed_id")
     .in("follower_id", participants.map((p) => p.userId));
+
+  // A failed read is not "this room follows nobody", but it silently became
+  // that — the social signal just vanished from the scoring and Tonight
+  // answered as though nobody in the room knew anybody. Non-fatal, so the
+  // ranking still degrades gracefully, but it should not do so in silence.
+  if (connectionsError) {
+    console.error("tonight friendsWatched: connections read failed, social signal dropped:", connectionsError);
+    return counts;
+  }
 
   const followedIds = [...new Set((connections ?? []).map((c) => c.followed_id as string))];
   if (followedIds.length === 0) return counts;

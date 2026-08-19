@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useContext, useMemo, useState } from "react";
 import useSWR from "swr";
 import { swrFetcher } from "@/utils/swrFetcher";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
+import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 
 /**
  * Where you are in a series, as one object.
@@ -43,6 +45,17 @@ export default function ProgressRibbon({
     isAuthenticated ? `/api/watched-episodes?showId=${showId}` : null,
     swrFetcher,
   );
+
+  /**
+   * /api/watched-episode does not only write an episode: it calls
+   * ensureShowInMediaStatus and autoTransitionStatus, so a tick can move the
+   * whole show from `watchlist` to `watching`, or to `watched` on the last one.
+   * Revalidating only the episode list left the StatusControl in the hero —
+   * fed by these two providers — still showing the previous status until a
+   * reload. EpisodeManagementModal already refreshes both; this matches it.
+   */
+  const { refreshPreferences } = useContext(UserPrefrenceContext);
+  const { refresh: refreshInteractions } = useMediaInteraction();
 
   /** Optimistic overlay, so a tap fills instantly rather than after a round trip. */
   const [pending, setPending] = useState<Record<string, boolean>>({});
@@ -101,7 +114,11 @@ export default function ProgressRibbon({
          */
         if (!res.ok) throw new Error(String(res.status));
         setFailed(null);
-        await mutate();
+        await Promise.all([
+          mutate(),
+          refreshPreferences(),
+          refreshInteractions(),
+        ]).catch(() => {});
       } catch {
         // Snap back rather than leave a cell claiming a state the server
         // never accepted, and say so — a cell that silently un-fills reads as
@@ -115,7 +132,7 @@ export default function ProgressRibbon({
         });
       }
     },
-    [isAuthenticated, isWatched, mutate, showId],
+    [isAuthenticated, isWatched, mutate, showId, refreshPreferences, refreshInteractions],
   );
 
   if (rows.length === 0) return null;

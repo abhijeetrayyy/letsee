@@ -15,13 +15,33 @@ export async function ensureShowInMediaStatus(
   userId: string,
   showId: string,
 ) {
-  const { data: existing } = await supabase
+  const { data: existing, error: readError } = await supabase
     .from("user_media_status")
     .select("status")
     .eq("user_id", userId)
     .eq("item_id", showId)
     .eq("item_type", "tv")
     .maybeSingle();
+
+  /**
+   * A failed read is not an empty result, and here the difference is destructive.
+   *
+   * `maybeSingle()` returns `data: null` both when there is no row and when the
+   * query errored — an RLS hiccup, a pooler timeout, a dropped connection. The
+   * code below treats null as "this show is not tracked yet" and upserts
+   * `status: "watching"` with ON CONFLICT DO UPDATE, which rewrites whatever
+   * was actually there. So a user who had finished a series and ticked one more
+   * episode during a moment of database flakiness had their show quietly
+   * demoted from `watched` back to `watching`: real state loss, no log, no
+   * toast, no way to tell it happened.
+   *
+   * Bail instead. The episode row is already written by the caller; the status
+   * re-derives on the next tick.
+   */
+  if (readError) {
+    console.error("ensureShowInMediaStatus: status read failed, not writing:", readError);
+    return;
+  }
 
   if (existing) return;
   if (!TMDB_API_KEY) return;
@@ -186,7 +206,7 @@ export async function syncWatchedItem(
   watched: boolean,
   meta: { name: string | null; poster: string | null; genres: string[] },
 ) {
-  const { data: existing } = await supabase
+  const { data: existing, error: readError } = await supabase
     .from("watched_items")
     .select("id, is_watched")
     .eq("user_id", userId)
@@ -195,6 +215,14 @@ export async function syncWatchedItem(
     // find the film that shares the id and demote that instead.
     .eq("item_type", "tv")
     .maybeSingle();
+
+  // Same reasoning as ensureShowInMediaStatus: both branches below decide what
+  // to write from this row, and a failed read is indistinguishable from "no
+  // row". Doing nothing is the only safe answer to a question that errored.
+  if (readError) {
+    console.error("syncWatchedItem: read failed, not writing:", readError);
+    return;
+  }
 
   if (!watched) {
     // Only ever demote a row we already have; never create one just to say no.

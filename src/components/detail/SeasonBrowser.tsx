@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { Check, ChevronRight, Star } from "lucide-react";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { formatLongDate, parseTmdbDate, toIso, type ParsedDate } from "@/utils/person/dates";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
+import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 
 /**
  * A season as a place you go, not a filter you apply.
@@ -112,6 +114,9 @@ export default function SeasonBrowser({
     swrFetcher,
   );
 
+  const { refreshPreferences } = useContext(UserPrefrenceContext);
+  const { refresh: refreshInteractions } = useMediaInteraction();
+
   const [picked, setPicked] = useState<number | null>(null);
   const [pending, setPending] = useState<Record<string, boolean>>({});
   const [visible, setVisible] = useState(INITIAL_EPISODES);
@@ -216,7 +221,7 @@ export default function SeasonBrowser({
       try {
         // Same contract ProgressRibbon uses: POST toggles, the route deletes an
         // existing row and re-derives the show's status either way.
-        await fetch("/api/watched-episode", {
+        const res = await fetch("/api/watched-episode", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -225,7 +230,18 @@ export default function SeasonBrowser({
             episodeNumber: episode,
           }),
         });
-        await mutate();
+        // ProgressRibbon carries a comment explaining exactly why this line has
+        // to exist — `fetch` only rejects on a network failure, so a 400 or 500
+        // counted as success and the cell reverted on the next revalidate,
+        // which reads as a tap that never registered. Its twin never got it.
+        if (!res.ok) throw new Error(String(res.status));
+        // And the status the route just re-derived lives in the providers, not
+        // in this SWR key — see ProgressRibbon for the same pairing.
+        await Promise.all([
+          mutate(),
+          refreshPreferences(),
+          refreshInteractions(),
+        ]).catch(() => {});
       } catch {
         setPending((p) => ({ ...p, [k]: !next }));
       } finally {
@@ -235,7 +251,7 @@ export default function SeasonBrowser({
         });
       }
     },
-    [isAuthenticated, isWatched, mutate, showId],
+    [isAuthenticated, isWatched, mutate, showId, refreshPreferences, refreshInteractions],
   );
 
   if (ordered.length === 0) return null;
