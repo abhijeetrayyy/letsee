@@ -18,8 +18,8 @@ import CrewBlock, { groupCrew, keyCrew } from "@components/detail/CrewBlock";
 import VideoShelf from "@components/detail/VideoShelf";
 import MediaGallery from "@components/detail/MediaGallery";
 import TmdbReviews, { prepareReviews } from "@components/detail/TmdbReviews";
-import TitleFacts, { movieFacts } from "@components/detail/TitleFacts";
-import KeywordChips from "@components/detail/KeywordChips";
+import { movieFacts } from "@components/detail/TitleFacts";
+import TitleVitals from "@components/detail/TitleVitals";
 import ShareModal from "@components/social/ShareModal";
 import { useMounted } from "@/hooks/useMounted";
 
@@ -144,7 +144,19 @@ export default function MovieDetailClient({
         onClose={() => setShareModalOpen(false)}
       />
 
-      <TitleHero backdropUrl={backdropUrl} posterUrl={posterUrl} title={movie.title}>
+      <TitleHero
+        backdropUrl={backdropUrl}
+        posterUrl={posterUrl}
+        title={movie.title}
+        aside={
+          <TitleVitals
+            genres={movie.genres ?? []}
+            facts={facts}
+            keywords={keywords}
+            mediaType="movie"
+          />
+        }
+      >
         <TitleIdentity
           kind="movie"
           view={movieIdentity(movie, releaseDates)}
@@ -166,12 +178,13 @@ export default function MovieDetailClient({
       </TitleHero>
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
-        {/* Movement one: what this is.
-            Details sits directly under the hero because that is when a reader
-            is forming their assumption — who directed it, who wrote it, what it
-            cost and what it made. Those are the facts people reach for first,
-            and they were at the very bottom of the page behind everything else. */}
-        <TitleFacts facts={facts} variant="card" />
+        {/* Movement one used to be a standalone Details band here, on the
+            reasoning that those facts are what a reader reaches for first. That
+            reasoning was right and the placement was what argued against it:
+            "first" meant a full-width scroll past the hero, and the band spent
+            1336px printing a single column of short values. The facts now sit
+            in the hero itself, beside the poster, which is earlier than a band
+            below it could ever be. See TitleVitals. */}
 
         {/* Movement two: the film itself. Both of these render their own
             Section and return null when they have nothing, so a standalone
@@ -236,9 +249,11 @@ export default function MovieDetailClient({
             {hasReviews && <TmdbReviews reviews={reviews} max={REVIEW_MAX} />}
           </div>
 
+          {/* Keywords used to be the second card here. Six thousand pixels
+              down a page is not where you put your finest-grained set of
+              internal links — they moved up into the hero rail. */}
           <div className="space-y-6">
             <TheRoom itemId={movie.id} itemType="movie" />
-            <KeywordChips keywords={keywords} mediaType="movie" />
           </div>
         </div>
 

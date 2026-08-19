@@ -383,7 +383,7 @@ export function tvFacts(
   ]);
 }
 
-function FactRow({ fact }: { fact: Fact }) {
+function FactRow({ fact, stacked = false }: { fact: Fact; stacked?: boolean }) {
   const links = fact.links ?? [];
   // Built from the same array being rendered, so the lookup is total; the
   // fallback exists because `EntityLinks` promises its callback only an id and
@@ -391,9 +391,18 @@ function FactRow({ fact }: { fact: Fact }) {
   const hrefs = new Map(links.map((l) => [l.id, l.href]));
 
   return (
-    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-4 py-2 sm:grid-cols-[8rem_minmax(0,1fr)]">
-      <dt className="pt-0.5 text-[10px] uppercase tracking-wider text-surface-500">{fact.label}</dt>
-      <dd className="min-w-0 text-sm text-surface-300">
+    /**
+     * Two shapes, because the row is asked to live at two widths.
+     *
+     * Side-by-side is right on a wide card, where an 8rem label column lines
+     * every value up on one edge. It is wrong in the 304px hero rail: the label
+     * takes 128px of it and leaves 142px for the value, which turned The
+     * Matrix's three production companies into a four-line paragraph. Stacked,
+     * the same value gets the full width and takes two.
+     */
+    <div className={stacked ? "py-2" : "grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-4 py-2 sm:grid-cols-[8rem_minmax(0,1fr)]"}>
+      <dt className={`text-[10px] uppercase tracking-wider text-surface-500 ${stacked ? "" : "pt-0.5"}`}>{fact.label}</dt>
+      <dd className={`min-w-0 text-sm text-surface-300 ${stacked ? "mt-0.5" : ""}`}>
         {links.length > 0 ? (
           // Three, not four. Anime series routinely list every regional
           // broadcaster that carried them — *Frieren* returns 29 networks, and
@@ -436,7 +445,7 @@ export default function TitleFacts({
 }: {
   facts: Fact[];
   title?: string;
-  variant?: "card" | "hero";
+  variant?: "card" | "hero" | "rail";
   className?: string;
 }) {
   if (facts.length === 0) return null;
@@ -448,6 +457,23 @@ export default function TitleFacts({
       ))}
     </dl>
   );
+
+  /**
+   * Bare, stacked, and reflowing by width. The rail is 304px on `xl` and the
+   * full page below it, so the same list has to read as a column in one place
+   * and a table in the other — which is three grid classes, not two renders.
+   */
+  if (variant === "rail") {
+    return (
+      <dl
+        className={`grid grid-cols-1 gap-x-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 [&>div]:border-b [&>div]:border-surface-800/40 ${className}`}
+      >
+        {facts.map((fact) => (
+          <FactRow key={fact.key} fact={fact} stacked />
+        ))}
+      </dl>
+    );
+  }
 
   if (variant === "hero") {
     // Capped rather than full-bleed: a two-word value on a 1400px row leaves the

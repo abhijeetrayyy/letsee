@@ -22,15 +22,18 @@ export default function KeywordChips({
   keywords = [],
   mediaType,
   limit = 15,
+  /** Drop the card chrome — the hero rail supplies one panel for all three blocks. */
+  bare = false,
 }: {
   keywords?: { id: number; name: string }[];
   mediaType: "movie" | "tv";
   limit?: number;
+  bare?: boolean;
 }) {
   if (keywords.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-surface-800/50 bg-surface-900/30 p-4">
+    <div className={bare ? "" : "rounded-xl border border-surface-800/50 bg-surface-900/30 p-4"}>
       <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
         <Tag className="size-3.5" /> Keywords
       </h3>

@@ -19,8 +19,8 @@ import CrewBlock, { groupCrew, keyCrew } from "@components/detail/CrewBlock";
 import VideoShelf from "@components/detail/VideoShelf";
 import MediaGallery from "@components/detail/MediaGallery";
 import TmdbReviews, { prepareReviews } from "@components/detail/TmdbReviews";
-import TitleFacts, { tvFacts } from "@components/detail/TitleFacts";
-import KeywordChips from "@components/detail/KeywordChips";
+import { tvFacts } from "@components/detail/TitleFacts";
+import TitleVitals from "@components/detail/TitleVitals";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import ShareModal from "@components/social/ShareModal";
 import { useMounted } from "@/hooks/useMounted";
@@ -161,7 +161,19 @@ export default function TvDetailClient({
         onClose={() => setShareModalOpen(false)}
       />
 
-      <TitleHero backdropUrl={backdropUrl} posterUrl={posterUrl} title={show.name}>
+      <TitleHero
+        backdropUrl={backdropUrl}
+        posterUrl={posterUrl}
+        title={show.name}
+        aside={
+          <TitleVitals
+            genres={show.genres ?? []}
+            facts={facts}
+            keywords={keywords}
+            mediaType="tv"
+          />
+        }
+      >
         <TitleIdentity
           kind="tv"
           view={tvIdentity(show, contentRatings)}
@@ -209,11 +221,11 @@ export default function TvDetailClient({
           </div>
         </div>
 
-        {/* The facts, straight after your progress. This is the moment a
-            reader forms an assumption — who made it, which network, how long a
-            season runs — and all of it used to sit at the very bottom behind
-            everything else. */}
-        <TitleFacts facts={facts} variant="card" />
+        {/* The facts stood here, straight after your progress, on the
+            reasoning that this is the moment a reader forms an assumption —
+            who made it, which network, how long a season runs. Same reasoning,
+            better address: they are in the hero rail now, level with the
+            poster, which is earlier still and costs the page no width. */}
 
         <Section title="Episodes">
           <SeasonBrowser showId={show.id} seasons={seasons} isAuthenticated={isAuthenticated} />
@@ -266,8 +278,8 @@ export default function TvDetailClient({
           </div>
 
           <div className="space-y-6">
+            {/* Keywords moved up into the hero rail with the facts. */}
             <TheRoom itemId={show.id} itemType="tv" />
-            <KeywordChips keywords={keywords} mediaType="tv" />
           </div>
         </div>
 
