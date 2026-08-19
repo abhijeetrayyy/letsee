@@ -23,6 +23,13 @@ export type FollowButtonProps = {
    *  grid of cards would open one channel per card. */
   watchRequests?: boolean;
   size?: "sm" | "md";
+  /**
+   * "solid" is the brand fill, right when this is the one action on screen —
+   * a profile header, a modal. "quiet" is for lists: a directory of six cards
+   * carrying six saturated fills reads as a template, and the fill is doing
+   * emphasis work that nothing on the page is competing for.
+   */
+  emphasis?: "solid" | "quiet";
   className?: string;
   onStatusChange?: (status: FollowStatus) => void;
 };
@@ -45,6 +52,7 @@ export default function FollowButton({
   initialStatus,
   watchRequests = false,
   size = "md",
+  emphasis = "solid",
   className = "",
   onStatusChange,
 }: FollowButtonProps) {
@@ -155,11 +163,18 @@ export default function FollowButton({
   const base = `inline-flex items-center justify-center rounded-full font-semibold transition-all duration-150 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation ${sizeClass}`;
 
   // Signed out: send them to log in rather than dead-ending in a modal.
+  // Honours `emphasis` too — this branch runs for every signed-out visitor,
+  // so skipping it would leave the directory solid green for exactly the
+  // people seeing the page for the first time.
   if (!currentUserId) {
     return (
       <Link
         href="/login"
-        className={`${base} bg-brand-500 text-surface-950 hover:bg-brand-400 ${className}`}
+        className={`${base} ${
+          emphasis === "quiet"
+            ? "border border-brand-500/40 text-brand-300 hover:bg-brand-500/10 hover:border-brand-500/60"
+            : "bg-brand-500 text-surface-950 hover:bg-brand-400"
+        } ${className}`}
       >
         Follow
       </Link>

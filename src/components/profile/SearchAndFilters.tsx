@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FaSearch } from "react-icons/fa";
-import { PiFilmSlateBold, PiHeartBold, PiListChecksBold } from "react-icons/pi";
-import ProfileAvatar from "@components/profile/ProfileAvatar";
+import Avatar from "@components/ui/Avatar";
 import FollowButton, { type FollowStatus } from "@components/profile/FollowButton";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -157,68 +156,103 @@ export default function SearchAndFilters({
         </div>
       )}
 
-      {/* User grid */}
+      {/* User grid.
+
+          Three across at most, not four. At four the card is 258px and the
+          tally's labels overflow their columns — measured, not guessed. A
+          directory of people is browsed rather than scanned in bulk, and the
+          extra hundred pixels is what lets a handle, a bio and three figures
+          sit together without any of them apologising. */}
       {users.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {users.map((item) => (
+            /**
+             * A directory entry in a film journal, not a social-network tile.
+             *
+             * What was here read as a template: a grey silhouette, three
+             * cryptic icon-and-digit pairs, and a full-width saturated slab for
+             * a secondary action. Three changes, each with a reason:
+             *
+             * 1. The shared Avatar, which falls back to deterministic coloured
+             *    initials. ProfileAvatar falls back to /avatar.svg — so a
+             *    directory of people who have not set a picture rendered as six
+             *    identical grey silhouettes, which is the single thing that
+             *    made the page look unfinished.
+             *
+             * 2. The counts are set as a tally rather than decorated with
+             *    icons: tabular figures with a quiet label under each. This is
+             *    the one place the card raises its voice, and it is the honest
+             *    place — tasteMatch.ts already argues that "the evidence is the
+             *    product, the number is noise", and three unlabelled digits
+             *    beside three glyphs were neither.
+             *
+             * 3. Follow is a pill sized to its word. It is one action among a
+             *    grid of six, and a full-bleed fill in the brand colour, six
+             *    times over, shouted louder than anything beside it.
+             *
+             * `h-full` with an `mt-auto` footer keeps the tally and the button
+             * on one line across a row whether or not a person wrote a bio —
+             * the ragged edge was the bio pushing them out of alignment.
+             */
             <div
               key={item.id}
-              className="group rounded-2xl border border-surface-700/60 bg-surface-800/50 hover:bg-surface-800 hover:border-surface-600 transition-all duration-200 overflow-hidden"
+              className="group flex h-full flex-col rounded-2xl border border-surface-800 bg-surface-900/40 p-5 transition-colors duration-200 hover:border-surface-700 hover:bg-surface-900/70"
             >
-              <div className="p-5">
-                <Link
-                  href={`/app/profile/${item.username}`}
-                  className="flex items-start gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 rounded-xl"
-                >
-                  <ProfileAvatar
-                    src={item.avatar_url || "/avatar.svg"}
-                    alt={`@${item.username}`}
-                    className="w-14 h-14 rounded-xl object-cover border border-surface-700 shrink-0 bg-surface-700 group-hover:border-surface-600 transition-colors"
-                    width={56}
-                    height={56}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-lg font-semibold text-white truncate group-hover:text-amber-300 transition-colors">
-                      @{item.username}
-                    </h2>
-                    {item.followsYou && (
-                      <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-brand-500/15 text-brand-300 text-[10px] font-semibold">
-                        Follows you
-                      </span>
-                    )}
-                    {item.about && (
-                      <p className="text-sm text-surface-400 line-clamp-2 mt-0.5">{item.about}</p>
-                    )}
-                  </div>
-                </Link>
-                <div className="mt-4 pt-4 border-t border-surface-700/60 flex items-center gap-4 text-sm">
-                  <span className="flex items-center gap-1.5 text-surface-400" title="Watched">
-                    <PiFilmSlateBold className="w-4 h-4 text-surface-500 shrink-0" aria-hidden />
-                    <span className="font-medium text-surface-300 tabular-nums">
-                      {item.user_cout_stats?.watched_count ?? 0}
-                    </span>
-                    <span className="sr-only">Watched</span>
-                  </span>
-                  <span className="flex items-center gap-1.5 text-surface-400" title="Favorites">
-                    <PiHeartBold className="w-4 h-4 text-surface-500 shrink-0" aria-hidden />
-                    <span className="font-medium text-surface-300 tabular-nums">
-                      {item.user_cout_stats?.favorites_count ?? 0}
-                    </span>
-                    <span className="sr-only">Favorites</span>
-                  </span>
-                  <span className="flex items-center gap-1.5 text-surface-400" title="Watchlist">
-                    <PiListChecksBold className="w-4 h-4 text-surface-500 shrink-0" aria-hidden />
-                    <span className="font-medium text-surface-300 tabular-nums">
-                      {item.user_cout_stats?.watchlist_count ?? 0}
-                    </span>
-                    <span className="sr-only">Watchlist</span>
-                  </span>
+              <Link
+                href={`/app/profile/${item.username}`}
+                className="flex items-center gap-3 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60"
+              >
+                <Avatar src={item.avatar_url} name={item.username} size={44} />
+                <div className="min-w-0">
+                  <h2 className="truncate text-[15px] font-semibold text-white transition-colors group-hover:text-brand-300">
+                    @{item.username}
+                  </h2>
+                  {item.followsYou && (
+                    <span className="text-[11px] text-surface-500">Follows you</span>
+                  )}
                 </div>
+              </Link>
+
+              {item.about && (
+                <p className="mt-3 line-clamp-2 text-[13px] leading-relaxed text-surface-400">
+                  {item.about}
+                </p>
+              )}
+
+              {/* Stacked, not side by side. The tally and the pill on one line
+                  fit in the mock and not in the grid: at four columns a card is
+                  about 264px, the three labels alone need more than that, and
+                  the button was pushed clean outside the card onto its
+                  neighbour. Giving each its own row costs one line of height
+                  and is the difference between a layout that holds at every
+                  breakpoint and one that holds at the width I happened to
+                  design it at. A three-column grid rather than a wrapping flex
+                  row, so the tally is always one line and never breaks two-up
+                  with an orphan. */}
+              <div className="mt-auto pt-5">
+                <dl className="grid grid-cols-3 gap-2">
+                  {([
+                    ["Watched", item.user_cout_stats?.watched_count],
+                    ["Favorites", item.user_cout_stats?.favorites_count],
+                    ["Watchlist", item.user_cout_stats?.watchlist_count],
+                  ] as const).map(([label, value]) => (
+                    <div key={label}>
+                      <dd className="text-[15px] font-semibold tabular-nums leading-none text-surface-100">
+                        {value ?? 0}
+                      </dd>
+                      <dt className="mt-1 text-[10px] uppercase tracking-[0.08em] text-surface-500">
+                        {label}
+                      </dt>
+                    </div>
+                  ))}
+                </dl>
+
                 <FollowButton
                   targetUserId={item.id}
                   currentUserId={authUser?.id ?? null}
                   initialStatus={item.isFollowing ? "following" : "follow"}
                   size="sm"
+                  emphasis="quiet"
                   className="mt-4 w-full"
                   onStatusChange={(s) => onFollowChange(item.id, s)}
                 />
