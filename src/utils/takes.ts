@@ -160,7 +160,7 @@ export async function saveTake(
    * that one, and a visibility change moves it. Two means the legacy split,
    * and each stays separately addressable.
    */
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("takes")
     .select("is_public")
     .eq("user_id", userId)
@@ -169,6 +169,18 @@ export async function saveTake(
     .eq("scope", id.scope)
     .eq("season_number", id.seasonNumber)
     .eq("episode_number", id.episodeNumber);
+
+  /**
+   * This read is what decides whether a visibility change MOVES the take or
+   * lands a second row beside it. A failed read looks identical to "no existing
+   * take", which skips the delete and produces exactly the split-row state the
+   * block above exists to prevent — and which one account in the live database
+   * has already ended up in once.
+   */
+  if (existingError) {
+    console.error("saveTake: existing-take read failed:", existingError);
+    return "Couldn't save that.";
+  }
 
   const rows = existing ?? [];
   if (rows.length === 1 && rows[0].is_public !== isPublic) {
@@ -286,6 +298,168 @@ async function mirrorToLegacy(
 }
 
 /** Remove a take at one visibility, and clear its legacy mirror. */
+/**
+ * Set a score, and touch nothing else.
+ *
+ * The card path — MediaInteractionProvider → /api/user-rating → here — changes
+ * one number. It used to write `user_ratings` directly and never touch `takes`,
+ * which meant two writers for one fact: rate from a card and the stars on the
+ * title page stayed empty, rate on the title page and the mirror overwrote the
+ * card's score. Both widgets render on the same movie page.
+ *
+ * It deliberately does NOT go through `saveTake`. `saveTake` takes an
+ * `isPublic` and treats a change of it as a MOVE — delete the old row, insert
+ * the new one — which is right for the composer, where the user is choosing a
+ * visibility. A card is not choosing anything: calling saveTake with a fixed
+ * `isPublic: false` would delete an existing public review and recreate it
+ * private with an empty body. Losing someone's writing because they tapped a
+ * star is not a trade worth making.
+ *
+ * So: if a take already exists at any visibility, update its score in place. If
+ * none does, a bare score is a private take, which is what 065's backfill made
+ * of every pre-existing rating.
+ */
+export async function setScore(
+  supabase: SupabaseClient,
+  userId: string,
+  id: TakeIdentity,
+  score: number,
+): Promise<string | null> {
+  if (!Number.isInteger(score) || score < 1 || score > 10) {
+    return "A rating has to be between 1 and 10.";
+  }
+
+  const { data: existing, error: readError } = await match(
+    supabase.from("takes").select("is_public"),
+    id,
+    userId,
+  );
+  // Same rule as saveTake: this read decides insert-vs-update, and a failed one
+  // would insert a second take beside an existing one.
+  if (readError) {
+    console.error("setScore: read failed:", readError);
+    return "Couldn't save that.";
+  }
+  const rows = (existing ?? []) as { is_public: boolean }[];
+  const now = new Date().toISOString();
+
+  if (rows.length === 0) {
+    const { error } = await supabase.from("takes").insert({
+      user_id: userId,
+      item_id: id.itemId,
+      item_type: id.itemType,
+      scope: id.scope,
+      season_number: id.seasonNumber,
+      episode_number: id.episodeNumber,
+      score,
+      body: null,
+      is_public: false,
+      updated_at: now,
+    });
+    if (error) {
+      console.error("setScore insert:", error);
+      return "Couldn't save that.";
+    }
+  } else {
+    // Across every row, for the reason saveTake gives: one judgement about one
+    // thing does not become a different number because the writing beside it
+    // is private.
+    const { error } = await match(
+      supabase.from("takes").update({ score, updated_at: now }),
+      id,
+      userId,
+    );
+    if (error) {
+      console.error("setScore update:", error);
+      return "Couldn't save that.";
+    }
+  }
+
+  if (id.scope === "title") {
+    const { error } = await supabase
+      .from("user_ratings")
+      .upsert(
+        { user_id: userId, item_id: id.itemId, item_type: id.itemType, score },
+        { onConflict: "user_id,item_id,item_type" },
+      );
+    if (error) {
+      console.error("setScore mirror:", error);
+      return "Couldn't save that.";
+    }
+  }
+  return null;
+}
+
+/**
+ * Withdraw a score, and keep the writing.
+ *
+ * A take that was only ever a number has nothing left once the number goes, so
+ * it is removed. A take carrying a review keeps the review and loses the score
+ * — deleting the row there would silently destroy writing the user never asked
+ * to remove.
+ *
+ * `user_ratings` goes either way: `rating_distribution` reads it with no
+ * predicate beyond the title, so a withdrawn score left behind there goes on
+ * counting in the community average forever. That is the same reasoning
+ * `deleteTake` documents.
+ */
+export async function clearScore(
+  supabase: SupabaseClient,
+  userId: string,
+  id: TakeIdentity,
+): Promise<string | null> {
+  const { data: existing, error: readError } = await match(
+    supabase.from("takes").select("is_public, body"),
+    id,
+    userId,
+  );
+  // A failed read here would look like "no takes", so nothing would be deleted
+  // and nothing nulled — while user_ratings below is cleared regardless. That
+  // is the split the whole function exists to avoid.
+  if (readError) {
+    console.error("clearScore: read failed:", readError);
+    return "Couldn't remove that.";
+  }
+  const rows = (existing ?? []) as { is_public: boolean; body: string | null }[];
+
+  const empty = rows.filter((r) => !r.body || !r.body.trim());
+  const written = rows.filter((r) => r.body && r.body.trim());
+
+  for (const r of empty) {
+    const { error } = await match(
+      supabase.from("takes").delete().eq("is_public", r.is_public),
+      id,
+      userId,
+    );
+    if (error) {
+      console.error("clearScore delete:", error);
+      return "Couldn't remove that.";
+    }
+  }
+
+  if (written.length > 0) {
+    const { error } = await match(
+      supabase.from("takes").update({ score: null, updated_at: new Date().toISOString() }),
+      id,
+      userId,
+    );
+    if (error) {
+      console.error("clearScore null:", error);
+      return "Couldn't remove that.";
+    }
+  }
+
+  if (id.scope === "title") {
+    await supabase
+      .from("user_ratings")
+      .delete()
+      .eq("user_id", userId)
+      .eq("item_id", id.itemId)
+      .eq("item_type", id.itemType);
+  }
+  return null;
+}
+
 export async function deleteTake(
   supabase: SupabaseClient,
   userId: string,

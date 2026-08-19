@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import Link from "next/link";
 import { Loader2, Lock, Send, Trash2, X } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
 import StarRating from "@components/ui/StarRating";
 import { formatStars } from "@/utils/ratingScale";
+import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 
 /**
  * One composer, one thread.
@@ -122,6 +123,29 @@ export default function TitleTalk({
   }>(takesKey, fetcher);
   const { data: comments, mutate: mutateComments } = useSWR<CommentRow[]>(commentsKey, fetcher);
 
+  const { refresh: refreshInteractions } = useMediaInteraction();
+
+  /**
+   * TheRoom sits directly below this composer on the movie and TV pages and is
+   * fed by a completely separate SWR key, so rating a title here left the panel
+   * eight hundred pixels down still showing the old average, the old "N people
+   * rated this", and `viewerScore: null` — its audience sentence even subtracts
+   * the viewer's own vote, so the arithmetic was wrong too. The key is
+   * reconstructible from props, and mutating it when TheRoom is not mounted
+   * (season and episode scopes) is a harmless no-op.
+   *
+   * The provider refresh is the other half: the star widgets on cards read
+   * their score from MediaInteractionProvider, which this path never touched.
+   */
+  const refreshRoom = async () => {
+    await Promise.all([
+      globalMutate(
+        `/api/title-room?itemId=${encodeURIComponent(String(itemId))}&itemType=${itemType}`,
+      ),
+      refreshInteractions(),
+    ]).catch(() => {});
+  };
+
   const mine = takes?.mine ?? null;
   const [draft, setDraft] = useState<string | null>(null);
   /**
@@ -176,6 +200,7 @@ export default function TitleTalk({
       setDraft(null);
       setPending(undefined);
       await mutateTakes();
+      await refreshRoom();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -218,6 +243,7 @@ export default function TitleTalk({
       });
       if (!res.ok) throw new Error((await res.json())?.error ?? "Couldn't save that.");
       await mutateTakes();
+      await refreshRoom();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -238,6 +264,7 @@ export default function TitleTalk({
       setDraft(null);
       setPending(undefined);
       await mutateTakes();
+      await refreshRoom();
     } finally {
       setBusy(false);
     }

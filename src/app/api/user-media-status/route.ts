@@ -187,6 +187,23 @@ export async function DELETE(req: NextRequest) {
     await Promise.all([
       supabase.from("watched_items").delete().eq("user_id", userId).eq("item_id", itemId).eq("item_type", itemType),
       supabase.from("user_ratings").delete().eq("user_id", userId).eq("item_id", itemId).eq("item_type", itemType),
+      /**
+       * `takes` too — this is the only copy anybody else can see.
+       *
+       * 065 made `takes` the source of truth and left the two columns on
+       * `watched_items` as a projection of it. This branch cleared the
+       * projection and not the source, so "delete everything" removed the
+       * review from the author's own profile — which made it look like it had
+       * worked — while the take itself stayed live on the film's page
+       * (/api/takes), in "What people wrote" on the home page
+       * (/api/reviews/popular) and in every follower's feed
+       * (/api/feed/following). Reporting success and leaving the public copy is
+       * the worst shape a delete bug can take.
+       *
+       * No scope filter: for a series this is meant to take the season and
+       * episode takes with it. The user asked for everything about this title.
+       */
+      supabase.from("takes").delete().eq("user_id", userId).eq("item_id", itemId).eq("item_type", itemType),
       // Episodes only exist for series, so this is a no-op for a film.
       ...(itemType === "tv"
         ? [supabase.from("watched_episodes").delete().eq("user_id", userId).eq("show_id", itemId)]

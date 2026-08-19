@@ -52,9 +52,11 @@ export async function POST(req: NextRequest) {
 
     if (deleteError) return jsonError(deleteError.message, 500);
 
-    try {
-      await supabase.rpc("decrement_favorites_count", { p_user_id: userId });
-    } catch {}
+    // No decrement_favorites_count. 069's statement-level trigger on
+    // favorite_items recounts absolutely on every DELETE, so the counter is
+    // already right by the time this line used to run — and a relative
+    // `favorites_count - 1` on top of a correct absolute count took one more
+    // off. Verified live: cached favorites_count matches the row count exactly.
 
     /**
      * The displayed four are a subset of favourites, so un-favouriting has to
@@ -169,10 +171,12 @@ export async function POST(req: NextRequest) {
   try {
     await supabase.rpc("recount_user_stats", { p_user_id: userId });
   } catch {
-    // Fall back to the narrow increment rather than leaving every counter stale.
-    try {
-      await supabase.rpc("increment_favorites_count", { p_user_id: userId });
-    } catch {}
+    // Deliberately no fallback. The narrow `increment_favorites_count` that used
+    // to sit here predates 069, whose trigger already recounted absolutely when
+    // the row was inserted — so the fallback could only ever fire on top of an
+    // already-correct counter and push it one too high. Leaving this empty is
+    // the safe branch now: the trigger is the thing that maintains the count,
+    // and the recount above is belt-and-braces.
   }
 
   return jsonSuccess({ action: "added", message: "Added to favorites" });
