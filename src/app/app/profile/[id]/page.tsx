@@ -26,6 +26,9 @@ import StatsSection from "@components/profile/StatsSection";
 import FavoritesSection from "@components/profile/FavoritesSection";
 import DeferredSection from "@components/profile/DeferredSection";
 import { computeTasteSummary, buildTasteInsight, type TasteProfile, type TasteInsight } from "@/utils/tasteProfile";
+import JsonLd from "@components/seo/JsonLd";
+import { profileLd, breadcrumbLd } from "@/utils/structuredData";
+import { profilePath } from "@/utils/urls";
 
 export const dynamic = "force-dynamic";
 
@@ -216,6 +219,35 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   const avatarSrc = user.avatar_url || "/avatar.svg";
 
   return (
+    <>
+      {/*
+        `profileLd` was written when the schema helpers went in and then wired
+        to nothing — the same shape of miss as the slug helpers. A public
+        profile is a real entity page with a name, an avatar, a bio and a join
+        date, and it is in the sitemap; it was the only listed page type with
+        no structured data at all.
+
+        Emitted only for a profile a stranger can actually read. Describing a
+        followers-only account to a crawler would be handing out exactly what
+        its owner asked the app to withhold.
+      */}
+      {visibility === "public" && !user.deleted_at && (
+        <JsonLd
+          data={[
+            profileLd({
+              username: user.username,
+              about: user.about,
+              tagline: user.tagline,
+              avatarUrl: user.avatar_url,
+              createdAt: user.created_at,
+            }),
+            breadcrumbLd([
+              { name: "People", path: "/app/profile" },
+              { name: `@${user.username}`, path: profilePath(user.username) },
+            ]),
+          ]}
+        />
+      )}
     <div className="min-h-screen w-full bg-surface-950">
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
 
@@ -508,5 +540,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
         </div>
       </div>
     </div>
+    </>
   );
 }

@@ -110,3 +110,38 @@ describe("cron routes fail closed", () => {
     expect(problems).toEqual([]);
   });
 });
+
+/**
+ * Two schema helpers were written with the rest and then wired to nothing.
+ *
+ * `profileLd` and `itemListLd` sat exported and unused while profiles and lists
+ * — both published in the sitemap — were crawled with no structured data at
+ * all. Nothing was broken, no test failed, and the helpers looked finished
+ * because they were; they simply had no caller. That is the same miss as the
+ * slug helpers, and it is invisible to every other kind of check.
+ */
+describe("every structured-data helper has a caller", () => {
+  const HELPERS = [
+    "organisationLd",
+    "breadcrumbLd",
+    "movieLd",
+    "tvSeriesLd",
+    "tvSeasonLd",
+    "tvEpisodeLd",
+    "personLd",
+    "reviewLd",
+    "profileLd",
+    "itemListLd",
+  ];
+
+  it("is called from somewhere outside its own module", () => {
+    const callers = sourceFiles().filter((f) => !rel(f).endsWith("structuredData.ts"));
+    const corpus = callers.map(read).join("\n");
+
+    const orphans = HELPERS.filter((h) => !new RegExp(`\\b${h}\\s*\\(`).test(corpus));
+
+    // A helper with no caller is either dead code or a page missing its graph.
+    // Delete it or wire it — do not leave it looking done.
+    expect(orphans).toEqual([]);
+  });
+});
