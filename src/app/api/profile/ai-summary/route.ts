@@ -67,7 +67,8 @@ export async function GET(req: NextRequest) {
   // exactly once, which is worse than not working at all.
   //
   // If the recomputation ever costs enough to matter, cache the *computation*
-  // server-side with unstable_cache keyed on profileId — as /api/calendar
-  // does — and leave the HTTP response private.
+  // server-side with `unstable_cache` keyed on profileId, and leave the HTTP
+  // response private. (This cited /api/calendar as the example; that route has
+  // since been deleted for having no caller.)
   return jsonSuccess(insight, { maxAge: 0 });
 }

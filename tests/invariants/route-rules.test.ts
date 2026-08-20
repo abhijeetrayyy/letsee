@@ -145,3 +145,45 @@ describe("every structured-data helper has a caller", () => {
     expect(orphans).toEqual([]);
   });
 });
+
+/**
+ * An API route that proxies TMDB with the server's key, takes no auth, and is
+ * called by nothing is not dead weight — it is surface. Anyone who finds it can
+ * spend the key.
+ *
+ * Six of these existed: /api/omdb, /api/homeHero, /api/homeVideo, /api/movie,
+ * /api/movieRecomandation and /api/tvgenrelist. The worst issued eleven
+ * upstream calls per request. All were left behind by features that moved to
+ * server-side data loading and nobody deleted the endpoint.
+ *
+ * The rule is narrow: an unauthenticated route may exist, and a TMDB-spending
+ * route may exist, but a route that is both AND has no caller in the app is a
+ * mistake every time.
+ */
+describe("no unauthenticated third-party proxy without a caller", () => {
+  const routes = () =>
+    sourceFiles().filter((f) => /[\\/]app[\\/]api[\\/].*route\.tsx?$/.test(f));
+
+  it("has no orphaned key-spending endpoint", () => {
+    const corpus = sourceFiles()
+      .filter((f) => !/[\\/]app[\\/]api[\\/]/.test(f))
+      .map(read)
+      .join("\n");
+
+    const offenders = routes().filter((f) => {
+      const src = read(f);
+      const spendsKey = /api\.themoviedb\.org|omdbapi\.com|TMDB_API_KEY|OMDB_API_KEY/.test(src);
+      if (!spendsKey) return false;
+      const guarded = /getAuthUserId|auth\.getUser|guardCron|CRON_SECRET/.test(src);
+      if (guarded) return false;
+      // Route path as the app would call it, dynamic segments stripped.
+      const path = rel(f)
+        .replace(/^src[\\/]app/, "")
+        .replace(/[\\/]route\.tsx?$/, "")
+        .split("/[")[0];
+      return !corpus.includes(path);
+    });
+
+    expect(offenders.map(rel)).toEqual([]);
+  });
+});
