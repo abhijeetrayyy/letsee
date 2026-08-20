@@ -12,6 +12,7 @@ import { absoluteUrl } from "@/utils/siteUrl";
 import { titlePath } from "@/utils/urls";
 import JsonLd from "@components/seo/JsonLd";
 import { tvSeriesLd, breadcrumbLd } from "@/utils/structuredData";
+import { shareImage } from "@/utils/shareImage";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -58,7 +59,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     (show.overview ? String(show.overview).slice(0, 200) : "") ||
     `Where to watch ${show.name}, episode by episode, and what people thought.`;
   const canonical = absoluteUrl(titlePath("tv", show.id, show.name));
-  const poster = show.poster_path ? `https://image.tmdb.org/t/p/w780${show.poster_path}` : null;
+  const share = shareImage(show.backdrop_path, show.poster_path, show.name);
 
   return {
     title,
@@ -69,13 +70,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       url: canonical,
-      images: poster ? [{ url: poster, width: 780, height: 1170, alt: show.name }] : [],
+      images: share.images,
     },
     twitter: {
-      card: "summary_large_image",
+      card: share.card,
       title,
       description,
-      images: poster ? [poster] : [],
+      images: share.urls,
     },
   };
 }

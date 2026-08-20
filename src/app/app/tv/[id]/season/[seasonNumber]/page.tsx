@@ -11,6 +11,7 @@ import { parseRouteId } from "@/utils/urls";
 import type { Metadata } from "next";
 import JsonLd from "@components/seo/JsonLd";
 import { tvSeasonLd, breadcrumbLd } from "@/utils/structuredData";
+import { shareImage } from "@/utils/shareImage";
 import { seasonPath, titlePath } from "@/utils/urls";
 
 interface Episode {
@@ -91,6 +92,9 @@ const fetchSeriesAndSeasonData = async (
   const seriesName = seriesData.name as string;
   const seriesOverview = (seriesData.overview as string) ?? "";
   const seriesPoster = (seriesData.poster_path as string) ?? null;
+  // For the share card only: a season has no backdrop of its own, and the
+  // series one is the only landscape image available to it.
+  const seriesBackdrop = (seriesData.backdrop_path as string) ?? null;
 
   const seasonDataRaw = await getSeasonEpisodes(seriesId, seasonNumber);
   if (!seasonDataRaw) {
@@ -102,6 +106,7 @@ const fetchSeriesAndSeasonData = async (
     seriesName,
     seriesOverview,
     seriesPoster,
+    seriesBackdrop,
     seasons: seasons.map((s: any) => ({
       id: s.id,
       season_number: s.season_number,
@@ -156,8 +161,11 @@ export async function generateMetadata({ params }: SeasonPageProps): Promise<Met
         .join(" — ") + ". Track what you have watched, episode by episode.";
 
     const canonical = seasonPath(numericId, n, seriesName);
-    const poster = currentSeason.poster_path || seriesPoster;
-    const image = poster ? `https://image.tmdb.org/t/p/w780${poster}` : null;
+    const share = shareImage(
+      data.seriesBackdrop,
+      currentSeason.poster_path || seriesPoster,
+      title,
+    );
 
     return {
       title,
@@ -168,9 +176,9 @@ export async function generateMetadata({ params }: SeasonPageProps): Promise<Met
         title,
         description,
         url: canonical,
-        images: image ? [{ url: image, width: 780, height: 1170, alt: title }] : [],
+        images: share.images,
       },
-      twitter: { card: "summary_large_image", title, description, images: image ? [image] : [] },
+      twitter: { card: share.card, title, description, images: share.urls },
     };
   } catch {
     return { title: "Season" };

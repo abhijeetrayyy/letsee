@@ -10,6 +10,7 @@ import { absoluteUrl } from "@/utils/siteUrl";
 import { titlePath } from "@/utils/urls";
 import JsonLd from "@components/seo/JsonLd";
 import { movieLd, breadcrumbLd } from "@/utils/structuredData";
+import { shareImage } from "@/utils/shareImage";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -53,7 +54,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     (movie.overview ? String(movie.overview).slice(0, 200) : "") ||
     `Where to watch ${movie.title}, what people thought of it, and who made it.`;
   const canonical = absoluteUrl(titlePath("movie", movie.id, movie.title));
-  const poster = movie.poster_path ? `https://image.tmdb.org/t/p/w780${movie.poster_path}` : null;
+  const share = shareImage(movie.backdrop_path, movie.poster_path, movie.title);
 
   return {
     title,
@@ -66,13 +67,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       url: canonical,
-      images: poster ? [{ url: poster, width: 780, height: 1170, alt: movie.title }] : [],
+      images: share.images,
     },
     twitter: {
-      card: "summary_large_image",
+      card: share.card,
       title,
       description,
-      images: poster ? [poster] : [],
+      images: share.urls,
     },
   };
 }
