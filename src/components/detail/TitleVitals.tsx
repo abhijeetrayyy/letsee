@@ -45,7 +45,25 @@ export default function TitleVitals({
   if (genres.length === 0 && facts.length === 0 && keywords.length === 0) return null;
 
   return (
-    <div className="divide-y divide-surface-800/50 overflow-hidden rounded-xl border border-surface-800/50 bg-surface-900/30">
+    <section
+      aria-labelledby="title-vitals"
+      className="divide-y divide-surface-800/50 overflow-hidden rounded-xl border border-surface-800/50 bg-surface-900/30"
+    >
+      {/*
+        The band's three blocks are `h3`, and every other section on the page is
+        `h2` with `h3` beneath it — Media then Trailers. Here there was no `h2`,
+        so the document outline ran h1 straight to h3 and someone navigating by
+        heading heard "The Matrix" then "Genres" with nothing between to say
+        what Genres belonged to.
+
+        Visually hidden rather than shown: the band deliberately has no visible
+        title, and inventing one to satisfy an outline would be letting the
+        markup design the page. `sr-only` is already how the hero prints the
+        title when TMDB has a logo to show instead.
+      */}
+      <h2 id="title-vitals" className="sr-only">
+        About this {mediaType === "tv" ? "series" : "film"}
+      </h2>
       {genres.length > 0 && (
         /**
          * Every genre, where the line under the title shows three.
@@ -91,6 +109,6 @@ export default function TitleVitals({
           <KeywordChips keywords={keywords} mediaType={mediaType} bare />
         </section>
       )}
-    </div>
+    </section>
   );
 }
