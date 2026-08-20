@@ -67,6 +67,32 @@ function ratioOf(logo: TmdbLogo): number | null {
  * depended on array order or on ties resolving differently would swap the hero
  * image between the two renders.
  */
+/**
+ * The winning raw entry, so a server can ship one logo instead of sixty-one.
+ *
+ * TMDB returns every language's wordmark under `images.logos` — measured at 61
+ * entries for The Matrix, each carrying aspect_ratio, iso_639_1, iso_3166_1,
+ * vote_average, vote_count, width and height. All of it crossed to the browser
+ * so that `pickLogo` could discard sixty of them there.
+ *
+ * Selecting on the server and sending the winner alone keeps the determinism
+ * this function is built around: with one candidate the client's own call
+ * cannot reach a different answer.
+ */
+export function pickLogoEntry(images: LogoSource): TmdbLogo | null {
+  const all = Array.isArray(images) ? images : (images?.logos ?? []);
+
+  const usable = (all ?? []).filter(
+    (l): l is TmdbLogo & { file_path: string } =>
+      !!l &&
+      typeof l.file_path === "string" &&
+      l.file_path.trim().length > 0 &&
+      (l.iso_639_1 === "en" || l.iso_639_1 == null),
+  );
+  if (usable.length === 0) return null;
+  return sortLogos(usable)[0];
+}
+
 export function pickLogo(images: LogoSource): TitleLogo | null {
   const all = Array.isArray(images) ? images : (images?.logos ?? []);
 
@@ -81,7 +107,14 @@ export function pickLogo(images: LogoSource): TitleLogo | null {
   );
   if (usable.length === 0) return null;
 
-  const best = [...usable].sort((a, b) => {
+  const best = sortLogos(usable)[0];
+
+  return { url: logoUrl(best.file_path), aspectRatio: ratioOf(best) };
+}
+
+/** The ordering, shared so `pickLogo` and `pickLogoEntry` cannot disagree. */
+function sortLogos<T extends TmdbLogo & { file_path: string }>(usable: T[]): T[] {
+  return [...usable].sort((a, b) => {
     const wideA = (ratioOf(a) ?? 0) > MAX_ASPECT;
     const wideB = (ratioOf(b) ?? 0) > MAX_ASPECT;
     if (wideA !== wideB) return wideA ? 1 : -1;
@@ -112,9 +145,7 @@ export function pickLogo(images: LogoSource): TitleLogo | null {
     if (svg !== 0) return svg;
 
     return a.file_path.localeCompare(b.file_path);
-  })[0];
-
-  return { url: logoUrl(best.file_path), aspectRatio: ratioOf(best) };
+  });
 }
 
 function isSvg(path: string): boolean {

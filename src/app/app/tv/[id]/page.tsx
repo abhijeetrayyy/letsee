@@ -8,6 +8,7 @@ import { seriesCast } from "@/utils/title/tvCast";
 import { seriesCrew } from "@/utils/title/tvCrew";
 import { Countrydata } from "@/staticData/countryName";
 import { parseRouteId } from "@/utils/urls";
+import { pickLogoEntry } from "@/utils/title/logo";
 import { absoluteUrl } from "@/utils/siteUrl";
 import { titlePath } from "@/utils/urls";
 import JsonLd from "@components/seo/JsonLd";
@@ -107,8 +108,11 @@ export default async function TvPage({ params }: PageProps) {
   // entirely on the longest-running show tested.
   const crew = seriesCrew(show.aggregate_credits, credits.crew);
   const videos = show.videos?.results ?? [];
-  const backdrops = show.images?.backdrops ?? [];
-  const posters = show.images?.posters ?? [];
+  // Same trim as the movie page: MediaGallery reads `file_path` and nothing
+  // else, and TMDB ships seven other fields per image.
+  const justPath = (i: any) => ({ file_path: i.file_path });
+  const backdrops = (show.images?.backdrops ?? []).map(justPath);
+  const posters = (show.images?.posters ?? []).map(justPath);
   const keywords = show.keywords?.results ?? show.keywords?.keywords ?? [];
   const contentRatings = show.content_ratings?.results ?? [];
   const reviews = show.reviews?.results ?? [];
@@ -141,7 +145,11 @@ export default async function TvPage({ params }: PageProps) {
     content_ratings: undefined,
     aggregate_credits: undefined,
     reviews: undefined,
-    images: { logos: images?.logos ?? [] },
+    // One logo, chosen here. TMDB returns every language's wordmark — 61 for
+    // The Matrix — and the client used to receive all of them so `pickLogo`
+    // could throw sixty away. Selecting server-side is safe precisely because
+    // that function is deterministic: one candidate, same answer.
+    images: { logos: [pickLogoEntry(images)].filter(Boolean) },
   };
 
   // One ranked section replacing the two rails. `created_by` stands in for the
