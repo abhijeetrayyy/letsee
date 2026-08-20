@@ -93,8 +93,22 @@ export function TitleHero({
     <div className="relative overflow-hidden">
       {backdropUrl && (
         <div className="absolute inset-0 h-[780px] overflow-hidden">
+          {/*
+            The LCP element on every detail page — measured at 1432x780, painted
+            at the top of the document — and it was competing on equal footing
+            with the thirty-odd other image requests the page fires in the same
+            burst. `fetchPriority="high"` is the whole fix: it does not make the
+            image smaller or arrive sooner on its own, it stops the browser
+            spending its first connections on cast avatars instead.
+          */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={backdropUrl} alt="" className="w-full h-full object-cover opacity-60" />
+          <img
+            src={backdropUrl}
+            alt=""
+            fetchPriority="high"
+            decoding="async"
+            className="w-full h-full object-cover opacity-60"
+          />
           <div className="absolute inset-0 bg-gradient-to-b from-surface-950/20 via-surface-950/55 to-surface-950" />
           <div className="absolute inset-0 bg-gradient-to-r from-surface-950 via-surface-950/70 to-surface-950/10" />
         </div>
@@ -130,8 +144,21 @@ export function TitleHero({
         */}
         <div className="flex flex-col md:flex-row gap-8 md:gap-12">
           <div className="shrink-0 w-52 sm:w-60 lg:w-64 mx-auto md:mx-0">
+            {/*
+              Intrinsic dimensions, not a size. `w-full` still decides how wide
+              it renders; these let the browser reserve the right height before
+              the bytes arrive instead of collapsing the column to nothing and
+              pushing everything below it down on load. TMDB posters are 2:3,
+              and w500 is exactly 500x750.
+            */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={posterUrl} alt={title} className="w-full rounded-2xl shadow-2xl" />
+            <img
+              src={posterUrl}
+              alt={title}
+              width={500}
+              height={750}
+              className="w-full rounded-2xl shadow-2xl"
+            />
           </div>
           <div className="flex-1 min-w-0">{children}</div>
         </div>
