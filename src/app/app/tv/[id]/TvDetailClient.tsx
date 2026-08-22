@@ -99,12 +99,25 @@ export default function TvDetailClient({
    * A word repeated three screens later under a plainer label reads as a
    * second, worse answer rather than a confirmation.
    */
+  /** A series' equivalent of a director credit, beside the synopsis. */
+  const creditLines = useMemo(
+    () =>
+      createdBy.length > 0
+        ? [{ label: "Created by", people: createdBy.map((c: { id: number; name: string }) => ({ id: c.id, name: c.name })) }]
+        : [],
+    [createdBy],
+  );
+
   const facts = useMemo(
     () =>
       tvFacts(show, { createdBy, countryNames }).filter(
-        (f) => f.key !== "next-episode" && f.key !== "status",
+        (f) =>
+          f.key !== "next-episode" &&
+          f.key !== "status" &&
+          // Named in the hero now; see the movie client for the same reasoning.
+          !(creditLines.length > 0 && f.key === "created-by"),
       ),
-    [show, createdBy, countryNames],
+    [show, createdBy, countryNames, creditLines],
   );
 
   /**
@@ -168,6 +181,7 @@ export default function TvDetailClient({
           hasTrailer={!!trailer}
           onPlayTrailer={() => setShowTrailer(true)}
           onShare={() => setShareModalOpen(true)}
+          creditLines={creditLines}
           onAddWatchedTv={(intended) => {
             setPendingStatus(intended);
             setMarkWatchedOpen(true);
@@ -219,6 +233,7 @@ export default function TvDetailClient({
           facts={facts}
           keywords={keywords}
           mediaType="tv"
+          room={<TheRoom itemId={show.id} itemType="tv" />}
         />
 
         <Section title="Episodes">
@@ -258,8 +273,10 @@ export default function TvDetailClient({
           <Availability mediaId={show.id} mediaType="tv" />
         </Section>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          <div className="space-y-10 lg:col-span-2">
+        {/* Not a grid any more: its right column held only "Who's here", which
+            now sits beside the details where it can be seen. */}
+        <div className="space-y-10">
+          <div className="space-y-10">
             <Section title="Your entry">
               <TitleTalk
                 itemId={String(show.id)}
@@ -276,10 +293,6 @@ export default function TvDetailClient({
             {hasReviews && <TmdbReviews reviews={reviews} max={REVIEW_MAX} />}
           </div>
 
-          <div className="space-y-6">
-            {/* Keywords moved up into the hero rail with the facts. */}
-            <TheRoom itemId={show.id} itemType="tv" />
-          </div>
         </div>
 
       </div>

@@ -100,13 +100,56 @@ export default function MovieDetailClient({
     [releaseDates, country],
   );
 
+  /**
+   * "Who made it" belongs beside the synopsis, not two screens below it.
+   *
+   * TMDB splits screenwriting across three jobs — Screenplay, Writer and Story
+   * — and a film usually carries only one or two of them. Merged and
+   * de-duplicated by id, because Lana Wachowski is credited twice on The Matrix
+   * (Writer and Director) and once more if Story is populated.
+   */
+  const creditLines = useMemo(() => {
+    const crew = credits?.crew ?? [];
+    const by = (jobs: string[]) => {
+      const seen = new Set<number>();
+      return crew
+        .filter((c: { id: number; job?: string }) => jobs.includes(c.job ?? ""))
+        .filter((c: { id: number }) => (seen.has(c.id) ? false : (seen.add(c.id), true)))
+        .map((c: { id: number; name: string }) => ({ id: c.id, name: c.name }));
+    };
+    const writers = by(["Screenplay", "Writer", "Story"]);
+
+    /**
+     * One line when the same people did both, which is not an edge case — the
+     * Wachowskis wrote and directed The Matrix, and printing "Directed by Lana
+     * Wachowski, Lilly Wachowski · Written by Lana Wachowski, Lilly Wachowski"
+     * says one thing twice and reads like a bug.
+     */
+    const ids = (xs: { id: number }[]) => xs.map((x) => x.id).sort().join(",");
+    if (directors.length > 0 && writers.length > 0 && ids(directors) === ids(writers)) {
+      return [{ label: "Written and directed by", people: directors }];
+    }
+
+    return [
+      directors.length > 0 ? { label: "Directed by", people: directors } : null,
+      writers.length > 0 ? { label: "Written by", people: writers } : null,
+    ].filter(Boolean) as { label: string; people: { id: number; name: string }[] }[];
+  }, [credits, directors]);
+
   const facts = useMemo(() => {
     // Both lists emit `status` on exactly the same condition — anything that is
     // not "Released" — so the row is always a second printing of a word already
     // in the identity line under the title, where it is doing more work.
+    /**
+     * `director` joins the dropped set whenever the hero is already naming
+     * them. Two rows apart, the same two names, one of them under a heading
+     * that says DIRECTOR and the other under the word "Directed by" — the
+     * second printing teaches nobody anything.
+     */
     const dropped = new Set(hasTimeline ? ["released", "status"] : ["status"]);
+    if (creditLines.length > 0) dropped.add("director");
     return movieFacts(movie, { directors, countryNames }).filter((f) => !dropped.has(f.key));
-  }, [movie, directors, countryNames, hasTimeline]);
+  }, [movie, directors, countryNames, hasTimeline, creditLines]);
 
   /**
    * Asked before the layout is chosen rather than after. Reviews are present
@@ -151,6 +194,7 @@ export default function MovieDetailClient({
           hasTrailer={!!trailer}
           onPlayTrailer={() => setShowTrailer(true)}
           onShare={() => setShareModalOpen(true)}
+          creditLines={creditLines}
           notice={
             showsNotice ? (
               <div className="mt-3 flex max-w-fit items-start gap-2 rounded-lg border border-brand-500/20 bg-brand-500/10 px-3 py-2 text-sm text-brand-300">
@@ -177,6 +221,7 @@ export default function MovieDetailClient({
           facts={facts}
           keywords={keywords}
           mediaType="movie"
+          room={<TheRoom itemId={movie.id} itemType="movie" />}
         />
 
         {/* Movement two: the film itself. Both of these render their own
@@ -220,8 +265,12 @@ export default function MovieDetailClient({
           <Availability mediaId={movie.id} mediaType="movie" />
         </Section>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          <div className="space-y-10 lg:col-span-2">
+        {/* No longer a grid. Its right column held only "Who's here", which has
+            moved up beside the details where it can actually be seen; leaving
+            the two-thirds cap behind would strand the composer in 880px with a
+            column of air next to it. */}
+        <div className="space-y-10">
+          <div className="space-y-10">
             {/* One composer on this page and only one. It used to be two —
                 "Your take" here and "Discussion" below — which made the reader
                 choose which box a thought belonged in before they had finished
@@ -242,12 +291,6 @@ export default function MovieDetailClient({
             {hasReviews && <TmdbReviews reviews={reviews} max={REVIEW_MAX} />}
           </div>
 
-          {/* Keywords used to be the second card here. Six thousand pixels
-              down a page is not where you put your finest-grained set of
-              internal links — they moved up into the hero rail. */}
-          <div className="space-y-6">
-            <TheRoom itemId={movie.id} itemType="movie" />
-          </div>
         </div>
 
       </div>

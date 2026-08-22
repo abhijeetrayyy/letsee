@@ -532,11 +532,16 @@ export default function TitleFacts({
    *
    * Stacked rather than label-beside-value, because at 330px an 8rem label
    * eats a quarter of the cell and wraps the studios into a paragraph.
+   *
+   * Three columns at most now, not four. The band this sits in became two
+   * thirds of the page when "Who's here" took the other third, and four columns
+   * of ~200px turned "Village Roadshow Pictures, Groucho II Film Partnership"
+   * into a tower of single words.
    */
   if (variant === "grid") {
     return (
       <dl
-        className={`grid grid-cols-1 gap-x-8 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 [&>div]:border-b [&>div]:border-surface-800/40 ${className}`}
+        className={`grid grid-cols-1 gap-x-8 sm:grid-cols-2 xl:grid-cols-3 [&>div]:border-b [&>div]:border-surface-800/40 ${className}`}
       >
         {facts.map((fact) => (
           <FactRow key={fact.key} fact={fact} stacked />

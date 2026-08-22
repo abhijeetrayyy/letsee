@@ -8,6 +8,7 @@ import { useCountry } from "@/app/contextAPI/countryContext";
 import { movieCertification, tvCertification } from "@/utils/title/certification";
 import { pickLogo, formatRuntime, type LogoSource } from "@/utils/title/logo";
 import { buildBrowseUrl } from "@/utils/browseUrl";
+import { personPath } from "@/utils/urls";
 import { releaseInfo } from "@/utils/releaseInfo";
 import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
 
@@ -70,6 +71,14 @@ type TitleIdentityProps = {
   onShare: () => void;
   /** TV only: marking a series watched opens the episode modal instead. */
   onAddWatchedTv?: (intended: MediaStatus | null) => void;
+  /**
+   * The people line: "Directed by … · Written by …", or a series' creators.
+   *
+   * A reader's second question after "what is this" is "who made it", and the
+   * answer was two screens down in the Details band. It belongs beside the
+   * synopsis, where it costs one line.
+   */
+  creditLines?: { label: string; people: { id: number; name: string }[] }[];
   /** Sits under the verdict line: "In cinemas 16 December", "Next: S3E4". */
   notice?: React.ReactNode;
   /** Sits under the action row — the vitals grid, or anything else the page owns. */
@@ -103,6 +112,7 @@ export default function TitleIdentity({
   onPlayTrailer,
   onShare,
   onAddWatchedTv,
+  creditLines = [],
   notice,
   children,
 }: TitleIdentityProps) {
@@ -243,6 +253,36 @@ export default function TitleIdentity({
           </span>
         ))}
       </div>
+
+      {/*
+        Under the facts line, not in the band below, and capped at two names per
+        role. A film with nine credited writers is a real thing and listing all
+        nine here turns a scan line into a paragraph — the full list is on
+        /cast, which is what that page is for.
+      */}
+      {creditLines.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-surface-400">
+          {creditLines.map((line) => (
+            <span key={line.label}>
+              <span className="text-surface-500">{line.label} </span>
+              {line.people.slice(0, 2).map((person, i) => (
+                <React.Fragment key={person.id}>
+                  {i > 0 && ", "}
+                  <Link
+                    href={personPath(person.id, person.name)}
+                    className="text-surface-300 transition-colors hover:text-brand-400"
+                  >
+                    {person.name}
+                  </Link>
+                </React.Fragment>
+              ))}
+              {line.people.length > 2 && (
+                <span className="text-surface-500"> +{line.people.length - 2}</span>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
 
       {notice}
 
