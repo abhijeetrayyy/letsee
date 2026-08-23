@@ -217,32 +217,42 @@ thing being checked was broken.
 
 Ordered by value.
 
-1. **Vercel usage alerts.** Not set. This is the cheapest item here and the one
-   that would have turned an outage into an email.
-2. **Middleware matcher.** A further ~50% invocation cut is available by making
-   the matcher skip requests with no auth cookie, so middleware never runs at
-   all. Not done because a matcher can only test an exact cookie name, and
-   supabase-ssr chunks large tokens into `.0`/`.1` — a wrong guess silently
-   stops refreshing exactly the sessions big enough to need it. **Needs a
-   decision; the failure mode is silent logout.**
-3. **Routes still uncached**, with their 12-hour invocation counts:
-   `/app/browse` (2.8K), `/app/tv/[id]/season/[seasonNumber]` (439),
-   `/app/review/[id]`. The season and review pages read viewer state on the
-   server, so they cannot be shared between visitors without moving that
-   client-side. Small compared to the 38K already fixed.
-4. **13 dead but authenticated API routes** (`/api/recommendations/*`,
-   `/api/watchlist-alerts`, `/api/batch`, `/api/account/email`, …). Unreferenced
-   from any client code. Left alone because deleting a half-built feature is a
-   roadmap call, not a cleanup.
-5. **`/api/user-rating` discards the `itemName` it is sent.** The client posts
-   the title on every rating and the route drops it. Not fixed because
-   `user_activity` has no UPDATE policy, so the route cannot patch the row its
-   own trigger just wrote.
-6. **`next/image` is configured and unused.** `remotePatterns` allows
-   `image.tmdb.org`; zero files import `next/image`. 88 `<img>` tags. Existing
-   lazy-loading already does the important work, so this is optional.
+1. **Vercel usage alerts.** Still not set, and still the cheapest item here.
+   It is a dashboard setting, not code — Vercel → project → Settings →
+   Notifications/Usage. Set one at ~70% of each limit. Right now the first
+   signal is an outage.
 
----
+2. **`next/image` — deliberately NOT adopted.** `remotePatterns` is configured
+   for `image.tmdb.org` and nothing imports `next/image`. Converting the 88
+   `<img>` tags looks like an obvious win and would have made this incident
+   *worse*: Vercel meters Image Optimization as its own resource, so every TMDB
+   poster would become a billed transformation on a plan that just blew three
+   limits. The existing `loading="lazy"` already does the useful part — 88 of
+   95 images on a detail page carry it. Revisit only on a plan where
+   transformations are not scarce.
+
+3. **Routes still rendered per request**, with 12-hour invocation counts:
+
+   | route | invocations | why it cannot be cached |
+   |---|---|---|
+   | `/app/browse` | 2.8K | reads `searchParams`, which forces dynamic rendering — tested, still `no-store` with `revalidate` set |
+   | `/app/tv/[id]/season/[seasonNumber]` | 439 | reads the viewer's watched state server-side |
+   | `/app/review/[id]` | — | reads the author's visibility settings server-side |
+
+   Together a small fraction of the 38K already fixed. Caching the last two
+   means moving viewer state to the client, which is real work for a small
+   return.
+
+### Done since this document was first written
+
+- Middleware now skips sessionless requests via matcher `has` conditions
+  rather than returning early inside the function — the invocation itself is
+  gone, not just its cost. Guarded by `tests/invariants/proxy-matcher.test.ts`,
+  because the failure mode (wrong project ref → signed-in users silently
+  logged out) is invisible.
+- 13 unreferenced API routes deleted.
+- `/api/user-rating`'s unused parameters explained rather than removed: the
+  name is already recorded by `watched_items` before the handler runs.
 
 ## 8. The honest summary
 
