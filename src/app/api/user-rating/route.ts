@@ -55,7 +55,23 @@ export async function POST(request: NextRequest) {
     return jsonError("Invalid JSON body", 400);
   }
 
-  const { itemId, itemType, score, itemName, imageUrl } = body;
+  /**
+   * `itemName` and `imageUrl` are accepted and deliberately unused.
+   *
+   * The client posts them and this route has always dropped them, which looked
+   * like waste. It is not, any more: rating requires a `watched_items` row
+   * (see `canRate` below), that table's `item_name` is NOT NULL, and migration
+   * 086 has the activity trigger read the name from there. The name is already
+   * recorded by the time anything gets here.
+   *
+   * Writing them anyway would mean patching `user_activity` after its own
+   * trigger fired, and that table has no UPDATE policy — adding one to restate
+   * a fact the database already holds is more RLS surface for nothing.
+   *
+   * They stay in the destructure so the shape of what the client sends is
+   * visible at the top of the handler rather than only in the client.
+   */
+  const { itemId, itemType, score } = body;
   if (!itemId || !itemType) {
     return jsonError("Missing itemId or itemType", 400);
   }
