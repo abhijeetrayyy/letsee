@@ -6,6 +6,14 @@ import { notFound } from "next/navigation";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { parseRouteId, personPath, titlePath } from "@/utils/urls";
 
+/** Impersonal HTML; see the movie page for why this is cached. */
+export const revalidate = 3600;
+
+/** Empty on purpose — see the movie page: this is what enables ISR. */
+export async function generateStaticParams() {
+  return [];
+}
+
 // Types
 type PageProps = {
   params: params;
@@ -48,7 +56,13 @@ async function getMovieWithCredits(id: string) {
   return tmdbFetchJson<MovieWithCredits>(
     `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits`,
     "Movie cast",
-    { next: { revalidate: 3600 } }
+    {
+      // Top level, not `next: { revalidate }`. tmdbFetchJson reads it here and
+      // ignores the nested form, so these calls were running `no-store` — which
+      // was invisible until the page became static and Next refused to serve a
+      // prerender that re-fetched on every request.
+      revalidate: 3600,
+    }
   );
 }
 

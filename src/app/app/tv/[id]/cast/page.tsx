@@ -7,6 +7,14 @@ import { seriesCast } from "@/utils/title/tvCast";
 import { seriesCrew } from "@/utils/title/tvCrew";
 import type { Metadata } from "next";
 
+/** Impersonal HTML; see the movie page for why this is cached. */
+export const revalidate = 3600;
+
+/** Empty on purpose — see the movie page: this is what enables ISR. */
+export async function generateStaticParams() {
+  return [];
+}
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -16,7 +24,13 @@ async function getShowDetails(id: string) {
   return tmdbFetchJson<any>(
     `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}`,
     "TV show details",
-    { next: { revalidate: 3600 } }
+    {
+      // Top level, not `next: { revalidate }`. tmdbFetchJson reads it here and
+      // ignores the nested form, so these calls were running `no-store` — which
+      // was invisible until the page became static and Next refused to serve a
+      // prerender that re-fetched on every request.
+      revalidate: 3600,
+    }
   );
 }
 
@@ -40,7 +54,13 @@ async function getShowCredit(id: string) {
   return tmdbFetchJson<any>(
     `https://api.themoviedb.org/3/tv/${id}/aggregate_credits?api_key=${process.env.TMDB_API_KEY}&language=en-US`,
     "TV show credits",
-    { next: { revalidate: 3600 } }
+    {
+      // Top level, not `next: { revalidate }`. tmdbFetchJson reads it here and
+      // ignores the nested form, so these calls were running `no-store` — which
+      // was invisible until the page became static and Next refused to serve a
+      // prerender that re-fetched on every request.
+      revalidate: 3600,
+    }
   );
 }
 
@@ -48,7 +68,13 @@ async function getShowCreditFallback(id: string) {
   return tmdbFetchJson<any>(
     `https://api.themoviedb.org/3/tv/${id}/credits?api_key=${process.env.TMDB_API_KEY}&language=en-US`,
     "TV show credits",
-    { next: { revalidate: 3600 } }
+    {
+      // Top level, not `next: { revalidate }`. tmdbFetchJson reads it here and
+      // ignores the nested form, so these calls were running `no-store` — which
+      // was invisible until the page became static and Next refused to serve a
+      // prerender that re-fetched on every request.
+      revalidate: 3600,
+    }
   );
 }
 

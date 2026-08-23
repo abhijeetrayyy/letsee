@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { tmdbFetchJson } from "@/utils/tmdb";
-import { createClient } from "@/utils/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import {
   buildPool,
   rankRelated,
@@ -160,7 +160,33 @@ async function communityFor(
   mediaType: MediaType,
 ): Promise<RelatedEvidence["community"]> {
   try {
-    const supabase = await createClient();
+    /**
+     * A bare anon client — no cookies, no session — and this is the single most
+     * expensive line in the codebase to have got wrong.
+     *
+     * `createClient()` reads cookies, and reading cookies opts the entire route
+     * into per-request rendering. Every movie, series, person and cast page was
+     * therefore re-rendered from scratch for every visitor, including every
+     * crawler, because of one call buried two components deep behind a Suspense
+     * boundary.
+     *
+     * The session was never used. `related_by_audience` takes an item id, a
+     * type and a limit, and aggregates over everybody — the answer is identical
+     * whoever asks. Verified against the live database with the anon key: same
+     * 200, same rows.
+     *
+     * This is the same fault, and the same fix, as `sitemap.ts` — where the
+     * cookie-reading client silently forced a dynamic render and the catch
+     * swallowed the resulting error. Twice in one codebase makes it a pattern
+     * worth naming: a server client that reads a session you do not need is not
+     * a neutral default, it is a caching opt-out with no visible symptom.
+     */
+    const supabase = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY)!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
     const { data, error } = await supabase.rpc("related_by_audience", {
       p_item_id: String(seedId),
       p_item_type: mediaType,

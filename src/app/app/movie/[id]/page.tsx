@@ -13,6 +13,44 @@ import JsonLd from "@components/seo/JsonLd";
 import { movieLd, breadcrumbLd } from "@/utils/structuredData";
 import { shareImage } from "@/utils/shareImage";
 
+/**
+ * Cached, not re-rendered for every visitor.
+ *
+ * This page reads nothing about who is asking — every byte it renders comes
+ * from TMDB, and the reader's own state (watched, rating, the room) is fetched
+ * client-side after hydration. So the HTML is identical for everyone, and
+ * re-rendering it per request was buying nothing.
+ *
+ * It was buying nothing at a price. Every request was a function invocation
+ * plus a full origin transfer from Compute to the CDN, and once the sitemap
+ * invited crawlers to 1021 of these URLs that became the whole hosting bill:
+ * 13.01GB of Fast Origin Transfer against a 10GB limit, and 1.1M invocations
+ * against 1M. With ISR the second hit on a URL is served from the edge and
+ * costs neither.
+ *
+ * An hour is chosen against what actually changes here: TMDB facts, which the
+ * data-cache calls below already hold for 600-3600s anyway.
+ */
+export const revalidate = 3600;
+
+/**
+ * Empty on purpose, and it is the line that actually enables caching.
+ *
+ * `revalidate` alone does nothing on a dynamic segment: without
+ * `generateStaticParams` Next treats `[id]` as fully dynamic and answers every
+ * request with `Cache-Control: private, no-store`. Measured — the static `/`
+ * returned `s-maxage=31536000` from the same build while this route returned
+ * no-store.
+ *
+ * Returning `[]` prerenders nothing at build time (there is no sensible list of
+ * films to bake in) while telling Next the route is statically generated with
+ * an on-demand fallback. The first request for a URL renders and caches it; the
+ * rest are served from the edge until `revalidate` expires.
+ */
+export async function generateStaticParams() {
+  return [];
+}
+
 type PageProps = { params: Promise<{ id: string }> };
 
 

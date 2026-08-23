@@ -15,6 +15,14 @@ import JsonLd from "@components/seo/JsonLd";
 import { tvSeriesLd, breadcrumbLd } from "@/utils/structuredData";
 import { shareImage } from "@/utils/shareImage";
 
+/** Impersonal HTML; see the movie page for why this is cached. */
+export const revalidate = 3600;
+
+/** Empty on purpose — see the movie page: this is what enables ISR. */
+export async function generateStaticParams() {
+  return [];
+}
+
 type PageProps = { params: Promise<{ id: string }> };
 
 

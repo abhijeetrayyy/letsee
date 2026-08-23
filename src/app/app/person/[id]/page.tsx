@@ -17,6 +17,14 @@ import JsonLd from "@components/seo/JsonLd";
 import { personLd, breadcrumbLd } from "@/utils/structuredData";
 import { personPath } from "@/utils/urls";
 
+/** Impersonal HTML; see the movie page for why this is cached. */
+export const revalidate = 3600;
+
+/** Empty on purpose — see the movie page: this is what enables ISR. */
+export async function generateStaticParams() {
+  return [];
+}
+
 const TMDB_IMAGE = "https://image.tmdb.org/t/p";
 
 /** Matches the movie/TV routes. The old `split("-")[0]` was a second convention. */
