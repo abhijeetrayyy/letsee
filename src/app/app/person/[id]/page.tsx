@@ -18,7 +18,20 @@ import { personLd, breadcrumbLd } from "@/utils/structuredData";
 import { personPath } from "@/utils/urls";
 
 /** Impersonal HTML; see the movie page for why this is cached. */
-export const revalidate = 3600;
+/**
+ * A day, not an hour.
+ *
+ * Raised from 3600 after the deployment pause, and the reason it is safe is
+ * that this cached HTML holds almost nothing that changes: TMDB facts, the
+ * credits, the structured data. Everything live on the page — who is here,
+ * your rating, watch providers, the takes — is fetched by the client after
+ * hydration and is never part of what gets cached.
+ *
+ * So the trade is 24x fewer renders against a TMDB fact being at most a day
+ * old, and TMDB facts do not change hourly. A deploy invalidates the whole
+ * cache anyway, so the staleness window only ever runs from the last deploy.
+ */
+export const revalidate = 86400;
 
 /** Empty on purpose — see the movie page: this is what enables ISR. */
 export async function generateStaticParams() {

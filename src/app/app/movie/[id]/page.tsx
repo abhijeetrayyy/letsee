@@ -31,7 +31,20 @@ import { shareImage } from "@/utils/shareImage";
  * An hour is chosen against what actually changes here: TMDB facts, which the
  * data-cache calls below already hold for 600-3600s anyway.
  */
-export const revalidate = 3600;
+/**
+ * A day, not an hour.
+ *
+ * Raised from 3600 after the deployment pause, and the reason it is safe is
+ * that this cached HTML holds almost nothing that changes: TMDB facts, the
+ * credits, the structured data. Everything live on the page — who is here,
+ * your rating, watch providers, the takes — is fetched by the client after
+ * hydration and is never part of what gets cached.
+ *
+ * So the trade is 24x fewer renders against a TMDB fact being at most a day
+ * old, and TMDB facts do not change hourly. A deploy invalidates the whole
+ * cache anyway, so the staleness window only ever runs from the last deploy.
+ */
+export const revalidate = 86400;
 
 /**
  * Empty on purpose, and it is the line that actually enables caching.
@@ -72,7 +85,13 @@ async function getMovie(id: string) {
   return tmdbFetchJson<any>(
     `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar,keywords,release_dates,reviews`,
     "Movie detail",
-    { revalidate: 3600 }
+    {
+      // A day. This caps the page's own cache — Next takes the minimum of the
+      // route revalidate and every fetch inside it, so leaving this at an hour
+      // silently held the page at an hour too. A released film's facts do not
+      // change within a day.
+      revalidate: 86400,
+    }
   );
 }
 

@@ -16,7 +16,20 @@ import { tvSeriesLd, breadcrumbLd } from "@/utils/structuredData";
 import { shareImage } from "@/utils/shareImage";
 
 /** Impersonal HTML; see the movie page for why this is cached. */
-export const revalidate = 3600;
+/**
+ * A day, not an hour.
+ *
+ * Raised from 3600 after the deployment pause, and the reason it is safe is
+ * that this cached HTML holds almost nothing that changes: TMDB facts, the
+ * credits, the structured data. Everything live on the page — who is here,
+ * your rating, watch providers, the takes — is fetched by the client after
+ * hydration and is never part of what gets cached.
+ *
+ * So the trade is 24x fewer renders against a TMDB fact being at most a day
+ * old, and TMDB facts do not change hourly. A deploy invalidates the whole
+ * cache anyway, so the staleness window only ever runs from the last deploy.
+ */
+export const revalidate = 86400;
 
 /** Empty on purpose — see the movie page: this is what enables ISR. */
 export async function generateStaticParams() {
@@ -49,7 +62,13 @@ async function getShow(id: string) {
   return tmdbFetchJson<any>(
     `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar,keywords,content_ratings,aggregate_credits,reviews,external_ids`,
     "TV detail",
-    { revalidate: 600 }
+    {
+      // Six hours, not a day: a running series carries `next_episode_to_air`,
+      // which is the one fact here with a clock on it. Ten minutes was far
+      // shorter than anything on this page actually changes, and it was capping
+      // the whole page's cache at ten minutes.
+      revalidate: 21600,
+    }
   );
 }
 
