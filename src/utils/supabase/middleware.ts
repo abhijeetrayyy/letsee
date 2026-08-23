@@ -24,6 +24,31 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
+  /**
+   * No auth cookie, no session, nothing to refresh — leave before paying for it.
+   *
+   * Everything this function actually does is inside `if (user)`. A request
+   * carrying no Supabase cookie cannot produce a user, so it was creating a
+   * client, making a network round trip to Supabase to be told "no session",
+   * and returning the response it already had.
+   *
+   * That is every crawler request, and crawlers are most of the traffic:
+   * middleware was 527,753 invocations, 50.1% of the account's total, and this
+   * ran on all of them. It is also why Fluid Active CPU sat at 12h against a 4h
+   * limit — a Supabase round trip per page view, for visitors who have no
+   * account.
+   *
+   * Matched by prefix rather than by exact name because supabase-ssr chunks
+   * large tokens into `sb-<ref>-auth-token.0`, `.1`; an exact-name check would
+   * silently stop refreshing exactly the sessions that are big enough to matter.
+   */
+  const hasAuthCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
+  if (!hasAuthCookie) {
+    return response;
+  }
+
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
