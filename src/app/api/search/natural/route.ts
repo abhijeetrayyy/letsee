@@ -383,6 +383,20 @@ export async function GET(request: Request) {
       items: mapped,
       total: totalResults,
       matched: mapped.length,
+    }, {
+      /**
+       * The only success path here still shipping `no-store`. This route parses
+       * a phrase and asks TMDB — it reads no session, so the answer for a given
+       * query is the same for everyone, and the same phrase typed twice should
+       * cost one invocation rather than two.
+       *
+       * Half an hour, matching /api/search. The error path stays uncached:
+       * `jsonError` sets `no-store`, and caching a failure would hand it to
+       * everyone who asked the same thing.
+       */
+      headers: {
+        "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=600",
+      },
     });
   } catch (err) {
     console.error("Natural search error:", err);

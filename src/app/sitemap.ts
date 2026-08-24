@@ -26,7 +26,13 @@ import { listPath, reviewPath, seasonPath, titlePath } from "@/utils/urls";
  * is a slow route waiting to happen. Splitting into a sitemap index is the
  * change to make when the cap starts binding.
  */
-export const revalidate = 3600;
+/**
+ * A day, not an hour. This runs four paginated database queries to build 1021
+ * URLs; a crawler that re-reads it hourly was paying for all of them. Nothing
+ * in it changes on an hourly cadence — a new public list or review appearing a
+ * few hours later in the sitemap costs nothing.
+ */
+export const revalidate = 86400;
 
 /**
  * PostgREST caps a single response at 1000 rows and does it silently — asking

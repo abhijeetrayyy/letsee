@@ -167,6 +167,10 @@ export async function GET(request: NextRequest) {
       providers: union,
       availableCountries,
     },
-    { maxAge: 3600 }
+    {
+      // A day. Where a title streams changes on deal boundaries, not hourly,
+      // and this is per title+region so the cache actually gets hit.
+      maxAge: 86400,
+    }
   );
 }

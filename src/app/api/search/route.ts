@@ -38,7 +38,10 @@ export async function GET(request: NextRequest) {
 
     const data = await serverFetchJson<unknown>(url);
     return jsonSuccess(data, {
-      maxAge: 300,
+      // Half an hour, up from five minutes. A TMDB search for the same
+      // string returns the same films all day; five minutes meant popular
+      // queries were re-proxied twelve times an hour for identical results.
+      maxAge: 1800,
       staleWhileRevalidate: 600,
     });
   } catch (error) {
