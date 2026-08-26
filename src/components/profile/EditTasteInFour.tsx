@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { getPosterUrl } from "@/utils/imageUrl";
+import { fetchFavoritesPage, fetchWatchedPage } from "@/lib/db/profileGrid";
 
 type DisplayItem = {
   position: number;
@@ -50,20 +51,14 @@ export default function EditTasteInFour({
     if (loaded) return;
     setLoaded(true);
     try {
-      const [watchedRes, favRes] = await Promise.all([
-        fetch("/api/UserWatchedPagination", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userID: profileId, page: 1 }),
-        }),
-        fetch("/api/UserFavoritePagination", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userID: profileId, page: 1, limit: 100 }),
-        }),
+      // This picker only ever opens on your own profile, so the viewer and the
+      // owner are the same person — but it is passed explicitly rather than
+      // assumed, because `fetchWatchedPage` decides whether to include the
+      // private diary column on exactly that comparison.
+      const [wData, fData] = await Promise.all([
+        fetchWatchedPage(profileId, profileId, 1),
+        fetchFavoritesPage(profileId, profileId, 1, 100),
       ]);
-      const wData = watchedRes.ok ? await watchedRes.json() : { data: [] };
-      const fData = favRes.ok ? await favRes.json() : { data: [] };
       setWatched((wData.data ?? []).map((d: any) => ({
         item_id: String(d.item_id),
         item_name: d.item_name ?? "",
@@ -274,7 +269,7 @@ export default function EditTasteInFour({
                         >
                           {it ? (
                             <>
-                              <img
+                              <img loading="lazy" decoding="async"
                                 src={getPosterUrl(it.image_url)}
                                 alt={it.item_name}
                                 className="w-full h-full object-cover"
@@ -364,7 +359,7 @@ export default function EditTasteInFour({
                           className="text-left rounded-xl overflow-hidden border-2 border-surface-600 bg-surface-800 hover:border-amber-500/60 hover:bg-surface-700 transition-all group"
                         >
                           <div className="aspect-2/3 bg-surface-700 overflow-hidden">
-                            <img
+                            <img loading="lazy" decoding="async"
                               src={getPosterUrl(it.image_url)}
                               alt={it.item_name}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
@@ -395,7 +390,7 @@ export default function EditTasteInFour({
                             className="text-left rounded-xl overflow-hidden border-2 border-surface-600 bg-surface-800 hover:border-amber-500/60 hover:bg-surface-700 transition-all group"
                           >
                             <div className="aspect-2/3 bg-surface-700 overflow-hidden">
-                              <img
+                              <img loading="lazy" decoding="async"
                                 src={getPosterUrl(it.image_url)}
                                 alt={it.item_name}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"

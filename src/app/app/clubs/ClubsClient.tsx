@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import useSWR from "swr";
 import { Users, Plus, Loader2 } from "lucide-react";
-import { swrFetcher } from "@/utils/swrFetcher";
+import { fetchClubs } from "@/lib/db/social";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import EmptyState from "@components/ui/EmptyState";
 import ClubPickWidget from "@components/home/ClubPickWidget";
@@ -20,14 +20,20 @@ type Club = {
 
 export function ClubsClient() {
   const { isAuthenticated } = useAuth();
-  const { data, isLoading, mutate } = useSWR<{ clubs: Club[] }>("/api/clubs", swrFetcher);
+  const { user } = useAuth();
+  const viewerId = user?.id ?? null;
+  // `clubs` is world-readable and `club_members` is scoped by policy, so the
+  // route in front of them added a cookie read and nothing else.
+  const { data, isLoading, mutate } = useSWR(["clubs", viewerId], () =>
+    fetchClubs(viewerId),
+  );
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const clubs = data?.clubs ?? [];
+  const clubs = data ?? [];
 
   const create = async () => {
     if (name.trim().length < 3) {

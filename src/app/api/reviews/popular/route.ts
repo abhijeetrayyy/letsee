@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createAnonClient } from "@/utils/supabase/anon";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,26 @@ export async function GET(req: NextRequest) {
   const days = Math.min(Math.max(Number(req.nextUrl.searchParams.get("days")) || 7, 1), 90);
   const limit = Math.min(Math.max(Number(req.nextUrl.searchParams.get("limit")) || 6, 1), 20);
 
-  const supabase = await createClient();
+  /**
+   * Read as `anon`, so the cache header two hundred lines below is true.
+   *
+   * The comment above says this response "is identical for every viewer and
+   * can genuinely be shared-cached", and it was *nearly* so: the queries filter
+   * on `is_public` and re-check the author's visibility in JS. But the client
+   * was the cookie-reading one, and RLS on `takes` and `watched_items` is
+   * `auth.uid() = user_id OR profile_visible_to_viewer(user_id)` — so a
+   * signed-in reader's `limit(limit * 8)` window was drawn from a *wider* set
+   * of rows than a stranger's, including their own private takes and those of
+   * accounts they follow. The public-only filter then discarded them, which
+   * means two viewers could get different results from the same query: not by
+   * leaking anything, but by spending their window on rows that were about to
+   * be thrown away.
+   *
+   * Reading as `anon` makes the row set identical for everybody, which is what
+   * a shared cache requires and, incidentally, what the pagination window
+   * needed to be correct in the first place.
+   */
+  const supabase = createAnonClient();
   const since = new Date(Date.now() - days * 86400000).toISOString();
 
   // Read wider than `limit`, because collapsing to one per title discards rows.
@@ -184,7 +203,21 @@ export async function GET(req: NextRequest) {
     // now, and the component no longer renders it.
     .map(({ at: _at, ...rest }) => ({ ...rest, reactionCount: 0 }));
 
-  if (reviews.length === 0) return jsonSuccess({ reviews: [] }, { maxAge: 0 });
+  /**
+   * The empty answer is cached too, just for less long.
+   *
+   * `maxAge: 0` here was the expensive branch and it looked like the safe one.
+   * "No public reviews in the last seven days" is the *normal* state of a
+   * young site, and this runs on the home page — so the one response nobody
+   * was caching was the one almost every visitor got, and each of those hits
+   * paid for two full-table-scoped queries to be told there is nothing yet.
+   *
+   * Five minutes rather than fifteen: an empty shelf is the case where being
+   * quick to notice a change actually matters, because the change is somebody
+   * publishing the first review and immediately looking for it on the home
+   * page.
+   */
+  if (reviews.length === 0) return jsonSuccess({ reviews: [] }, { maxAge: 300 });
 
   return jsonSuccess({ reviews }, { maxAge: 900 });
 }

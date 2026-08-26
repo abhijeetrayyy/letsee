@@ -1,69 +1,26 @@
-// components/MessageButton.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { supabase } from "@/utils/supabase/client";
+import Link from "@components/ui/AppLink";
 import { LuSend } from "react-icons/lu";
+import { useUnreadCounts } from "@/hooks/useUnreadCounts";
 
 interface MessageButtonProps {
   userId: string;
   className?: string;
 }
 
+/**
+ * Reads its number from the header's one shared subscription — see
+ * `@/lib/db/inbox`. It previously kept its own channel and its own
+ * `select count(*)`, alongside the bell's, alongside the burger's poll.
+ *
+ * The `letsee:messages-read` window event is still honoured, in the store: a
+ * thread announces what it marked, because relying on the realtime UPDATE
+ * alone is what left this badge reading "1 pending" after the message had been
+ * read.
+ */
 const MessageButton: React.FC<MessageButtonProps> = ({ userId, className }) => {
-  const [unreadCount, setUnreadCount] = useState<number>(0);
-
-  useEffect(() => {
-    const fetchUnreadCount = async () => {
-      const { count, error } = await supabase
-        .from("messages")
-        .select("*", { count: "exact", head: true })
-        .eq("recipient_id", userId)
-        .eq("is_read", false);
-
-      if (error) {
-        console.error("Error fetching unread messages count:", error.message);
-      } else {
-        setUnreadCount(count || 0);
-      }
-    };
-
-    fetchUnreadCount();
-
-    /**
-     * Re-read when a thread reports it marked something.
-     *
-     * The badge relied entirely on a realtime UPDATE event, which has to be
-     * enabled on the table and actually delivered before it helps. When it did
-     * not arrive the count stayed stale until a full reload — which is the
-     * "I read it and it still says one pending" report. The thread now
-     * announces what it did, and this listens.
-     */
-    const onRead = () => void fetchUnreadCount();
-    window.addEventListener("letsee:messages-read", onRead);
-
-    const channel = supabase
-      .channel(`realtime-unread-count-${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "messages",
-          filter: `recipient_id=eq.${userId}`,
-        },
-        () => {
-          fetchUnreadCount();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      window.removeEventListener("letsee:messages-read", onRead);
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, userId]);
+  const { messages: unreadCount } = useUnreadCounts(userId);
 
   return (
     <Link

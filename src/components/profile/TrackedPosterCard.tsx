@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useState } from "react";
 import StatusControl from "@components/buttons/StatusControl";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";

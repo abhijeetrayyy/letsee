@@ -1,5 +1,5 @@
 import React from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { notFound } from "next/navigation";
 import { FaChevronRight, FaChevronLeft, FaStar } from "react-icons/fa";
 import ImageViewEpisode from "@components/clientComponent/imageViewEpisode";
@@ -7,7 +7,6 @@ import VideoEpisode from "@components/clientComponent/videoEpisode";
 import MarkEpisodeWatched from "@components/tv/MarkEpisodeWatched";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { fetchTmdb } from "@/utils/tmdbClient";
-import { createClient } from "@/utils/supabase/server";
 import TitleTalk from "@components/takes/TitleTalk";
 import { ArrowLeft, Clock, Calendar, Users, Clapperboard, Star } from "lucide-react";
 import { episodePath, parseRouteId, personPath, seasonPath, titlePath } from "@/utils/urls";
@@ -46,7 +45,43 @@ interface PageProps {
 }
 
 
-const EPISODE_REVALIDATE_SEC = 300;
+/**
+ * Six hours, up from five minutes, and the route below is cached for the same
+ * window — deliberately the same number, because Next takes the *minimum* of a
+ * route's `revalidate` and every fetch inside its render. Leaving this at 300
+ * while setting `revalidate = 21600` would have produced a page that looks
+ * cached in the config and is re-rendered every five minutes in production,
+ * which is the exact trap commit 6d539ed had to measure its way out of on the
+ * movie and series pages.
+ *
+ * An aired episode's TMDB record — its name, overview, still, runtime, guest
+ * cast — does not change again. Six hours is conservative for it; it is chosen
+ * to match `TMDB_REVALIDATE_SEC` in `tmdbTvShow.ts`, which this render also
+ * calls into for the series name and season length, and which is therefore the
+ * real ceiling regardless of what is written here.
+ */
+const EPISODE_REVALIDATE_SEC = 21600;
+
+/**
+ * ── Cached, now that nothing here reads a session ─────────────────────────
+ *
+ * See the note in the component below: this page opened a session and read the
+ * viewer's own episode rating into a variable that nothing rendered. With that
+ * gone, every byte this route produces is TMDB data that is identical for
+ * every visitor, so there is no longer a reason to rebuild it per request.
+ *
+ * `generateStaticParams` returning `[]` is not optional next to `revalidate`.
+ * On a `[param]` route without it, Next treats the route as fully dynamic and
+ * emits `no-store` no matter what `revalidate` says — R3 in the incident
+ * document, and the reason the first attempt at that fix appeared to do
+ * nothing. Empty means "prerender none of them at build time, and cache each
+ * one the first time somebody asks for it".
+ */
+export const revalidate = 21600;
+
+export async function generateStaticParams() {
+  return [];
+}
 
 const fetchEpisodeData = async (
   id: string,
@@ -155,22 +190,30 @@ const EpisodePage = async ({ params }: PageProps) => {
     return notFound();
   }
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  const [episodeRes, ratingRes] = await Promise.all([
-    fetchEpisodeData(id, seasonNumber, episodeId).catch((e) => ({ error: e })),
-    user
-      ? supabase
-          .from("episode_ratings")
-          .select("score, note")
-          .eq("user_id", user.id)
-          .eq("show_id", id)
-          .eq("season_number", seasonNumber)
-          .eq("episode_number", episodeId)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
+  /**
+   * ── What was removed here, and why it mattered more than it looked ───────
+   *
+   * This used to open a session (`auth.getUser()` — a network round trip to
+   * Supabase) and then, for a signed-in visitor, read their own score and note
+   * for this episode out of `episode_ratings`. The result was assigned to a
+   * local called `userRating`.
+   *
+   * Nothing read `userRating`. Not one line. The variable was assigned and
+   * dropped, and the rating widget on this page gets its own state from the
+   * client.
+   *
+   * Two round trips per render for a value nobody used is bad on its own. The
+   * expensive part is what the *first* of them did to the page: reading a
+   * session forces a dynamic render, so this route emitted `no-store` and
+   * rebuilt itself from scratch on every hit. Episode pages are deliberately
+   * left out of the sitemap because there are tens of thousands of them — but
+   * they are linked from every season page, so a crawler walks into all of
+   * them anyway. The most numerous page on the site was uncacheable in order
+   * to compute a dead variable.
+   */
+  const episodeRes = await fetchEpisodeData(id, seasonNumber, episodeId).catch(
+    (e) => ({ error: e }),
+  );
 
   if ((episodeRes as any).error) {
     const error = (episodeRes as any).error;
@@ -188,7 +231,6 @@ const EpisodePage = async ({ params }: PageProps) => {
   }
 
   const data = episodeRes as Awaited<ReturnType<typeof fetchEpisodeData>>;
-  const userRating = ratingRes.data;
   const { seriesName, seasonNumber: seasonNum, episode } = data;
   const epNum = episode.episode_number.toString().padStart(2, "0");
 
@@ -223,7 +265,7 @@ const EpisodePage = async ({ params }: PageProps) => {
       <div className="relative overflow-hidden">
         {episode.still_path ? (
           <>
-            <img src={`https://image.tmdb.org/t/p/w1280${episode.still_path}`} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20" />
+            <img loading="lazy" decoding="async" src={`https://image.tmdb.org/t/p/w1280${episode.still_path}`} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20" />
             <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/80 to-surface-950/30" />
           </>
         ) : (
@@ -322,7 +364,6 @@ const EpisodePage = async ({ params }: PageProps) => {
           seasonNumber={seasonNum}
           episodeNumber={episode.episode_number}
           itemName={episode.name}
-          isAuthenticated={!!user}
         />
 
         {/* Images */}
@@ -372,7 +413,7 @@ const EpisodePage = async ({ params }: PageProps) => {
                 >
                   <div className="aspect-[2/3] overflow-hidden">
                     {star.profile_path ? (
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={`https://image.tmdb.org/t/p/w185${star.profile_path}`}
                         alt={star.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -412,7 +453,7 @@ const EpisodePage = async ({ params }: PageProps) => {
                 >
                   <div className="aspect-[2/3] overflow-hidden">
                     {member.profile_path ? (
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={`https://image.tmdb.org/t/p/w185${member.profile_path}`}
                         alt={member.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

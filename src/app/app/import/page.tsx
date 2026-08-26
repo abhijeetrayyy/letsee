@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Download } from "lucide-react";
 import { getAuthUserId } from "@/utils/apiAuth";
 import ImportFlow from "@components/import/ImportFlow";

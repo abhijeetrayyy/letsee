@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
+import { fetchProfileSettings, updateProfileSettings } from "@/lib/db/profile";
 
 const Visibility: React.FC = () => {
   const [visibility, setVisibility] = useState<string>("public");
@@ -10,46 +13,54 @@ const Visibility: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
+  /**
+   * `users_self` lets the owner read and update their own row, so both halves
+   * of this form talk to Postgres directly — `/api/profile/settings` was a
+   * function whose contribution was the cookie read that RLS does not need.
+   */
   useEffect(() => {
-    const fetchSettings = async () => {
+    if (!userId) return;
+    let cancelled = false;
+
+    (async () => {
       try {
-        const res = await fetch("/api/profile/settings");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.visibility) setVisibility(data.visibility);
-          if (typeof data.profile_show_ratings === "boolean")
-            setProfileShowRatings(data.profile_show_ratings);
-          if (typeof data.profile_show_public_reviews === "boolean")
-            setProfileShowPublicReviews(data.profile_show_public_reviews);
-        }
+        const data = await fetchProfileSettings(userId);
+        if (cancelled || !data) return;
+        setVisibility(data.visibility);
+        setProfileShowRatings(data.profile_show_ratings);
+        setProfileShowPublicReviews(data.profile_show_public_reviews);
+      } catch {
+        // Leave the defaults on screen; saving still works.
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
+    })();
+
+    return () => {
+      cancelled = true;
     };
-    fetchSettings();
-  }, []);
+  }, [userId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userId) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/profile/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          visibility,
-          profile_show_ratings: profileShowRatings,
-          profile_show_public_reviews: profileShowPublicReviews,
-        }),
+      const message = await updateProfileSettings(userId, {
+        visibility,
+        profile_show_ratings: profileShowRatings,
+        profile_show_public_reviews: profileShowPublicReviews,
       });
-      if (res.ok) {
-        alert("Settings saved.");
-      } else {
-        const data = await res.json().catch(() => ({}));
-        alert(data?.error ?? "Failed to save settings.");
-      }
+      // `alert()` was the previous acknowledgement: it blocks the page, looks
+      // like a browser error, and this app has had a toaster mounted the whole
+      // time.
+      if (message) toast.error(message);
+      else toast.success("Settings saved");
     } catch {
-      alert("Failed to save settings.");
+      toast.error("Failed to save settings.");
     } finally {
       setSaving(false);
     }

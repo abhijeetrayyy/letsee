@@ -15,35 +15,16 @@ function slugify(name: string): string {
     .slice(0, 40);
 }
 
-/** GET /api/clubs — all clubs, with whether you're a member. Works signed-out. */
-export async function GET() {
-  const supabase = await createClient();
-  const viewerId = await getAuthUserId();
-
-  const { data: clubs, error } = await supabase
-    .from("clubs")
-    .select("id, slug, name, description, image_url, member_count, created_at")
-    .order("member_count", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  if (error) return jsonError(error.message, 500);
-
-  let joined = new Set<number>();
-  if (viewerId && clubs?.length) {
-    const { data: mine } = await supabase
-      .from("club_members")
-      .select("club_id")
-      .eq("user_id", viewerId)
-      .eq("status", "active");
-    joined = new Set((mine ?? []).map((m) => m.club_id));
-  }
-
-  return jsonSuccess({
-    clubs: (clubs ?? []).map((c) => ({ ...c, isMember: joined.has(c.id) })),
-  });
-}
-
+/**
+ * The GET half moved to the browser — see `@/lib/db/social`. `clubs` is
+ * world-readable and `club_members` is scoped by policy, so listing them never
+ * needed a function.
+ *
+ * POST stays. Creating a club generates a slug, inserts a row and depends on
+ * `trg_club_owner_on_create` to make the creator its owner; that is a write
+ * with a shape, not a query, and it belongs somewhere the shape is enforced
+ * once rather than in whichever client happens to call it.
+ */
 /** POST /api/clubs — create a club. The creator becomes its owner. */
 export async function POST(req: NextRequest) {
   const userId = await getAuthUserId();

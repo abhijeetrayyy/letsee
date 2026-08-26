@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { buildSearchIndex, normalizeQuery, type IndexRow, type SearchIndex } from "@/utils/searchIndex";
 import { NETWORKS } from "@/staticData/networks";
+import { supabase } from "@/utils/supabase/client";
+import { fetchLibraryIndexRows } from "@/lib/db/library";
 
 /**
  * Loads the local search index, once per page session, on first use.
@@ -78,10 +80,42 @@ async function fetchRows(url: string): Promise<Fetched> {
  * matters: without it there is no local index at all, and the spelling
  * correction that feeds TMDB dies with it.
  */
+/**
+ * A signed-out visitor has no library, and that is an answer rather than a
+ * failure — `ok: true` with no rows, exactly as the 401 from the old route was
+ * treated. A genuine read failure returns `ok: false`, which stops the whole
+ * index being memoised so the next open tries again.
+ */
+async function fetchLibraryRows(): Promise<Fetched> {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return { rows: [], ok: true };
+    return { rows: await fetchLibraryIndexRows(userId), ok: true };
+  } catch (e) {
+    console.warn("searchIndex: library read failed — will retry on next open", e);
+    return { rows: [], ok: false };
+  }
+}
+
 function load(): Promise<SearchIndex> {
   if (!cached) {
+    /**
+     * Two halves, two different cost shapes, and they belong in two different
+     * places.
+     *
+     * The catalogue is TMDB-derived and identical for everybody, so it stays a
+     * Vercel route with a shared cache: one invocation serves every visitor who
+     * opens search, and the CDN serves the rest. The library half is the
+     * opposite — different per viewer, uncacheable by anyone, and up to 5,000
+     * rows — so routing it through a function meant paying an invocation *and*
+     * moving the whole payload through the origin, per person. It reads itself
+     * now, under the same policies the route relied on.
+     */
     cached = Promise.all([
-      fetchRows("/api/library/index"),
+      fetchLibraryRows(),
       fetchRows("/api/search/catalog"),
     ]).then(([library, popular]) => {
       if (!library.ok || !popular.ok) cached = null;

@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import MediaCard from "@/components/cards/MediaCard";
 import { ArrowLeft, Filter, Star, Clock, Film, Tv, Sparkles, Trash2, Check } from "lucide-react";
 

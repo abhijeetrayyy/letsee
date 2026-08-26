@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import React from "react";
 
 type EmptyStateProps = {

@@ -14,6 +14,7 @@ import Link from "next/link";
 import Avatar from "@components/ui/Avatar";
 import type { AuthUser } from "@/app/contextAPI/AuthProvider";
 import { useMounted } from "@/hooks/useMounted";
+import { useUnreadCounts } from "@/hooks/useUnreadCounts";
 
 interface BurgerMenuProps {
   status: "loading" | "anon" | "needs_profile" | "ok";
@@ -30,35 +31,19 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
-  const [unread, setUnread] = useState(0);
-
-  // The bell and messages icons are desktop-only now, so their unread state
-  // has to surface somewhere on mobile or it's invisible until you open this.
-  useEffect(() => {
-    if (!user?.id) return;
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const res = await fetch("/api/notifications/unread-count", {
-          credentials: "include",
-          cache: "no-store",
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled) setUnread(Number(data?.total ?? 0));
-      } catch {
-        // A missing badge is not worth surfacing an error for.
-      }
-    };
-
-    void load();
-    const timer = setInterval(load, 60_000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [user?.id]);
+  /**
+   * The bell and messages icons are desktop-only, so their unread state has to
+   * surface somewhere on mobile or it is invisible until you open this menu.
+   *
+   * This used to poll `/api/notifications/unread-count` every 120 seconds for
+   * as long as the tab was visible — a function invocation per tick, per open
+   * tab, to keep one number correct. `notifications` and `messages` are both in
+   * the realtime publication (migrations 070 and 079), so the database can say
+   * when the number changed instead of being asked. The shared subscription in
+   * `@/lib/db/inbox` is the same one the bell and the message icon use, so all
+   * three badges are one websocket topic rather than three pollers.
+   */
+  const { total: unread } = useUnreadCounts(user?.id);
 
   const go = useCallback(
     (path: string) => {

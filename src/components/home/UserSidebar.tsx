@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Eye, Star, Bookmark, Layers } from "lucide-react";
 import ProfileAvatar from "@components/profile/ProfileAvatar";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
+import { fetchUserStats } from "@/lib/db/home";
+import { fetchProfileSettings } from "@/lib/db/profile";
 
 interface SidebarStats {
   watchedCount: number;
@@ -16,25 +19,36 @@ interface SidebarStats {
   followingCount: number;
 }
 
-export default function UserSidebar({ username }: { username: string }) {
+/**
+ * `username` comes from the session the provider already holds rather than from
+ * a prop, so the page above it does not have to read one — see `AuthGate` for
+ * why that mattered enough to move.
+ */
+export default function UserSidebar() {
   const [stats, setStats] = useState<SidebarStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const username = user?.username ?? "";
 
   useEffect(() => {
+    if (!userId) return;
     let cancelled = false;
 
-    async function fetchStats() {
+    async function load(id: string) {
       try {
-        // Same endpoint the profile header is built from, so the two can't
-        // disagree. This used to count list lengths from /api/userPrefrence
-        // and estimate hours as watched x 2, which ignored every episode.
-        const [statsRes, profileRes] = await Promise.all([
-          fetch("/api/profile/stats/summary", { credentials: "include", cache: "no-store" }),
-          fetch(`/api/profile/settings`, { credentials: "include" }),
+        /**
+         * The same two reads the profile header is built from, so the two
+         * cannot disagree — but made directly rather than through
+         * `/api/profile/stats/summary` and `/api/profile/settings`, which
+         * between them were two function invocations on every signed-in home
+         * page view. `get_user_stats` is one RPC, and the settings read is one
+         * row plus two `count` heads.
+         */
+        const [s, profile] = await Promise.all([
+          fetchUserStats(id),
+          fetchProfileSettings(id),
         ]);
-
-        const s = statsRes.ok ? await statsRes.json().catch(() => ({})) : {};
-        const profile = profileRes.ok ? await profileRes.json().catch(() => ({})) : {};
 
         if (cancelled) return;
 
@@ -43,10 +57,10 @@ export default function UserSidebar({ username }: { username: string }) {
           favoriteCount: s.favoriteCount ?? 0,
           watchlistCount: s.watchlistCount ?? 0,
           episodesCount: s.episodesCount ?? 0,
-          avatarUrl: profile.avatar_url ?? null,
-          tagline: profile.tagline ?? null,
-          followersCount: profile.followers_count ?? 0,
-          followingCount: profile.following_count ?? 0,
+          avatarUrl: profile?.avatar_url ?? null,
+          tagline: profile?.tagline ?? null,
+          followersCount: profile?.followers_count ?? 0,
+          followingCount: profile?.following_count ?? 0,
         });
       } catch {
         if (!cancelled) setStats(null);
@@ -55,9 +69,9 @@ export default function UserSidebar({ username }: { username: string }) {
       }
     }
 
-    fetchStats();
+    void load(userId);
     return () => { cancelled = true; };
-  }, []);
+  }, [userId]);
 
   if (loading || !stats) return <SidebarSkeleton />;
 

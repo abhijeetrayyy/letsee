@@ -1,7 +1,7 @@
 "use client";
 
 import { formatStars } from "@/utils/ratingScale";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useState } from "react";
 import useSWR from "swr";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -105,7 +105,7 @@ export default function ReviewsSection({
             >
               {/* Poster */}
               <Link href={href} className="shrink-0 w-24 aspect-[2/3] rounded-lg overflow-hidden">
-                <img
+                <img loading="lazy" decoding="async"
                   src={posterUrl}
                   alt={item.item_name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"

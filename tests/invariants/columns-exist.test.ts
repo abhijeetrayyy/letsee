@@ -109,8 +109,22 @@ describe("no star select on a table with withheld columns", () => {
 });
 
 describe("api surface", () => {
+  /**
+   * A floor, not a target.
+   *
+   * Every column and upsert rule above is checked by walking `apiRoutes()`, so
+   * a change that emptied that list would turn this whole file green while
+   * checking nothing. The number is therefore deliberately just below the
+   * current count and is expected to come *down* over time: routes that exist
+   * only to forward a query the browser can make under RLS are being moved
+   * client-side, and each one that goes takes a function invocation per page
+   * view with it.
+   *
+   * Lower it when routes are deliberately removed. Never delete the assertion —
+   * a suite that iterates an empty list is the failure this guards against.
+   */
   it("has routes to check", () => {
-    expect(apiRoutes().length).toBeGreaterThan(80);
+    expect(apiRoutes().length).toBeGreaterThan(60);
   });
 });
 

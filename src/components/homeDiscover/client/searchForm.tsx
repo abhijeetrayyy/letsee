@@ -70,16 +70,17 @@ function Page() {
       setError(null);
 
       try {
-        const response = await fetch("/api/homeSearch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: searchQuery,
-            page: searchPage,
-            media_type: type,
-          }),
-          cache: "no-store",
+        // GET, not POST, and no `cache: "no-store"` — deliberately both.
+        // The route now sets `s-maxage`, so a repeat of a search somebody
+        // else already ran is answered from the edge instead of costing an
+        // invocation and a TMDB round trip. `no-store` here would tell the
+        // browser to skip its own cache and defeat half of that.
+        const params = new URLSearchParams({
+          query: searchQuery,
+          page: String(searchPage),
+          media_type: type,
         });
+        const response = await fetch(`/api/homeSearch?${params}`);
 
         if (!response.ok) {
           throw new Error(`Network response failed: ${response.status}`);
@@ -283,7 +284,7 @@ function Page() {
                 <span className="font-bold text-purple-600"> is not found</span>{" "}
                 - or check your spelling
               </p>
-              <img
+              <img loading="lazy" decoding="async"
                 src="/abhijeetray.webp"
                 alt="not-found"
                 className="max-w-md"

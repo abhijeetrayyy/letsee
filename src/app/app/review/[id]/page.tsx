@@ -1,5 +1,6 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { createClient } from "@/utils/supabase/server";
 import { getPosterUrl } from "@/utils/imageUrl";
 import Avatar from "@components/ui/Avatar";
@@ -13,6 +14,54 @@ import { parseRouteId, reviewPath, titlePath, profilePath } from "@/utils/urls";
 export const dynamic = "force-dynamic";
 
 type RouteParams = { params: Promise<{ id: string }> };
+
+/**
+ * ── This page stays rendered per request, and that is the correct call ─────
+ *
+ * It is in the sitemap, so it is crawled, and a cached render would be much
+ * cheaper. It is deliberately not cached anyway, because what this page shows
+ * genuinely depends on who is asking: the author sees their own review before
+ * the visibility gate below runs, and a follower sees a followers-only review
+ * that a stranger must not. ISR caches per URL, not per viewer — so the first
+ * render to land in the cache would be served to everyone who asked next. The
+ * author opening their own followers-only review would publish it.
+ *
+ * There is a version of this page that is cacheable: render the public case
+ * statically and move the owner/follower case to a client fetch. That is a
+ * real change to how the page is built and it is not worth making blind. So
+ * the cost work here is the cost work that does not touch the gate — halving
+ * the number of round trips each render pays for, below.
+ *
+ * ── What the halving is ───────────────────────────────────────────────────
+ * `generateMetadata` and the component are separate invocations, and the note
+ * above `generateMetadata` says "the request is deduped anyway". That is true
+ * of `fetch`. supabase-js is not `fetch`, and nothing was deduping it: the
+ * review row and the author row were each read twice per render, for four
+ * round trips where two would do. React's `cache()` is what actually makes
+ * that comment true.
+ *
+ * The columns are the union of what both callers wanted — the component's set
+ * is a superset of the metadata's in both cases, so nothing extra is read.
+ */
+const getReviewAndAuthor = cache(async (reviewId: number) => {
+  const supabase = await createClient();
+
+  const { data: review } = await supabase
+    .from("watched_items")
+    .select("id, user_id, item_id, item_type, item_name, image_url, public_review_text, watched_at")
+    .eq("id", reviewId)
+    .maybeSingle();
+
+  if (!review) return { review: null, author: null };
+
+  const { data: author } = await supabase
+    .from("users")
+    .select("id, username, avatar_url, visibility, profile_show_public_reviews")
+    .eq("id", review.user_id)
+    .maybeSingle();
+
+  return { review, author };
+});
 
 
 function formatDate(iso: string | null): string {
@@ -56,20 +105,9 @@ export async function generateMetadata({ params }: RouteParams) {
   if (!Number.isInteger(reviewId)) return fallback;
 
   try {
-    const supabase = await createClient();
-    const { data: review } = await supabase
-      .from("watched_items")
-      .select("user_id, item_name, image_url, public_review_text")
-      .eq("id", reviewId)
-      .maybeSingle();
+    const { review, author } = await getReviewAndAuthor(reviewId);
 
     if (!review?.public_review_text) return fallback;
-
-    const { data: author } = await supabase
-      .from("users")
-      .select("username, visibility, profile_show_public_reviews")
-      .eq("id", review.user_id)
-      .maybeSingle();
 
     // Metadata is rendered before the component's own gate runs and is served
     // to crawlers with no session, so it must only ever describe a review a
@@ -122,25 +160,18 @@ export default async function ReviewPage({ params }: RouteParams) {
   if (!Number.isInteger(reviewId)) notFound();
 
   const supabase = await createClient();
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+
+  // The viewer lookup and the review itself have nothing to say to each other
+  // until both have arrived, so they are asked for at the same time rather
+  // than one after the other. `getReviewAndAuthor` is the same call
+  // `generateMetadata` already made this request, so it costs nothing here.
+  const [{ data: { user: viewer } }, { review, author }] = await Promise.all([
+    supabase.auth.getUser(),
+    getReviewAndAuthor(reviewId),
+  ]);
   const viewerId = viewer?.id ?? null;
 
-  const { data: review } = await supabase
-    .from("watched_items")
-    .select("id, user_id, item_id, item_type, item_name, image_url, public_review_text, watched_at")
-    .eq("id", reviewId)
-    .maybeSingle();
-
   if (!review?.public_review_text) notFound();
-
-  const { data: author } = await supabase
-    .from("users")
-    .select("id, username, avatar_url, visibility, profile_show_public_reviews")
-    .eq("id", review.user_id)
-    .maybeSingle();
-
   if (!author?.username) notFound();
 
   // Respect the author's visibility and their "show public reviews" toggle.
@@ -213,7 +244,7 @@ export default async function ReviewPage({ params }: RouteParams) {
 
           {/* The film */}
           <Link href={detailHref} className="mt-5 flex gap-4 group">
-            <img
+            <img loading="lazy" decoding="async"
               src={getPosterUrl(review.image_url, "w185")}
               alt={review.item_name ?? ""}
               className="w-20 aspect-[2/3] rounded-lg object-cover shrink-0 shadow-lg"

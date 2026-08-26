@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { createClient } from "@/utils/supabase/server";
+import { createAnonClient } from "@/utils/supabase/anon";
 import { absoluteUrl } from "@/utils/siteUrl";
 
 /**
@@ -12,9 +12,19 @@ import { absoluteUrl } from "@/utils/siteUrl";
  * week. Every one of them was inheriting the site title and the site
  * description, which told a crawler that all of them were the same page.
  *
- * Read with the request's own client rather than the service key. Clubs carry
- * no visibility column today, but reading them as the caller means the day one
- * is added this file inherits the rule instead of quietly bypassing it.
+ * ── Which client, and why it is not `createClient()` ───────────────────────
+ * This used to read with the cookie client, on the stated reasoning that doing
+ * so keeps the read subject to whatever visibility rule clubs might grow. The
+ * reasoning is right; the client was wrong, and it is the fault the August
+ * incident calls R2 — now for the fourth time in this codebase, after
+ * `sitemap.ts`, `relatedData.ts` and `lists/[listId]`.
+ *
+ * `createAnonClient()` is not the service key. It carries the anon key and is
+ * fully subject to RLS, so the day `clubs` grows a visibility column this file
+ * inherits that rule exactly as before. What it does not do is read a cookie —
+ * and one cookie read anywhere in a route's tree opts the whole route out of
+ * caching, which is what kept every club page rendering from scratch on every
+ * hit. A club's name and description are the same bytes for everybody.
  */
 export async function generateMetadata({
   params,
@@ -27,7 +37,7 @@ export async function generateMetadata({
     const { slug } = await params;
     if (!slug) return fallback;
 
-    const supabase = await createClient();
+    const supabase = createAnonClient();
     const { data: club } = await supabase
       .from("clubs")
       .select("name, description, member_count")
@@ -56,6 +66,25 @@ export async function generateMetadata({
   } catch {
     return fallback;
   }
+}
+
+/**
+ * `revalidate` is not enough on its own here — R3.
+ *
+ * On a `[param]` segment with no `generateStaticParams`, Next treats the route
+ * as fully dynamic and emits `no-store` however long the revalidate window is.
+ * An empty array is the documented way to say "prerender nothing, cache on
+ * demand": the first visitor to a club renders it, everyone after that for the
+ * next hour is served from the CDN.
+ *
+ * An hour rather than a day because the page carries a member count and the
+ * week's pick, and both move. The page's own data is fetched client-side
+ * anyway, so this window only governs the shell and its metadata.
+ */
+export const revalidate = 3600;
+
+export function generateStaticParams() {
+  return [];
 }
 
 export default function ClubLayout({ children }: { children: React.ReactNode }) {

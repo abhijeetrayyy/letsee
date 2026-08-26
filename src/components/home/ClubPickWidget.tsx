@@ -2,28 +2,19 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Sparkles, ChevronDown, ChevronUp } from "lucide-react";
-import { swrFetcher } from "@/utils/swrFetcher";
+import { fetchCurrentClubPick } from "@/lib/db/home";
 import { getPosterUrl } from "@/utils/imageUrl";
 import Comments from "@components/social/Comments";
-
-type ClubPick = {
-  id: number;
-  item_id: string;
-  item_type: "movie" | "tv";
-  title: string;
-  image_url: string | null;
-  note: string | null;
-  starts_at: string;
-  ends_at: string;
-};
 
 import { titlePath } from "@/utils/urls";
 export default function ClubPickWidget() {
   const [expanded, setExpanded] = useState(false);
-  const { data } = useSWR<{ pick: ClubPick | null }>("/api/club-pick/current", swrFetcher);
-  const pick = data?.pick;
+  // Straight to `club_picks`, which is world-readable — the route in front of
+  // it was a Vercel function forwarding one `select` on the home page of every
+  // visitor, signed in or not.
+  const { data: pick } = useSWR("club-pick:current", fetchCurrentClubPick);
 
   if (!pick) return null;
 
@@ -35,7 +26,7 @@ export default function ClubPickWidget() {
       </div>
       <div className="flex gap-3">
         <Link href={titlePath(pick.item_type, pick.item_id, pick.title)} className="shrink-0 w-16 aspect-[2/3] rounded-lg overflow-hidden bg-surface-800">
-          <img src={getPosterUrl(pick.image_url)} alt={pick.title} className="w-full h-full object-cover" />
+          <img loading="lazy" decoding="async" src={getPosterUrl(pick.image_url)} alt={pick.title} className="w-full h-full object-cover" />
         </Link>
         <div className="flex-1 min-w-0">
           <Link href={titlePath(pick.item_type, pick.item_id, pick.title)} className="text-sm font-semibold text-white hover:text-brand-400 transition-colors line-clamp-1">

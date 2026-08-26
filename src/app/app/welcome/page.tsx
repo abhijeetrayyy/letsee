@@ -399,7 +399,7 @@ function StepPicks({ onDone }: { onDone: () => void }) {
               className="group relative aspect-[2/3] rounded-xl overflow-hidden border border-surface-700"
               title={`Remove ${p.name}`}
             >
-              <img
+              <img loading="lazy" decoding="async"
                 src={getPosterUrl(p.posterPath, "w185")}
                 alt={p.name}
                 className="w-full h-full object-cover"
@@ -441,7 +441,7 @@ function StepPicks({ onDone }: { onDone: () => void }) {
                 disabled={picks.length >= PICKS_REQUIRED}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-surface-800 disabled:opacity-40 transition-colors"
               >
-                <img
+                <img loading="lazy" decoding="async"
                   src={getPosterUrl(r.poster_path, "w92")}
                   alt=""
                   className="w-8 aspect-[2/3] object-cover rounded"

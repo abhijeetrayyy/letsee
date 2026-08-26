@@ -1,39 +1,41 @@
 "use client";
 
 import React, { useEffect, useState, useContext } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { getPosterUrl } from "@/utils/imageUrl";
+import { fetchCurrentlyWatching, type WatchingItem } from "@/lib/db/home";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
 
 import { titlePath } from "@/utils/urls";
-interface WatchingItem {
-  item_id: string;
-  item_name: string;
-  item_type: string;
-  image_url: string | null;
-  started_at: string;
-}
-
 export default function CurrentlyWatchingSection() {
   const { user, userPrefrence } = useContext(UserPrefrenceContext);
+  const { user: authUser } = useAuth();
   const watchingIds = userPrefrence.watching;
   const [items, setItems] = useState<WatchingItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  /**
+   * One `select` on `user_media_status`, from the browser.
+   *
+   * `/api/currently-watching` was a Vercel function that opened a cookie
+   * client and ran exactly this query; `user_media_status_self` scopes it to
+   * the caller either way. This strip renders on `/app`, which is where every
+   * signed-in session begins.
+   */
+  const userId = authUser?.id ?? null;
   useEffect(() => {
-    if (!user || watchingIds.length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- a fetch is an external system; the loading flag is the standard shape for one
+    if (!user || !userId || watchingIds.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- a query is an external system; the loading flag is the standard shape for one
       setItems([]);
       setLoading(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
-    fetch("/api/currently-watching", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (!cancelled && data?.items?.length) setItems(data.items);
-        else if (!cancelled) setItems([]);
+    fetchCurrentlyWatching(userId)
+      .then((rows) => {
+        if (!cancelled) setItems(rows);
       })
       .catch(() => {
         if (!cancelled) setItems([]);
@@ -44,7 +46,7 @@ export default function CurrentlyWatchingSection() {
     return () => {
       cancelled = true;
     };
-  }, [user, watchingIds.length]);
+  }, [user, userId, watchingIds.length]);
 
   if (loading || items.length === 0) return null;
 
@@ -73,7 +75,7 @@ export default function CurrentlyWatchingSection() {
               className="shrink-0 w-36 sm:w-40 flex flex-col rounded-xl overflow-hidden border border-surface-700 bg-surface-800/80 hover:border-surface-600 hover:bg-surface-800 transition-colors"
             >
               <div className="relative aspect-2/3 w-full overflow-hidden">
-                <img
+                <img loading="lazy" decoding="async"
                   src={posterUrl}
                   alt={item.item_name ?? ""}
                   className="w-full h-full object-cover"

@@ -1,13 +1,30 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Loader2, Lock, Send, Trash2, X } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
 import StarRating from "@components/ui/StarRating";
 import { formatStars } from "@/utils/ratingScale";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
+import { supabase } from "@/utils/supabase/client";
+import {
+  deleteMyTake,
+  fetchTakesForTitle,
+  saveMyTake,
+  type TakeIdentity,
+} from "@/lib/db/takes";
+import {
+  deleteComment,
+  fetchComments,
+  postComment,
+  type CommentRow,
+} from "@/lib/db/comments";
+import { NA } from "@/utils/takes";
+import { roomKey, takesKey as buildTakesKey, commentsKey as buildCommentsKey } from "@/lib/db/keys";
+import { useInView } from "@/hooks/useInView";
 
 /**
  * One composer, one thread.
@@ -34,16 +51,6 @@ type Other = {
   body: string;
   updatedAt: string;
 };
-type CommentRow = {
-  id: number;
-  user_id: string;
-  body: string;
-  created_at: string;
-  users: { username: string | null; avatar_url: string | null } | null;
-};
-
-const fetcher = (url: string) => fetch(url).then((r) => (r.ok ? r.json() : Promise.reject(r)));
-
 /**
  * The prompt is the single highest-leverage thing on this component.
  *
@@ -84,7 +91,7 @@ export default function TitleTalk({
   itemName,
   imageUrl,
   genres,
-  isAuthenticated,
+  isAuthenticated: isAuthenticatedProp,
 }: {
   itemId: string;
   itemType: "movie" | "tv";
@@ -95,15 +102,22 @@ export default function TitleTalk({
   itemName?: string;
   imageUrl?: string | null;
   genres?: string[];
-  isAuthenticated: boolean;
+  /**
+   * Optional, and the fallback is the point.
+   *
+   * The two detail pages render this from inside a client component and
+   * already hold the answer, so they pass it. The season and episode pages
+   * render it from a *server* component — and computing this prop there meant
+   * a `supabase.auth.getUser()` in the render, which is a session read, which
+   * is what made both of those pages uncacheable and had them rebuilding from
+   * scratch on every crawler hit.
+   *
+   * The provider below is mounted on `/app` in `app/app/layout.tsx`, so it
+   * covers every caller. Reading it here costs one context lookup that has
+   * already happened; reading it on the server cost the whole page its cache.
+   */
+  isAuthenticated?: boolean;
 }) {
-  const scopeQs =
-    scope === "title"
-      ? "scope=title"
-      : scope === "season"
-        ? `scope=season&seasonNumber=${seasonNumber}`
-        : `scope=episode&seasonNumber=${seasonNumber}&episodeNumber=${episodeNumber}`;
-
   // `comments` is keyed on its own id space, and a season or an episode needs a
   // composite id so two seasons of one show don't share a thread.
   const commentsItemType = scope === "title" ? itemType : scope;
@@ -114,16 +128,103 @@ export default function TitleTalk({
         ? `${itemId}-s${seasonNumber}`
         : `${itemId}-s${seasonNumber}-e${episodeNumber}`;
 
-  const takesKey = `/api/takes?itemId=${itemId}&itemType=${itemType}&${scopeQs}`;
-  const commentsKey = `/api/comments?itemId=${commentsItemId}&itemType=${commentsItemType}`;
+  const { user } = useAuth();
+  const viewerId = user?.id ?? null;
 
-  const { data: takes, mutate: mutateTakes, isLoading } = useSWR<{
-    mine: Mine;
-    others: Other[];
-  }>(takesKey, fetcher);
-  const { data: comments, mutate: mutateComments } = useSWR<CommentRow[]>(commentsKey, fetcher);
+  /**
+   * The identity of the thing being talked about, in the shape `takes` stores.
+   *
+   * `NA` is -1 and means "not applicable at this scope" — not 0, because season
+   * 0 is specials. It matches the `takes_scope_shape` constraint, so building
+   * it here rather than serialising into a query string means a malformed
+   * identity is a type error instead of a 400 at runtime.
+   */
+  const identity = useMemo<TakeIdentity>(
+    () => ({
+      itemId: String(itemId),
+      itemType,
+      scope,
+      seasonNumber: scope === "title" ? NA : (seasonNumber ?? NA),
+      episodeNumber: scope === "episode" ? (episodeNumber ?? NA) : NA,
+    }),
+    [itemId, itemType, scope, seasonNumber, episodeNumber],
+  );
 
-  const { refresh: refreshInteractions } = useMediaInteraction();
+  const takesKey = buildTakesKey(
+    identity.itemId,
+    identity.itemType,
+    identity.scope,
+    identity.seasonNumber,
+    identity.episodeNumber,
+    viewerId,
+  );
+  const commentsKey = buildCommentsKey(commentsItemId, commentsItemType, viewerId);
+
+  /**
+   * Nothing is fetched until this section is approached.
+   *
+   * The composer and the thread sit below the synopsis, the cast row and the
+   * trailers on every detail page. Two queries each, on every page view,
+   * whether or not anyone scrolls that far — and the answer for most titles is
+   * an empty thread and no take, which is a round trip to be told nothing has
+   * happened.
+   */
+  const { ref, inView } = useInView<HTMLElement>();
+
+  const {
+    data: takes,
+    mutate: mutateTakes,
+    isLoading,
+  } = useSWR(inView ? takesKey : null, () => fetchTakesForTitle(identity, viewerId));
+  const { data: comments, mutate: mutateComments } = useSWR<CommentRow[]>(
+    inView ? commentsKey : null,
+    () => fetchComments(commentsItemId, commentsItemType, viewerId),
+  );
+
+  /**
+   * ── When a thread earns a websocket ───────────────────────────────────────
+   * The first version of this subscribed on mount, which meant a realtime
+   * channel per visitor per title page — thousands of sockets held open to
+   * watch threads that are empty and will stay empty for the length of the
+   * visit. Realtime is metered by concurrent connections, so that is a bill for
+   * watching nothing happen, and it is exactly the resource this app should not
+   * be spending by default.
+   *
+   * A live thread is worth it when there is a conversation to be live *about*:
+   * somebody has already written something, or the viewer just did and is
+   * plausibly waiting for an answer. Otherwise the thread refreshes when this
+   * section is scrolled to, when the viewer posts, and when the tab is focused,
+   * which is what SWR already does for free.
+   *
+   * `comments` is in the publication as of migration 087.
+   */
+  const [participating, setParticipating] = useState(false);
+  const conversationLive = inView && !!viewerId && ((comments?.length ?? 0) > 0 || participating);
+
+  useEffect(() => {
+    if (!conversationLive) return;
+    const channel = supabase
+      .channel(`thread-${commentsItemType}-${commentsItemId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "comments",
+          filter: `item_id=eq.${commentsItemId}`,
+        },
+        () => void mutateComments(),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [conversationLive, commentsItemId, commentsItemType, mutateComments]);
+
+  const { refresh: refreshInteractions, isAuthenticated: isAuthenticatedFromContext } =
+    useMediaInteraction();
+  // The prop wins when a caller passes one — see the note on it above.
+  const isAuthenticated = isAuthenticatedProp ?? isAuthenticatedFromContext;
 
   /**
    * TheRoom sits directly below this composer on the movie and TV pages and is
@@ -139,9 +240,7 @@ export default function TitleTalk({
    */
   const refreshRoom = async () => {
     await Promise.all([
-      globalMutate(
-        `/api/title-room?itemId=${encodeURIComponent(String(itemId))}&itemType=${itemType}`,
-      ),
+      globalMutate(roomKey(itemId, itemType)),
       refreshInteractions(),
     ]).catch(() => {});
   };
@@ -158,6 +257,7 @@ export default function TitleTalk({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reply, setReply] = useState("");
+  const [replyError, setReplyError] = useState<string | null>(null);
 
   // `null` means "not editing" — fall back to whatever is saved.
   const text = draft ?? mine?.body ?? "";
@@ -176,27 +276,30 @@ export default function TitleTalk({
 
   const save = async (isPublic: boolean) => {
     if (!text.trim() && rating == null) return;
+    if (!viewerId) return;
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/takes", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          itemId,
-          itemType,
-          scope,
-          seasonNumber,
-          episodeNumber,
-          score: rating,
-          body: text,
-          isPublic,
-          itemName,
-          imageUrl,
-          genres,
-        }),
+      /**
+       * Straight to Postgres, through the same `saveTake` the route called.
+       *
+       * The rules that make this hard — a visibility change has to MOVE the
+       * take rather than insert a second row beside it, the legacy mirror onto
+       * `user_ratings` and `watched_items`, the diary note going through
+       * `set_my_diary_notes` because 076 revoked SELECT on `review_text` — all
+       * live in `@/utils/takes` and are called, not re-implemented. What is
+       * gone is the Vercel function that used to sit in front of them holding
+       * a Supabase client of a different type.
+       */
+      const message = await saveMyTake(viewerId, identity, {
+        score: rating,
+        body: text,
+        isPublic,
+        itemName,
+        imageUrl,
+        genres,
       });
-      if (!res.ok) throw new Error((await res.json())?.error ?? "Couldn't save that.");
+      if (message) throw new Error(message);
       setDraft(null);
       setPending(undefined);
       await mutateTakes();
@@ -220,28 +323,36 @@ export default function TitleTalk({
    * changes the visibility of writing that is already there.
    */
   const saveScore = async (next: number | null) => {
+    if (!viewerId) return;
     setPending(next);
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/takes", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          itemId,
-          itemType,
-          scope,
-          seasonNumber,
-          episodeNumber,
-          score: next,
-          body: mine?.body ?? "",
-          isPublic: mine?.isPublic ?? false,
-          itemName,
-          imageUrl,
-          genres,
-        }),
-      });
-      if (!res.ok) throw new Error((await res.json())?.error ?? "Couldn't save that.");
+      /**
+       * Clearing the last rating is a delete, not a save.
+       *
+       * `saveTake` rejects a take with no score and no body — it is the
+       * `takes_not_empty` constraint stated in a message — so the PUT route
+       * routed that case to the delete handler instead. That routing was in the
+       * route, which meant it disappeared the moment the client called
+       * `saveTake` directly: clearing the only star on a title with no writing
+       * would have surfaced "Nothing to save." to somebody who had just asked
+       * for exactly that.
+       */
+      const body = mine?.body ?? "";
+      const isPublic = mine?.isPublic ?? false;
+      const message =
+        next === null && !body.trim()
+          ? await deleteMyTake(viewerId, identity, isPublic)
+          : await saveMyTake(viewerId, identity, {
+              score: next,
+              body,
+              isPublic,
+              itemName,
+              imageUrl,
+              genres,
+            });
+      if (message) throw new Error(message);
       await mutateTakes();
       await refreshRoom();
     } catch (e) {
@@ -255,12 +366,15 @@ export default function TitleTalk({
   };
 
   const remove = async () => {
+    if (!viewerId) return;
     setBusy(true);
+    setError(null);
     try {
-      await fetch(
-        `/api/takes?itemId=${itemId}&itemType=${itemType}&${scopeQs}&isPublic=${mine?.isPublic ?? false}`,
-        { method: "DELETE" },
-      );
+      const message = await deleteMyTake(viewerId, identity, mine?.isPublic ?? false);
+      if (message) {
+        setError(message);
+        return;
+      }
       setDraft(null);
       setPending(undefined);
       await mutateTakes();
@@ -272,22 +386,43 @@ export default function TitleTalk({
 
   const postReply = async () => {
     const body = reply.trim();
-    if (!body) return;
+    if (!body || !viewerId) return;
     setBusy(true);
+    setReplyError(null);
     try {
-      const res = await fetch("/api/comments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId: commentsItemId, itemType: commentsItemType, body }),
-      });
-      if (res.ok) {
-        setReply("");
-        await mutateComments();
+      const message = await postComment(viewerId, commentsItemId, commentsItemType, body);
+      if (message) {
+        // A failed reply used to say nothing at all: the input kept its text,
+        // nothing appeared in the thread, and the only way to find out why was
+        // the network tab. The rate-limit trigger writes a sentence meant to be
+        // read — this is where it gets read.
+        setReplyError(message);
+        return;
       }
+      setReply("");
+      setParticipating(true);
+      await mutateComments();
     } finally {
       setBusy(false);
     }
   };
+
+  /** Remove one of the viewer's own replies. */
+  const removeReply = useCallback(
+    async (id: number) => {
+      if (!viewerId) return;
+      setBusy(true);
+      setReplyError(null);
+      try {
+        const message = await deleteComment(viewerId, id);
+        if (message) setReplyError(message);
+        await mutateComments();
+      } finally {
+        setBusy(false);
+      }
+    },
+    [viewerId, mutateComments],
+  );
 
   /** Everyone else's writing, newest first — public takes and replies together. */
   const thread = useMemo(() => {
@@ -298,6 +433,7 @@ export default function TitleTalk({
       body: o.body,
       score: o.score,
       at: o.updatedAt,
+      commentId: null as number | null,
     }));
     const commentRows = (comments ?? []).map((c) => ({
       key: `comment:${c.id}`,
@@ -306,12 +442,15 @@ export default function TitleTalk({
       body: c.body,
       score: null as number | null,
       at: c.created_at,
+      // Only a reply can be removed from here — a public take is removed from
+      // its own card above, which also clears the mirror rows.
+      commentId: c.user_id === viewerId ? c.id : null,
     }));
     return [...takeRows, ...commentRows].sort((a, b) => b.at.localeCompare(a.at));
-  }, [takes, comments]);
+  }, [takes, comments, viewerId]);
 
   return (
-    <section className="space-y-5">
+    <section ref={ref} className="space-y-5">
       {/* ── The one box ─────────────────────────────────────────────────── */}
       {!isAuthenticated ? (
         <p className="rounded-2xl border border-surface-800/60 bg-surface-900/40 p-5 text-sm text-surface-400">
@@ -466,6 +605,20 @@ export default function TitleTalk({
                   {row.body}
                 </p>
               </div>
+              {/* Yours to take back. There was no way to delete a reply from
+                  anywhere in the app — the endpoint existed and nothing called
+                  it — so anything posted by mistake stayed posted. */}
+              {row.commentId !== null && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => removeReply(row.commentId!)}
+                  aria-label="Delete reply"
+                  className="shrink-0 self-start rounded-full p-1.5 text-surface-600 transition hover:text-red-400 disabled:opacity-50"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              )}
             </article>
           ))}
         </div>
@@ -492,6 +645,8 @@ export default function TitleTalk({
           </button>
         </div>
       )}
+
+      {replyError && <p className="text-xs text-red-400">{replyError}</p>}
     </section>
   );
 }

@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { usePathname } from "next/navigation";
 import useSWR from "swr";
 import { supabase } from "@/utils/supabase/client";
-import { swrFetcher } from "@/utils/swrFetcher";
+import { fetchConversations } from "@/lib/db/social";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
 import { MessageSquare } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
 
@@ -51,6 +52,8 @@ function relativeTime(iso: string): string {
 
 export default function ConversationList({ conversations }: { conversations: Conversation[] }) {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const viewerId = user?.id ?? null;
 
   /**
    * The server render is the first paint; realtime keeps it true after that.
@@ -64,12 +67,12 @@ export default function ConversationList({ conversations }: { conversations: Con
    * them once something says they changed, so this adds no request to the
    * first load.
    */
-  const { data, mutate } = useSWR<{ conversations: Conversation[] }>(
-    "/api/messages/conversations",
-    swrFetcher,
-    { fallbackData: { conversations }, revalidateOnFocus: true },
+  const { data, mutate } = useSWR(
+    viewerId ? ["conversations", viewerId] : null,
+    () => fetchConversations(viewerId!),
+    { fallbackData: conversations, revalidateOnFocus: true },
   );
-  const list = data?.conversations ?? conversations;
+  const list = data ?? conversations;
 
   useEffect(() => {
     /**

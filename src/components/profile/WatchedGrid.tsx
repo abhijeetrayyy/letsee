@@ -6,6 +6,8 @@ import SendMessageModal from "@components/message/sendCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWRInfinite from "swr/infinite";
+import { fetchWatchedPage, type WatchedPage } from "@/lib/db/profileGrid";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
 import { SwrFetchError } from "@/utils/swrFetcher";
 import { getPosterUrl } from "@/utils/imageUrl";
 
@@ -49,23 +51,12 @@ const genreList = [
   "War & Politics",
 ];
 
-type WatchedPage = { data: any[]; totalItems: number; totalPages: number };
-
-async function watchedPageFetcher(
-  key: [string, number, string | null, string | undefined],
-): Promise<WatchedPage> {
-  const [userID, page, genre, itemType] = key;
-  const response = await fetch(`/api/UserWatchedPagination`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userID, page, genre, itemType }),
-  });
-  if (!response.ok) {
-    throw new SwrFetchError("Failed to fetch watched items", response.status);
-  }
-  return response.json();
-}
-
+/**
+ * Straight to Postgres. `/api/UserWatchedPagination` was a **POST**, which no
+ * CDN caches and every scroll paid for — a function invocation per page of a
+ * grid whose rows RLS scopes to what this viewer may see anyway. See
+ * `@/lib/db/profileGrid` for what the visibility read is still doing there.
+ */
 export default function WatchedGrid({
   userId,
   isOwner = false,
@@ -73,6 +64,8 @@ export default function WatchedGrid({
   userId: string;
   isOwner?: boolean;
 }) {
+  const { user } = useAuth();
+  const viewerId = user?.id ?? null;
   const [genreFilter, setGenreFilter] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<string | undefined>(undefined);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -87,7 +80,15 @@ export default function WatchedGrid({
   };
 
   const { data, error, size, setSize, isLoading, isValidating, mutate } =
-    useSWRInfinite<WatchedPage>(getKey, watchedPageFetcher);
+    useSWRInfinite<WatchedPage>(getKey, (key) => {
+      const [ownerId, page, genre, itemType] = key as [
+        string,
+        number,
+        string | null,
+        string | undefined,
+      ];
+      return fetchWatchedPage(ownerId, viewerId, page, genre, itemType);
+    });
 
   useEffect(() => {
     setSize(1);

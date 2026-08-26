@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useState } from "react";
 import { Star, Calendar } from "lucide-react";
 import { releaseInfo } from "@/utils/releaseInfo";
@@ -56,7 +56,7 @@ export default function TopResult({ item }: { item: TopResultItem }) {
         <Link href={href} className="shrink-0 group">
           <div className="w-24 sm:w-32 aspect-[2/3] rounded-xl overflow-hidden bg-surface-800 border border-surface-700/40">
             {img ? (
-              <img
+              <img loading="lazy" decoding="async"
                 src={img}
                 alt={item.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { personPath } from "@/utils/urls";
 
 export type CrewMember = {

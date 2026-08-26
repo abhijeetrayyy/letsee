@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { tmdbFetchJson } from "@/utils/tmdb";
 import { Suspense } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { notFound } from "next/navigation";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { parseRouteId, personPath, titlePath } from "@/utils/urls";
@@ -189,7 +189,7 @@ export default async function Page({ params }: PageProps) {
                   "linear-gradient(to left, #171717, transparent 60%, #171717, #171717)",
               }}
             />
-            <img
+            <img loading="lazy" decoding="async"
               className="object-cover max-w-[2100px] w-full h-full m-auto opacity-20"
               src={
                 movie.backdrop_path && !movie.adult
@@ -204,7 +204,7 @@ export default async function Page({ params }: PageProps) {
 
           <div className="max-w-6xl w-full p-6 relative z-10 flex flex-col md:flex-row gap-5">
             <div className="flex-1">
-              <img
+              <img loading="lazy" decoding="async"
                 className="rounded-md object-cover h-full max-h-[500px]"
                 src={
                   movie.poster_path && !movie.adult

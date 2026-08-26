@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient, createClient } from "@/utils/supabase/server";

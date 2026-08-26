@@ -10,17 +10,18 @@ import React, {
   useState,
 } from "react";
 import { useAuth } from "./AuthProvider";
+import {
+  emptyMediaState,
+  fetchMediaState,
+  mediaKey as buildMediaKey,
+  type MediaStateSnapshot,
+} from "@/lib/db/media";
+import { supabase } from "@/utils/supabase/client";
 
 export type MediaStatus = "watchlist" | "watching" | "watched" | "on_hold" | "dropped" | null;
 
-interface MediaState {
-  /** itemId -> status */
-  statuses: Record<string, MediaStatus>;
-  /** Set of favorited itemIds */
-  favorites: Set<string>;
-  /** itemId -> rating (1-10) */
-  ratings: Record<string, number>;
-}
+/** `type:id` keyed maps of everything the viewer has done to a title. */
+type MediaState = MediaStateSnapshot;
 
 interface MediaInteractionContextValue {
   state: MediaState;
@@ -56,7 +57,7 @@ interface MediaInteractionContextValue {
   refresh: () => Promise<void>;
 }
 
-const defaultState: MediaState = { statuses: {}, favorites: new Set(), ratings: {} };
+const defaultState: MediaState = emptyMediaState;
 
 const MediaInteractionContext = createContext<MediaInteractionContextValue>({
   state: defaultState,
@@ -77,12 +78,14 @@ const MediaInteractionContext = createContext<MediaInteractionContextValue>({
  *
  * TMDB numbers films and series independently, so `550` is Fight Club *and* an
  * unrelated series. Keying on the bare id meant one silently shadowed the
- * other: whichever loaded last decided what both rendered. The server builds
- * the identical key in /api/user-media-status.
+ * other: whichever loaded last decided what both rendered.
+ *
+ * The definition now lives beside the queries that build these maps
+ * (`@/lib/db/media`), because a key used by both the reader and the writer is
+ * exactly the kind of thing that drifts when it exists in two files. Re-exported
+ * here because thirty-odd components import it from this module.
  */
-export function mediaKey(itemId: string | number, itemType: string): string {
-  return `${itemType === "tv" ? "tv" : "movie"}:${itemId}`;
-}
+export const mediaKey = buildMediaKey;
 
 export function useMediaInteraction() {
   return useContext(MediaInteractionContext);
@@ -109,42 +112,43 @@ export default function MediaInteractionProvider({ children }: { children: React
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const pendingRef = useRef<Set<string>>(new Set());
 
+  /**
+   * Hydrate straight from Postgres, not through three of our own functions.
+   *
+   * This runs on every app page load for every signed-in person. It used to be
+   * three `fetch`es — `/api/user-media-status`, `/api/userPrefrence` and
+   * `/api/user-rating` — none of which did anything the browser cannot do for
+   * itself: each one opened a cookie-reading Supabase client on a Vercel
+   * function and forwarded a query whose rows RLS was going to scope to this
+   * exact user anyway. Three billed invocations per page view, per viewer,
+   * for zero added authority.
+   *
+   * `fetchMediaState` makes the same three queries in parallel from the
+   * browser, under the same policies, and Vercel is not involved at all.
+   */
   const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [statusRes, favRes, ratingRes] = await Promise.all([
-        fetch("/api/user-media-status", { credentials: "include" }),
-        fetch("/api/userPrefrence", { credentials: "include", cache: "no-store" }),
-        fetch("/api/user-rating", { credentials: "include" }),
-      ]);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
 
-      if (!statusRes.ok) {
-        setState(defaultState);
-        setIsAuthenticated(false);
-        setLoading(false);
-        return;
-      }
-
-      const statuses = await statusRes.json();
-      const prefData = favRes.ok ? await favRes.json().catch(() => ({})) : {};
-      const favList = prefData.favorite ?? [];
-      const ratingData = ratingRes.ok ? await ratingRes.json().catch(() => ({})) : {};
-
-      const favorites = new Set<string>();
-      for (const item of favList) {
-        if (item.item_id) favorites.add(mediaKey(item.item_id, item.item_type));
-      }
-
-      const ratings: Record<string, number> = {};
-      for (const r of ratingData.ratings ?? ratingData.data ?? []) {
-        if (r.item_id && r.score) ratings[mediaKey(r.item_id, r.item_type)] = r.score;
-      }
-
-      setState({ statuses: statuses || {}, favorites, ratings });
-      setIsAuthenticated(true);
-    } catch {
+    if (!userId) {
       setState(defaultState);
       setIsAuthenticated(false);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      setState(await fetchMediaState(userId));
+      setIsAuthenticated(true);
+    } catch {
+      // A failed hydrate is not a sign-out. Clearing `isAuthenticated` here
+      // would grey out every control on the page for somebody who is signed
+      // in and merely offline for a moment.
+      setState(defaultState);
+      setIsAuthenticated(true);
     } finally {
       setLoading(false);
     }
@@ -249,6 +253,21 @@ export default function MediaInteractionProvider({ children }: { children: React
         return { ...s, favorites: next };
       });
 
+      /**
+       * Both rollbacks used to operate on the bare `itemId` while the
+       * optimistic write above used the composite `key`. So a failed favourite
+       * removed a member that was never in the set and left the optimistic one
+       * in place: the heart stayed filled after the request that was meant to
+       * fill it had failed, and stayed that way until a reload.
+       */
+      const rollback = () =>
+        setState((s) => {
+          const next = new Set(s.favorites);
+          if (isFav) next.add(key);
+          else next.delete(key);
+          return { ...s, favorites: next };
+        });
+
       try {
         const endpoint = isFav ? "/api/deletefavoriteButton" : "/api/favoriteButton";
         const body = isFav
@@ -269,24 +288,12 @@ export default function MediaInteractionProvider({ children }: { children: React
           credentials: "include",
         });
 
-        if (!res.ok) {
-          setState((s) => {
-            const next = new Set(s.favorites);
-            if (isFav) next.add(itemId);
-            else next.delete(itemId);
-            return { ...s, favorites: next };
-          });
-        }
+        if (!res.ok) rollback();
 
         clearPending(itemId);
         return res.ok;
       } catch {
-        setState((s) => {
-          const next = new Set(s.favorites);
-          if (isFav) next.add(itemId);
-          else next.delete(itemId);
-          return { ...s, favorites: next };
-        });
+        rollback();
         clearPending(itemId);
         return false;
       }

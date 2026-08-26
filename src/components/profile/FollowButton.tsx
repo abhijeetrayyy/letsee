@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/utils/supabase/client";
 import { followUser } from "@/utils/followerAction";

@@ -20,6 +20,8 @@ import UserPrefrenceContext, {
   UserPreferenceState,
 } from "./userPrefrence";
 import { useAuth } from "./AuthProvider";
+import { fetchMediaState, toLegacyPreferences } from "@/lib/db/media";
+import { supabase } from "@/utils/supabase/client";
 
 const normalizeId = (value: string | number): string => String(value);
 
@@ -177,37 +179,36 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
   const queueRef = useRef<QueuedItem[]>([]);
   const processingRef = useRef(false);
 
+  /**
+   * The same three tables the sibling provider reads, read the same way.
+   *
+   * This was a `fetch("/api/userPrefrence")`, which is a Vercel function that
+   * opens a cookie-reading Supabase client and forwards two selects whose rows
+   * RLS scopes to this user regardless. It ran on every page load — alongside
+   * `MediaInteractionProvider`'s three, since both providers are mounted in
+   * `/app/layout.tsx` — and again after every successful write below, because
+   * `runOne` re-reads on success.
+   *
+   * `fetchMediaState` is that query, from the browser; `toLegacyPreferences`
+   * puts it in the bucket shape this provider's thirteen consumers expect. The
+   * two providers can no longer disagree about what is favourited, which they
+   * previously could for as long as one had refreshed and the other had not.
+   */
   const refreshPreferences = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/userPrefrence", {
-        cache: "no-store",
-        credentials: "include",
-      });
-      if (!response.ok) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
+      if (!userId) {
         setUserPrefrence(defaultPreferenceState);
         setUser(false);
         return;
       }
-      const res = await response.json();
-      const normalize = (
-        items: { item_id?: string | number }[] = [],
-      ): PreferenceItem[] =>
-        (items ?? []).map((item) => ({
-          item_id: normalizeId(item.item_id ?? ""),
-        }));
-      // Already `type:id` from /api/userPrefrence — pass through unchanged.
-      const statuses: Record<string, MediaStatus> = {};
-      for (const [key, status] of Object.entries(res?.statuses ?? {})) {
-        statuses[key] = status as MediaStatus;
-      }
-      setUserPrefrence({
-        watched: normalize(res?.watched),
-        favorite: normalize(res?.favorite),
-        watchlater: normalize(res?.watchlater),
-        watching: normalize(res?.watching),
-        statuses,
-      });
+
+      setUserPrefrence(toLegacyPreferences(await fetchMediaState(userId)));
       setUser(true);
     } catch (error) {
       console.error("Failed to refresh preferences:", error);

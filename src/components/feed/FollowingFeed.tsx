@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import useSWRInfinite from "swr/infinite";
+import { useInView } from "@/hooks/useInView";
 import FeedRow, { type FeedRowData } from "./FeedRow";
 import { Users, RefreshCw, AlertCircle } from "lucide-react";
 import { SwrFetchError } from "@/utils/swrFetcher";
@@ -59,24 +60,39 @@ function getKey(pageIndex: number, previousPageData: FeedResponse | null) {
 }
 
 export default function FollowingFeed() {
+  /**
+   * Deferred until scrolled to.
+   *
+   * `/api/feed/following` is the heaviest route in the app — it walks everyone
+   * the viewer follows, merges four kinds of activity and enriches the result
+   * from TMDB — and it ran on every load of the signed-in home page, above a
+   * fold most sessions never cross. It is also the one place where waiting a
+   * beat is invisible: the reader is scrolling towards it when it starts.
+   */
+  const { ref, inView } = useInView<HTMLDivElement>();
+
   // How many the reader has asked to see. Grows only on an explicit press —
   // the feed used to keep loading itself as you scrolled past it, which made
   // the home page never end on mobile.
   const [visible, setVisible] = useState(INITIAL_VISIBLE);
 
   const { data, error, size, setSize, isLoading, isValidating, mutate } =
-    useSWRInfinite<FeedResponse>(getKey, feedFetcher, {
-      errorRetryCount: 3,
-      errorRetryInterval: 5000,
-      keepPreviousData: true,
-    });
+    useSWRInfinite<FeedResponse>(
+      (index, prev) => (inView ? getKey(index, prev) : null),
+      feedFetcher,
+      {
+        errorRetryCount: 3,
+        errorRetryInterval: 5000,
+        keepPreviousData: true,
+      },
+    );
 
   const items = data ? data.flatMap((p) => p.items) : [];
   const hasMore = data ? (data[data.length - 1]?.hasMore ?? false) : true;
   const followedCount = data?.[0]?.followedCount ?? 0;
   const isSupplemented = data?.[0]?.isSupplemented ?? false;
   const isSignedIn = data?.[0]?.isSignedIn ?? false;
-  const loading = isLoading;
+  const loading = !inView || isLoading;
   const loadingMore = isValidating && size > 1;
   const hasStaleData = items.length > 0;
 
@@ -120,7 +136,7 @@ export default function FollowingFeed() {
   }
 
   return (
-    <div className="space-y-4">
+    <div ref={ref} className="space-y-4">
       {/* Status bar */}
       {!loading && items.length > 0 && (
         <div className="flex items-center gap-2 text-xs text-surface-500">

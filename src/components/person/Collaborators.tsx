@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Users } from "lucide-react";
 import type { Collaborator } from "@/utils/person/collaborators";
 import { personPath } from "@/utils/urls";

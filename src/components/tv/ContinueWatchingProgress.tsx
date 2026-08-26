@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import { useInView } from "@/hooks/useInView";
 import toast from "react-hot-toast";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Play, ChevronRight, Tv, Check, Loader2 } from "lucide-react";
 import EmptyState from "@components/ui/EmptyState";
 import { titlePath } from "@/utils/urls";
@@ -30,13 +31,19 @@ interface ContinueWatchingItem {
 
 export default function ContinueWatchingProgress() {
   const { isAuthenticated } = useMediaInteraction();
+  /**
+   * `/api/continue-watching` resolves each tracked show's next episode against
+   * TMDB. Worth doing for someone who is looking at the rail; not worth doing
+   * for the majority of home page views that stop above it.
+   */
+  const { ref, inView } = useInView<HTMLDivElement>();
 
   const { data, isLoading, mutate } = useSWR<{ items: ContinueWatchingItem[] }>(
-    isAuthenticated ? "/api/continue-watching" : null,
+    isAuthenticated && inView ? "/api/continue-watching" : null,
     continueWatchingFetcher,
   );
   const items = data?.items ?? [];
-  const loading = isAuthenticated && isLoading;
+  const loading = isAuthenticated && (!inView || isLoading);
 
   /** Keyed per show — this is a horizontal rail, and one pending mark must not freeze the others. */
   const [busy, setBusy] = useState<Record<string, boolean>>({});
@@ -99,7 +106,7 @@ export default function ContinueWatchingProgress() {
 
   if (loading) {
     return (
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div ref={ref} className="flex gap-3 overflow-x-auto pb-2">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="shrink-0 w-44 animate-pulse">
             <div className="aspect-[2/3] rounded-xl bg-surface-800" />

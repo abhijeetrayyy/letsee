@@ -5,7 +5,7 @@ import { supabase } from "@/utils/supabase/client";
 import { MdContentCopy } from "react-icons/md";
 import { FaTwitter, FaWhatsapp } from "react-icons/fa6";
 import { IoIosCopy } from "react-icons/io";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { siteUrl } from "@/utils/siteUrl";
 
@@ -630,7 +630,7 @@ const SendMessageModal: React.FC<Props> = ({
                     className={`flex flex-col items-center justify-between p-2 cursor-pointer rounded-full mb-2`}
                     onClick={() => toggleUserSelection(user)}
                   >
-                    <img
+                    <img loading="lazy" decoding="async"
                       className={`rounded-full w-20 h-20  ${
                         selectedUsers.some((u) => u.id === user.id)
                           ? "border-2 border-blue-500 text-white"

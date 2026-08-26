@@ -48,6 +48,12 @@ export async function ensureShowInMediaStatus(
 
   const res = await fetchTmdb(
     `https://api.themoviedb.org/3/tv/${showId}?api_key=${TMDB_API_KEY}`,
+    // `fetchTmdb` falls back to `no-store` when no revalidate is given, so
+    // these three call sites — which request the identical URL — were each
+    // hitting TMDB fresh on every write that passed through them. Six hours
+    // matches `TMDB_REVALIDATE_SEC`; a show's name, poster and episode count
+    // are not facts that move faster than that.
+    { revalidate: 21600 },
   );
   if (!res.ok) return;
   const showData = await res.json();
@@ -115,6 +121,12 @@ export async function autoTransitionStatus(
 
   const res = await fetchTmdb(
     `https://api.themoviedb.org/3/tv/${showId}?api_key=${TMDB_API_KEY}`,
+    // `fetchTmdb` falls back to `no-store` when no revalidate is given, so
+    // these three call sites — which request the identical URL — were each
+    // hitting TMDB fresh on every write that passed through them. Six hours
+    // matches `TMDB_REVALIDATE_SEC`; a show's name, poster and episode count
+    // are not facts that move faster than that.
+    { revalidate: 21600 },
   );
   if (!res.ok) return;
   const showData = await res.json();
@@ -184,6 +196,7 @@ export async function fetchShowMeta(
   try {
     const res = await fetchTmdb(
       `https://api.themoviedb.org/3/tv/${showId}?api_key=${TMDB_API_KEY}`,
+      { revalidate: 21600 },
     );
     if (!res.ok) return empty;
     const data = await res.json();

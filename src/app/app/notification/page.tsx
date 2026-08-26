@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
@@ -8,6 +8,10 @@ import { acceptFollowRequest, rejectFollowRequest } from "@/utils/followerAction
 import { Heart, UserPlus, UserCheck, Eye, MessageSquare, Star, CheckCheck, Bell, Loader2, Hand, Tv } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
 import { reviewPath, titlePath } from "@/utils/urls";
+import {
+  fetchNotifications as fetchNotificationPage,
+  markNotificationsRead,
+} from "@/lib/db/notifications";
 
 type ActorProfile = {
   username: string | null;
@@ -195,20 +199,27 @@ export default function NotificationsPage() {
   }, []);
 
   // Fetch notifications
+  /**
+   * Read straight from `notifications`, the way the bell above it already does.
+   *
+   * `notifications_select_self` is `auth.uid() = user_id`, so `/api/notifications`
+   * was a Vercel function whose only contribution was reading the cookie that
+   * the browser client reads for itself. The follow-request query directly
+   * below has been doing it this way the whole time.
+   */
   const fetchNotifications = useCallback(async () => {
+    if (!userId) return;
     try {
-      const res = await fetch(`/api/notifications?page=${page}&limit=${limit}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      setNotifications(data.data ?? []);
-      setUnreadCount(data.unreadCount ?? 0);
-      setTotalPages(data.totalPages ?? 1);
+      const data = await fetchNotificationPage(userId, page, limit);
+      setNotifications(data.data as unknown as NotificationItem[]);
+      setUnreadCount(data.unreadCount);
+      setTotalPages(data.totalPages);
     } catch {
       // Silent
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, userId]);
 
   // Fetch follow requests directly
   const fetchFollowRequests = useCallback(async () => {
@@ -255,17 +266,15 @@ export default function NotificationsPage() {
 
   // Mark all as read
   const markAllRead = async () => {
-    try {
-      await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-      setUnreadCount(0);
-    } catch {
-      // Silent
-    }
+    if (!userId) return;
+    const message = await markNotificationsRead(userId);
+    if (message) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setUnreadCount(0);
+    // The badge lives in a shared store now, and marking read is an UPDATE the
+    // realtime channel reports — but the store re-reads on this event too,
+    // because "usually delivered" is what left this badge stale before.
+    window.dispatchEvent(new Event("letsee:messages-read"));
   };
 
   // Accept follow request

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Clock, ChevronRight } from "lucide-react";
 import { useToday } from "@/hooks/useToday";
 import {
@@ -272,7 +272,7 @@ export default function NextEpisode({
         {still && (
           <div className="hidden w-40 shrink-0 overflow-hidden rounded-lg sm:block">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={still} alt="" className="aspect-video w-full object-cover" />
+            <img loading="lazy" decoding="async" src={still} alt="" className="aspect-video w-full object-cover" />
           </div>
         )}
       </div>

@@ -250,7 +250,7 @@ export default function TvSeasonAccordion({
 
                   {/* Still Image */}
                   {ep.still_path && (
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={`https://image.tmdb.org/t/p/w185${ep.still_path}`}
                       alt=""
                       className="shrink-0 w-20 aspect-video rounded object-cover hidden sm:block"

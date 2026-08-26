@@ -1,10 +1,9 @@
 import React from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { notFound } from "next/navigation";
 import EpisodeListWithWatched from "@components/tv/EpisodeListWithWatched";
 import TitleTalk from "@components/takes/TitleTalk";
 import { getTvShowWithSeasons, getSeasonEpisodes } from "@/utils/tmdbTvShow";
-import { createClient } from "@/utils/supabase/server";
 import TvStatusSelector from "@/components/tv/TvStatusSelector";
 import { ArrowLeft, Tv, Calendar, Film } from "lucide-react";
 import { parseRouteId } from "@/utils/urls";
@@ -13,6 +12,42 @@ import JsonLd from "@components/seo/JsonLd";
 import { tvSeasonLd, breadcrumbLd } from "@/utils/structuredData";
 import { shareImage } from "@/utils/shareImage";
 import { seasonPath, titlePath } from "@/utils/urls";
+
+/**
+ * ── This page was on the incident's "still rendered per request" list ──────
+ *
+ * `docs/incident-2026-08-23-deployment-paused.md` records it at 439
+ * invocations in twelve hours, with the reason given as "reads the viewer's
+ * watched state server-side", and notes that fixing it "means moving viewer
+ * state to the client, which is real work for a small return".
+ *
+ * The reason turned out to be almost true. The episode list has always been a
+ * client component that fetches its own watched state; the only thing this
+ * page read a session for was one `initialStatus` prop on the Watchlist /
+ * Watching selector — and that component already knows how to fetch its own
+ * status when the prop is not given. The work was deleting fourteen lines.
+ *
+ * It matters more than the 439 suggests, because every season anyone here has
+ * tracked is published in the sitemap. Each of those URLs was a full render —
+ * two TMDB calls, a session read and a database read — on every crawler hit,
+ * forever, to produce bytes that are the same for everybody.
+ *
+ * `generateStaticParams` returning `[]` is required alongside `revalidate`,
+ * for the reason R3 in that document spells out: on a `[param]` route Next
+ * ignores `revalidate` on its own and still emits `no-store`. Empty means
+ * "prerender nothing, cache each one on first request".
+ *
+ * Six hours, which is not an arbitrary number — it is the same window the
+ * series page settled on, and it is bounded by the same thing. Both pages get
+ * their data from `tmdbTvShow.ts`, and Next takes the *minimum* of the route's
+ * revalidate and every fetch inside the render, so this value is only real
+ * because `TMDB_REVALIDATE_SEC` was raised to match it.
+ */
+export const revalidate = 21600;
+
+export async function generateStaticParams() {
+  return [];
+}
 
 interface Episode {
   id: number;
@@ -214,20 +249,6 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
   const prevSeason = seasons.find((s: any) => s.season_number === currentSeasonNum - 1 && s.season_number > 0);
   const nextSeason = seasons.find((s: any) => s.season_number === currentSeasonNum + 1);
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  let initialTVStatus = null;
-  if (user) {
-    const { data } = await supabase
-      .from("user_media_status")
-      .select("status")
-      .eq("user_id", user.id)
-      .eq("item_id", numericId)
-      .eq("item_type", "tv")
-      .maybeSingle();
-    initialTVStatus = data?.status ?? null;
-  }
-
   return (
     <>
       <JsonLd
@@ -268,7 +289,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
             {seriesPoster && (
               <div className="shrink-0 w-32 sm:w-40">
                 <div className="relative rounded-xl overflow-hidden ring-1 ring-white/10 shadow-xl">
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={`https://image.tmdb.org/t/p/w300${seriesPoster}`}
                     alt={seriesName}
                     className="w-full aspect-[2/3] object-cover"
@@ -303,7 +324,23 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
                 </span>
               </div>
               <div className="mt-4">
-                <TvStatusSelector showId={numericId} initialStatus={initialTVStatus} />
+                {/*
+                  No `initialStatus`, deliberately — and `undefined` rather
+                  than `null` is the whole mechanism. TvStatusSelector already
+                  fetches `/api/tv-list-status` for itself when the prop is
+                  omitted; passing `null` would tell it "the answer is: no
+                  status", and it would believe that.
+
+                  This one prop was the only thing on this page that depended
+                  on who was asking, and it cost the page its cache: reading it
+                  meant a session read, a session read means a dynamic render,
+                  and a dynamic render is a full rebuild on every hit of every
+                  season URL in the sitemap. Trading one server read for one
+                  client fetch — made only by signed-in visitors, and never by
+                  the crawlers that are most of this page's traffic — is what
+                  buys the `revalidate` at the top of this file.
+                */}
+                <TvStatusSelector showId={numericId} />
               </div>
             </div>
           </div>
@@ -317,7 +354,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
           <div className="glass-card rounded-2xl p-5 mb-8">
             <div className="flex items-start gap-4">
               {currentSeason.poster_path && (
-                <img
+                <img loading="lazy" decoding="async"
                   src={`https://image.tmdb.org/t/p/w185${currentSeason.poster_path}`}
                   alt={currentSeason.name}
                   className="shrink-0 w-24 rounded-lg object-cover ring-1 ring-white/10"
@@ -350,7 +387,6 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
           scope="season"
           seasonNumber={currentSeasonNum}
           itemName={seriesName}
-          isAuthenticated={!!user}
         />
 
         {/* Season Navigation */}
@@ -395,7 +431,7 @@ const SeasonPage = async ({ params }: SeasonPageProps) => {
               >
                 <div className="aspect-[2/3] overflow-hidden">
                   {season.poster_path ? (
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={`https://image.tmdb.org/t/p/w185${season.poster_path}`}
                       alt={season.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

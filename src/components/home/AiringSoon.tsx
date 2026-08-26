@@ -1,7 +1,8 @@
 "use client";
 
 import useSWR from "swr";
-import Link from "next/link";
+import { useInView } from "@/hooks/useInView";
+import Link from "@components/ui/AppLink";
 import { Tv } from "lucide-react";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { titlePath } from "@/utils/urls";
@@ -17,15 +18,19 @@ interface Episode {
 }
 
 export default function AiringSoon() {
+  // Sidebar, below the fold on every viewport that has a fold. The route
+  // behind it walks the viewer's tracked shows and asks TMDB about each — real
+  // work, done on every home page view, for a panel most sessions never see.
+  const { ref, inView } = useInView<HTMLDivElement>();
   const { data, isLoading } = useSWR<{ episodes: Episode[] }>(
-    "/api/upcoming-episodes",
+    inView ? "/api/upcoming-episodes" : null,
     swrFetcher,
   );
   const episodes = data?.episodes ?? [];
 
-  if (isLoading) {
+  if (!inView || isLoading) {
     return (
-      <div className="flex gap-2">
+      <div ref={ref} className="flex gap-2">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="w-28 aspect-[2/3] rounded-xl bg-surface-800 animate-pulse shrink-0" />
         ))}

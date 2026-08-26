@@ -100,9 +100,16 @@ export async function POST(request: NextRequest) {
       appendDiscoverParams(urlMovie, "movie");
       appendDiscoverParams(urlTv, "tv");
 
+      // Half an hour in Next's data cache. This route is still a POST — it
+      // takes ten filter parameters and a CDN cannot cache a POST — so the
+      // invocation is unavoidable here, but the TMDB round trip inside it is
+      // not: `fetchTmdb` defaults to `no-store`, so an identical discover
+      // query was re-fetched upstream every single time somebody paged
+      // through the same filters. Caching the fetch cuts the wall time of the
+      // invocation even when the invocation itself has to happen.
       const [resMovie, resTv] = await Promise.all([
-        fetchTmdb(urlMovie.toString()),
-        fetchTmdb(urlTv.toString()),
+        fetchTmdb(urlMovie.toString(), { revalidate: 1800 }),
+        fetchTmdb(urlTv.toString(), { revalidate: 1800 }),
       ]);
 
       if (!resMovie.ok || !resTv.ok) {
@@ -188,6 +195,8 @@ export async function POST(request: NextRequest) {
     const response = await fetchTmdb(url.toString(), {
       timeoutMs: 10000,
       maxAttempts: 3,
+      // Same reasoning as the discover pair above.
+      revalidate: 1800,
     });
 
     if (!response.ok) {

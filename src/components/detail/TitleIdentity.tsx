@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Play, Share2, Star } from "lucide-react";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
 import { useCountry } from "@/app/contextAPI/countryContext";

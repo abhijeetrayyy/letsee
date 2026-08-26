@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import type { Metadata } from "next";
 
 /** On the page so `/app/person/[id]` cannot inherit it. */

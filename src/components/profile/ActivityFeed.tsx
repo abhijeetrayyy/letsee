@@ -1,7 +1,7 @@
 "use client";
 
 import { formatStars } from "@/utils/ratingScale";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useState } from "react";
 
 type ActivityItem = {

@@ -1,6 +1,6 @@
 import React from "react";
 import { GenreList } from "@/staticData/genreList";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 
 function genreConvert({ genreids }: any) {
   const genreMap = new Map(

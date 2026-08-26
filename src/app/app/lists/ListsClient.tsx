@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import useSWR from "swr";
 import { ListPlus, Loader2 } from "lucide-react";
 import { swrFetcher } from "@/utils/swrFetcher";

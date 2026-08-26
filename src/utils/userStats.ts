@@ -1,6 +1,11 @@
-import type { createClient } from "@/utils/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+/**
+ * Typed against supabase-js so the browser can call this too — the same change
+ * `takes.ts` and `blocks.ts` carry, and for the same reason. `get_user_stats`
+ * is a SECURITY INVOKER RPC, so RLS decides what it can see regardless of who
+ * holds the client.
+ */
 
 export type UserStats = {
   watchedCount: number;

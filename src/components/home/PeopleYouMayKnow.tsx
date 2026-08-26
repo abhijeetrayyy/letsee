@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Users, MessageCircle } from "lucide-react";
 import SendMessageModal from "@components/message/sendCard";
 import Avatar from "@components/ui/Avatar";
+import { useInView } from "@/hooks/useInView";
 
 type Match = {
   user_id: string;
@@ -20,8 +21,15 @@ export default function PeopleYouMayKnow() {
   const [users, setUsers] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [dmTarget, setDmTarget] = useState<Match | null>(null);
+  /**
+   * `/api/recommendations/collaborative` compares the viewer's taste against
+   * other accounts' — the most expensive thing the home page can ask for, and
+   * it sits four sections down. Nothing happens until it is approached.
+   */
+  const { ref, inView } = useInView<HTMLDivElement>();
 
   useEffect(() => {
+    if (!inView) return;
     fetch("/api/recommendations/collaborative", { cache: "no-store" })
       .then(r => r.json().catch(() => ({})))
       .then(d => {
@@ -36,9 +44,9 @@ export default function PeopleYouMayKnow() {
           }));
         setUsers(u);
       }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  }, [inView]);
 
-  if (loading) return <div className="rounded-xl border border-surface-800/50 bg-surface-900/30 p-4 animate-pulse"><div className="h-4 w-32 bg-surface-800 rounded mb-3"/>{Array(3).fill(0).map((_,i)=><div key={i} className="flex items-center gap-3 mb-3"><div className="w-8 h-8 rounded-full bg-surface-800"/><div className="flex-1"><div className="h-3 w-20 bg-surface-800 rounded mb-1"/><div className="h-2 w-16 bg-surface-800 rounded"/></div></div>)}</div>;
+  if (!inView || loading) return <div ref={ref} className="rounded-xl border border-surface-800/50 bg-surface-900/30 p-4 animate-pulse"><div className="h-4 w-32 bg-surface-800 rounded mb-3"/>{Array(3).fill(0).map((_,i)=><div key={i} className="flex items-center gap-3 mb-3"><div className="w-8 h-8 rounded-full bg-surface-800"/><div className="flex-1"><div className="h-3 w-20 bg-surface-800 rounded mb-1"/><div className="h-2 w-16 bg-surface-800 rounded"/></div></div>)}</div>;
   // Never disappear silently — an absent module teaches the user nothing,
   // whereas an explained empty state tells them what to do to fill it.
   if (!users.length) {

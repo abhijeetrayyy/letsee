@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useCallback, useEffect, useState } from "react";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { titlePath } from "@/utils/urls";
@@ -159,7 +159,7 @@ export default function TvCalendarView({
                   >
                     {/* Show Poster */}
                     {ep.show_image ? (
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={`https://image.tmdb.org/t/p/w92${ep.show_image}`}
                         alt=""
                         className="shrink-0 w-8 h-12 rounded object-cover"

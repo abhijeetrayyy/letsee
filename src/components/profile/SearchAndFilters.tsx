@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useEffect, useState } from "react";
 import { FaSearch } from "react-icons/fa";
 import Avatar from "@components/ui/Avatar";

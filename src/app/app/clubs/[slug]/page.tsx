@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import useSWR from "swr";
 import { ArrowLeft, Users, Loader2, CalendarClock } from "lucide-react";
 import { swrFetcher } from "@/utils/swrFetcher";
@@ -146,7 +146,7 @@ export default function ClubPage({ params }: { params: Promise<{ slug: string }>
             <div className="rounded-2xl border border-surface-700/60 bg-surface-900/40 p-4">
               <div className="flex gap-4">
                 <Link href={titlePath(pick.item_type, pick.item_id, pick.title)} className="shrink-0">
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={getPosterUrl(pick.image_url, "w185")}
                     alt={pick.title}
                     className="aspect-[2/3] w-20 rounded-lg object-cover"

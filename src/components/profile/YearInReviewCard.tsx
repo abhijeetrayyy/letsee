@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Check, Download, Globe, Loader2, Lock } from "lucide-react";
 import { getAvatarUrl, getPosterUrl } from "@/utils/imageUrl";
 import type { YearInReview } from "@/utils/yearInReview";

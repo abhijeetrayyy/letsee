@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
 import { swrFetcher } from "@/utils/swrFetcher";

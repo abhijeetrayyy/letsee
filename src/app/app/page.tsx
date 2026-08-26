@@ -1,7 +1,8 @@
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import type { Metadata } from "next";
 import { getHomeContent } from "@/utils/homeData";
-import { createClient } from "@/utils/supabase/server";
+import { SignedIn, SignedOut } from "@components/home/AuthGate";
+import HomeGreeting from "@components/home/HomeGreeting";
 import HomeHero from "@components/home/HomeHero";
 import QuickActions from "@components/home/QuickActions";
 import TrendingNow from "@components/home/TrendingNow";
@@ -28,16 +29,6 @@ import { Film, TrendingUp, Compass, MessageCircle, Play } from "lucide-react";
  * are doing (Feed), what's live (Trending), and one way out to browse.
  */
 
-async function getUsername(): Promise<string | null> {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-    const { data } = await supabase.from("users").select("username").eq("id", user.id).single();
-    return data?.username ?? null;
-  } catch { return null; }
-}
-
 /**
  * On the page, deliberately not on the layout.
  *
@@ -56,15 +47,20 @@ export const metadata: Metadata = {
   alternates: { canonical: "/app" },
 };
 
-export default async function Home() {
-  const [{ content, errors }, username] = await Promise.all([
-    getHomeContent(),
-    getUsername(),
-  ]);
-  const isLoggedIn = !!username;
+/**
+ * One render an hour, for everybody, instead of one render per visit.
+ *
+ * This page used to read the session to decide between a greeting and a sign-up
+ * card, which made it `ƒ` — a full server render on every load of the page every
+ * signed-in session starts on. The branch now happens in the browser (see
+ * `AuthGate`), nothing in this tree reads a cookie, and the hour matches
+ * `getHomeContent`'s own TMDB revalidate so the page and its data go stale
+ * together rather than one waiting on the other.
+ */
+export const revalidate = 3600;
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
+export default async function Home() {
+  const { content, errors } = await getHomeContent();
 
   return (
     <>
@@ -75,24 +71,17 @@ export default async function Home() {
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16">
 
           {/* Greeting */}
-          {isLoggedIn && (
-            <div className="pt-6 pb-2">
-              <h1 className="text-lg sm:text-xl font-medium text-surface-300">
-                Good {greeting}, <span className="text-white font-semibold">{username}</span>
-              </h1>
-            </div>
-          )}
+          <HomeGreeting />
 
           {/* Main layout: sidebar (personal) + feed */}
           <div className="flex flex-col lg:flex-row gap-8 mt-6">
             {/* ═══════ SIDEBAR ═══════ */}
             <aside className="lg:w-[340px] lg:shrink-0 order-2 lg:order-1 space-y-6">
-              {isLoggedIn ? (
-                <>
-                  <UserSidebar username={username!} />
-                  <AiringSoon />
-                </>
-              ) : (
+              <SignedIn>
+                <UserSidebar />
+                <AiringSoon />
+              </SignedIn>
+              <SignedOut>
                 <div className="rounded-2xl border border-brand-500/10 bg-gradient-to-br from-brand-500/5 to-surface-900/50 p-6 text-center">
                   <Film className="size-8 text-brand-400 mx-auto mb-3" />
                   <h2 className="text-white font-semibold mb-2">Join the community</h2>
@@ -104,7 +93,7 @@ export default async function Home() {
                     Already have an account? <Link href="/login" className="text-brand-400 hover:text-brand-300">Sign in</Link>
                   </p>
                 </div>
-              )}
+              </SignedOut>
 
               {/* Quick actions */}
               <div className="space-y-4">
@@ -126,7 +115,7 @@ export default async function Home() {
                   shared-title evidence; the old counter-card grid duplicated
                   it with weaker signal and /app/profile already does browsing
                   properly. */}
-              {isLoggedIn && <PeopleYouMayKnow />}
+              <SignedIn><PeopleYouMayKnow /></SignedIn>
             </aside>
 
             {/* ═══════ MAIN CONTENT ═══════ */}
@@ -138,11 +127,11 @@ export default async function Home() {
                   Tonight answers "what shall I start"; this answers "what was
                   I already watching", and the second question is the commoner
                   one for someone coming back. */}
-              {isLoggedIn && <ContinueWatchingProgress />}
+              <SignedIn><ContinueWatchingProgress /></SignedIn>
 
               {/* Tonight — the only thing here that happens *before* watching,
                   so it sits above everything that happens after. */}
-              {isLoggedIn && (
+              <SignedIn>
                 <section>
                   <Link
                     href="/app/tonight"
@@ -164,7 +153,7 @@ export default async function Home() {
                     </span>
                   </Link>
                 </section>
-              )}
+              </SignedIn>
 
               {/* Following Feed */}
               <section>

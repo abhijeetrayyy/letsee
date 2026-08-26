@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useState } from "react";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
@@ -86,7 +86,7 @@ export default function TvShowCard({
           href={titlePath("tv", showId, showName)}
           className="relative aspect-[2/3] overflow-hidden"
         >
-          <img
+          <img loading="lazy" decoding="async"
             src={posterUrl}
             alt={showName}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"

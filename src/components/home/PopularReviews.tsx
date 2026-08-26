@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import useSWR from "swr";
+import { useInView } from "@/hooks/useInView";
 import { PenLine } from "lucide-react";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { getAvatarUrl, getPosterUrl } from "@/utils/imageUrl";
@@ -31,8 +32,37 @@ type PopularReview = {
  */
 import { reviewPath, titlePath } from "@/utils/urls";
 export default function PopularReviews() {
-  const { data } = useSWR<{ reviews: PopularReview[] }>("/api/reviews/popular", swrFetcher);
+  /**
+   * Deferred until scrolled to — see `useInView`. This sits well below the fold
+   * on the home page, and its route is one of the more expensive ones in the
+   * app; running it for readers who never reach it is the clearest case of
+   * paying for something nobody asked for.
+   */
+  const { ref, inView } = useInView<HTMLDivElement>();
+  const { data } = useSWR<{ reviews: PopularReview[] }>(
+    inView ? "/api/reviews/popular" : null,
+    swrFetcher,
+  );
   const reviews = data?.reviews ?? [];
+
+  /**
+   * The placeholder has to exist, or the observer has nothing to observe.
+   *
+   * This component renders `null` when there is nothing to show, and "not
+   * fetched yet" looks exactly like "nothing to show" — so returning null
+   * before the first fetch would remove the element the sentinel is attached
+   * to, and the fetch would never be triggered by anything. A section that
+   * silently never loads is the worst possible outcome of deferring it.
+   */
+  if (!inView) {
+    return (
+      <div ref={ref} className="space-y-3" aria-hidden>
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} className="h-24 animate-pulse rounded-2xl bg-surface-900/40" />
+        ))}
+      </div>
+    );
+  }
 
   if (reviews.length === 0) return null;
 
@@ -57,7 +87,7 @@ export default function PopularReviews() {
               {review.itemId && (
                 <Link href={titlePath(review.itemType, review.itemId, review.itemName)} className="shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={getPosterUrl(review.imageUrl, "w92")}
                     alt={review.itemName}
                     className="h-[72px] w-12 rounded-lg border border-surface-800 object-cover"
@@ -68,7 +98,7 @@ export default function PopularReviews() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={getAvatarUrl(review.avatarUrl)}
                     alt=""
                     className="size-5 rounded-full object-cover"

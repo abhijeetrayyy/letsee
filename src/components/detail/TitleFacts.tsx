@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { ExternalLink, Info } from "lucide-react";
 import { personPath } from "@/utils/urls";
 import EntityLinks from "@components/detail/EntityLinks";

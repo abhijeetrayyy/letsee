@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { MessageCircle } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
 import { getPosterUrl } from "@/utils/imageUrl";

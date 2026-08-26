@@ -29,7 +29,7 @@ export default function ProfileAvatar({
   };
 
   return (
-    <img
+    <img loading="lazy" decoding="async"
       width={width ?? 144}
       height={height ?? 144}
       className={className}

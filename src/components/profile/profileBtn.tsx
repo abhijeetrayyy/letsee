@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import FollowButton from "./FollowButton";
+import { fetchConnections, type Connection } from "@/lib/db/social";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
 
 interface FollowerBtnClientProps {
   profileId: string;
@@ -29,9 +31,11 @@ export function FollowerBtnClient({
 }
 
 export function ShowFollowing({ followingCount, userId }: any) {
+  const { user } = useAuth();
+  const viewerId = user?.id ?? null;
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [following, setFollowing] = useState([]);
+  const [following, setFollowing] = useState<Connection[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,32 +44,24 @@ export function ShowFollowing({ followingCount, userId }: any) {
         setLoading(true);
         setError(null);
         try {
-          const response = await fetch("/api/getfollowing", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId }),
-          });
-          if (!response.ok) {
-            if (response.status === 401) {
-              throw new Error("Log in to view following.");
-            }
-            if (response.status === 403) {
-              throw new Error("Following list is private.");
-            }
-            throw new Error("Failed to fetch following");
-          }
-          const res = await response.json();
-          setFollowing(res.connection);
+          // Read directly — `user_connections` is gated by
+          // `profile_visible_to_viewer`, and this only runs when the modal is
+          // opened, which is already the right shape: nobody pays for a list
+          // they did not ask to see.
+          setFollowing(await fetchConnections(userId, viewerId, "following"));
         } catch (error) {
           console.error("Error fetching following:", error);
-          setError((error as Error).message || "Failed to fetch following");
+          // `fetchConnections` throws "Forbidden" for a profile this viewer may
+          // not see; say that in the words the reader needs.
+          const message = (error as Error).message;
+          setError(message === "Forbidden" ? "Following list is private." : "Failed to fetch following");
         } finally {
           setLoading(false);
         }
       }
     }
     getFollowing();
-  }, [modal, userId]);
+  }, [modal, userId, viewerId]);
 
   const countStr = formatCount(followingCount);
   return (
@@ -95,10 +91,10 @@ export function ShowFollowing({ followingCount, userId }: any) {
               <p className="text-red-400 text-sm">{error}</p>
             ) : following.length !== 0 ? (
               <ul className="space-y-2 max-h-64 overflow-y-auto">
-                {following.map((user: any, index: number) => (
-                  <li key={index}>
-                    <Link href={`/app/profile/${user.users?.username ?? ""}`} className="block rounded-lg py-2 px-2 text-white/90 hover:bg-surface-700 hover:text-white">
-                      @{user.users?.username ?? "—"}
+                {following.map((person) => (
+                  <li key={person.id}>
+                    <Link href={`/app/profile/${person.username ?? ""}`} className="block rounded-lg py-2 px-2 text-white/90 hover:bg-surface-700 hover:text-white">
+                      @{person.username ?? "—"}
                     </Link>
                   </li>
                 ))}
@@ -120,9 +116,11 @@ function formatCount(n: number): string {
 }
 
 export function ShowFollower({ followerCount, userId }: any) {
+  const { user } = useAuth();
+  const viewerId = user?.id ?? null;
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [following, setFollowing] = useState([]);
+  const [following, setFollowing] = useState<Connection[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -131,32 +129,22 @@ export function ShowFollower({ followerCount, userId }: any) {
         setLoading(true);
         setError(null);
         try {
-          const response = await fetch("/api/getfollower", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId }),
-          });
-          if (!response.ok) {
-            if (response.status === 401) {
-              throw new Error("Log in to view followers.");
-            }
-            if (response.status === 403) {
-              throw new Error("Followers list is private.");
-            }
-            throw new Error("Failed to fetch following");
-          }
-          const res = await response.json();
-          setFollowing(res.connection);
+          // Read directly — `user_connections` is gated by
+          // `profile_visible_to_viewer`, and this only runs when the modal is
+          // opened, which is already the right shape: nobody pays for a list
+          // they did not ask to see.
+          setFollowing(await fetchConnections(userId, viewerId, "followers"));
         } catch (error) {
           console.error("Error fetching following:", error);
-          setError((error as Error).message || "Failed to fetch followers");
+          const message = (error as Error).message;
+          setError(message === "Forbidden" ? "Followers list is private." : "Failed to fetch followers");
         } finally {
           setLoading(false);
         }
       }
     }
     getFollowing();
-  }, [modal, userId]);
+  }, [modal, userId, viewerId]);
 
   const countStr = formatCount(followerCount);
   return (
@@ -186,10 +174,10 @@ export function ShowFollower({ followerCount, userId }: any) {
               <p className="text-red-400 text-sm">{error}</p>
             ) : following.length > 0 ? (
               <ul className="space-y-2 max-h-64 overflow-y-auto">
-                {following.map((user: any, index: number) => (
-                  <li key={index}>
-                    <Link href={`/app/profile/${user.users?.username ?? ""}`} className="block rounded-lg py-2 px-2 text-white/90 hover:bg-surface-700 hover:text-white">
-                      @{user.users?.username ?? "—"}
+                {following.map((person) => (
+                  <li key={person.id}>
+                    <Link href={`/app/profile/${person.username ?? ""}`} className="block rounded-lg py-2 px-2 text-white/90 hover:bg-surface-700 hover:text-white">
+                      @{person.username ?? "—"}
                     </Link>
                   </li>
                 ))}

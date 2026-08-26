@@ -1,7 +1,8 @@
+import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { absoluteUrl } from "@/utils/siteUrl";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { CalendarDays } from "lucide-react";
 import { ShowFollowing, ShowFollower, FollowerBtnClient } from "@/components/profile/profileBtn";
 import Logornot from "@components/guide/logornot";
@@ -33,6 +34,46 @@ import { profilePath } from "@/utils/urls";
 export const dynamic = "force-dynamic";
 
 /**
+ * ── Why this page is not cached, said plainly ─────────────────────────────
+ *
+ * It is in the sitemap and it is the busiest kind of page here, so it is the
+ * most tempting thing on the site to put behind a `revalidate`. It must not
+ * be. What this page renders is not one document with a few personal corners
+ * — it branches on `isOwner` throughout: the private diary notes, the edit
+ * controls, the follow state, the visibility gate that decides whether a
+ * stranger sees anything at all. ISR caches one render per URL and serves it
+ * to whoever asks next, so the owner's own view of a private profile would
+ * become the copy handed to the next visitor.
+ *
+ * That is not a tuning decision to revisit when the bill is high. It is the
+ * one page here where caching and correctness genuinely conflict, so the cost
+ * work is done inside the render instead: one round trip where there were two
+ * (below), and nine in parallel where there were nine in series (further
+ * down).
+ */
+
+/**
+ * `generateMetadata` and `fetchProfileData` both looked this row up, by the
+ * same username, in the same request, and neither knew about the other.
+ *
+ * The columns are the union of what the two of them asked for — `deleted_at`
+ * comes from the metadata side, `banner_url`, `created_at`,
+ * `featured_list_id` and `pinned_review_id` from the page — so sharing one
+ * read costs nothing and saves a whole round trip on every profile render.
+ */
+const getProfileByUsername = cache(async (username: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("users")
+    .select(
+      "id, username, about, visibility, avatar_url, banner_url, tagline, created_at, featured_list_id, pinned_review_id, deleted_at",
+    )
+    .eq("username", username)
+    .maybeSingle();
+  return data;
+});
+
+/**
  * A profile is one of the two most-shared URLs in the product and had no
  * metadata at all, so every link to one rendered as a bare address.
  *
@@ -49,12 +90,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     const username = decodeURIComponent((await params).id ?? "");
     if (!username) return fallback;
 
-    const supabase = await createClient();
-    const { data: profile } = await supabase
-      .from("users")
-      .select("username, about, tagline, avatar_url, visibility, deleted_at")
-      .eq("username", username)
-      .maybeSingle();
+    const profile = await getProfileByUsername(username);
 
     if (!profile || profile.deleted_at || profile.visibility !== "public") return fallback;
 
@@ -98,7 +134,12 @@ async function fetchProfileData(username: string | null, currentUserId: string |
     if (!profile?.username) redirect("/app/welcome");
     user = profile; profileId = user.id;
   } else {
-    const { data } = await supabase.from("users").select("id, username, about, visibility, avatar_url, banner_url, tagline, created_at, featured_list_id, pinned_review_id").eq("username", username).single();
+    // Shared with `generateMetadata` via `cache()` — see above. `.maybeSingle()`
+    // rather than the `.single()` this used to be: both end up here with a null
+    // `data` when the username does not exist, but `single()` also logs a
+    // PostgREST error to do it, and "that profile does not exist" is a normal
+    // answer to a URL somebody typed.
+    const data = await getProfileByUsername(username);
     if (!data) return null;
     user = data; profileId = user.id;
   }
@@ -127,77 +168,121 @@ async function fetchProfileData(username: string | null, currentUserId: string |
     isFollowing: !!connection?.id,
   };
 
-  // Taste in 4
-  const { data: favoriteDisplay } = await supabase.from("user_favorite_display").select("position, item_id, item_type, image_url, item_name").eq("user_id", profileId).order("position", { ascending: true });
-
-  // Favorite items (for Favorites section)
-  const { data: favoriteItems } = await supabase.from("favorite_items").select("id, user_id, item_id, item_type, item_name, image_url, genres, created_at").eq("user_id", profileId).order("created_at", { ascending: false }).limit(12);
-
-  // Recent activity. review_text is the PRIVATE diary note — public_review_text
-  // is the one meant for sharing — and ActivityFeed renders it inline, so it
-  // only ever leaves the server for the owner.
-  const { data: recentActivityRaw } = await supabase.from("watched_items").select("id, item_id, item_type, item_name, image_url, watched_at").eq("user_id", profileId).eq("is_watched", true).order("watched_at", { ascending: false }).limit(10);
-
   /**
-   * Nulling the column for visitors was the right intent and the wrong layer.
-   * 019's policy makes the whole row readable to anyone who may see the
-   * profile, so a visitor never had to come through this page to get the diary
-   * — the anon key reads `select=review_text` off PostgREST directly. 076
-   * revoked the column instead, which is why it is no longer in the select
-   * above, and why the owner's copy now arrives through a SECURITY DEFINER
-   * accessor that cannot be aimed at anybody else.
+   * ── Nine queries that were standing in a queue for no reason ──────────────
+   *
+   * Everything below used to be a separate `await` on its own line: Taste in
+   * 4, then favourites, then recent activity, then the diary notes, then
+   * currently-watching, then the watchlist, then the taste pair, then the
+   * featured list, then the pinned review. Nine sequential round trips to
+   * Supabase, each one waiting for the previous to come back.
+   *
+   * None of them depends on the result of any other. Every input they need —
+   * `profileId`, `isOwner`, `user.featured_list_id`, `user.pinned_review_id` —
+   * is known before the first one starts. They were serial because that is
+   * what writing one `await` per line does, not because anything required it.
+   *
+   * On a route rendered per request — and this one is, permanently, for the
+   * reason set out above `dynamic` — the page's wall time was the *sum* of
+   * nine network round trips. Now it is the slowest one. That is the same win
+   * twice: a profile that appears faster for the person who opened it, and a
+   * function that holds provisioned memory for a fraction as long, which is
+   * the half of the bill that is measured in GB-hours.
+   *
+   * The conditional entries stay conditional — `null` in the array rather than
+   * a query — so an owner-only read like the diary is still not issued for a
+   * visitor, and a profile with no pinned review still asks for nothing.
    */
-  let diaryByKey = new Map<string, string | null>();
-  if (isOwner) {
-    const { data: notes } = await supabase.rpc("my_diary_notes");
-    diaryByKey = new Map(
-      ((notes ?? []) as { item_id: string; item_type: string; review_text: string | null }[]).map(
-        (n) => [`${n.item_type}:${n.item_id}`, n.review_text],
-      ),
-    );
-  }
-  const recentActivity = (recentActivityRaw ?? []).map((item) => ({
+  const [
+    favoriteDisplayRes,
+    favoriteItemsRes,
+    recentActivityRes,
+    diaryRes,
+    currentlyWatchingRes,
+    watchlistRes,
+    tasteRes,
+    featuredListRes,
+    pinnedReviewRes,
+  ] = await Promise.all([
+    // Taste in 4
+    supabase.from("user_favorite_display").select("position, item_id, item_type, image_url, item_name").eq("user_id", profileId).order("position", { ascending: true }),
+
+    // Favorite items (for Favorites section)
+    supabase.from("favorite_items").select("id, user_id, item_id, item_type, item_name, image_url, genres, created_at").eq("user_id", profileId).order("created_at", { ascending: false }).limit(12),
+
+    // Recent activity. review_text is the PRIVATE diary note — public_review_text
+    // is the one meant for sharing — and ActivityFeed renders it inline, so it
+    // only ever leaves the server for the owner.
+    supabase.from("watched_items").select("id, item_id, item_type, item_name, image_url, watched_at").eq("user_id", profileId).eq("is_watched", true).order("watched_at", { ascending: false }).limit(10),
+
+    /**
+     * Nulling the column for visitors was the right intent and the wrong layer.
+     * 019's policy makes the whole row readable to anyone who may see the
+     * profile, so a visitor never had to come through this page to get the diary
+     * — the anon key reads `select=review_text` off PostgREST directly. 076
+     * revoked the column instead, which is why it is no longer in the select
+     * above, and why the owner's copy now arrives through a SECURITY DEFINER
+     * accessor that cannot be aimed at anybody else.
+     */
+    isOwner ? supabase.rpc("my_diary_notes") : null,
+
+    // Currently watching
+    supabase.from("user_media_status").select("item_id, item_type, item_name, image_url, genres").eq("user_id", profileId).eq("status", "watching").order("updated_at", { ascending: false }).limit(6),
+
+    // Watch later — was counted in the stats strip but never actually listed anywhere.
+    supabase.from("user_media_status").select("item_id, item_type, item_name, image_url, genres").eq("user_id", profileId).eq("status", "watchlist").order("updated_at", { ascending: false }).limit(12),
+
+    // Taste profile + insight text. Kept as its own nested pair so the existing
+    // "one failure here must not take the profile down with it" behaviour is
+    // preserved — the `.catch` replaces the `try` that used to wrap it, and
+    // resolving to `null` is what the empty defaults below read as "no taste
+    // data", exactly as an exception did.
+    Promise.all([
+      supabase.from("watched_items").select("item_id, item_type, genres").eq("user_id", profileId).eq("is_watched", true).not("genres", "is", null),
+      supabase.from("user_ratings").select("item_id, item_type, score").eq("user_id", profileId),
+    ]).catch(() => null),
+
+    // Featured list and pinned review
+    user.featured_list_id
+      ? supabase.from("user_lists").select("id, name").eq("id", user.featured_list_id).eq("user_id", profileId).maybeSingle()
+      : null,
+    user.pinned_review_id
+      // No review_text: ProfileHighlights only links to the review, and passing
+      // the private note as a prop would serialise it into the page payload.
+      ? supabase.from("watched_items").select("id, item_id, item_type, item_name, watched_at").eq("id", user.pinned_review_id).eq("user_id", profileId).maybeSingle()
+      : null,
+  ]);
+
+  const favoriteDisplay = favoriteDisplayRes.data;
+  const favoriteItems = favoriteItemsRes.data;
+  const currentlyWatching = currentlyWatchingRes.data;
+  const watchlistItems = watchlistRes.data;
+
+  const diaryByKey = new Map<string, string | null>(
+    ((diaryRes?.data ?? []) as { item_id: string; item_type: string; review_text: string | null }[]).map(
+      (n) => [`${n.item_type}:${n.item_id}`, n.review_text] as const,
+    ),
+  );
+  const recentActivity = (recentActivityRes.data ?? []).map((item) => ({
     ...item,
     review_text: diaryByKey.get(`${item.item_type}:${item.item_id}`) ?? null,
   }));
 
-  // Currently watching
-  const { data: currentlyWatching } = await supabase.from("user_media_status").select("item_id, item_type, item_name, image_url, genres").eq("user_id", profileId).eq("status", "watching").order("updated_at", { ascending: false }).limit(6);
-
-  // Watch later — was counted in the stats strip but never actually listed anywhere.
-  const { data: watchlistItems } = await supabase.from("user_media_status").select("item_id, item_type, item_name, image_url, genres").eq("user_id", profileId).eq("status", "watchlist").order("updated_at", { ascending: false }).limit(12);
-
-  // Taste profile + insight text
   let tasteProfile: TasteProfile = { topGenres: [], loves: [], avoids: [], ratesHighest: null, totalGenresExplored: 0 };
   let tasteInsight: TasteInsight | null = null;
-  try {
-    const [{ data: watchedItems }, { data: ratings }] = await Promise.all([
-      supabase.from("watched_items").select("item_id, item_type, genres").eq("user_id", profileId).eq("is_watched", true).not("genres", "is", null),
-      supabase.from("user_ratings").select("item_id, item_type, score").eq("user_id", profileId),
-    ]);
-    if (watchedItems && ratings) {
-      tasteProfile = computeTasteSummary(watchedItems, ratings);
-      const avgRating = ratings.length ? ratings.reduce((sum, r) => sum + r.score, 0) / ratings.length : null;
-      // stats.watchedCount, not watchedItems.length — the legacy watched_items
-      // mirror carries rows user_media_status doesn't, so the blurb used to
-      // claim a different total than the header right above it.
-      tasteInsight = buildTasteInsight(user.username, tasteProfile, baseStats.watchedCount, avgRating);
-    }
-  } catch {}
+  const watchedItems = tasteRes?.[0]?.data;
+  const ratings = tasteRes?.[1]?.data;
+  if (watchedItems && ratings) {
+    tasteProfile = computeTasteSummary(watchedItems, ratings);
+    const avgRating = ratings.length ? ratings.reduce((sum, r) => sum + r.score, 0) / ratings.length : null;
+    // stats.watchedCount, not watchedItems.length — the legacy watched_items
+    // mirror carries rows user_media_status doesn't, so the blurb used to
+    // claim a different total than the header right above it.
+    tasteInsight = buildTasteInsight(user.username, tasteProfile, baseStats.watchedCount, avgRating);
+  }
 
-  // Featured list and pinned review
-  let featuredList: { id: number; name: string } | null = null;
-  let pinnedReview: any = null;
-  if (user.featured_list_id) {
-    const { data: fl } = await supabase.from("user_lists").select("id, name").eq("id", user.featured_list_id).eq("user_id", profileId).maybeSingle();
-    if (fl) featuredList = fl;
-  }
-  if (user.pinned_review_id) {
-    // No review_text: ProfileHighlights only links to the review, and passing
-    // the private note as a prop would serialise it into the page payload.
-    const { data: pr } = await supabase.from("watched_items").select("id, item_id, item_type, item_name, watched_at").eq("id", user.pinned_review_id).eq("user_id", profileId).maybeSingle();
-    if (pr) pinnedReview = pr;
-  }
+  const featuredList: { id: number; name: string } | null = featuredListRes?.data ?? null;
+  const pinnedReview: any = pinnedReviewRes?.data ?? null;
 
   return { user, isOwner, stats, followData, favoriteDisplay: favoriteDisplay ?? [], favoriteItems: favoriteItems ?? [], recentActivity, currentlyWatching: currentlyWatching ?? [], watchlistItems: watchlistItems ?? [], tasteProfile, tasteInsight, featuredList, pinnedReview };
 }

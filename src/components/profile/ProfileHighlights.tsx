@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { HiOutlineBookmark, HiOutlineStar } from "react-icons/hi2";
 
 type FeaturedList = { id: number; name: string };

@@ -1,6 +1,9 @@
-import type { createClient } from "@/utils/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+/**
+ * Typed against supabase-js itself so the browser can call this too — see the
+ * same note in `takes.ts`. This function reads `user_blocks` and nothing else.
+ */
 
 /**
  * Every user id the viewer has blocked, or who has blocked the viewer.

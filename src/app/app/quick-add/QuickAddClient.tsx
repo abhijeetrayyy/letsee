@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import toast from "react-hot-toast";
 import { Search, Undo2, ArrowRight } from "lucide-react";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";

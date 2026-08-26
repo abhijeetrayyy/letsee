@@ -6,7 +6,31 @@
 import { unstable_cache } from "next/cache";
 import { fetchTmdb } from "@/utils/tmdbClient";
 
-const TMDB_REVALIDATE_SEC = 300; // 5 min
+/**
+ * Six hours, up from five minutes.
+ *
+ * Five minutes was doing two expensive things at once. The obvious one is the
+ * TMDB traffic: seven call sites read a show's season list through here, and
+ * every one of them was re-fetching the same payload twelve times an hour for
+ * a document that changes when an episode airs.
+ *
+ * The one that actually cost money is subtler, and it is R3 from the incident
+ * document. Next takes the **minimum** of a route's `revalidate` and every
+ * fetch performed inside that route's render. So the season page could not be
+ * cached for longer than the shortest fetch inside it, whatever its own
+ * `revalidate` said — this constant was the real ceiling on that page, and at
+ * 300 it made an ISR window pointless. Raising the route without raising this
+ * is exactly the "did nothing" result that commit 6d539ed had to measure its
+ * way out of on the movie and series pages.
+ *
+ * Six hours rather than a day, and it matches the series page for the same
+ * reason: this payload carries `next_episode_to_air`, the one fact in it with
+ * a clock on it. The tradeoff is stated plainly — a newly aired episode can
+ * take up to six hours to appear in continue-watching and in a season's
+ * episode list. The product already accepts coarser than that elsewhere: the
+ * new-episode notification cron runs once a day.
+ */
+const TMDB_REVALIDATE_SEC = 21600; // 6h
 
 async function fetchTvShowWithSeasonsUncached(showId: string): Promise<Record<string, unknown> | null> {
   const apiKey = process.env.TMDB_API_KEY;

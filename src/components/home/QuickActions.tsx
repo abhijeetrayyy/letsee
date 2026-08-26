@@ -1,7 +1,7 @@
 "use client";
 
 import { buildBrowseUrl } from "@/utils/browseUrl";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Search, Bookmark, List, Users, Tv, Film } from "lucide-react";
 
 export default function QuickActions() {

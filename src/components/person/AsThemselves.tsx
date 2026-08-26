@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import type { Credit } from "@/utils/person/model";
 
 /**

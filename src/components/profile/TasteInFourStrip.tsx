@@ -1,5 +1,5 @@
 import { getPosterUrl } from "@/utils/imageUrl";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 
 type DisplayItem = {
   position: number;
@@ -41,7 +41,7 @@ export default function TasteInFourStrip({ items }: { items: DisplayItem[] }) {
               href={href}
               className="relative shrink-0 w-24 sm:w-28 md:w-32 rounded-lg overflow-hidden border-2 border-surface-700/80 shadow-xl hover:shadow-2xl hover:scale-105 hover:z-10 hover:border-accent-gold/50 transition-all duration-300 -ml-3 first:ml-0"
             >
-              <img
+              <img loading="lazy" decoding="async"
                 src={imgSrc}
                 alt={it.item_name}
                 className="w-full aspect-2/3 object-cover"

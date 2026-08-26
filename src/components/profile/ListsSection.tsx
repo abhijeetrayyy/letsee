@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useState } from "react";
 import useSWR from "swr";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -134,7 +134,7 @@ export default function ListsSection({
               {/* Cover Image (if available) */}
               {list.cover_image ? (
                 <div className="aspect-[16/9] overflow-hidden">
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={list.cover_image}
                     alt={list.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"

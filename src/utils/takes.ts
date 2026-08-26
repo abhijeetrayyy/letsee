@@ -17,9 +17,18 @@
  * EXPRESSION_AND_DISCOVERY.md §D1.
  */
 
-import type { createClient } from "@/utils/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+/**
+ * Typed against supabase-js itself, not against the server client.
+ *
+ * Nothing in this file is server-only — it is `from()`, `upsert()`, `rpc()`.
+ * Deriving the type from `@/utils/supabase/server` meant the browser could not
+ * call any of it, so the same logic had to be reached through an API route
+ * whose whole contribution was to hold a client of a different type. The
+ * import was type-only, so this changes no bundle; it changes who is allowed
+ * to call these functions.
+ */
 
 export type TakeScope = "title" | "season" | "episode";
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Check, ChevronRight, Star } from "lucide-react";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { formatLongDate, parseTmdbDate, toIso, type ParsedDate } from "@/utils/person/dates";
@@ -362,7 +362,7 @@ export default function SeasonBrowser({
           <div className="flex gap-4">
             {activeSeason.poster_path && (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img
+              <img loading="lazy" decoding="async"
                 src={`https://image.tmdb.org/t/p/w185${activeSeason.poster_path}`}
                 alt=""
                 className="hidden w-24 shrink-0 self-start rounded-lg sm:block"

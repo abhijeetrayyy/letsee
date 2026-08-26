@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Check, FileUp, Loader2, RotateCw, SkipForward, Upload, X } from "lucide-react";
 import { getPosterUrl } from "@/utils/imageUrl";
 
@@ -459,7 +459,7 @@ export default function ImportFlow() {
                         className="inline-flex items-center gap-2 rounded-lg border border-surface-700 bg-surface-950/60 py-1.5 pl-1.5 pr-3 text-sm text-surface-300 hover:border-brand-500/50 hover:text-white transition disabled:opacity-50"
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                        <img loading="lazy" decoding="async"
                           src={getPosterUrl(s.posterPath, "w92")}
                           alt=""
                           className="h-9 w-6 rounded object-cover"

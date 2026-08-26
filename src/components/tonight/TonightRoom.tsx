@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import useSWR from "swr";
 import {
   AlertCircle,
@@ -296,7 +296,7 @@ export default function TonightRoom({ hasProviders }: { hasProviders: boolean })
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <img loading="lazy" decoding="async"
                   src={getAvatarUrl(person.avatarUrl)}
                   alt=""
                   className="size-6 rounded-full object-cover"
@@ -452,7 +452,7 @@ function Answer({
           className="block shrink-0 mx-auto sm:mx-0 w-[180px] sm:w-[200px]"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <img loading="lazy" decoding="async"
             src={getPosterUrl(candidate.imageUrl, "w342")}
             alt={candidate.itemName}
             className="w-full rounded-2xl border border-surface-800 object-cover shadow-2xl shadow-black/50"
@@ -504,7 +504,7 @@ function Answer({
                   >
                     {provider.logoPath && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={getPosterUrl(provider.logoPath, "w92")}
                         alt=""
                         className="size-4 rounded"

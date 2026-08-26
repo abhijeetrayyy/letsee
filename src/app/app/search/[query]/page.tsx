@@ -14,7 +14,7 @@ import {
   type SearchMediaType,
 } from "@/utils/searchUrl";
 import { GenreList } from "@/staticData/genreList";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -609,7 +609,7 @@ export default function SearchResultsPage() {
               >
                 New search
               </Link>
-              <img src="/no-photo.webp" alt="" className="max-w-xs opacity-60 rounded-lg" aria-hidden />
+              <img loading="lazy" decoding="async" src="/no-photo.webp" alt="" className="max-w-xs opacity-60 rounded-lg" aria-hidden />
             </div>
           )}
 

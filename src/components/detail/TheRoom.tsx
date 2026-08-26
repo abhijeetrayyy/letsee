@@ -1,11 +1,14 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import useSWR from "swr";
 import { Users } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
 import FollowButton from "@components/profile/FollowButton";
-import { swrFetcher } from "@/utils/swrFetcher";
+import { fetchTitleRoom, type Person, type Room } from "@/lib/db/room";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
+import { roomKey } from "@/lib/db/keys";
+import { useInView } from "@/hooks/useInView";
 import { formatStars } from "@/utils/ratingScale";
 
 /**
@@ -31,38 +34,6 @@ import { formatStars } from "@/utils/ratingScale";
  */
 
 type Status = "watchlist" | "watching" | "watched" | "on_hold" | "dropped";
-
-type Person = {
-  userId: string;
-  username: string;
-  avatarUrl: string | null;
-  status: Status | null;
-  score: number | null;
-  /** They rated it. Separate from `score`, which is null when they hide it. */
-  rated: boolean;
-  hasNote: boolean;
-  followState: "following" | "pending" | "follow";
-  visibility: string;
-};
-
-type Room = {
-  viewerId: string | null;
-  viewerScore: number | null;
-  viewerHasSeen: boolean;
-  audience: {
-    watchers: number;
-    communityUsers: number;
-    sample: { userId: string; username: string; avatarUrl: string | null }[];
-  };
-  ratings: {
-    total: number;
-    average: number;
-    distribution: { score: number; count: number; percentage: number }[];
-  };
-  following: Person[];
-  followingTotal: number;
-  discover: Person[];
-};
 
 const STATUS_LABEL: Record<Status, string> = {
   watched: "Watched",
@@ -147,18 +118,42 @@ export default function TheRoom({
   itemId: string | number;
   itemType: "movie" | "tv";
 }) {
+  const { user } = useAuth();
+  const viewerId = user?.id ?? null;
+
+  /**
+   * Nine queries and an assembly step, run in the browser instead of on a
+   * function. `/api/title-room` did exactly this and nothing else — see
+   * `@/lib/db/room` for what each gate is for. It rendered on every movie and
+   * series page, which is most of the traffic this site gets.
+   *
+   * The key is shared with `TitleTalk`, which invalidates it after a rating so
+   * the average eight hundred pixels below the stars stops disagreeing with
+   * them.
+   */
+  /**
+   * Deferred until it is scrolled to.
+   *
+   * This is nine queries, two of which aggregate over every rating on the
+   * title, and it sits below the synopsis, the cast, the trailers and the
+   * composer. Most visits to a film page never reach it — so most visits were
+   * paying for it anyway, on a shared database instance where a query nobody
+   * reads still slows down the ones people are waiting on.
+   */
+  const { ref, inView } = useInView<HTMLDivElement>();
+
   const { data, error, isLoading } = useSWR<Room>(
-    `/api/title-room?itemId=${encodeURIComponent(String(itemId))}&itemType=${itemType}`,
-    swrFetcher,
+    inView ? roomKey(itemId, itemType) : null,
+    () => fetchTitleRoom(itemId, itemType, viewerId),
   );
 
   // A request that failed is not an empty room, and the skeleton below would
   // otherwise pulse forever — which is the one thing that reads as broken.
   if (error) return null;
 
-  if (isLoading || !data) {
+  if (!inView || isLoading || !data) {
     return (
-      <div className="card-accent animate-pulse rounded-2xl p-5">
+      <div ref={ref} className="card-accent animate-pulse rounded-2xl p-5">
         <div className="mb-5 h-3 w-24 rounded bg-surface-800" />
         <div className="mb-5 h-3 w-44 rounded bg-surface-800" />
         <div className="space-y-3">
@@ -173,7 +168,9 @@ export default function TheRoom({
     );
   }
 
-  const { audience, ratings, following, followingTotal, discover, viewerId, viewerScore } = data;
+  // `viewerId` is already in scope from the session — the response echoes it
+  // back only so a caller that had no session handy could use it.
+  const { audience, ratings, following, followingTotal, discover, viewerScore } = data;
   const maxCount = Math.max(...ratings.distribution.map((d) => d.count), 1);
   const line = audienceLine(
     audience.watchers,

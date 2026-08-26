@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { FaEdit } from "react-icons/fa";
 import { FaCalendar, FaFilm, FaTv, FaLayerGroup, FaBookmark } from "react-icons/fa6";
 import ProfileAvatar from "@components/profile/ProfileAvatar";

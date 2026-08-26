@@ -6,6 +6,41 @@ const nextConfig = {
   // NEXT_DIST_DIR lets a verification build write somewhere else instead.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   reactStrictMode: true,
+
+  /**
+   * The client router cache, which Next ships switched off.
+   *
+   * `staleTimes.dynamic` defaults to **0**, and that default is the reason a
+   * back-button press costs money here. Every dynamically-rendered route —
+   * `/app/browse`, `/app/profile/[id]`, `/app/watchlist`, `/app/tonight`, the
+   * whole signed-in half of the product — has its RSC payload thrown away the
+   * instant you navigate off it. Going film → back → film → back is four full
+   * renders of two pages, not two.
+   *
+   * 30 seconds is the length of a single browsing gesture: open a title from a
+   * grid, decide, come back. Inside that window Back is served from memory —
+   * instant, and free. Outside it, nothing changes.
+   *
+   * This is one of the rare settings that makes the product *faster* and
+   * cheaper at once, which is why it is set conservatively rather than high:
+   * the ceiling on staleness is 30s of server-rendered data, and almost
+   * nothing here depends on that. Everything that must be live — ratings,
+   * watchlist state, the room, unread counts — is client-fetched through SWR
+   * and revalidated by `mutate()`, which the router cache does not touch.
+   * The two `router.refresh()` call sites (sign-out, taste edit) clear this
+   * cache explicitly, so neither can serve a stale page.
+   *
+   * `static: 300` does the same for prefetched `<Link prefetch>` payloads on
+   * the cached title pages, whose content already has a 24h revalidate — a
+   * five-minute client window cannot make them staler than they are.
+   */
+  experimental: {
+    staleTimes: {
+      dynamic: 30,
+      static: 300,
+    },
+  },
+
   images: {
     remotePatterns: [
       {

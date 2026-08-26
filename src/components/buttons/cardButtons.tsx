@@ -5,7 +5,7 @@ import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import type { PreferenceType } from "@/app/contextAPI/userPrefrence";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import toast from "react-hot-toast";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useMounted } from "@/hooks/useMounted";
 
 export interface CardMovieButtonProps {

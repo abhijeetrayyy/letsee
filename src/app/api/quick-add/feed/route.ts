@@ -72,7 +72,16 @@ export async function GET(req: NextRequest) {
   let data: any;
   let supabase;
   try {
-    const [res, client] = await Promise.all([fetchTmdb(url), createClient()]);
+    // A discovery feed of popular titles is the same for everybody, and
+    // `fetchTmdb` defaults to `no-store` — so this page of TMDB results was
+    // re-fetched upstream for every visitor who opened quick-add. The
+    // *response* still cannot be shared-cached, because the handler filters
+    // out what this particular person has already logged; the TMDB half of it
+    // can be, and is the slow half.
+    const [res, client] = await Promise.all([
+      fetchTmdb(url, { revalidate: 3600 }),
+      createClient(),
+    ]);
     if (!res.ok) return jsonError("TMDB request failed", 502);
     data = await res.json();
     supabase = client;
@@ -124,8 +133,10 @@ async function getGenreMap(type: "movie" | "tv"): Promise<Map<number, string>> {
   if (cached) return cached;
   const map = new Map<number, string>();
   try {
+    // TMDB's genre list changes perhaps once a year. A day is still cautious.
     const res = await fetchTmdb(
       `https://api.themoviedb.org/3/genre/${type}/list?api_key=${TMDB_API_KEY}`,
+      { revalidate: 86400 },
     );
     if (res.ok) {
       const json = await res.json();

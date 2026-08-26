@@ -21,10 +21,17 @@ type Item = {
  *
  * Next's App Router delegates back/forward scrolling to the browser and never
  * touches `history.scrollRestoration`. That works for a static page and does
- * not work here: `/app/browse` is `force-dynamic` and `staleTimes.dynamic`
- * defaults to 0, so pressing Back refetches. At the moment the browser tries to
- * restore, the grid is empty, the document has no height, and there is nothing
- * to scroll to.
+ * not work here: `/app/browse` is `force-dynamic`, so pressing Back refetches.
+ * At the moment the browser tries to restore, the grid is empty, the document
+ * has no height, and there is nothing to scroll to.
+ *
+ * `staleTimes.dynamic` is now 30 in `next.config.mjs` — it used to be Next's
+ * default of 0, which is what made a Back press refetch *unconditionally*.
+ * Inside that 30-second window the router now serves this page from its own
+ * cache and the grid is already populated when the browser restores, so this
+ * hook has nothing to do. Outside it, or after a reload, the refetch is back
+ * and so is the empty-document problem. So this stays: 30 seconds narrows the
+ * window in which it is needed, it does not close it.
  *
  * Keyed on the full query string, which does the discriminating for free: a
  * filter change produces a different key and therefore no restore (a new result

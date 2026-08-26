@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { cache } from "react";
 import { Compass } from "lucide-react";
 import { tmdbFetchJson } from "@/utils/tmdb";

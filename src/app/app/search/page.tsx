@@ -3,7 +3,7 @@
 import { buildBrowseUrl } from "@/utils/browseUrl";
 import { personPath, titlePath } from "@/utils/urls";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import {
   reRankAll,
   getDidYouMeanSuggestion,
@@ -390,7 +390,7 @@ export default function SearchLandingPage() {
                                 }}
                               >
                                 {img ? (
-                                  <img
+                                  <img loading="lazy" decoding="async"
                                     src={img}
                                     alt=""
                                     className="w-10 h-10 rounded-lg object-cover shrink-0 bg-surface-800"

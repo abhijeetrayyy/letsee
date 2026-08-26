@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import React from "react";
 import { tmdbFetchJson } from "@/utils/tmdb";
 import { notFound } from "next/navigation";
@@ -209,7 +209,7 @@ async function page({ params }: PageProps) {
                 "linear-gradient(to right,  #171717, transparent 60%, #171717, #171717)",
             }}
           ></div>
-          <img
+          <img loading="lazy" decoding="async"
             className="object-cover max-w-[2100px] w-full h-full  m-auto opacity-20"
             src={`${
               show.backdrop_path && !show.adult
@@ -224,7 +224,7 @@ async function page({ params }: PageProps) {
 
         <div className="z-10 relative flex flex-row gap-5 py-3 px-6 w-full max-w-6xl">
           <div className="flex-1">
-            <img
+            <img loading="lazy" decoding="async"
               className="min-h-[500px] rounded-md"
               src={
                 show.adult

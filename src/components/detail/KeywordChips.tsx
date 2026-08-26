@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Tag } from "lucide-react";
 import { buildBrowseUrl } from "@/utils/browseUrl";
 

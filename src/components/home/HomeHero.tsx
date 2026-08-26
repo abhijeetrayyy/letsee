@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { Play, Star, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface HeroItem {

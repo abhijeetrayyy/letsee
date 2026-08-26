@@ -339,7 +339,7 @@ export default function ProfileTvProgress({
                             className="font-medium text-white hover:text-brand-400 hover:underline flex items-center gap-3"
                           >
                             {item.poster_path ? (
-                              <img
+                              <img loading="lazy" decoding="async"
                                 src={`https://image.tmdb.org/t/p/w92${item.poster_path}`}
                                 alt=""
                                 className="w-9 h-[54px] object-cover rounded shrink-0 shadow-lg"

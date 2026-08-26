@@ -64,7 +64,7 @@ export default function Avatar({ src, name, size = "md", className = "" }: Avata
 
   if (showImage) {
     return (
-      <img
+      <img loading="lazy" decoding="async"
         src={trimmedSrc}
         alt={name}
         onError={() => setFailed(true)}

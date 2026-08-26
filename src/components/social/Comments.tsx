@@ -1,15 +1,23 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import { MessageCircle, Send, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import toast from "react-hot-toast";
 import LikeButton from "@components/reactions/LikeButton";
 import Avatar from "@components/ui/Avatar";
+import { supabase } from "@/utils/supabase/client";
+import {
+  deleteComment,
+  fetchComments as fetchCommentRows,
+  postComment,
+  type CommentRow,
+} from "@/lib/db/comments";
+import { useInView } from "@/hooks/useInView";
 
-interface Comment { id: number; user_id: string; body: string; created_at: string; parent_id: number|null; users: { username: string|null; avatar_url: string|null }; reaction_count: number; viewer_liked: boolean; }
+type Comment = CommentRow;
 
 /**
  * `showHeading` exists because this is mounted two ways. On a club page it
@@ -24,37 +32,88 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
   const [submitting, setSubmitting] = useState(false);
   const [replyTo, setReplyTo] = useState<number|null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [participating, setParticipating] = useState(false);
+  const { ref, inView } = useInView<HTMLDivElement>();
   const { isAuthenticated } = useMediaInteraction();
   const { user: authUser } = useAuth();
   const authUserId = authUser?.id ?? null;
 
+  /**
+   * Read straight from Postgres — `comments_select_public` is `USING (true)`,
+   * so `/api/comments` was a Vercel function forwarding a public select. This
+   * component renders on club pages, review permalinks and the club-pick
+   * widget on the home page, so it ran on a lot of views.
+   */
   const fetchComments = useCallback(async () => {
     setLoading(true);
-    try { const r = await fetch(`/api/comments?itemId=${itemId}&itemType=${itemType}`); if (r.ok) setComments(await r.json()); } catch {} finally { setLoading(false); }
-  }, [itemId, itemType]);
+    try {
+      setComments(await fetchCommentRows(itemId, itemType, authUserId));
+    } catch {
+      // A thread that fails to load shows the empty state rather than an
+      // error: the page around it is still worth reading.
+    } finally {
+      setLoading(false);
+    }
+  }, [itemId, itemType, authUserId]);
 
-  useEffect(() => { fetchComments(); }, [fetchComments]);
+  // Nothing loads until the thread is scrolled to — on a club page and a review
+  // permalink this sits at the bottom, and on the home page's club-pick widget
+  // it is behind a disclosure.
+  useEffect(() => { if (inView) fetchComments(); }, [inView, fetchComments]);
+
+  /**
+   * A websocket only once there is a conversation to watch — see the same note
+   * in `TitleTalk`. Realtime is metered by concurrent connection, and a channel
+   * held open on an empty thread is a connection spent watching nothing.
+   */
+  const conversationLive = inView && !!authUserId && (comments.length > 0 || participating);
+
+  useEffect(() => {
+    if (!conversationLive) return;
+    const channel = supabase
+      .channel(`comments-${itemType}-${itemId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "comments", filter: `item_id=eq.${itemId}` },
+        () => void fetchComments(),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [conversationLive, itemId, itemType, fetchComments]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); if (!body.trim()) return;
+    if (!authUserId) return;
     setSubmitting(true);
     try {
-      const r = await fetch("/api/comments", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ itemId, itemType, body: body.trim(), parentId: replyTo }) });
-      if (r.ok) { const c = await r.json(); setComments(p => [...p, c]); setBody(""); setReplyTo(null); toast.success("Comment added"); }
-      else { const e = await r.json().catch(()=>({})); toast.error(e.error||"Failed"); }
+      const message = await postComment(authUserId, itemId, itemType, body, replyTo);
+      if (message) {
+        toast.error(message);
+        return;
+      }
+      setBody("");
+      setReplyTo(null);
+      setParticipating(true);
+      toast.success("Comment added");
+      // Re-read rather than appending the row we just wrote: `reaction_count`
+      // and `viewer_liked` are computed alongside the select, and a locally
+      // appended row has neither.
+      await fetchComments();
     } catch { toast.error("Failed"); } finally { setSubmitting(false); }
   };
 
   const remove = async (id: number) => {
+    if (!authUserId) return;
     try {
-      const r = await fetch(`/api/comments?id=${id}`, { method: "DELETE" });
-      if (r.ok) {
-        setComments(p => p.filter(c => c.id !== id));
-        toast.success("Deleted");
-      } else {
-        const e = await r.json().catch(() => ({}));
-        toast.error(e.error || "Couldn't delete that comment");
+      const message = await deleteComment(authUserId, id);
+      if (message) {
+        toast.error(message);
+        return;
       }
+      setComments(p => p.filter(c => c.id !== id));
+      toast.success("Deleted");
     } catch { toast.error("Couldn't delete that comment"); }
   };
 
@@ -62,10 +121,15 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
   const replies = (pid: number) => comments.filter(c => c.parent_id === pid);
   const visible = showAll ? top : top.slice(0, 3);
 
-  if (loading && !comments.length) return <div className="animate-pulse space-y-2">{[1,2].map(i=><div key={i} className="h-16 bg-surface-800 rounded-xl"/>)}</div>;
+  if (!inView || (loading && !comments.length))
+    return (
+      <div ref={ref} className="animate-pulse space-y-2">
+        {[1, 2].map((i) => <div key={i} className="h-16 bg-surface-800 rounded-xl" />)}
+      </div>
+    );
 
   return (
-    <div className="space-y-3">
+    <div ref={ref} className="space-y-3">
       {showHeading && (
         <div className="flex items-center gap-2 mb-3">
           <MessageCircle className="size-4 text-brand-400" /><h3 className="text-sm font-semibold text-white">Discussion</h3>

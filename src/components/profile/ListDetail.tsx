@@ -265,7 +265,7 @@ export default function ListDetail({ listId }: { listId: number }) {
                   className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-surface-700 text-left transition-all duration-200 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-inset"
                 >
                   {r.poster_path ? (
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={`https://image.tmdb.org/t/p/w92${r.poster_path}`}
                       alt=""
                       className="w-10 h-14 rounded object-cover shrink-0"

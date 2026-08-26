@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { CheckCheck, Clock, ArrowUpDown, Star, Search } from "lucide-react";
 
 export interface EpisodeItem {
@@ -412,7 +412,7 @@ export default function EpisodeListWithWatched({
                     onClick={() => toggleExpand(episode.episode_number)}
                     className="shrink-0 w-36 sm:w-44 aspect-video rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
                   >
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={`https://image.tmdb.org/t/p/w300${episode.still_path}`}
                       alt={episode.name}
                       className="w-full h-full object-cover"

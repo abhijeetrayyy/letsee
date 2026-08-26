@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import useSWR from "swr";
+import { fetchFavoritesPage } from "@/lib/db/profileGrid";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
 import { Heart, Loader2 } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { swrFetcher } from "@/utils/swrFetcher";
@@ -38,6 +40,8 @@ export default function FavoritesSection({
   initialItems: FavoriteItem[];
   totalCount: number;
 }) {
+  const { user } = useAuth();
+  const viewerId = user?.id ?? null;
   const [page, setPage] = useState(1);
   const [loadedItems, setLoadedItems] = useState<FavoriteItem[]>(initialItems);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -51,21 +55,18 @@ export default function FavoritesSection({
     setLoadError(null);
 
     try {
-      const res = await fetch("/api/UserFavoritePagination", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userID: userId, page: page + 1, limit: 12 }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: PaginatedResponse = await res.json();
-      setLoadedItems((prev) => [...prev, ...json.data]);
+      // `/api/UserFavoritePagination` was a POST — uncacheable by definition,
+      // so every "load more" on every profile, public or not, cost a function
+      // invocation to forward one ordered `select`.
+      const json = await fetchFavoritesPage(userId, viewerId, page + 1, 12);
+      setLoadedItems((prev) => [...prev, ...(json.data as FavoriteItem[])]);
       setPage((p) => p + 1);
     } catch (e: any) {
       setLoadError(e.message ?? "Failed to load more");
     } finally {
       setIsLoadingMore(false);
     }
-  }, [hasMore, isLoadingMore, page, userId]);
+  }, [hasMore, isLoadingMore, page, userId, viewerId]);
 
   if (loadedItems.length === 0) {
     return (

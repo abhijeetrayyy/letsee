@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { use } from "react";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { ArrowLeft, Send, Loader2, Film } from "lucide-react";
 import { supabase } from "@/utils/supabase/client";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
@@ -56,7 +56,7 @@ function MediaCard({ meta }: { meta: CardMeta }) {
   const href = meta.media_id ? titlePath(type, meta.media_id, meta.media_name) : null;
   const body = (
     <div className="flex items-center gap-3 rounded-xl bg-black/25 p-2 transition-colors hover:bg-black/40">
-      <img
+      <img loading="lazy" decoding="async"
         src={getPosterUrl(meta.media_image ?? null, "w92")}
         alt=""
         className="aspect-[2/3] w-11 shrink-0 rounded-md object-cover"

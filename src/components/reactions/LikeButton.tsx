@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Heart } from "lucide-react";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
+import { fetchReactionState, toggleReaction } from "@/lib/db/reactions";
 
 type LikeButtonProps = {
   targetType: string;
@@ -25,25 +27,31 @@ export default function LikeButton({
   const [count, setCount] = useState(initialCountProp ?? 0);
   const [loading, setLoading] = useState(false);
   const [initDone, setInitDone] = useState(hasInitialState);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
-  // Fetch initial state on mount — skipped entirely when the caller already
-  // provided initialCount/initialLiked (e.g. batched from a list endpoint),
-  // so a page rendering many LikeButtons doesn't fire one GET per button.
+  /**
+   * Read on mount — skipped entirely when the caller already provided
+   * `initialCount`/`initialLiked` (the comment thread batches them alongside
+   * its own query), so a page rendering many of these does not fire one read
+   * per button.
+   *
+   * Both this and the toggle below went through `/api/reactions/toggle`. A like
+   * is the cheapest possible write and it was costing a function invocation;
+   * `reactions_select_all` and the two `_self` policies make it something the
+   * viewer's own token can do.
+   */
   const fetchState = useCallback(async () => {
     try {
-      const res = await fetch(
-        `/api/reactions/toggle?targetType=${encodeURIComponent(targetType)}&targetId=${targetId}`
-      );
-      if (!res.ok) return;
-      const data = await res.json();
-      setLiked(data.liked);
-      setCount(data.count);
+      const state = await fetchReactionState(userId, targetType, targetId);
+      setLiked(state.liked);
+      setCount(state.count);
     } catch {
-      // Silent fail
+      // A like count that fails to load is not worth an error state.
     } finally {
       setInitDone(true);
     }
-  }, [targetType, targetId]);
+  }, [targetType, targetId, userId]);
 
   useEffect(() => {
     if (hasInitialState) return;
@@ -51,7 +59,7 @@ export default function LikeButton({
   }, [fetchState, hasInitialState]);
 
   const toggle = async () => {
-    if (loading) return;
+    if (loading || !userId) return;
     setLoading(true);
 
     // Optimistic update
@@ -61,25 +69,11 @@ export default function LikeButton({
     setCount(liked ? count - 1 : count + 1);
 
     try {
-      const res = await fetch("/api/reactions/toggle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetType, targetId }),
-      });
-
-      if (!res.ok) {
-        // Revert on failure
-        setLiked(prevLiked);
-        setCount(prevCount);
-        return;
-      }
-
-      const data = await res.json();
-      setLiked(data.liked);
-      setCount(data.count);
-      onToggle?.(data.liked, data.count);
+      const result = await toggleReaction(userId, targetType, targetId);
+      setLiked(result.liked);
+      setCount(result.count);
+      onToggle?.(result.liked, result.count);
     } catch {
-      // Revert on failure
       setLiked(prevLiked);
       setCount(prevCount);
     } finally {

@@ -3,7 +3,7 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { MdLiveTv, MdOutlineWatchLater, MdPauseCircleOutline } from "react-icons/md";
 import { PiEyeBold } from "react-icons/pi";
