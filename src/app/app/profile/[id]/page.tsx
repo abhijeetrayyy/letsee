@@ -582,8 +582,10 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   isOwner={isOwner}
                   // episodesCount was hardcoded to 0 here, so Stats reported no
                   // episodes while getUserStats already had the real figure.
+                  // Genres are no longer passed down: profile_taste_stats
+                  // returns them alongside the crowd's average per genre, which
+                  // the page's own taste read has no way to know.
                   stats={{ watchedCount: stats.watchedCount, favoriteCount: stats.favoriteCount, watchlistCount: stats.watchlistCount, watchingCount: stats.watchingCount, watchedThisYear: stats.watchedThisYear, movieCount: stats.movieCount, tvCount: stats.tvCount, episodesCount: stats.episodesCount }}
-                  initialGenres={tasteProfile.topGenres.map((g) => ({ genre: g.genre, count: g.count }))}
                 />
               </DeferredSection>
 

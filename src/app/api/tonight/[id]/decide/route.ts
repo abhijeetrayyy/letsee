@@ -104,11 +104,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     await autoTransitionStatus(supabase, userId, itemId);
 
-    try {
-      await supabase.rpc("recount_user_stats", { p_user_id: userId });
-    } catch {
-      // Non-critical — stats are eventually consistent.
-    }
+    // Recounted by 069's user_media_status triggers, inside the write above.
   }
 
   // A rewatch must not demote an existing 'watched' row — that would pull the
@@ -138,11 +134,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       return jsonError("Failed to save that", 500);
     }
 
-    try {
-      await supabase.rpc("recount_user_stats", { p_user_id: userId });
-    } catch {
-      // Non-critical — stats are eventually consistent.
-    }
+    // Recounted by 069's user_media_status triggers, inside the write above.
   }
 
   // An explicit 'in' vote, so the session record shows what was chosen over

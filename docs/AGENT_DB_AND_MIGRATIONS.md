@@ -70,6 +70,12 @@ All migration files live in **`migrations/`**. Run **in numeric order** (007 →
 
 | **083_clubs_cannot_be_seized.sql** | Locks `club_members_insert_self` to `role='member'` with `status` derived from the club's `join_policy`; adds `WITH CHECK` to `club_members_update_admin`, `clubs_update_admin` and `club_picks_update_admin`; adds `is_club_owner()`, an AFTER INSERT trigger that makes the creator the owner, and a BEFORE UPDATE trigger making `clubs.created_by` immutable. | ✅ **Applied & verified 2026-08-19** | ✅ Yes (`create or replace`, `drop policy/trigger if exists`) | **High — privilege escalation, four paths.** (1) `WITH CHECK (auth.uid() = user_id)` constrained who the row was about and not what it claimed, so one POST with `"role":"owner"` made anyone an admin of any club. (2)–(3) `USING`-only UPDATE policies let a moderator promote themselves to owner and move a membership row into a club they don't administer. (4) `clubs_update_admin` had no `WITH CHECK`, so a moderator could set `created_by` to themselves and then delete the club via `clubs_delete_owner`. Also makes `join_policy='request'` mean something for the first time. **Creation keeps working because the owner row moves from the caller's client into the trigger.** |
 
+| **088_title_metadata_cache.sql** | Creates `title_metadata` — one row per TMDB title holding the crowd's `vote_average`/`vote_count`, release year, runtime, genres — plus the backfill queue that fills it: `enqueue_missing_title_metadata`, `enqueue_stale_title_metadata`, `claim_title_metadata` (lease via `FOR UPDATE SKIP LOCKED`), `record_title_metadata_failure` (exponential backoff). Seeds the queue on apply. | ✅ **Applied & verified 2026-08-28** | ✅ Yes (`if not exists`, `create or replace`, `drop policy/trigger if exists`) | **Required by the profile Stats section and `/api/dev/backfill-titles`.** A title table, not a column on `watched_items`: TMDB's score belongs to the title, so a column would store it once per user who watched it and make the backfill O(rows) instead of O(distinct titles). ⚠️ **Its grant block as originally applied was wrong — see 090.** The file in the repo now carries the fix, so a fresh database is correct from this file alone. |
+| **089_profile_taste_stats.sql** | Adds `tmdb_score_bucket(real)`, `profile_taste_stats(uuid)` (the whole Stats section as one jsonb: both rating distributions split by film/TV, the paired you-vs-crowd comparison, genres, decades, rating drift, activity, coverage) and `profile_taste_titles(...)` (the titles behind any one bar, paged). | ✅ **Applied & verified 2026-08-28** | ✅ Yes (`create or replace` only) | **Fixes a live bug, not just a slow path.** `/api/profile/stats/{ratings,genres,years}` each ran an unbounded `select` and counted in JavaScript; PostgREST caps a result set at 1000 rows, so any user past 1000 ratings or 1000 watched titles was shown a **silently truncated chart**. These aggregate in SQL and return ~60 rows regardless of library size. Gated by `profile_visible_to_viewer` (081) plus `users.profile_show_ratings`; both also check the user *exists*, because 081's predicate answers `true` for an id that has no row. Measured at **356 ms for a 578-title library**. |
+| **090_the_backfill_queue_is_not_public.sql** | Revokes EXECUTE on 088's four queue functions `FROM PUBLIC, anon, authenticated` and re-grants to `service_role`, then asserts the result with `has_function_privilege` inside the same transaction. | ✅ **Applied & verified 2026-08-28** | ✅ Yes | **Security fix.** 088 wrote `REVOKE ALL … FROM PUBLIC` citing 077, which is only half the rule: Supabase installs a **default ACL on `public`** (`pg_default_acl`, objtype `f`) granting EXECUTE on every new function directly to `anon` and `authenticated`. Revoking from PUBLIC removes the implicit grant and leaves that explicit one — confirmed live, `has_function_privilege('anon','claim_title_metadata','EXECUTE')` was **true**. No user data was exposed (`title_metadata` is public TMDB facts); the exposure was denial of service on the backfill — a loop of `claim_title_metadata(500, 86400)` leases every pending title for a day, and the cron then reports a healthy "no-work" forever while coverage never moves. **Any new service-role-only function must revoke all three.** |
+
+| **091_dead_functions_go.sql** | Drops 14 functions nothing references, plus `notify_like()` and its trigger on `reactions`; extends `notify_reaction()` to cover `rating` targets so no notification coverage is lost. | ✅ **Applied & verified 2026-08-28** | ✅ Yes (every `DROP … IF EXISTS`) | **Fixes a duplicate-notification bug.** `reactions` carried *two* AFTER INSERT triggers that each inserted a `like` notification, so one like on a review or a list notified the owner twice — 062 added `notify_reaction` believing "liking notified nobody" and never dropped 027's `notify_like`. `notify_reaction` is kept: it covers `watched`, carries richer metadata, and checks `is_blocked`, which `notify_like` never did. The dead 14 are the eight pre-069 `increment_/decrement_*` counter mutators, `backfill_watched_episodes_for_show` (its route is deleted), `award_achievement` + `check_achievements` (achievements were removed from the product), and `popular_reviews`, `record_rewatch`, `is_club_member` (written, never called). **67 functions → 52.** |
+
 > ✅ **072, 075 and 076 verified against the live database on 2026-08-19**, by issuing the exact requests that used to leak with the publishable anon key. `users?select=email` → 42501. `watched_items?select=review_text` → 42501. A forged `notifications` insert → 42501. Legitimate columns still answer 200.
 >
 > ⚠️ **073's effect is not independently observable on this database.** All 8 profiles are `public`, so a policy gated on `profile_visible_to_viewer` and one reading `USING (true)` return identical rows. It is recorded as applied on the operator's word. To actually confirm it, set one profile to `private` and check that `watched_episodes?user_id=eq.<that user>` returns `[]` to the anon key.
@@ -105,6 +111,80 @@ All migration files live in **`migrations/`**. Run **in numeric order** (007 →
 `notifications.actor_id` is `not null` (027), but a `new_episode` notification has no actor — nobody acted, a show aired. `newEpisodeNotifier.ts` inserts `actor_id => null`, so **every one of those inserts would have been rejected**, silently, inside a fire-and-forget cron job whose only trace is a console line nobody reads.
 
 Found by probing 061's constraint with a deliberately failing insert and getting `23502` (not-null) where `23503` (foreign key) was expected. 063 is the fix, and after applying it the notifier's exact payload was inserted, confirmed to come back from the actor left join as `actor: null`, and deleted.
+
+
+
+### How to tell a dead function from a live one
+
+A function in `public` is **live** if any of these holds, and dead only if none do:
+
+1. a trigger points at it — `pg_trigger.tgfoid`
+2. the app invokes it — `.rpc("name")` in `src/` or `tests/`
+3. another function's body calls it — `pg_get_functiondef` across all of them
+4. an RLS policy, CHECK constraint, column default, index or view references it
+
+**Do not search `migrations/`.** The file that creates a function is not a caller
+of it, and counting it as one makes every function look live.
+
+**Do not grep for the bare name.** Test 2 has to be `.rpc("…")` specifically. The
+first pass of the 091 audit flagged `increment_favorites_count` as live because
+its name appears in `favoriteButton/route.ts` — in a comment explaining that it
+is no longer used.
+
+Nine `recount_user_stats` calls were removed from route handlers in the same
+change. 069 and 078 put statement-level triggers on `user_media_status`,
+`favorite_items` and `watched_episodes`, and `recount_user_stats` reads only
+those three tables — so any write that could move a counter already recounted
+inside its own transaction. The explicit calls were a second round trip
+(Vercel `iad1` → Supabase `ap-northeast-2`) to recompute a number that was
+already correct. Verified after removal: stored counters match the rows exactly
+for all 9 users.
+
+**If a counter is ever wrong, fix the trigger.** Adding a recount back into a
+route hides the bug instead of repairing it — which is 069's whole argument:
+"Remembering is not a mechanism. A trigger is."
+
+### The title metadata backfill (088 + `/api/dev/backfill-titles`)
+
+**Deliberately not a cron.** It was one, briefly, and being one cost more than
+it bought: a scheduled function lives inside a 60s ceiling, so the work had to
+be chopped into ~100-title batches spread over days; it needed a shared secret
+to be safe to expose; and it would have been a third entry in `vercel.json`
+against a Hobby plan that allows two. All of that is scaffolding around a limit
+that does not exist on a laptop.
+
+Run it locally instead:
+
+```
+npm run dev
+curl -N localhost:3000/api/dev/backfill-titles          # drain the whole queue
+curl -N localhost:3000/api/dev/backfill-titles?max=50   # or a bounded run
+```
+
+`-N` matters — without it curl buffers and you get the log at the end instead of
+a line per title as it lands. Parameters: `batch`, `max`, `concurrency`,
+`refresh=0`, `refreshDays`, `refreshLimit`, `quiet=1`, `json=1` (NDJSON).
+
+The route refuses on two independent grounds — a production build, and a request
+whose Host is not loopback — so the file can ship to Vercel and still answer 403
+to everyone. There is no secret to configure and nothing to leave unset.
+
+Output is a running log (`PASS` / `GONE` / `FAIL` per title, with the score and
+vote count that landed) and a summary counting passed, missing, failed,
+deferred, claimed, written and still-pending.
+
+**The trade:** nothing fills the queue automatically. New titles are inserted as
+`pending` the moment anyone watches them, and stay that way until someone runs
+this. The profile says so rather than hiding it — `profile_taste_stats` splits
+coverage three ways (`crowd_known` / `crowd_pending` / `crowd_unrated`) so a
+title TMDB genuinely has no votes for is never reported as "still loading", and
+the percentage is taken over titles that *can* carry a score. A progress bar
+that never reaches 100% is a bug report waiting to happen.
+
+**Verified end to end on 2026-08-28**: 714 titles queued and 713 fetched, at
+~3 titles/sec against the shared ~8 req/s TMDB throttle. Transient network
+failures were observed and recovered on a later run through the backoff, exactly
+as designed. Guard confirmed: a request with `Host: letsee.app` gets 403.
 
 ### A note on `background_jobs` (024)
 

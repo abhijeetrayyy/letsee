@@ -174,7 +174,12 @@ describe("no unauthenticated third-party proxy without a caller", () => {
       const src = read(f);
       const spendsKey = /api\.themoviedb\.org|omdbapi\.com|TMDB_API_KEY|OMDB_API_KEY/.test(src);
       if (!spendsKey) return false;
-      const guarded = /getAuthUserId|auth\.getUser|guardCron|CRON_SECRET/.test(src);
+      // `guardLocalOnly` counts as a guard, and is a stronger one than the
+      // rest: it refuses on a production build and off-loopback Host alike, so
+      // a route wearing it answers 403 to the internet even when deployed.
+      // There is no secret involved, so there is no secret to leave unset.
+      const guarded =
+        /getAuthUserId|auth\.getUser|guardCron|CRON_SECRET|guardLocalOnly/.test(src);
       if (guarded) return false;
       // Route path as the app would call it, dynamic segments stripped.
       const path = rel(f)

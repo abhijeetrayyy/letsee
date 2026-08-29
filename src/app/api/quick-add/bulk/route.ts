@@ -132,11 +132,10 @@ export async function POST(req: NextRequest) {
     if (error) console.error("quick-add favorites:", error);
   }
 
-  try {
-    await supabase.rpc("recount_user_stats", { p_user_id: userId });
-  } catch {
-    // Non-critical; stats are eventually consistent.
-  }
+  // Counters are maintained by 069/078's statement triggers on
+  // user_media_status, favorite_items and watched_episodes — the write above
+  // already recounted inside its own transaction. An explicit recount here is a
+  // second cross-region round trip for a number that is already correct.
 
   return jsonSuccess({
     ok: true,

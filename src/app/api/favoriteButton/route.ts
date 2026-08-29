@@ -156,28 +156,20 @@ export async function POST(req: NextRequest) {
   ]);
 
   /**
-   * Recount rather than increment.
+   * No recount here.
    *
-   * The directory reads denormalised counters from `user_cout_stats`, and the
-   * two writes above go straight to the tables without touching them — so a
-   * favourite that newly implied "watched" left watched_count behind. Measured
-   * on the two onboarding accounts: stored 0, actual 4, which is what showed on
-   * the discover page as a profile with four favourites and nothing watched.
+   * The counters this route used to fix by hand are now a consequence of the
+   * rows: 069 put statement-level triggers on favorite_items and
+   * user_media_status, and both writes above fire them inside their own
+   * transaction. By the time those awaits resolve, `user_cout_stats` is already
+   * correct — the explicit `recount_user_stats` that stood here was a third
+   * round trip to the database to recompute a number that had not been wrong
+   * since 069 shipped. Its own comment called it "belt-and-braces", which is
+   * exactly what it was.
    *
-   * `recount_user_stats` derives all of them from the rows, so it cannot drift
-   * the way a hand-placed increment can — and it is the honest call here
-   * because this request may have changed one counter, two, or none.
+   * If a counter is ever wrong again, the trigger is the thing to fix. Adding a
+   * call back here would hide the bug rather than repair it.
    */
-  try {
-    await supabase.rpc("recount_user_stats", { p_user_id: userId });
-  } catch {
-    // Deliberately no fallback. The narrow `increment_favorites_count` that used
-    // to sit here predates 069, whose trigger already recounted absolutely when
-    // the row was inserted — so the fallback could only ever fire on top of an
-    // already-correct counter and push it one too high. Leaving this empty is
-    // the safe branch now: the trigger is the thing that maintains the count,
-    // and the recount above is belt-and-braces.
-  }
 
   return jsonSuccess({ action: "added", message: "Added to favorites" });
 }

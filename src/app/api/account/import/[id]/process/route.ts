@@ -173,13 +173,11 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
     })
     .eq("id", jobId);
 
-  // Counts are only meaningful once, at the end, so skip the extra query while
-  // the loop is still running.
-  try {
-    if (done) await supabase.rpc("recount_user_stats", { p_user_id: userId });
-  } catch {
-    // Non-critical; stats are eventually consistent.
-  }
+  // No recount. `applyImportRows` writes through user_media_status and
+  // favorite_items, and 069's statement-level triggers recount once per
+  // statement — so a chunk of 200 rows costs one recount whether or not this
+  // route asks for another. Asking anyway was an extra round trip per chunk on
+  // the one path in the app that runs hundreds of them.
 
   /**
    * Stop the client's loop rather than spinning on rows that cannot advance.
