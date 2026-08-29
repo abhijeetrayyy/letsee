@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { apiRoutes, read, rel, sourceFiles, uniqueKeys } from "./schema";
 
 /**
@@ -93,7 +95,38 @@ describe("cron routes fail closed", () => {
   const cronRoutes = apiRoutes().filter((f) => f.includes("/api/cron/"));
 
   it("has cron routes to check", () => {
-    expect(cronRoutes.length).toBeGreaterThanOrEqual(4);
+    // Was `>= 4`, back when there were four. 092 deleted three of them:
+    // new-episodes and check-availability produced notification types the
+    // product no longer has, and run-jobs drove a queue that never had a
+    // registered handler. Only purge-deleted survives, and it is not a
+    // feature — it is the thing that finishes an account deletion after the
+    // 30-day grace period.
+    //
+    // The assertion stays at >= 1 so the guard test below cannot pass
+    // vacuously by matching an empty list, which is the failure a hardcoded
+    // count was really protecting against.
+    expect(cronRoutes.length).toBeGreaterThanOrEqual(1);
+  });
+
+  /**
+   * A cron route that nothing schedules is not a job, it is a file.
+   *
+   * `check-availability` was written, working, and scheduled nowhere for
+   * months; `run-jobs` likewise, driving a queue that could not have run a job
+   * if it had fired. Both read as done. Neither was.
+   */
+  it("schedules every cron route it ships", () => {
+    const vercel = JSON.parse(
+      readFileSync(join(process.cwd(), "vercel.json"), "utf8"),
+    ) as { crons?: { path: string }[] };
+    const scheduled = new Set((vercel.crons ?? []).map((c) => c.path));
+
+    const unscheduled = cronRoutes
+      .map((f) => rel(f).replace(/^src[\\/]app/, "").replace(/[\\/]route\.tsx?$/, ""))
+      .map((p) => p.split("\\").join("/"))
+      .filter((p) => !scheduled.has(p));
+
+    expect(unscheduled).toEqual([]);
   });
 
   it("routes every cron endpoint through the shared guard", () => {

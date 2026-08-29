@@ -76,6 +76,8 @@ All migration files live in **`migrations/`**. Run **in numeric order** (007 →
 
 | **091_dead_functions_go.sql** | Drops 14 functions nothing references, plus `notify_like()` and its trigger on `reactions`; extends `notify_reaction()` to cover `rating` targets so no notification coverage is lost. | ✅ **Applied & verified 2026-08-28** | ✅ Yes (every `DROP … IF EXISTS`) | **Fixes a duplicate-notification bug.** `reactions` carried *two* AFTER INSERT triggers that each inserted a `like` notification, so one like on a review or a list notified the owner twice — 062 added `notify_reaction` believing "liking notified nobody" and never dropped 027's `notify_like`. `notify_reaction` is kept: it covers `watched`, carries richer metadata, and checks `is_blocked`, which `notify_like` never did. The dead 14 are the eight pre-069 `increment_/decrement_*` counter mutators, `backfill_watched_episodes_for_show` (its route is deleted), `award_achievement` + `check_achievements` (achievements were removed from the product), and `popular_reviews`, `record_rewatch`, `is_club_member` (written, never called). **67 functions → 52.** |
 
+| **092_notifications_shrink_to_two_kinds.sql** | Cuts `notifications` from 13 types to 4 — `follow_request`, `follow_accepted`, `new_follower`, `dm_received` — and makes the CHECK constraint the specification. Drops the five ambient notify triggers and functions (`notify_reaction`, `notify_started_watching`, `notify_friend_watched`, `notify_comment_reply`, `notify_wave`) and five tables whose only readers were deleted in the same change: `notified_episodes`, `watchlist_alerts`, `background_jobs`, `user_notification_prefs`, `user_waves`. | ✅ **Applied & verified 2026-08-30** | ✅ Yes (`drop … if exists`, guarded table drops) | **A notification is now one person addressing another.** The nine removed types were machine-generated broadcasts that happened to land in a bell; two of them (`notify_friend_watched`, `notify_started_watching`) were `FOR EACH ROW` and fanned out one INSERT per follower per row — a 1,000-title import with 50 followers would have written 50,000 rows. `comment_reply` is the one genuinely person-to-person type dropped, deliberately: the rule is follows and messages. It is four lines to restore. **Refuses to run if any table it drops holds a row** — a migration that deletes data because the author believed a table was empty is a different and worse migration than one that proves it. **47 functions, 40 tables.** |
+
 > ✅ **072, 075 and 076 verified against the live database on 2026-08-19**, by issuing the exact requests that used to leak with the publishable anon key. `users?select=email` → 42501. `watched_items?select=review_text` → 42501. A forged `notifications` insert → 42501. Legitimate columns still answer 200.
 >
 > ⚠️ **073's effect is not independently observable on this database.** All 8 profiles are `public`, so a policy gated on `profile_visible_to_viewer` and one reading `USING (true)` return identical rows. It is recorded as applied on the operator's word. To actually confirm it, set one profile to `private` and check that `watched_episodes?user_id=eq.<that user>` returns `[]` to the anon key.
@@ -186,18 +188,36 @@ that never reaches 100% is a bug report waiting to happen.
 failures were observed and recovered on a later run through the backoff, exactly
 as designed. Guard confirmed: a request with `Host: letsee.app` gets 403.
 
-### A note on `background_jobs` (024)
+### There is exactly one cron, and it is not a feature
 
-That queue is **not functional**, and neither 058 nor 061 uses it:
+`/api/cron/purge-deleted`, daily at 03:30 UTC. It hard-deletes accounts whose
+30-day grace period has expired. That is a data-lifecycle obligation, not a
+product feature, and it is the only thing in this app that genuinely needs a
+schedule.
 
-- Nothing anywhere calls `registerJobHandler`, so `JOB_HANDLERS` is empty and `dispatchJob` always fails with *"No handler registered for job type"*.
-- `vercel.json` now declares one cron (`/api/cron/new-episodes`), but still none for `/api/cron/run-jobs`, so the queue runner is still never invoked.
+092 deleted the other three:
 
-Anything scheduled onto it today silently never runs. `/api/cron/new-episodes` and `/api/cron/check-availability` sidestep it by being plain functions a cron route calls directly, which is the pattern to follow. Either wire the queue's two ends up or drop the table — but don't build on it as-is.
+| route | why it went |
+|---|---|
+| `/api/cron/new-episodes` | produced `new_episode` notifications, a type that no longer exists |
+| `/api/cron/check-availability` | produced watchlist availability alerts, likewise — and was scheduled nowhere, so it had never once fired |
+| `/api/cron/run-jobs` | drove `background_jobs` (024), a queue where nothing ever called `registerJobHandler`, so `dispatchJob` always failed with "No handler registered". It had never run a job and could not have |
 
-**`/api/cron/check-availability` still has no schedule.** It is written, working, and never fires. Add it to `vercel.json` or delete it.
+`background_jobs`, `notified_episodes`, `watchlist_alerts` and
+`user_notification_prefs` were dropped with them.
 
-⚠️ **`CRON_SECRET` must be set in production.** All three cron routes skip their auth guard when the variable is unset — convenient locally, an open endpoint in production.
+`tests/invariants/route-rules.test.ts` now asserts that **every cron route in
+`src/app/api/cron/` appears in `vercel.json`**. A route nothing schedules is not
+a job, it is a file — and two of them read as finished for months while never
+executing.
+
+⚠️ **`CRON_SECRET` must be set in production.** `guardCron` fails closed with a
+503 when it is missing, deliberately, so an unset variable cannot turn a
+service-role endpoint into a public button. The consequence is that if it is
+unset, account deletions never finalise and the 30-day grace window becomes
+indefinite, silently.
+
+The title metadata backfill is **not** a cron; see below.
 
 ---
 

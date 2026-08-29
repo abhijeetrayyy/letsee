@@ -5,9 +5,8 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import { acceptFollowRequest, rejectFollowRequest } from "@/utils/followerAction";
-import { Heart, UserPlus, UserCheck, Eye, MessageSquare, Star, CheckCheck, Bell, Loader2, Hand, Tv } from "lucide-react";
+import { UserPlus, UserCheck, MessageSquare, CheckCheck, Bell, Loader2 } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
-import { reviewPath, titlePath } from "@/utils/urls";
 import {
   fetchNotifications as fetchNotificationPage,
   markNotificationsRead,
@@ -21,7 +20,7 @@ type ActorProfile = {
 type NotificationItem = {
   id: number;
   notification_type: string;
-  /** Null for system notifications like new_episode — nobody acted. */
+  /** Nullable in the schema (063). Every surviving type has an actor. */
   actor_id: string | null;
   actor: ActorProfile;
   target_type: string | null;
@@ -63,21 +62,29 @@ function notificationIcon(type: string) {
   switch (type) {
     case "follow_request": return <UserPlus className="w-4 h-4 text-blue-400" />;
     case "follow_accepted": return <UserCheck className="w-4 h-4 text-emerald-400" />;
-    case "like": return <Heart className="w-4 h-4 text-red-400" />;
-    case "friend_watched": return <Eye className="w-4 h-4 text-amber-400" />;
-    case "friend_reviewed": return <MessageSquare className="w-4 h-4 text-purple-400" />;
-    case "friend_rated": return <Star className="w-4 h-4 text-accent-gold" />;
     case "new_follower": return <UserPlus className="w-4 h-4 text-blue-400" />;
-    case "comment_reply": return <MessageSquare className="w-4 h-4 text-purple-400" />;
     case "dm_received": return <MessageSquare className="w-4 h-4 text-brand-400" />;
-    case "friend_started_watching": return <Eye className="w-4 h-4 text-cyan-400" />;
-    case "achievement_unlocked": return <Star className="w-4 h-4 text-accent-gold" />;
-    case "wave": return <Hand className="w-4 h-4 text-amber-400" />;
-    case "new_episode": return <Tv className="w-4 h-4 text-sky-400" />;
     default: return <Bell className="w-4 h-4 text-surface-400" />;
   }
 }
 
+/**
+ * Four kinds, and the database will not store a fifth (092).
+ *
+ * There were thirteen. The other nine were ambient activity — "someone you
+ * follow watched something", "your rating was liked", "a show you track has a
+ * new episode" — machine-generated broadcasts that happened to land in a bell
+ * rather than anyone addressing anyone. Two of them fanned out one row per
+ * follower per write, which on a 1,000-title import with 50 followers is
+ * 50,000 notifications for one person's afternoon.
+ *
+ * What is left is a named human doing something to you, on purpose, that you
+ * would want to answer.
+ *
+ * `default` still exists and still reads sensibly, because a row written
+ * before 092 could in principle survive a restore; it is not a placeholder for
+ * a type that is coming back.
+ */
 function getNotificationText(n: NotificationItem): { text: string; href?: string } {
   const username = n.actor?.username ?? "Someone";
   switch (n.notification_type) {
@@ -85,97 +92,10 @@ function getNotificationText(n: NotificationItem): { text: string; href?: string
       return { text: `${username} wants to follow you`, href: undefined };
     case "follow_accepted":
       return { text: `${username} accepted your follow request`, href: `/app/profile/${username}` };
-    case "like": {
-      const target = n.metadata?.target_type === "review" ? "review"
-        : n.metadata?.target_type === "rating" ? "rating"
-        : n.metadata?.target_type === "list" ? "list"
-        : "content";
-      const name = n.metadata?.item_name as string | undefined;
-      // Nothing created these until 062 added the trigger on `reactions`, so
-      // older rows may have no metadata to link with — hence the fallbacks.
-      const href =
-        n.metadata?.target_type === "review" && n.target_id
-          ? reviewPath(n.target_id)
-          : n.metadata?.target_type === "list" && n.target_id
-            ? `/app/lists/${n.target_id}`
-            : undefined;
-      return {
-        text: name
-          ? `${username} liked your ${target} of ${name}`
-          : `${username} liked your ${target}`,
-        href,
-      };
-    }
-    case "friend_watched": {
-      const name = n.metadata?.item_name as string ?? "";
-      const itemType = n.metadata?.item_type as string ?? "movie";
-      const itemId = n.metadata?.item_id as string ?? "";
-      return {
-        text: `${username} watched ${name}`,
-        href: itemId ? titlePath(itemType, itemId, name) : undefined,
-      };
-    }
-    case "friend_reviewed": {
-      const name = n.metadata?.item_name as string ?? "";
-      const itemType = n.metadata?.item_type as string ?? "movie";
-      const itemId = n.metadata?.item_id as string ?? "";
-      return {
-        text: `${username} reviewed ${name}`,
-        href: itemId ? titlePath(itemType, itemId, name) : undefined,
-      };
-    }
-    case "friend_rated":
-      return { text: `${username} rated an item` };
     case "new_follower":
       return { text: `${username} started following you`, href: `/app/profile/${username}` };
-    case "comment_reply": {
-      const itemType = n.metadata?.item_type as string ?? "movie";
-      const itemId = n.metadata?.item_id as string ?? "";
-      // This branch had no local `name`, so the first pass silently bound the
-      // global `window.name` and tsc caught it as `void`. Metadata carries it.
-      const name = (n.metadata?.item_name as string) ?? "";
-      return {
-        text: `${username} replied to your comment`,
-        href: itemId ? titlePath(itemType, itemId, name) : undefined,
-      };
-    }
     case "dm_received":
       return { text: `${username} sent you a message`, href: `/app/messages/${n.actor_id ?? ""}` };
-    case "friend_started_watching": {
-      const name = n.metadata?.item_name as string ?? "";
-      const itemType = n.metadata?.item_type as string ?? "movie";
-      const itemId = n.metadata?.item_id as string ?? "";
-      return {
-        text: `${username} started watching ${name}`,
-        href: itemId ? titlePath(itemType, itemId, name) : undefined,
-      };
-    }
-    // The only notification here that isn't about what another user did to
-    // you — it's about something that happened in the world. Hence no actor.
-    case "new_episode": {
-      const show = (n.metadata?.show_name as string) ?? "a show you're watching";
-      const season = n.metadata?.season_number;
-      const episode = n.metadata?.episode_number;
-      const label = season != null && episode != null ? ` S${season}E${episode}` : "";
-      return {
-        text: `New episode of ${show}${label}`,
-        // `show_name` is already read two lines up to build the text; the link
-        // was the one place it went unused.
-        href: n.metadata?.show_id
-          ? titlePath("tv", String(n.metadata.show_id), (n.metadata?.show_name as string) ?? "")
-          : undefined,
-      };
-    }
-    // Waves and achievements were removed from the product; these two cases
-    // stay so rows already in the table keep reading correctly instead of
-    // degrading to "New notification from X". Nothing creates them any more.
-    case "achievement_unlocked": {
-      const name = n.metadata?.name as string ?? "an achievement";
-      const icon = n.metadata?.icon as string ?? "🏆";
-      return { text: `You unlocked ${name}! ${icon}`, href: "/app/profile" };
-    }
-    case "wave":
-      return { text: `${username} waved at you`, href: `/app/profile/${username}` };
     default:
       return { text: `New notification from ${username}` };
   }

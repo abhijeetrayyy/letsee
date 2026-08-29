@@ -2,10 +2,6 @@
   "regions": ["iad1"],
   "crons": [
     {
-      "path": "/api/cron/new-episodes",
-      "schedule": "0 13 * * *"
-    },
-    {
       "path": "/api/cron/purge-deleted",
       "schedule": "30 3 * * *"
     }

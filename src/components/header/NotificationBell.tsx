@@ -1,11 +1,8 @@
 "use client";
 
-import { useCallback } from "react";
 import { IoNotificationsOutline } from "react-icons/io5";
 import Link from "@components/ui/AppLink";
-import toast from "react-hot-toast";
 import { useUnreadCounts } from "@/hooks/useUnreadCounts";
-import type { NotificationRow } from "@/lib/db/inbox";
 
 /**
  * The count and its realtime channel moved into `@/lib/db/inbox`, which the
@@ -13,19 +10,15 @@ import type { NotificationRow } from "@/lib/db/inbox";
  * Postgres the same two questions over three separate websocket topics is what
  * this replaces; the burger was additionally polling an API route for it.
  *
- * What stays here is the part that is only true of the bell: an achievement
- * unlocking is worth a toast, and this is the component that is always mounted
- * when one arrives.
+ * It used to keep one local behaviour — a toast when an achievement unlocked,
+ * because this is the component always mounted when one arrives. 092 removed
+ * `achievement_unlocked` from the type constraint along with the other eight
+ * ambient kinds, so nothing can write that row and the callback could never
+ * fire. The bell is now a count and a link, which is all a bell needs to be
+ * when every notification behind it is a person waiting on an answer.
  */
 export default function NotificationBell({ userId }: { userId: string }) {
-  const onNotification = useCallback((row: NotificationRow) => {
-    if (row.notification_type !== "achievement_unlocked") return;
-    const name = row.metadata?.name ?? "an achievement";
-    const icon = row.metadata?.icon ?? "🏆";
-    toast.success(`${icon} Unlocked: ${name}!`, { duration: 5000 });
-  }, []);
-
-  const { notifications: count } = useUnreadCounts(userId, onNotification);
+  const { notifications: count } = useUnreadCounts(userId);
 
   return (
     <Link

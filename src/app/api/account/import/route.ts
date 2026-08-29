@@ -19,8 +19,10 @@ const INSERT_CHUNK = 500;
  *
  * Parses and stores the rows, then stops. Resolution happens in /process,
  * driven by the client a chunk at a time, because matching thousands of titles
- * against TMDB cannot fit in one request and the queue that was supposed to do
- * it (background_jobs, 024) has no registered handlers and no cron to run them.
+ * against TMDB cannot fit in one request. The queue that was supposed to do it
+ * (background_jobs, 024) never ran a single job — nothing ever called
+ * registerJobHandler and no cron ever invoked the runner — and 092 dropped the
+ * table along with the runner rather than leave three files that look finished.
  * See 058_letterboxd_import.sql.
  */
 export async function POST(req: NextRequest) {
