@@ -31,7 +31,19 @@ import { personPath } from "@/utils/urls";
  * old, and TMDB facts do not change hourly. A deploy invalidates the whole
  * cache anyway, so the staleness window only ever runs from the last deploy.
  */
-export const revalidate = 86400;
+/**
+ * A week. This is TMDB data about a finished thing — a cast list, a runtime, a
+ * release year — and it does not change on any cadence a person would notice.
+ *
+ * The number is a write frequency, not a freshness setting. Every time this
+ * window expires and the page is requested again, Vercel bills another ISR
+ * write unit. At 24h a page somebody visits weekly costs 7 writes a week; at
+ * 7d it costs 1. That difference was invisible next to crawler traffic and is
+ * most of the remaining bill without it.
+ *
+ * Redeploy to purge if TMDB corrects something and the wait is too long.
+ */
+export const revalidate = 604800;
 
 /** Empty on purpose — see the movie page: this is what enables ISR. */
 export async function generateStaticParams() {

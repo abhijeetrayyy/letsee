@@ -43,7 +43,16 @@ import { seasonPath, titlePath } from "@/utils/urls";
  * revalidate and every fetch inside the render, so this value is only real
  * because `TMDB_REVALIDATE_SEC` was raised to match it.
  */
-export const revalidate = 21600;
+/**
+ * A day, up from six hours.
+ *
+ * Six hours meant four ISR write units per page per day for anything still
+ * being visited — and season and episode pages are the deepest, most numerous
+ * routes in the app, so they are the ones where a short window costs the most.
+ * A newly aired episode showing up a few hours later than it might have is not
+ * a defect anyone will report.
+ */
+export const revalidate = 86400;
 
 export async function generateStaticParams() {
   return [];

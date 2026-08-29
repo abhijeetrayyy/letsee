@@ -77,7 +77,16 @@ const EPISODE_REVALIDATE_SEC = 21600;
  * nothing. Empty means "prerender none of them at build time, and cache each
  * one the first time somebody asks for it".
  */
-export const revalidate = 21600;
+/**
+ * A day, up from six hours.
+ *
+ * Six hours meant four ISR write units per page per day for anything still
+ * being visited — and season and episode pages are the deepest, most numerous
+ * routes in the app, so they are the ones where a short window costs the most.
+ * A newly aired episode showing up a few hours later than it might have is not
+ * a defect anyone will report.
+ */
+export const revalidate = 86400;
 
 export async function generateStaticParams() {
   return [];
