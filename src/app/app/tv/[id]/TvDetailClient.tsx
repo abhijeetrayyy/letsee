@@ -13,6 +13,7 @@ import NextEpisode from "@components/detail/NextEpisode";
 import Availability from "@components/detail/Availability";
 import TitleTalk from "@components/takes/TitleTalk";
 import TheRoom from "@components/detail/TheRoom";
+import WeWatched from "@components/detail/WeWatched";
 import SeasonBrowser from "@components/detail/SeasonBrowser";
 import CastRow from "@components/detail/CastRow";
 import CrewBlock, { groupCrew, keyCrew } from "@components/detail/CrewBlock";
@@ -289,6 +290,11 @@ export default function TvDetailClient({
                 isAuthenticated={isAuthenticated}
               />
             </Section>
+
+            {/* The card for the group chat: two names, two scores, one poster.
+                Exists only when somebody the viewer watched with (or follows)
+                also scored this. */}
+            <WeWatched itemId={String(show.id)} itemType="tv" itemName={show.name} posterPath={show.poster_path ?? null} />
 
             {hasReviews && <TmdbReviews reviews={reviews} max={REVIEW_MAX} />}
           </div>

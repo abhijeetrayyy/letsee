@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { writeStatus } from "@/utils/mediaStatus";
 
 const VALID_STATUSES = ["watchlist", "watching", "watched", "on_hold", "dropped"] as const;
 type MediaStatus = (typeof VALID_STATUSES)[number];
@@ -35,52 +36,95 @@ export async function PUT(req: NextRequest) {
   if (!itemId) return jsonError("itemId is required", 400);
   if (!isValidStatus(status)) return jsonError("Invalid status. Must be one of: watchlist, watching, watched, on_hold, dropped", 400);
 
-  const { error } = await supabase.from("user_media_status").upsert(
-    {
-      user_id: userId,
-      item_id: itemId,
-      item_type: itemType,
-      item_name: itemName,
-      // Omit image_url entirely when not supplied so status-only updates
-      // (e.g. the TV status dropdown) don't blank out an existing poster.
-      ...(imageUrl ? { image_url: imageUrl } : {}),
-      item_adult: adult,
-      genres,
-      status,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,item_id,item_type" }
-  );
+  /**
+   * A save carries a why, a when and a who (097).
+   *
+   * All optional, all only meaningful on a watchlist row, and all kept on the
+   * row after it is watched — the note is part of the memory. A "who" that is
+   * a person on letsee is also recorded as a recommendation *from* them, so
+   * the loop can close when the title gets watched.
+   */
+  const save = parseSave(body);
 
-  if (error) {
-    console.error("user-media-status upsert:", error);
-    return jsonError(error.message, 500);
+  /**
+   * The person a save came from has to be somebody the caller is connected
+   * to. A recommendation is later *closed* with a notification to its sender
+   * (097), so an unchecked id here would let anyone make anyone "say" they
+   * recommended a film. 097's insert policy refuses it too; this is the
+   * message a person reads instead of a policy error.
+   */
+  if (save.fromUserId && save.fromUserId !== userId) {
+    const { count } = await supabase
+      .from("user_connections")
+      .select("follower_id", { count: "exact", head: true })
+      .or(
+        `and(follower_id.eq.${userId},followed_id.eq.${save.fromUserId}),and(follower_id.eq.${save.fromUserId},followed_id.eq.${userId})`,
+      );
+    if (!count) {
+      // Keep the intent as a plain name rather than refusing the save.
+      const { data: named } = await supabase.from("users").select("username").eq("id", save.fromUserId).maybeSingle();
+      save.columns.save_with_user_id = null;
+      save.columns.save_with_name = named?.username ?? null;
+      save.fromUserId = null;
+    }
   }
 
   /**
-   * A favourite requires having SEEN it, which is the honest form of the rule.
-   *
-   * The previous version demanded status === "watched" exactly, and that was
-   * too strict: dropping a show you love does not mean you never saw it, and
-   * it deleted the favourite for anything moved to watching, on_hold or
-   * dropped. Only watchlist — a thing you have not started — is incompatible
-   * with calling it a favourite.
-   *
-   * The display goes first: it is the row a stranger sees, and it must never
-   * be the one that survives a partial failure.
+   * `saved_at` is the day it first went on the list, so it is stamped on the
+   * transition into 'watchlist' and left alone by everything after — a note
+   * edit re-sends status 'watchlist', and must not make a months-old save
+   * look like today's (the watchlist sorts by it, and the availability cron
+   * treats a same-day save as "not news").
    */
-  /**
-   * "Seen it" is every status except watchlist.
-   *
-   * watching, on_hold and dropped all mean you started it — you have watched
-   * some of this thing. Only watchlist means you have not. So the line that
-   * matters for the rest of the app is seen / not-seen, not the narrower
-   * "status is exactly watched", and a dropped show belongs in your watched
-   * list the same as a finished one.
-   */
-  const seen = status !== "watchlist";
+  const { data: before } = await supabase
+    .from("user_media_status")
+    .select("status")
+    .eq("user_id", userId)
+    .eq("item_id", itemId)
+    .eq("item_type", itemType)
+    .maybeSingle();
+  const enteringWatchlist = status === "watchlist" && before?.status !== "watchlist";
 
-  if (!seen) {
+  const statusError = await writeStatus(supabase, userId, {
+    itemId,
+    itemType,
+    status,
+    itemName,
+    imageUrl,
+    adult,
+    genres,
+    extra: {
+      ...(enteringWatchlist ? { saved_at: new Date().toISOString() } : {}),
+      ...save.columns,
+    },
+  });
+  if (statusError) return jsonError(statusError, 500);
+
+  if (save.fromUserId && save.fromUserId !== userId) {
+    // "Priya said": written by the recipient, so `to_user_id` is the caller.
+    // The identity key makes a second save of the same title a no-op.
+    const { error: recError } = await supabase.from("title_recommendations").upsert(
+      {
+        from_user_id: save.fromUserId,
+        to_user_id: userId,
+        item_id: itemId,
+        item_type: itemType,
+        item_name: itemName,
+        ...(imageUrl ? { image_url: imageUrl } : {}),
+        ...(save.columns.save_note ? { note: save.columns.save_note } : {}),
+      },
+      { onConflict: "from_user_id,to_user_id,item_id,item_type", ignoreDuplicates: true },
+    );
+    if (recError) console.error("user-media-status recommendation:", recError);
+  }
+
+  /**
+   * A favourite requires having SEEN it. Only watchlist — a thing you have not
+   * started — is incompatible with calling it a favourite. The display goes
+   * first: it is the row a stranger sees, and it must never be the one that
+   * survives a partial failure.
+   */
+  if (status === "watchlist") {
     await supabase
       .from("user_favorite_display")
       .delete()
@@ -94,44 +138,6 @@ export async function PUT(req: NextRequest) {
       .eq("user_id", userId)
       .eq("item_id", itemId)
       .eq("item_type", itemType);
-  }
-
-  // Mirror writes to watched_items for backward compatibility with profile/diary/reviews
-  // that still read from watched_items
-  if (seen) {
-    const { error: watchedItemsError } = await supabase.from("watched_items").upsert(
-      {
-        user_id: userId,
-        item_id: itemId,
-        item_type: itemType,
-        item_name: itemName,
-        ...(imageUrl ? { image_url: imageUrl } : {}),
-        item_adult: adult,
-        genres,
-        is_watched: true,
-        watched_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,item_id,item_type" }
-    );
-
-    if (watchedItemsError) {
-      console.error("user-media-status watched_items mirror upsert:", watchedItemsError);
-    }
-  } else {
-    // Only watchlist lands here now. is_watched=false rather than delete, so
-    // an existing rating, diary entry and review survive being moved back to
-    // "plan to watch".
-    const { error: demoteError } = await supabase
-      .from("watched_items")
-      .update({ is_watched: false })
-      .eq("user_id", userId)
-      .eq("item_id", itemId)
-      .eq("item_type", itemType)
-      .eq("is_watched", true);
-
-    if (demoteError) {
-      console.error("user-media-status watched_items demote:", demoteError);
-    }
   }
 
   // Counters are maintained by 069/078's statement triggers on
@@ -202,6 +208,9 @@ export async function DELETE(req: NextRequest) {
        * episode takes with it. The user asked for everything about this title.
        */
       supabase.from("takes").delete().eq("user_id", userId).eq("item_id", itemId).eq("item_type", itemType),
+      // The dated viewings are diary too. "Keep my rating, diary & review"
+      // keeps them; "delete everything" does what it says.
+      supabase.from("viewings").delete().eq("user_id", userId).eq("item_id", itemId).eq("item_type", itemType),
       // Episodes only exist for series, so this is a no-op for a film.
       ...(itemType === "tv"
         ? [supabase.from("watched_episodes").delete().eq("user_id", userId).eq("show_id", itemId)]
@@ -320,4 +329,60 @@ export async function GET(req: NextRequest) {
   }
 
   return jsonSuccess(statuses);
+}
+
+type SaveFields = {
+  columns: {
+    save_note?: string | null;
+    save_for?: string | null;
+    save_for_date?: string | null;
+    save_with_user_id?: string | null;
+    save_with_name?: string | null;
+  };
+  fromUserId: string | null;
+};
+
+const SAVE_FOR = ["tonight", "weekend", "someday", "date"] as const;
+
+/**
+ * Only the fields the request actually sent are written, so a status-only
+ * update (the TV dropdown, the compact cycle button) never blanks a note
+ * somebody typed on the detail page.
+ */
+function parseSave(body: Record<string, unknown>): SaveFields {
+  const columns: SaveFields["columns"] = {};
+  let fromUserId: string | null = null;
+
+  if ("saveNote" in body) {
+    const note = typeof body.saveNote === "string" ? body.saveNote.trim().slice(0, 280) : "";
+    columns.save_note = note || null;
+  }
+  if ("saveFor" in body) {
+    const raw = body.saveFor;
+    const value = typeof raw === "string" && (SAVE_FOR as readonly string[]).includes(raw) ? raw : null;
+    columns.save_for = value;
+    if (value !== "date") columns.save_for_date = null;
+  }
+  if ("saveForDate" in body) {
+    const raw = typeof body.saveForDate === "string" ? body.saveForDate.trim() : "";
+    const ok = /^\d{4}-\d{2}-\d{2}$/.test(raw) && !Number.isNaN(new Date(raw).getTime());
+    columns.save_for_date = ok ? raw : null;
+    if (ok) columns.save_for = "date";
+  }
+  // "A date" with no date is not a plan.
+  if (columns.save_for === "date" && !columns.save_for_date) columns.save_for = null;
+  if ("saveWithUserId" in body) {
+    const raw = typeof body.saveWithUserId === "string" ? body.saveWithUserId.trim() : "";
+    columns.save_with_user_id = raw || null;
+    if (raw) {
+      columns.save_with_name = null;
+      fromUserId = raw;
+    }
+  }
+  if ("saveWithName" in body) {
+    const raw = typeof body.saveWithName === "string" ? body.saveWithName.trim().slice(0, 60) : "";
+    columns.save_with_name = raw || null;
+    if (raw) columns.save_with_user_id = null;
+  }
+  return { columns, fromUserId };
 }

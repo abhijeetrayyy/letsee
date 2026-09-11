@@ -46,6 +46,37 @@ export default function EditTasteInFour({
   const [query, setQuery] = useState("");
   const [remote, setRemote] = useState<PickableItem[]>([]);
   const [searching, setSearching] = useState(false);
+  /**
+   * Alternate posters for the selected slot. Letterboxd charges its Patron
+   * tier for this; the images are public TMDB data and the choice is the
+   * identity act, so here it is a button. Stored as the resolved URL, the
+   * shape `image_url` already holds.
+   */
+  const [posters, setPosters] = useState<{ path: string; language: string | null }[] | null>(null);
+  const [postersFor, setPostersFor] = useState<number | null>(null);
+  const [postersLoading, setPostersLoading] = useState(false);
+
+  const loadPosters = async (slotIndex: number) => {
+    const it = slots[slotIndex];
+    if (!it) return;
+    setPostersFor(slotIndex);
+    setPostersLoading(true);
+    try {
+      const res = await fetch(`/api/title-images?type=${it.item_type === "tv" ? "tv" : "movie"}&id=${encodeURIComponent(it.item_id)}`);
+      const body = res.ok ? await res.json() : null;
+      setPosters((body?.posters ?? body?.data?.posters ?? []) as { path: string; language: string | null }[]);
+    } catch {
+      setPosters([]);
+    } finally {
+      setPostersLoading(false);
+    }
+  };
+
+  const choosePoster = (slotIndex: number, path: string) => {
+    setSlots((prev) => prev.map((it, i) => (i === slotIndex && it ? { ...it, image_url: getPosterUrl(path, "w342") } : it)));
+    setPosters(null);
+    setPostersFor(null);
+  };
 
   const loadPickable = useCallback(async () => {
     if (loaded) return;
@@ -284,19 +315,61 @@ export default function EditTasteInFour({
                           {it ? it.item_name : `Slot ${idx + 1}`}
                         </p>
                         {it && (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); clearSlot(idx); }}
-                            className="text-xs text-red-400 hover:text-red-300 mt-0.5"
-                          >
-                            Remove
-                          </button>
+                          <div className="mt-0.5 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); void loadPosters(idx); }}
+                              className="text-xs text-surface-400 hover:text-white"
+                            >
+                              Poster
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); clearSlot(idx); }}
+                              className="text-xs text-red-400 hover:text-red-300"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         )}
                       </div>
                     );
                   })}
                 </div>
               </div>
+
+              {postersFor !== null && (
+                <div className="p-5 border-b border-surface-700">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider">
+                      Posters for {slots[postersFor]?.item_name}
+                    </p>
+                    <button type="button" onClick={() => { setPosters(null); setPostersFor(null); }} className="text-xs text-surface-500 hover:text-white">
+                      Close
+                    </button>
+                  </div>
+                  {postersLoading ? (
+                    <LoadingSpinner size="sm" />
+                  ) : posters && posters.length > 0 ? (
+                    <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                      {posters.map((p) => (
+                        <button
+                          key={p.path}
+                          type="button"
+                          onClick={() => choosePoster(postersFor, p.path)}
+                          className="relative aspect-2/3 overflow-hidden rounded-lg border-2 border-surface-700 hover:border-amber-500"
+                          title={p.language ? `Poster (${p.language})` : "Textless poster"}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={getPosterUrl(p.path, "w185")} alt="" loading="lazy" className="h-full w-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-surface-500">Only the one poster for this title.</p>
+                  )}
+                </div>
+              )}
 
               {/* Choose from — tabs + cards (all scroll together with Your 4) */}
               <div className="p-5">

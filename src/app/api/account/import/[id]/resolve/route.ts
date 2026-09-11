@@ -55,7 +55,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // covers it too; this is the cheap second lock.
   const { data: row } = await supabase
     .from("import_rows")
-    .select("id, title, year, watched, watchlist, favorite, rating, review_text, watched_date, status")
+    .select("id, title, year, watched, watchlist, favorite, rating, review_text, watched_date, status, viewing_dates, episodes")
     .eq("id", rowId)
     .eq("job_id", jobId)
     .maybeSingle();
@@ -102,6 +102,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       rating: row.rating,
       reviewText: row.review_text,
       watchedDate: row.watched_date,
+      viewingDates: (row.viewing_dates as string[] | null) ?? [],
+      // Only episodes with a number can be written; a hand-matched Netflix
+      // series keeps its dated viewings and loses nothing else.
+      episodes: tmdbType === "tv"
+        ? (((row.episodes as { s: number; e: number; on: string | null }[] | null) ?? []).filter((e) => e.e > 0))
+        : [],
     },
   ]);
 

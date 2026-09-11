@@ -5,6 +5,7 @@ import Link from "@components/ui/AppLink";
 import { Check, Download, Globe, Loader2, Lock } from "lucide-react";
 import { getAvatarUrl, getPosterUrl } from "@/utils/imageUrl";
 import type { YearInReview } from "@/utils/yearInReview";
+import { exportNodeAsPng } from "@/utils/exportImage";
 
 /**
  * The card people screenshot.
@@ -34,22 +35,7 @@ export default function YearInReviewCard({
     setCapturing(true);
     setError(null);
     try {
-      const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: "#09090b",
-        // The card renders at 540×960 so it reads on screen; ×2 lands exactly
-        // on 1080×1920 without any resampling.
-        scale: 2,
-        useCORS: true,
-      });
-      const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"));
-      if (!blob) throw new Error("Couldn't render the image");
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `letsee-${data.username}-${data.year}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await exportNodeAsPng(cardRef.current, `letsee-${data.username}-${data.year}.png`);
     } catch {
       setError("Couldn't save the image. Try again, or screenshot the card.");
     } finally {
@@ -117,14 +103,49 @@ export default function YearInReviewCard({
             </div>
           </div>
 
-          {/* Counts. Films and shows stay separate — summing them into
-              "titles" would make a series equal to a feature. */}
-          <div className="relative grid grid-cols-2 gap-y-7">
-            <Stat value={data.movies} label={data.movies === 1 ? "film" : "films"} />
-            <Stat value={data.shows} label={data.shows === 1 ? "show" : "shows"} />
-            <Stat value={data.episodes} label={data.episodes === 1 ? "episode" : "episodes"} />
-            <Stat value={data.ratingsGiven} label={data.ratingsGiven === 1 ? "rating" : "ratings"} />
-          </div>
+          {/* People and moments first, counts last. The first line on the
+              card names somebody — that is what makes posting it a message
+              to them rather than a statistic about you. */}
+          {(data.watchedWith.length > 0 || data.comfortWatch || data.sharedWith) && (
+            <div className="relative space-y-3">
+              {data.watchedWith.length > 0 && (
+                <p className="text-lg leading-snug text-white">
+                  Most often with{" "}
+                  <span className="font-semibold text-brand-300">
+                    {data.watchedWith[0].username ? `@${data.watchedWith[0].username}` : data.watchedWith[0].name}
+                  </span>
+                  {data.watchedWith.length > 1 && (
+                    <span className="text-surface-300">
+                      {" "}and{" "}
+                      {data.watchedWith[1].username ? `@${data.watchedWith[1].username}` : data.watchedWith[1].name}
+                    </span>
+                  )}
+                  {data.watchedWith[0].exampleTitle ? (
+                    <span className="text-surface-400"> — {data.watchedWith[0].exampleTitle}, for one.</span>
+                  ) : (
+                    "."
+                  )}
+                </p>
+              )}
+              {data.comfortWatch && (
+                <p className="text-base text-surface-300">
+                  Went back to{" "}
+                  <span className="font-semibold text-white">{data.comfortWatch.itemName}</span>
+                  {data.rewatches > 1 ? ` — ${data.rewatches} rewatches this year.` : "."}
+                </p>
+              )}
+              {/* The share hook, kept: it names another person. */}
+              {data.sharedWith && (
+                <p className="text-base text-brand-300">
+                  You and{" "}
+                  <span className="font-semibold">@{data.sharedWith.username}</span> both watched{" "}
+                  {data.sharedWith.count}{" "}
+                  {data.sharedWith.count === 1 ? "film" : "films"} this year
+                  {data.sharedWith.exampleTitle ? `, including ${data.sharedWith.exampleTitle}` : ""}.
+                </p>
+              )}
+            </div>
+          )}
 
           {posters.length > 0 && (
             <div className="relative">
@@ -164,23 +185,20 @@ export default function YearInReviewCard({
             </div>
           )}
 
-          <div className="relative space-y-2">
+          {/* Counts, last. Films and shows stay separate — summing them into
+              "titles" would make a series equal to a feature. */}
+          <div className="relative">
+            <div className="grid grid-cols-4 gap-2">
+              <Stat value={data.movies} label={data.movies === 1 ? "film" : "films"} />
+              <Stat value={data.shows} label={data.shows === 1 ? "show" : "shows"} />
+              <Stat value={data.episodes} label={data.episodes === 1 ? "episode" : "episodes"} />
+              <Stat value={data.rewatches} label={data.rewatches === 1 ? "rewatch" : "rewatches"} />
+            </div>
             {data.busiestMonth && (
-              <p className="text-base text-surface-300">
+              <p className="mt-4 text-sm text-surface-400">
                 Busiest in{" "}
-                <span className="font-semibold text-white">{data.busiestMonth.month}</span> —{" "}
+                <span className="font-semibold text-surface-200">{data.busiestMonth.month}</span> —{" "}
                 {data.busiestMonth.count} logged.
-              </p>
-            )}
-            {/* The share hook: it names another person, so posting it is a
-                message to them rather than a statistic about you. */}
-            {data.sharedWith && (
-              <p className="text-base text-brand-300">
-                You and{" "}
-                <span className="font-semibold">@{data.sharedWith.username}</span> both watched{" "}
-                {data.sharedWith.count}{" "}
-                {data.sharedWith.count === 1 ? "film" : "films"} this year
-                {data.sharedWith.exampleTitle ? `, including ${data.sharedWith.exampleTitle}` : ""}.
               </p>
             )}
           </div>

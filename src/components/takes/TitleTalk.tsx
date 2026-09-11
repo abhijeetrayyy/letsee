@@ -25,6 +25,8 @@ import {
 import { NA } from "@/utils/takes";
 import { roomKey, takesKey as buildTakesKey, commentsKey as buildCommentsKey } from "@/lib/db/keys";
 import { useInView } from "@/hooks/useInView";
+import { useDraft } from "@/hooks/useDraft";
+import LogViewing from "./LogViewing";
 
 /**
  * One composer, one thread.
@@ -246,7 +248,25 @@ export default function TitleTalk({
   };
 
   const mine = takes?.mine ?? null;
-  const [draft, setDraft] = useState<string | null>(null);
+
+  /**
+   * The draft outlives the page now.
+   *
+   * It used to be `useState(null)` and nothing else, so tapping a cast member
+   * — from inside a thread full of links, on the page whose entire purpose is
+   * to get someone to write — discarded the writing with no warning and no way
+   * back. The key carries the viewer as well as the title, because a shared
+   * browser must not hand one person's unsent sentence to the next.
+   */
+  const draftKey = viewerId
+    ? `letsee:draft:${viewerId}:${identity.itemType}:${identity.itemId}:${identity.scope}:${identity.seasonNumber}:${identity.episodeNumber}`
+    : null;
+  const {
+    value: draft,
+    set: setDraft,
+    clear: clearDraft,
+    restored: draftRestored,
+  } = useDraft(draftKey, mine?.body ?? "", !isLoading);
   /**
    * In-flight score only — `undefined` means "nothing pending, read the server".
    *
@@ -269,10 +289,25 @@ export default function TitleTalk({
    */
   const dirty = draft !== null;
 
+  /**
+   * What the diary knows about this title: how many times, and whether the
+   * latest was a rewatch. `LogViewing` owns the data and reports up.
+   */
+  const [viewingState, setViewingState] = useState<{ count: number; lastIsRewatch: boolean }>({
+    count: 0,
+    lastIsRewatch: false,
+  });
+
   const prompt = useMemo(() => {
+    /**
+     * A rewatch gets Russell & Levy's question. Reconsumption is how people
+     * measure their own change against a fixed text — the prompt should ask
+     * about the change, not about the film.
+     */
+    if (viewingState.lastIsRewatch) return "What did you notice this time that you didn't before?";
     const seed = Math.abs(Number(itemId) || 0) + (seasonNumber ?? 0) * 7 + (episodeNumber ?? 0);
     return PROMPTS[seed % PROMPTS.length];
-  }, [itemId, seasonNumber, episodeNumber]);
+  }, [itemId, seasonNumber, episodeNumber, viewingState.lastIsRewatch]);
 
   const save = async (isPublic: boolean) => {
     if (!text.trim() && rating == null) return;
@@ -300,7 +335,7 @@ export default function TitleTalk({
         genres,
       });
       if (message) throw new Error(message);
-      setDraft(null);
+      clearDraft();
       setPending(undefined);
       await mutateTakes();
       await refreshRoom();
@@ -375,7 +410,7 @@ export default function TitleTalk({
         setError(message);
         return;
       }
-      setDraft(null);
+      clearDraft();
       setPending(undefined);
       await mutateTakes();
       await refreshRoom();
@@ -465,6 +500,21 @@ export default function TitleTalk({
         </div>
       ) : (
         <>
+        {/* When, where, and who was there — the dated half of the diary.
+            Title scope only: a season or an episode is dated by its own
+            watched_episodes rows, and a viewing belongs to the whole thing. */}
+        {scope === "title" && (
+          <LogViewing
+            itemId={identity.itemId}
+            itemType={itemType}
+            itemName={itemName}
+            imageUrl={imageUrl}
+            genres={genres}
+            viewerId={viewerId}
+            onChange={setViewingState}
+            onLogged={refreshRoom}
+          />
+        )}
         {/* Its own strip, outside the card below.
             The card's boundary is what says the buttons inside it act on what
             is inside it. Stacking a control that commits on tap above a control
@@ -509,6 +559,18 @@ export default function TitleTalk({
             placeholder={prompt}
             className="w-full resize-y rounded-xl border border-surface-700 bg-surface-950 px-3.5 py-3 text-[15px] leading-relaxed text-white placeholder-surface-500 focus:border-brand-500 focus:outline-none"
           />
+
+          {/* Said out loud, once.
+              Text appearing in a box the author does not remember filling is
+              unsettling if it is unexplained — and the explanation is also the
+              reassurance: nothing was posted, nothing was lost. It clears the
+              moment they touch the keyboard, because from then on it is not a
+              recovered draft, it is what they are writing. */}
+          {draftRestored && (
+            <p className="mt-2 text-xs text-surface-500">
+              Picked up where you left off. Still only visible to you.
+            </p>
+          )}
 
           {/* Absent, not disabled.
               These buttons govern the writing and nothing else now, so with no

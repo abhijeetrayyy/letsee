@@ -11,6 +11,7 @@ import TitleIdentity, { movieIdentity } from "@components/detail/TitleIdentity";
 import Availability from "@components/detail/Availability";
 import TitleTalk from "@components/takes/TitleTalk";
 import TheRoom from "@components/detail/TheRoom";
+import WeWatched from "@components/detail/WeWatched";
 import FranchiseStrip from "@components/detail/FranchiseStrip";
 import ReleaseTimeline, { buildRows } from "@components/detail/ReleaseTimeline";
 import CastRow from "@components/detail/CastRow";
@@ -287,6 +288,11 @@ export default function MovieDetailClient({
                 isAuthenticated={isAuthenticated}
               />
             </Section>
+
+            {/* The card for the group chat: two names, two scores, one poster.
+                Exists only when somebody the viewer watched with (or follows)
+                also scored this. */}
+            <WeWatched itemId={String(movie.id)} itemType="movie" itemName={movie.title} posterPath={movie.poster_path ?? null} />
 
             {hasReviews && <TmdbReviews reviews={reviews} max={REVIEW_MAX} />}
           </div>

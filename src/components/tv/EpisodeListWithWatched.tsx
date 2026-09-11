@@ -118,6 +118,12 @@ export default function EpisodeListWithWatched({
   const [visibleCount, setVisibleCount] = useState(initialCount);
   const [query, setQuery] = useState("");
   const [hideWatched, setHideWatched] = useState(false);
+  /**
+   * Overviews spoil. TMDB writes them for people who have seen the episode,
+   * so on a season page the overview of an episode you have not watched is
+   * hidden until you have — or until you say otherwise, once, for the list.
+   */
+  const [showOverviews, setShowOverviews] = useState(false);
 
   // Switching season swaps the whole list out from under us.
   useEffect(() => {
@@ -327,6 +333,19 @@ export default function EpisodeListWithWatched({
               </select>
               <ArrowUpDown className="w-3 h-3 text-surface-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
+            <button
+              type="button"
+              onClick={() => setShowOverviews((v) => !v)}
+              aria-pressed={showOverviews}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                showOverviews
+                  ? "bg-surface-700 text-surface-200 border-white/10"
+                  : "bg-surface-800 text-surface-400 border-white/10 hover:text-surface-200"
+              }`}
+              title="Overviews of unwatched episodes are hidden by default"
+            >
+              {showOverviews ? "Hide spoilers" : "Show overviews"}
+            </button>
             {/* Mark Season Watched */}
             <button
               onClick={markSeasonWatched}
@@ -503,9 +522,15 @@ export default function EpisodeListWithWatched({
                       )}
                     </div>
                   </div>
-                  <p className="text-sm text-surface-400 mt-2 line-clamp-2">
-                    {episode.overview || "No overview available."}
-                  </p>
+                  {watchedInfo.watched || showOverviews || unaired || !episode.overview ? (
+                    <p className="text-sm text-surface-400 mt-2 line-clamp-2">
+                      {episode.overview || "No overview available."}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-surface-600 mt-2 italic">
+                      Overview hidden until you&apos;ve watched it.
+                    </p>
+                  )}
                   {watchedInfo.watched && watchedInfo.date && (
                     <p className="text-xs text-surface-600 mt-1">
                       Watched on {new Date(watchedInfo.date).toLocaleDateString()}

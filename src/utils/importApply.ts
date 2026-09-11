@@ -22,6 +22,7 @@
  */
 
 import type { createClient } from "@/utils/supabase/server";
+import { ensureFirstViewings } from "@/utils/mediaStatus";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -38,6 +39,14 @@ export type ApplicableRow = {
   rating: number | null;
   reviewText: string | null;
   watchedDate: string | null;
+  /**
+   * Every dated viewing (101). The legacy `watched_at` above keeps the
+   * earliest; these become one `viewings` row each, so a rewatch survives
+   * the import as a rewatch. Empty for an export that only knew "seen".
+   */
+  viewingDates?: string[];
+  /** Watched episodes of a series, with numbers already resolved. */
+  episodes?: { s: number; e: number; on: string | null }[];
 };
 
 const POSTER_BASE = "https://image.tmdb.org/t/p/w342";
@@ -61,7 +70,7 @@ export async function applyRows(
   const itemIds = [...new Set(rows.map((r) => r.tmdbId))];
 
   // One read to learn what the user already has, so nothing below has to guess.
-  const [statusRes, watchedRes, takesRes] = await Promise.all([
+  const [statusRes, watchedRes, takesRes, viewingsRes] = await Promise.all([
     supabase
       .from("user_media_status")
       .select("item_id, item_type, status")
@@ -95,7 +104,25 @@ export async function applyRows(
       .eq("user_id", userId)
       .eq("scope", "title")
       .in("item_id", itemIds),
+    /**
+     * Dated viewings already in the diary, so a re-run inserts nothing twice
+     * and a viewing logged here by hand is never duplicated by the export.
+     */
+    supabase
+      .from("viewings")
+      .select("item_id, item_type, watched_on")
+      .eq("user_id", userId)
+      .in("item_id", itemIds),
   ]);
+
+  const existingViewings = new Set(
+    (viewingsRes.data ?? []).map((v) => `${v.item_type}:${v.item_id}:${v.watched_on}`),
+  );
+  const existingViewingCount = new Map<string, number>();
+  for (const v of viewingsRes.data ?? []) {
+    const k = `${v.item_type}:${v.item_id}`;
+    existingViewingCount.set(k, (existingViewingCount.get(k) ?? 0) + 1);
+  }
 
   // Keyed `type:id`. These maps decide whether a row is downgraded, so a bare
   // id could judge a film against the series sharing its TMDB id.
@@ -148,6 +175,11 @@ export async function applyRows(
   const diaryNotes: { item_id: string; item_type: string; body: string }[] = [];
   const ratingInserts: Record<string, unknown>[] = [];
   const favoriteInserts: Record<string, unknown>[] = [];
+  const viewingInserts: Record<string, unknown>[] = [];
+  const episodeInserts: Record<string, unknown>[] = [];
+  /** Dates already queued in this batch, so two rows for one title cannot double a date. */
+  const viewingsInBatch = new Set<string>();
+  const undatedWatched: { itemId: string; itemType: "movie" | "tv" }[] = [];
 
   for (const row of rows) {
     const base = {
@@ -163,8 +195,14 @@ export async function applyRows(
     const current = existingStatus.get(rowKey);
     const inBatch = statusByKey.get(rowKey) as { status?: string } | undefined;
 
+    const hasEpisodes = (row.episodes?.length ?? 0) > 0;
     if (row.watched) {
       statusByKey.set(rowKey, { ...base, status: "watched", updated_at: new Date().toISOString() });
+    } else if (hasEpisodes && row.tmdbType === "tv" && !current && inBatch?.status !== "watched") {
+      // Episodes without a "finished" verdict: a series they are watching.
+      // Only ever fills an empty slot — a show marked watched or dropped here
+      // keeps that.
+      statusByKey.set(rowKey, { ...base, status: "watching", updated_at: new Date().toISOString() });
     } else if (row.watchlist && !current && inBatch?.status !== "watched") {
       // Only when there's nothing there. A film they've since watched here must
       // not be knocked back to the watchlist by an old export — and the
@@ -182,9 +220,9 @@ export async function applyRows(
         ...(watchedByKey.get(rowKey) ?? {}),
         ...base,
         is_watched: true,
-        // Letterboxd's watch date is the whole point of importing a diary, so
-        // it wins over "now" — but only ever as a date we were actually given.
-        ...(row.watchedDate ? { watched_at: new Date(row.watchedDate).toISOString() } : {}),
+        // No `watched_at` here. Since 095 the date is the viewing's, and the
+        // projection trigger sets this column from the most recent viewing —
+        // which the dated inserts below create before this row is written.
       });
       /**
        * The diary note is collected, not upserted.
@@ -240,8 +278,50 @@ export async function applyRows(
         score: row.rating,
         body: takeBody,
         is_public: false,
-        ...(row.watchedDate ? { watched_at: new Date(row.watchedDate).toISOString() } : {}),
       });
+    }
+
+    /**
+     * The viewings. One row per date the export gave; the first date on a
+     * title with no viewing yet is a first watch, every later one a rewatch.
+     * A title watched with no date at all still gets one viewing — dated
+     * today, through `ensure_first_viewings` after the dated rows land, so a
+     * dateless export leaves a diary entry rather than a watched title the
+     * recaps and the calendar cannot see.
+     */
+    if (row.watched && !row.viewingDates?.length) {
+      undatedWatched.push({ itemId: row.tmdbId, itemType: row.tmdbType });
+    }
+    if (row.watched && row.viewingDates?.length) {
+      const dates = [...new Set(row.viewingDates)].sort();
+      let seen = existingViewingCount.get(rowKey) ?? 0;
+      for (const date of dates) {
+        const vk = `${rowKey}:${date}`;
+        if (existingViewings.has(vk) || viewingsInBatch.has(vk)) continue;
+        viewingsInBatch.add(vk);
+        viewingInserts.push({
+          user_id: userId,
+          item_id: row.tmdbId,
+          item_type: row.tmdbType,
+          watched_on: date,
+          rewatch: seen > 0,
+          place: "home",
+        });
+        seen += 1;
+      }
+    }
+
+    if (row.tmdbType === "tv" && hasEpisodes) {
+      for (const ep of row.episodes ?? []) {
+        if (!Number.isInteger(ep.s) || !Number.isInteger(ep.e) || ep.e < 1 || ep.s < 0) continue;
+        episodeInserts.push({
+          user_id: userId,
+          show_id: row.tmdbId,
+          season_number: ep.s,
+          episode_number: ep.e,
+          ...(ep.on ? { watched_at: new Date(ep.on).toISOString() } : {}),
+        });
+      }
     }
 
     if (row.rating !== null) {
@@ -278,6 +358,23 @@ export async function applyRows(
     errors.push(`${table}: ${error.message}`);
   };
 
+  /**
+   * The dated viewings go first, on their own, and are awaited.
+   *
+   * 095's projection trigger writes `watched_items.watched_at` from the most
+   * recent viewing *of the rows that exist when it fires*. Inserting viewings
+   * in the same Promise.all as the mirror upsert made the two race: when the
+   * mirror landed second it kept its default `now()`, and a 2019 diary entry
+   * showed as watched today. Written first, the trigger finds nothing to
+   * update yet; the mirror upsert then lands, and the trigger fires again on
+   * the undated batch below — so the final projection is right either way.
+   * (Plain inserts: the batch and the existing-set check above already
+   * guarantee no date is written twice, and `viewings` has no natural key.)
+   */
+  if (viewingInserts.length) {
+    await supabase.from("viewings").insert(viewingInserts).then(record("viewings"));
+  }
+
   await Promise.all([
     statusUpserts.length
       ? supabase
@@ -313,7 +410,26 @@ export async function applyRows(
           .upsert(favoriteInserts, { onConflict: "user_id,item_id,item_type", ignoreDuplicates: true })
           .then(record("favorite_items"))
       : null,
+    episodeInserts.length
+      ? supabase
+          .from("watched_episodes")
+          .upsert(episodeInserts, {
+            onConflict: "user_id,show_id,season_number,episode_number",
+            ignoreDuplicates: true,
+          })
+          .then(record("watched_episodes"))
+      : null,
   ]);
+
+  /**
+   * The rows above are in place, so the dated ones' projection has already
+   * run and this can only add a today-viewing where the diary is empty. It
+   * also re-projects `watched_at` for every title it touches, which covers
+   * the mirror rows that landed after their viewings.
+   */
+  if (undatedWatched.length) {
+    await ensureFirstViewings(supabase, undatedWatched);
+  }
 
   /**
    * Notes last, and only into an empty diary.

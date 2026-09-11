@@ -5,12 +5,26 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import { acceptFollowRequest, rejectFollowRequest } from "@/utils/followerAction";
-import { UserPlus, UserCheck, MessageSquare, CheckCheck, Bell, Loader2 } from "lucide-react";
+import {
+  UserPlus,
+  UserCheck,
+  MessageSquare,
+  CheckCheck,
+  Bell,
+  Loader2,
+  Users,
+  Gift,
+  Reply,
+  MonitorPlay,
+  Tv,
+} from "lucide-react";
 import Avatar from "@components/ui/Avatar";
 import {
   fetchNotifications as fetchNotificationPage,
   markNotificationsRead,
 } from "@/lib/db/notifications";
+import { acceptCoLog } from "@/lib/db/viewings";
+import { episodePath, reviewPath, seasonPath, titlePath } from "@/utils/urls";
 
 type ActorProfile = {
   username: string | null;
@@ -64,29 +78,64 @@ function notificationIcon(type: string) {
     case "follow_accepted": return <UserCheck className="w-4 h-4 text-emerald-400" />;
     case "new_follower": return <UserPlus className="w-4 h-4 text-blue-400" />;
     case "dm_received": return <MessageSquare className="w-4 h-4 text-brand-400" />;
+    case "co_log_invite": return <Users className="w-4 h-4 text-brand-400" />;
+    case "recommendation_watched": return <Gift className="w-4 h-4 text-amber-400" />;
+    case "comment_reply": return <Reply className="w-4 h-4 text-purple-400" />;
+    case "watchlist_available": return <MonitorPlay className="w-4 h-4 text-emerald-400" />;
+    case "new_episode": return <Tv className="w-4 h-4 text-sky-400" />;
     default: return <Bell className="w-4 h-4 text-surface-400" />;
   }
 }
 
 /**
- * Four kinds, and the database will not store a fifth (092).
+ * Nine kinds, and the database will not store a tenth (098).
  *
- * There were thirteen. The other nine were ambient activity — "someone you
- * follow watched something", "your rating was liked", "a show you track has a
- * new episode" — machine-generated broadcasts that happened to land in a bell
- * rather than anyone addressing anyone. Two of them fanned out one row per
- * follower per write, which on a 1,000-title import with 50 followers is
- * 50,000 notifications for one person's afternoon.
+ * 092 cut the list to four — a named human doing something to you, on purpose,
+ * that you would want to answer — and dropped nine ambient broadcasts, two of
+ * which fanned out one row per follower per write. The rule that survives
+ * across every tracker that lasted is one step wider than "person to person":
+ * **only what the user caused.** 096–098 add five kinds under that rule:
  *
- * What is left is a named human doing something to you, on purpose, that you
- * would want to answer.
+ *   co_log_invite          someone logged a viewing and named you
+ *   recommendation_watched someone watched a title you recommended
+ *   comment_reply          someone answered you
+ *   watchlist_available    a title on YOUR watchlist arrived on YOUR service
+ *   new_episode            a show YOU are watching has a new episode
+ *
+ * The last two have no actor — nobody did anything to you; you caused them by
+ * saving a title and naming a service — and are written once a day, per user,
+ * from that user's own list. Nothing fans out.
  *
  * `default` still exists and still reads sensibly, because a row written
  * before 092 could in principle survive a restore; it is not a placeholder for
  * a type that is coming back.
  */
-function getNotificationText(n: NotificationItem): { text: string; href?: string } {
+type Rendered = { text: string; href?: string; detail?: string; action?: "co_log" };
+
+function str(meta: Record<string, unknown> | null, key: string): string {
+  const v = meta?.[key];
+  return typeof v === "string" ? v : "";
+}
+function num(meta: Record<string, unknown> | null, key: string): number | null {
+  const v = meta?.[key];
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+/** Where a reply's thread lives: a title, a review, a season or an episode. */
+function threadHref(itemType: string, itemId: string): string | undefined {
+  if (!itemId) return undefined;
+  if (itemType === "movie" || itemType === "tv") return titlePath(itemType, itemId);
+  if (itemType === "review") return reviewPath(itemId);
+  const season = /^(\d+)-s(\d+)$/.exec(itemId);
+  if (itemType === "season" && season) return seasonPath(season[1], season[2]);
+  const episode = /^(\d+)-s(\d+)-e(\d+)$/.exec(itemId);
+  if (itemType === "episode" && episode) return episodePath(episode[1], episode[2], episode[3]);
+  return undefined;
+}
+
+function getNotificationText(n: NotificationItem): Rendered {
   const username = n.actor?.username ?? "Someone";
+  const meta = n.metadata;
   switch (n.notification_type) {
     case "follow_request":
       return { text: `${username} wants to follow you`, href: undefined };
@@ -96,6 +145,51 @@ function getNotificationText(n: NotificationItem): { text: string; href?: string
       return { text: `${username} started following you`, href: `/app/profile/${username}` };
     case "dm_received":
       return { text: `${username} sent you a message`, href: `/app/messages/${n.actor_id ?? ""}` };
+    case "co_log_invite": {
+      const title = str(meta, "item_name") || "something";
+      return {
+        text: `${username} watched ${title} with you`,
+        detail: "Add it to your diary too, on the same day.",
+        action: "co_log",
+      };
+    }
+    case "recommendation_watched": {
+      const title = str(meta, "item_name") || "something";
+      return {
+        text: `${username} watched ${title}. You told them to.`,
+        href: titlePath(str(meta, "item_type") || "movie", str(meta, "item_id"), title),
+      };
+    }
+    case "comment_reply": {
+      const body = str(meta, "comment_body");
+      return {
+        text: `${username} replied to you`,
+        detail: body ? `“${body}”` : undefined,
+        href: threadHref(str(meta, "item_type"), str(meta, "item_id")),
+      };
+    }
+    case "watchlist_available": {
+      const count = num(meta, "count") ?? 1;
+      const first = str(meta, "first_name");
+      const provider = str(meta, "provider_name");
+      const text =
+        count === 1
+          ? `${first || "A title on your watchlist"} arrived on ${provider || "a service you have"}`
+          : `${count} titles on your watchlist arrived on ${provider || "your services"}`;
+      return { text, href: "/app/watchlist" };
+    }
+    case "new_episode": {
+      const show = str(meta, "show_name") || "A show you are watching";
+      const s = num(meta, "season_number");
+      const e = num(meta, "episode_number");
+      const name = str(meta, "episode_name");
+      const label = s != null && e != null ? `S${s}E${e}${name ? ` · ${name}` : ""}` : "a new episode";
+      const showId = str(meta, "show_id");
+      return {
+        text: `${show} is back: ${label}`,
+        href: showId && s != null ? seasonPath(showId, s, show) : undefined,
+      };
+    }
     default:
       return { text: `New notification from ${username}` };
   }
@@ -306,14 +400,16 @@ export default function NotificationsPage() {
           <Bell className="w-10 h-10 text-surface-600 mx-auto mb-3" />
           <p className="text-surface-400 text-sm">No notifications yet.</p>
           <p className="text-surface-600 text-xs mt-1">
-            When someone follows you, likes your content, or your friends watch something, it will show here.
+            When someone follows you, messages you, answers you, names you on a viewing, or watches
+            something you told them to — and when a title you saved arrives on a service you have —
+            it will show here.
           </p>
         </div>
       ) : (
         <>
           <div className="space-y-1">
             {notifications.map((n) => {
-              const { text, href } = getNotificationText(n);
+              const { text, href, detail, action } = getNotificationText(n);
               const content = (
                 <div
                   className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${
@@ -322,17 +418,25 @@ export default function NotificationsPage() {
                       : "bg-brand-500/5 border border-brand-500/10 hover:bg-brand-500/10"
                   }`}
                 >
-                  {/* Actor avatar */}
+                  {/* Actor avatar — or, for the two kinds nobody sent, the icon alone. */}
                   <div className="shrink-0 relative">
-                    <Avatar
-                      src={n.actor?.avatar_url}
-                      name={n.actor?.username ?? "user"}
-                      size="md"
-                      className="border-2 border-surface-700"
-                    />
-                    <span className="absolute -bottom-0.5 -right-0.5 bg-surface-900 rounded-full p-0.5">
-                      {notificationIcon(n.notification_type)}
-                    </span>
+                    {n.actor_id ? (
+                      <>
+                        <Avatar
+                          src={n.actor?.avatar_url}
+                          name={n.actor?.username ?? "user"}
+                          size="md"
+                          className="border-2 border-surface-700"
+                        />
+                        <span className="absolute -bottom-0.5 -right-0.5 bg-surface-900 rounded-full p-0.5">
+                          {notificationIcon(n.notification_type)}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="flex size-10 items-center justify-center rounded-full border-2 border-surface-700 bg-surface-800">
+                        {notificationIcon(n.notification_type)}
+                      </span>
+                    )}
                   </div>
 
                   {/* Content */}
@@ -340,9 +444,24 @@ export default function NotificationsPage() {
                     <p className="text-sm text-surface-200">
                       {text}
                     </p>
+                    {detail && (
+                      <p className="text-xs text-surface-400 mt-0.5 line-clamp-2">{detail}</p>
+                    )}
                     <p className="text-xs text-surface-500 mt-0.5">
                       {formatDate(n.created_at)}
                     </p>
+                    {action === "co_log" && n.target_id != null && (
+                      <CoLogAction
+                        viewingId={n.target_id}
+                        done={n.is_read}
+                        href={titlePath(str(n.metadata, "item_type") || "movie", str(n.metadata, "item_id"), str(n.metadata, "item_name"))}
+                        onDone={() =>
+                          setNotifications((prev) =>
+                            prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)),
+                          )
+                        }
+                      />
+                    )}
                   </div>
 
                   {/* Unread indicator */}
@@ -384,6 +503,68 @@ export default function NotificationsPage() {
               </button>
             </div>
           )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "I was there too": the one notification that is a question.
+ *
+ * Accepting writes the viewer's own viewing — same day, same place — through
+ * `accept_co_log` (096), links it to the other person's, and marks the title
+ * watched. Nothing happened to the viewer's library until they tapped this.
+ */
+function CoLogAction({
+  viewingId,
+  done,
+  href,
+  onDone,
+}: {
+  viewingId: number;
+  done: boolean;
+  href: string;
+  onDone: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+
+  const accept = async () => {
+    setBusy(true);
+    try {
+      const { error } = await acceptCoLog(viewingId);
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      setAccepted(true);
+      onDone();
+      toast.success("Added to your diary");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      {accepted || done ? (
+        <Link href={href} className="text-xs text-brand-400 hover:text-brand-300">
+          {accepted ? "In your diary — open it" : "Open the title"}
+        </Link>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={accept}
+            disabled={busy}
+            className="rounded-full bg-brand-500/15 px-3 py-1.5 text-xs font-medium text-brand-300 transition hover:bg-brand-500/25 disabled:opacity-50"
+          >
+            {busy ? "Adding…" : "I was there too"}
+          </button>
+          <Link href={href} className="text-xs text-surface-500 hover:text-white">
+            Open the title
+          </Link>
         </>
       )}
     </div>

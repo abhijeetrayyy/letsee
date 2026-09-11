@@ -6,7 +6,7 @@ import { useInView } from "@/hooks/useInView";
 import toast from "react-hot-toast";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 import Link from "@components/ui/AppLink";
-import { Play, ChevronRight, Tv, Check, Loader2 } from "lucide-react";
+import { Play, ChevronRight, Tv, Check, Loader2, Clock } from "lucide-react";
 import EmptyState from "@components/ui/EmptyState";
 import { titlePath } from "@/utils/urls";
 
@@ -27,6 +27,9 @@ interface ContinueWatchingItem {
   next_air_date: string | null;
   up_next: { s: number; e: number }[];
   can_mark_next: boolean;
+  waiting: boolean;
+  waiting_label: string | null;
+  show_status: string | null;
 }
 
 export default function ContinueWatchingProgress() {
@@ -168,27 +171,33 @@ export default function ContinueWatchingProgress() {
                 />
               </div>
 
-              {/* Next episode badge */}
-              {item.next_season != null && item.next_episode != null && (
+              {/* Next episode badge — only for an episode that exists to be
+                  watched. A waiting show never wears a play button. */}
+              {!item.waiting && item.next_season != null && item.next_episode != null && (
                 <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-lg px-2 py-1 text-xs font-medium text-white flex items-center gap-1">
                   <Play className="size-3 fill-white" />
                   S{item.next_season}E{item.next_episode}
                 </div>
               )}
 
-              {item.is_caught_up && (
+              {item.waiting ? (
+                <div className="absolute top-2 right-2 bg-sky-500/80 backdrop-blur-sm rounded-lg px-2 py-1 text-xs font-medium text-white flex items-center gap-1">
+                  <Clock className="size-3" />
+                  Waiting
+                </div>
+              ) : item.is_caught_up ? (
                 <div className="absolute top-2 right-2 bg-amber-500/80 backdrop-blur-sm rounded-lg px-2 py-1 text-xs font-medium text-white">
                   Caught up
                 </div>
-              )}
+              ) : null}
             </div>
 
             <h3 className="mt-2 text-sm font-medium text-white truncate">{item.show_name}</h3>
             <p className="text-xs text-surface-400">
               {item.episodes_watched}/{item.total_episodes} episodes
-              {item.is_caught_up && item.next_air_date && (
-                <span className="text-amber-400 ml-1">
-                  · {new Date(item.next_air_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              {item.waiting_label && (
+                <span className={`ml-1 ${item.waiting ? "text-sky-400" : "text-surface-500"}`}>
+                  · {item.waiting_label}
                 </span>
               )}
             </p>

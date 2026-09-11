@@ -1,5 +1,5 @@
 /**
- * A year, counted.
+ * A year, counted — and, since 095, remembered.
  *
  * ── On the numbers ──────────────────────────────────────────────────────────
  * There is no "hours watched" here, and there must not be. 054_remove_hours.sql
@@ -10,15 +10,20 @@
  * nothing else.
  *
  * ── On dates ────────────────────────────────────────────────────────────────
- * watched_items.watched_at is the diary date. For a Letterboxd import it's the
- * real date they watched it; for something marked here it defaults to the
- * moment they marked it. That's the best available answer and it's honest for
- * both cases, so it's what the year is sliced on.
+ * The year is sliced on `viewings.watched_on` — one row per time something was
+ * watched (095). Before that it was sliced on `watched_items.watched_at`, which
+ * is now a projection of the most recent viewing, so the two agree for anyone
+ * who never rewatches and the viewing is right for everyone else: a film seen
+ * in March and again in December counts once as a film and once as a rewatch.
+ *
+ * ── On order ────────────────────────────────────────────────────────────────
+ * People and moments first, counts last. Reminiscing on positive memories
+ * lifts mood; a Wrapped-style count invites performing for the number
+ * (docs/WHY_PEOPLE_COME_BACK.md §6). So the first line on the card names
+ * somebody you watched with, and the total is the last thing on it.
  */
 
-import type { createClient } from "@/utils/supabase/server";
-
-type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type YearFilm = {
   itemId: string;
@@ -36,21 +41,36 @@ export type SharedWith = {
   exampleTitle: string | null;
 };
 
+export type WatchedWith = {
+  /** null for a name that is not on letsee. */
+  username: string | null;
+  name: string | null;
+  avatarUrl: string | null;
+  count: number;
+  exampleTitle: string | null;
+};
+
 export type YearInReview = {
   year: number;
   username: string;
   avatarUrl: string | null;
-  /** Films and shows marked watched, counted separately — never summed into "titles". */
+  /** Films and shows watched, counted separately — never summed into "titles". */
   movies: number;
   shows: number;
   episodes: number;
   ratingsGiven: number;
   reviewsWritten: number;
+  /** Viewings marked as a rewatch. A comfort film counts every time. */
+  rewatches: number;
+  /** The rewatched title with the most viewings this year, if any. */
+  comfortWatch: YearFilm | null;
   /** Highest rated, for the poster grid. */
   topRated: YearFilm[];
   topGenres: { genre: string; count: number }[];
   busiestMonth: { month: string; count: number } | null;
-  /** The share hook — the one line no other app can produce. */
+  /** Who they watched with most, from the viewings themselves. */
+  watchedWith: WatchedWith[];
+  /** The follow-graph overlap, kept from before: who watched the same things. */
   sharedWith: SharedWith | null;
   /** True when there is too little here to be worth a card. */
   sparse: boolean;
@@ -64,6 +84,21 @@ const MONTHS = [
 /** Below this a card is a series of zeroes, which nobody wants to look at. */
 const SPARSE_THRESHOLD = 3;
 
+type ViewingRow = {
+  id: number;
+  item_id: string;
+  item_type: string;
+  watched_on: string;
+  rewatch: boolean;
+  viewing_companions:
+    | {
+        companion_user_id: string | null;
+        name: string | null;
+        users: { username: string | null; avatar_url: string | null } | { username: string | null; avatar_url: string | null }[] | null;
+      }[]
+    | null;
+};
+
 export async function buildYearInReview(
   supabase: SupabaseClient,
   userId: string,
@@ -71,71 +106,109 @@ export async function buildYearInReview(
   avatarUrl: string | null,
   year: number,
 ): Promise<YearInReview> {
-  const start = `${year}-01-01T00:00:00.000Z`;
-  const end = `${year + 1}-01-01T00:00:00.000Z`;
+  const start = `${year}-01-01`;
+  const end = `${year}-12-31`;
+  const startTs = `${year}-01-01T00:00:00.000Z`;
+  const endTs = `${year + 1}-01-01T00:00:00.000Z`;
 
-  const [watchedRes, episodesRes, ratingsRes, notesRes] = await Promise.all([
+  const [viewingsRes, episodesRes, episodeShowsRes, ratingsRes, notesRes] = await Promise.all([
     supabase
-      .from("watched_items")
-      // No `review_text`: 076 revoked SELECT on it, and this only ever needed
-      // to know WHICH titles carry a note, not what any of them says. That
-      // count comes from my_diary_notes() below.
-      .select("item_id, item_type, item_name, image_url, genres, watched_at")
+      .from("viewings")
+      .select(
+        "id, item_id, item_type, watched_on, rewatch, viewing_companions!viewing_id(companion_user_id, name, users(username, avatar_url))",
+      )
       .eq("user_id", userId)
-      .eq("is_watched", true)
-      .gte("watched_at", start)
-      .lt("watched_at", end),
+      .gte("watched_on", start)
+      .lte("watched_on", end)
+      .order("watched_on", { ascending: true })
+      .limit(2000),
     supabase
       .from("watched_episodes")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
       .gt("season_number", 0)
-      .gte("watched_at", start)
-      .lt("watched_at", end),
-    supabase.from("user_ratings").select("item_id, score").eq("user_id", userId),
+      .gte("watched_at", startTs)
+      .lt("watched_at", endTs),
+    // The shows those episodes belong to. A series you were part-way through
+    // all year has no viewing (a viewing is "finished it"), and a year of 300
+    // episodes that reads "0 shows" is not a year anyone recognises.
+    supabase
+      .from("watched_episodes")
+      .select("show_id")
+      .eq("user_id", userId)
+      .gt("season_number", 0)
+      .gte("watched_at", startTs)
+      .lt("watched_at", endTs)
+      .limit(5000),
+    supabase.from("user_ratings").select("item_id, item_type, score").eq("user_id", userId),
     supabase.rpc("my_diary_notes"),
   ]);
 
-  const watched = watchedRes.data ?? [];
-  const scoreByItem = new Map(
-    (ratingsRes.data ?? []).map((r) => [String(r.item_id), Number(r.score)]),
+  const viewings = ((viewingsRes.data ?? []) as unknown as ViewingRow[]).map((v) => ({
+    ...v,
+    item_type: v.item_type === "tv" ? ("tv" as const) : ("movie" as const),
+  }));
+
+  // Names, posters and genres for every title watched this year — the
+  // viewings, plus every series an episode was ticked on.
+  const episodeShowKeys = [...new Set(((episodeShowsRes.data ?? []) as { show_id: string | number }[]).map((r) => `tv:${r.show_id}`))];
+  const titleKeys = [...new Set([...viewings.map((v) => `${v.item_type}:${v.item_id}`), ...episodeShowKeys])];
+  const titleIds = [...new Set(titleKeys.map((k) => k.slice(k.indexOf(":") + 1)))];
+  const titles = new Map<string, { name: string; image: string | null; genres: string[] }>();
+  if (titleIds.length) {
+    const { data } = await supabase
+      .from("user_media_status")
+      .select("item_id, item_type, item_name, image_url, genres")
+      .eq("user_id", userId)
+      .in("item_id", titleIds.slice(0, 1000));
+    for (const t of (data ?? []) as { item_id: string; item_type: string; item_name: string; image_url: string | null; genres: string[] | null }[]) {
+      titles.set(`${t.item_type}:${t.item_id}`, {
+        name: t.item_name ?? "",
+        image: t.image_url ?? null,
+        genres: Array.isArray(t.genres) ? t.genres.filter((g): g is string => typeof g === "string") : [],
+      });
+    }
+  }
+
+  const scoreByKey = new Map(
+    (ratingsRes.data ?? []).map((r) => [`${r.item_type}:${r.item_id}`, Number(r.score)]),
   );
 
-  const movies = watched.filter((w) => w.item_type === "movie").length;
-  const shows = watched.filter((w) => w.item_type === "tv").length;
-  // Keyed `type:id`, so a film and a series sharing a TMDB id are not conflated
-  // — the same reason every other map in this codebase carries the type.
+  const movies = titleKeys.filter((k) => k.startsWith("movie:")).length;
+  const shows = titleKeys.filter((k) => k.startsWith("tv:")).length;
+
   const noteKeys = new Set(
     ((notesRes.data ?? []) as { item_id: string; item_type: string }[]).map(
       (n) => `${n.item_type}:${n.item_id}`,
     ),
   );
-  const reviewsWritten = watched.filter((w) =>
-    noteKeys.has(`${w.item_type}:${w.item_id}`),
-  ).length;
-
-  // Ratings counted for *this year's* films, not all-time — the card is about
+  const reviewsWritten = titleKeys.filter((k) => noteKeys.has(k)).length;
+  // Ratings counted for *this year's* titles, not all-time — the card is about
   // the year, and an all-time total sitting among year figures reads as a lie.
-  const ratingsGiven = watched.filter((w) => scoreByItem.has(String(w.item_id))).length;
+  const ratingsGiven = titleKeys.filter((k) => scoreByKey.has(k)).length;
 
-  const topRated: YearFilm[] = watched
-    .map((w) => ({
-      itemId: String(w.item_id),
-      itemType: (w.item_type === "tv" ? "tv" : "movie") as "movie" | "tv",
-      itemName: w.item_name ?? "",
-      imageUrl: w.image_url ?? null,
-      score: scoreByItem.get(String(w.item_id)) ?? null,
-    }))
+  const rewatches = viewings.filter((v) => v.rewatch).length;
+
+  // The comfort watch: the title rewatched most this year.
+  const rewatchCounts = new Map<string, number>();
+  for (const v of viewings) if (v.rewatch) rewatchCounts.set(`${v.item_type}:${v.item_id}`, (rewatchCounts.get(`${v.item_type}:${v.item_id}`) ?? 0) + 1);
+  const comfortKey = [...rewatchCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  const toFilm = (key: string): YearFilm => {
+    const [itemType, itemId] = key.split(":") as ["movie" | "tv", string];
+    const t = titles.get(key);
+    return { itemId, itemType, itemName: t?.name ?? "", imageUrl: t?.image ?? null, score: scoreByKey.get(key) ?? null };
+  };
+  const comfortWatch = comfortKey && titles.get(comfortKey)?.name ? toFilm(comfortKey) : null;
+
+  const topRated: YearFilm[] = titleKeys
+    .map(toFilm)
     .filter((f) => f.score !== null && f.itemName)
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
     .slice(0, 4);
 
   const genreCounts = new Map<string, number>();
-  for (const w of watched) {
-    if (!Array.isArray(w.genres)) continue;
-    for (const g of w.genres) {
-      if (typeof g === "string" && g) genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1);
-    }
+  for (const k of titleKeys) {
+    for (const g of titles.get(k)?.genres ?? []) genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1);
   }
   const topGenres = [...genreCounts.entries()]
     .map(([genre, count]) => ({ genre, count }))
@@ -143,22 +216,36 @@ export async function buildYearInReview(
     .slice(0, 5);
 
   const monthCounts = new Array(12).fill(0);
-  for (const w of watched) {
-    if (!w.watched_at) continue;
-    const month = new Date(w.watched_at as string).getUTCMonth();
+  for (const v of viewings) {
+    const month = Number(v.watched_on.slice(5, 7)) - 1;
     if (month >= 0 && month < 12) monthCounts[month] += 1;
   }
   const peak = monthCounts.reduce((best, n, i) => (n > monthCounts[best] ? i : best), 0);
   const busiestMonth =
     monthCounts[peak] > 0 ? { month: MONTHS[peak], count: monthCounts[peak] } : null;
 
-  const sharedWith = await findSharedWith(
-    supabase,
-    userId,
-    watched.map((w) => String(w.item_id)),
-    start,
-    end,
-  );
+  // Who was there. Grouped by person; a name that is not on letsee still counts.
+  const companions = new Map<string, WatchedWith>();
+  for (const v of viewings) {
+    for (const c of v.viewing_companions ?? []) {
+      const u = Array.isArray(c.users) ? c.users[0] : c.users;
+      const key = c.companion_user_id ? `u:${c.companion_user_id}` : `n:${(c.name ?? "").trim().toLowerCase()}`;
+      if (key === "n:") continue;
+      const e = companions.get(key) ?? {
+        username: u?.username ?? null,
+        name: c.companion_user_id ? null : c.name,
+        avatarUrl: u?.avatar_url ?? null,
+        count: 0,
+        exampleTitle: null,
+      };
+      e.count += 1;
+      e.exampleTitle ??= titles.get(`${v.item_type}:${v.item_id}`)?.name || null;
+      companions.set(key, e);
+    }
+  }
+  const watchedWith = [...companions.values()].sort((a, b) => b.count - a.count).slice(0, 3);
+
+  const sharedWith = await findSharedWith(supabase, userId, titleIds, startTs, endTs);
 
   return {
     year,
@@ -169,9 +256,12 @@ export async function buildYearInReview(
     episodes: episodesRes.count ?? 0,
     ratingsGiven,
     reviewsWritten,
+    rewatches,
+    comfortWatch,
     topRated,
     topGenres,
     busiestMonth,
+    watchedWith,
     sharedWith,
     sparse: movies + shows < SPARSE_THRESHOLD,
   };

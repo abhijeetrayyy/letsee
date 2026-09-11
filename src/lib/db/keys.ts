@@ -37,3 +37,10 @@ export const commentsKey = (
  */
 export const roomKey = (itemId: string | number, itemType: string) =>
   ["title-room", String(itemId), itemType === "tv" ? "tv" : "movie"] as const;
+
+/**
+ * The viewer's own viewings of one title. `LogViewing` reads and writes it;
+ * anything that logs a viewing elsewhere invalidates it.
+ */
+export const viewingsKey = (itemId: string, itemType: string, viewerId: string) =>
+  ["viewings", itemId, itemType === "tv" ? "tv" : "movie", viewerId] as const;

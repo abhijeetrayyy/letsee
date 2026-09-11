@@ -154,7 +154,17 @@ const DropdownMenu = ({ user }: { user: AuthUser }) => {
               role="menuitem"
             >
               <FiDownload className={`${iconClass} text-emerald-400`} />
-              Import from Letterboxd
+              Bring your history
+            </Link>
+            {/* The other half of trust: the way out sits beside the way in. */}
+            <Link
+              href="/app/data"
+              onClick={() => setIsOpen(false)}
+              className={menuItem}
+              role="menuitem"
+            >
+              <FiDownload className={`${iconClass} text-sky-400 rotate-180`} />
+              Your data
             </Link>
             <Link
               href="/app/clubs"

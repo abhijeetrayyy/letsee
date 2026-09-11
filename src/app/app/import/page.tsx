@@ -9,8 +9,8 @@ export const metadata = {
   // No index: it is a signed-in tool, so a crawler only ever sees a redirect
   // or a form it cannot use.
   robots: { index: false, follow: false },
-  title: "Import from Letterboxd",
-  description: "Bring your watched films, ratings, watchlist and reviews across.",
+  title: "Bring your history",
+  description: "Import from Letterboxd, Trakt, TV Time, Simkl, IMDb or Netflix.",
 };
 
 export default async function ImportPage() {
@@ -20,9 +20,10 @@ export default async function ImportPage() {
     <div className="w-full bg-surface-950 min-h-screen">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-white tracking-tight">Import from Letterboxd</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Bring your history</h1>
           <p className="mt-2 text-surface-400">
-            Your watched films, ratings, watchlist, reviews and likes — brought across in one go.
+            From Letterboxd, Trakt, TV Time, Simkl, IMDb or Netflix — watched, rated, saved,
+            every episode and every rewatch, in one go.
           </p>
         </header>
 

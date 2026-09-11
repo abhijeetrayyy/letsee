@@ -6,6 +6,8 @@ import SendMessageModal from "@components/message/sendCard";
 import { useApiFetch } from "@/hooks/useApiFetch";
 import { FetchError } from "@/components/ui/FetchError";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import ListPeople from "@components/profile/ListPeople";
+import SeenOf from "@components/ui/SeenOf";
 
 type ListInfo = {
   id: number;
@@ -158,7 +160,15 @@ export default function ListDetail({ listId }: { listId: number }) {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-surface-100">{list.name}</h1>
         {list.description && <p className="text-surface-400 mt-1">{list.description}</p>}
-        <p className="text-sm text-surface-500 mt-1">{list.visibility} · {items.length} item{items.length !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-surface-500 mt-1">
+          {list.visibility === "public" ? "Anyone with the link" : list.visibility === "followers" ? "Followers only" : "Only you"} ·{" "}
+          {items.length} item{items.length !== 1 ? "s" : ""}
+        </p>
+        {/* The invite is a link to the list, not "join my network" (Partiful's
+            model), and the people on it are shown so a shared list reads as
+            co-authored. */}
+        <ListPeople listId={listId} listName={list.name} isOwner={!!list.is_owner} visibility={list.visibility} />
+        <SeenOf items={items.map((i) => ({ id: i.item_id, type: i.item_type }))} noun="on this list" className="mt-3" />
       </div>
 
       {list.is_owner && (

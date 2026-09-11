@@ -11,9 +11,63 @@ type Summary = {
   ratings: number;
   reviews: number;
   favorites: number;
+  episodes?: number;
+  rewatches?: number;
 };
 
-type Suggestion = { tmdbId: string; title: string; year: number | null; posterPath: string | null };
+type Suggestion = { tmdbId: string; tmdbType?: "movie" | "tv"; title: string; year: number | null; posterPath: string | null };
+
+type Source = "letterboxd" | "trakt" | "simkl" | "tvtime" | "imdb" | "netflix";
+
+/**
+ * Where an export comes from, and how to get it. The copy is the instructions
+ * — every service hides its export somewhere different, and the one thing
+ * that turns an empty account into a full journal must not hide too.
+ */
+const SOURCES: { id: Source; name: string; accept: string; how: string; brings: string }[] = [
+  {
+    id: "letterboxd",
+    name: "Letterboxd",
+    accept: ".zip,.csv",
+    how: "Settings → Data → Export your data. Upload the ZIP as-is.",
+    brings: "Watched, ratings, watchlist, likes, reviews as private notes, and every diary entry — rewatches included.",
+  },
+  {
+    id: "trakt",
+    name: "Trakt",
+    accept: ".zip,.json",
+    how: "Settings → Data → Export now. Upload the ZIP, or any of its JSON files.",
+    brings: "Films and series with exact ids, every episode you marked, ratings and your watchlist.",
+  },
+  {
+    id: "tvtime",
+    name: "TV Time",
+    accept: ".zip,.csv",
+    how: "The data export TV Time emailed you before it closed. Upload the ZIP or the CSVs inside it.",
+    brings: "Every episode you ticked, dated. Series are matched by their TheTVDB id.",
+  },
+  {
+    id: "simkl",
+    name: "Simkl",
+    accept: ".zip,.json",
+    how: "Settings → Export → JSON. Upload the file.",
+    brings: "Series, films and anime with ids, statuses, ratings and episode dates.",
+  },
+  {
+    id: "imdb",
+    name: "IMDb",
+    accept: ".csv",
+    how: "Your Ratings → Export, or Your Watchlist → Export. Upload the CSV.",
+    brings: "Ratings (as watched) or a watchlist, matched exactly by IMDb id.",
+  },
+  {
+    id: "netflix",
+    name: "Netflix",
+    accept: ".csv",
+    how: "Account → Profile & parental controls → Viewing activity → Download all. Upload the CSV.",
+    brings: "Everything you watched, with dates. Episodes are matched by name, so a few may need a tap.",
+  },
+];
 
 type UnresolvedRow = {
   id: number;
@@ -57,7 +111,9 @@ export default function ImportFlow() {
   const [resumable, setResumable] = useState<ExistingJob | null>(null);
   const [history, setHistory] = useState<ExistingJob[]>([]);
   const [clearing, setClearing] = useState(false);
+  const [source, setSource] = useState<Source>("letterboxd");
   const inputRef = useRef<HTMLInputElement>(null);
+  const chosen = SOURCES.find((s) => s.id === source) ?? SOURCES[0];
 
   const loadUnresolved = useCallback(async (id: number) => {
     try {
@@ -147,6 +203,7 @@ export default function ImportFlow() {
 
       const body = new FormData();
       body.append("file", file);
+      body.append("source", source);
 
       try {
         const res = await fetch("/api/account/import", { method: "POST", body });
@@ -165,17 +222,17 @@ export default function ImportFlow() {
         setPhase("idle");
       }
     },
-    [runProcessing],
+    [runProcessing, source],
   );
 
-  const match = async (rowId: number, tmdbId: string) => {
+  const match = async (rowId: number, tmdbId: string, tmdbType?: "movie" | "tv") => {
     if (!jobId) return;
     setResolving(rowId);
     try {
       const res = await fetch(`/api/account/import/${jobId}/resolve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rowId, tmdbId }),
+        body: JSON.stringify({ rowId, tmdbId, tmdbType }),
       });
       if (res.ok) {
         setUnresolved((rows) => rows.filter((r) => r.id !== rowId));
@@ -241,6 +298,27 @@ export default function ImportFlow() {
           </div>
         )}
 
+        {/* Which service. The parser is chosen from this, and the file is
+            sniffed as a fallback for the person who skips it. */}
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Import from">
+          {SOURCES.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              role="radio"
+              aria-checked={source === s.id}
+              onClick={() => setSource(s.id)}
+              className={`rounded-full border px-3.5 py-1.5 text-sm transition ${
+                source === s.id
+                  ? "border-brand-500/60 bg-brand-500/10 text-brand-300"
+                  : "border-surface-700 text-surface-400 hover:border-surface-600 hover:text-white"
+              }`}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -258,10 +336,8 @@ export default function ImportFlow() {
           }`}
         >
           <FileUp className="size-8 text-surface-500 mx-auto mb-3" />
-          <p className="text-white font-medium">Drop your Letterboxd export here</p>
-          <p className="text-surface-400 text-sm mt-1">
-            The whole ZIP, or a single CSV — watched, ratings, watchlist or reviews.
-          </p>
+          <p className="text-white font-medium">Drop your {chosen.name} export here</p>
+          <p className="text-surface-400 text-sm mt-1">{chosen.brings}</p>
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
@@ -273,7 +349,7 @@ export default function ImportFlow() {
           <input
             ref={inputRef}
             type="file"
-            accept=".zip,.csv"
+            accept={chosen.accept}
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
@@ -285,14 +361,12 @@ export default function ImportFlow() {
         {error && <p className="text-rose-400 text-sm">{error}</p>}
 
         <div className="rounded-xl border border-surface-800 bg-surface-900/40 p-5 text-sm text-surface-400">
-          <p className="text-surface-300 font-medium mb-2">Getting your export</p>
-          <p>
-            On Letterboxd, go to Settings → Data → Export your data. You&apos;ll get a ZIP —
-            upload it here as-is.
-          </p>
+          <p className="text-surface-300 font-medium mb-2">Getting your {chosen.name} export</p>
+          <p>{chosen.how}</p>
           <p className="mt-3">
-            Nothing is overwritten. Ratings and reviews you already have here are kept, and your
-            Letterboxd reviews come in as private diary notes rather than being published.
+            Nothing is overwritten. Ratings, viewings and writing you already have here are kept;
+            anything the export adds is added beside them. Reviews come in as private notes rather
+            than being published.
           </p>
         </div>
 
@@ -355,7 +429,7 @@ export default function ImportFlow() {
         <div className="flex items-center gap-3">
           <Loader2 className="size-5 animate-spin text-brand-400" />
           <p className="text-white font-medium">
-            {phase === "uploading" ? "Reading your export…" : "Matching your films…"}
+            {phase === "uploading" ? "Reading your export…" : "Matching your titles…"}
           </p>
         </div>
 
@@ -377,6 +451,8 @@ export default function ImportFlow() {
           <p className="mt-4 text-xs text-surface-500">
             {summary.watched} watched · {summary.ratings} ratings · {summary.watchlist} watchlist ·{" "}
             {summary.reviews} reviews · {summary.favorites} liked
+            {summary.episodes ? ` · ${summary.episodes} episodes` : ""}
+            {summary.rewatches ? ` · ${summary.rewatches} rewatches` : ""}
           </p>
         )}
 
@@ -399,7 +475,7 @@ export default function ImportFlow() {
           </span>
           <div>
             <p className="text-white font-semibold">
-              Imported {progress.resolved} of {progress.total} films
+              Imported {progress.resolved} of {progress.total} titles
             </p>
             <p className="text-sm text-surface-400">{rate}% matched automatically.</p>
           </div>
@@ -454,7 +530,7 @@ export default function ImportFlow() {
                       <button
                         key={s.tmdbId}
                         type="button"
-                        onClick={() => match(row.id, s.tmdbId)}
+                        onClick={() => match(row.id, s.tmdbId, s.tmdbType)}
                         disabled={resolving === row.id}
                         className="inline-flex items-center gap-2 rounded-lg border border-surface-700 bg-surface-950/60 py-1.5 pl-1.5 pr-3 text-sm text-surface-300 hover:border-brand-500/50 hover:text-white transition disabled:opacity-50"
                       >

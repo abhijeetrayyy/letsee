@@ -2,7 +2,18 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
-import { parseLetterboxdExport } from "@/utils/letterboxd";
+import { parseLetterboxdExport, type ParseResult } from "@/utils/letterboxd";
+import {
+  detectSource,
+  isImportSource,
+  parseImdbExport,
+  parseNetflixExport,
+  parseSimklExport,
+  parseTraktExport,
+  parseTvTimeExport,
+  summarise,
+  type ImportSource,
+} from "@/utils/importSources";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -14,8 +25,22 @@ const MAX_RECORDS = 10_000;
 /** Postgres has a parameter ceiling; insert the parsed rows in slices. */
 const INSERT_CHUNK = 500;
 
+const PARSERS: Record<ImportSource, (bytes: Uint8Array, filename: string) => ParseResult> = {
+  letterboxd: parseLetterboxdExport,
+  trakt: parseTraktExport,
+  simkl: parseSimklExport,
+  tvtime: parseTvTimeExport,
+  imdb: parseImdbExport,
+  netflix: parseNetflixExport,
+};
+
 /**
- * POST /api/account/import — upload a Letterboxd export.
+ * POST /api/account/import — upload an export from Letterboxd, Trakt, Simkl,
+ * TV Time, IMDb or Netflix.
+ *
+ * The source is a form field when the picker set one, and sniffed from the
+ * file otherwise. A wrong guess produces one honest error from the parser it
+ * chose, never a half-imported library.
  *
  * Parses and stores the rows, then stops. Resolution happens in /process,
  * driven by the client a chunk at a time, because matching thousands of titles
@@ -48,19 +73,28 @@ export async function POST(req: NextRequest) {
 
   const bytes = new Uint8Array(await file.arrayBuffer());
 
-  let parsed;
+  const requested = form.get("source");
+  const source: ImportSource | null = isImportSource(requested) ? requested : detectSource(bytes, file.name);
+  if (!source) {
+    return jsonError(
+      "Couldn't tell which service that export is from. Pick the source above, or upload the ZIP/CSV/JSON exactly as the service gave it to you.",
+      400,
+    );
+  }
+
+  let parsed: ParseResult;
   try {
-    parsed = parseLetterboxdExport(bytes, file.name);
+    parsed = PARSERS[source](bytes, file.name);
   } catch (err) {
     // These messages are written for the user — they say what to do next.
     return jsonError((err as Error).message, 400);
   }
 
   if (parsed.records.length === 0) {
-    return jsonError("No films found in that export.", 400);
+    return jsonError("No titles found in that export.", 400);
   }
   if (parsed.records.length > MAX_RECORDS) {
-    return jsonError(`That export has ${parsed.records.length} films; the limit is ${MAX_RECORDS}.`, 413);
+    return jsonError(`That export has ${parsed.records.length} titles; the limit is ${MAX_RECORDS}.`, 413);
   }
 
   const supabase = await createClient();
@@ -69,7 +103,7 @@ export async function POST(req: NextRequest) {
     .from("import_jobs")
     .insert({
       user_id: userId,
-      source: "letterboxd",
+      source,
       status: "processing",
       total_rows: parsed.records.length,
     })
@@ -95,6 +129,12 @@ export async function POST(req: NextRequest) {
     review_text: r.reviewText,
     watched_date: r.watchedDate,
     status: "pending",
+    media_hint: r.mediaHint ?? null,
+    tmdb_hint: r.tmdbHint ?? null,
+    imdb_id: r.imdbId ?? null,
+    tvdb_id: r.tvdbId ?? null,
+    viewing_dates: r.viewingDates?.length ? r.viewingDates : null,
+    episodes: r.episodes?.length ? r.episodes : null,
   }));
 
   for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
@@ -112,16 +152,11 @@ export async function POST(req: NextRequest) {
 
   return jsonSuccess({
     jobId,
+    source,
     total: parsed.records.length,
     filesSeen: parsed.filesSeen,
     warnings: parsed.warnings,
-    summary: {
-      watched: parsed.records.filter((r) => r.watched).length,
-      watchlist: parsed.records.filter((r) => r.watchlist).length,
-      ratings: parsed.records.filter((r) => r.rating !== null).length,
-      reviews: parsed.records.filter((r) => r.reviewText).length,
-      favorites: parsed.records.filter((r) => r.favorite).length,
-    },
+    summary: summarise(parsed.records),
   });
 }
 

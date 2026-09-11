@@ -11,13 +11,14 @@
  *   watchlist.csv   Date, Name, Year, Letterboxd URI
  *   reviews.csv     … + Review, Rewatch, Tags
  *   likes/films.csv Date, Name, Year, Letterboxd URI
+ *   diary.csv       … + Rating, Rewatch, Tags, Watched Date — one row per VIEWING
  *
  * A single CSV is accepted too — people often export or share just one.
  */
 
 import { unzipSync } from "fflate";
 
-/** One film, with everything the export said about it merged together. */
+/** One title, with everything the export said about it merged together. */
 export type ImportRecord = {
   title: string;
   year: number | null;
@@ -28,9 +29,24 @@ export type ImportRecord = {
   /** Already converted to this app's 1–10 scale. */
   rating: number | null;
   reviewText: string | null;
-  /** ISO yyyy-mm-dd. */
+  /** ISO yyyy-mm-dd — the earliest viewing, kept for the legacy date column. */
   watchedDate: string | null;
+  /**
+   * Since 101 a record can carry what other exports know and Letterboxd's
+   * does not: which kind of title it is, ids that resolve without a search,
+   * every dated viewing (rewatches included), and per-episode history.
+   */
+  mediaHint?: "movie" | "tv" | null;
+  tmdbHint?: string | null;
+  imdbId?: string | null;
+  tvdbId?: string | null;
+  /** Every dated viewing, yyyy-mm-dd, oldest first. */
+  viewingDates?: string[];
+  /** Watched episodes of a series. `e` is 0 when only the name is known. */
+  episodes?: ImportEpisode[];
 };
+
+export type ImportEpisode = { s: number; e: number; on: string | null; name?: string };
 
 export type ParseResult = {
   records: ImportRecord[];
@@ -104,7 +120,7 @@ export function parseCsv(input: string): string[][] {
 }
 
 /** Rows keyed by header name, lowercased and trimmed for tolerant lookup. */
-function toObjects(rows: string[][]): Record<string, string>[] {
+export function toObjects(rows: string[][]): Record<string, string>[] {
   if (rows.length === 0) return [];
   const headers = rows[0].map((h) => h.trim().toLowerCase());
   return rows.slice(1).map((row) => {
@@ -118,7 +134,7 @@ function toObjects(rows: string[][]): Record<string, string>[] {
 
 // ── Field coercion ──────────────────────────────────────────────────────────
 
-function parseYear(raw: string | undefined): number | null {
+export function parseYear(raw: string | undefined): number | null {
   const n = Number(raw);
   // Cinema's first year through a little past now — anything else is a parse
   // artefact, not a film.
@@ -137,7 +153,7 @@ export function convertRating(raw: string | undefined): number | null {
   return score >= 1 && score <= 10 ? score : null;
 }
 
-function parseDate(raw: string | undefined): string | null {
+export function parseDate(raw: string | undefined): string | null {
   if (!raw) return null;
   // Letterboxd writes yyyy-mm-dd already; validate rather than trust.
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw.trim());
@@ -147,11 +163,11 @@ function parseDate(raw: string | undefined): string | null {
 // ── Merging ─────────────────────────────────────────────────────────────────
 
 /** Same film across files, regardless of case or punctuation drift. */
-function keyOf(title: string, year: number | null): string {
-  return `${title.trim().toLowerCase()}::${year ?? 0}`;
+export function keyOf(title: string, year: number | null, hint: string | null = null): string {
+  return `${title.trim().toLowerCase()}::${year ?? 0}::${hint ?? ""}`;
 }
 
-type FileKind = "watched" | "ratings" | "watchlist" | "reviews" | "likes";
+type FileKind = "watched" | "ratings" | "watchlist" | "reviews" | "likes" | "diary";
 
 /**
  * Which of the five known files this path is, or null for the many others in
@@ -172,6 +188,11 @@ function classify(path: string): FileKind | null {
   if (base === "ratings.csv") return "ratings";
   if (base === "watchlist.csv") return "watchlist";
   if (base === "reviews.csv") return "reviews";
+  // diary.csv is the one file with a row per *viewing* rather than per film:
+  // Date, Name, Year, Letterboxd URI, Rating, Rewatch, Tags, Watched Date.
+  // It was ignored until 101, which is how every rewatch in an export was
+  // silently flattened to one viewing.
+  if (base === "diary.csv") return "diary";
   return null;
 }
 
@@ -186,7 +207,20 @@ function blank(title: string, year: number | null, uri: string | null): ImportRe
     rating: null,
     reviewText: null,
     watchedDate: null,
+    mediaHint: "movie",
+    viewingDates: [],
   };
+}
+
+/** Add a viewing date to a record, keeping the list unique and ascending. */
+export function addViewingDate(record: ImportRecord, date: string | null): void {
+  if (!date) return;
+  const dates = record.viewingDates ?? (record.viewingDates = []);
+  if (!dates.includes(date)) {
+    dates.push(date);
+    dates.sort();
+  }
+  if (!record.watchedDate || date < record.watchedDate) record.watchedDate = date;
 }
 
 function mergeFile(
@@ -214,6 +248,13 @@ function mergeFile(
         record.watched = true;
         record.watchedDate ??= parseDate(obj.date);
         break;
+      case "diary": {
+        record.watched = true;
+        addViewingDate(record, parseDate(obj["watched date"] || obj.date));
+        const rating = convertRating(obj.rating);
+        if (rating !== null && record.rating === null) record.rating = rating;
+        break;
+      }
       case "watchlist":
         record.watchlist = true;
         break;
@@ -234,7 +275,7 @@ function mergeFile(
         const rating = convertRating(obj.rating);
         if (rating !== null && record.rating === null) record.rating = rating;
         record.watched = true;
-        record.watchedDate ??= parseDate(obj["watched date"] || obj.date);
+        addViewingDate(record, parseDate(obj["watched date"] || obj.date));
         break;
       }
     }
@@ -303,6 +344,10 @@ export function parseLetterboxdExport(bytes: Uint8Array, filename: string): Pars
   const records = [...merged.values()].filter(
     (r) => r.watched || r.watchlist || r.favorite || r.rating !== null || r.reviewText,
   );
+  // A film with a watched date but no diary rows still has one viewing.
+  for (const r of records) {
+    if (r.watched && r.watchedDate && !(r.viewingDates ?? []).length) addViewingDate(r, r.watchedDate);
+  }
 
   return { records, filesSeen: [...new Set(filesSeen)], warnings };
 }

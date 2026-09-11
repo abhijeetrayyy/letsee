@@ -7,6 +7,7 @@ import { CiHeart } from "react-icons/ci";
 import { FcLike } from "react-icons/fc";
 import CardMovieButton from "./cardButtons";
 import StatusControl from "./StatusControl";
+import SaveContext from "./SaveContext";
 
 export type ThreePreferenceBtnProps = {
   /** Movie/TV/person ID (number or string from DB). */
@@ -37,8 +38,9 @@ export default function ThreePrefrencebtn({
   variant = "compact",
   onAddWatchedTv,
 }: ThreePreferenceBtnProps) {
-  // Status now lives in StatusControl; only favorite is read here.
-  const { hasFavorite } = useContext(UserPrefrenceContext);
+  // Status lives in StatusControl; it is read here only to decide whether
+  // the save-context line belongs under the row.
+  const { hasFavorite, getStatus } = useContext(UserPrefrenceContext);
 
   const id = Number(cardId);
   const adult = cardAdult ?? false;
@@ -74,6 +76,8 @@ export default function ThreePrefrencebtn({
   };
 
   if (variant === "detail") {
+    const isTv = cardType === "tv";
+    const saved = getStatus(cardId, isTv ? "tv" : "movie") === "watchlist";
     return (
       <>
         <StatusControl {...statusProps} variant="detail" />
@@ -90,6 +94,20 @@ export default function ThreePrefrencebtn({
             )
           }
         />
+        {/* Only once it is saved: the why, the when and the who (097). The
+            save itself stays one tap; this is what you fill in afterwards.
+            `basis-full` drops it onto its own line under the pills. */}
+        {saved && (
+          <div className="basis-full">
+            <SaveContext
+              itemId={String(cardId)}
+              itemType={isTv ? "tv" : "movie"}
+              itemName={cardName}
+              imageUrl={imgUrl ?? null}
+              genres={genreList}
+            />
+          </div>
+        )}
       </>
     );
   }

@@ -126,6 +126,7 @@ export default function MediaActions({
 
   if (variant === "detail") {
     return (
+      <div>
       <div className="flex flex-wrap items-center gap-2">
         {/* Status pills */}
         {STATUS_OPTIONS.map((opt) => {
@@ -172,6 +173,7 @@ export default function MediaActions({
           {favorited ? <FcLike className="shrink-0 size-4" /> : <CiHeart className="shrink-0 size-4" />}
           {favorited ? "Favorited" : "Favorite"}
         </button>
+      </div>
       </div>
     );
   }

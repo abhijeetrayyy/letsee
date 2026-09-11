@@ -3,6 +3,7 @@
 import { useState } from "react";
 import useSWRInfinite from "swr/infinite";
 import { useInView } from "@/hooks/useInView";
+import RegionalWatching from "@components/feed/RegionalWatching";
 import FeedRow, { type FeedRowData } from "./FeedRow";
 import { Users, RefreshCw, AlertCircle } from "lucide-react";
 import { SwrFetchError } from "@/utils/swrFetcher";
@@ -231,14 +232,21 @@ export default function FollowingFeed() {
           ))}
         </div>
       ) : (
-        <div className="rounded-xl border border-surface-700/50 bg-surface-900/30 p-8 text-center">
-          <Users className="w-10 h-10 text-surface-600 mx-auto mb-3" />
-          <p className="text-surface-400 text-sm">
-            No activity to show yet.
-          </p>
-          <p className="text-surface-600 text-xs mt-1">
-            Follow people to see what they&apos;re watching and reviewing.
-          </p>
+        <div className="space-y-4">
+          <div className="rounded-xl border border-surface-700/50 bg-surface-900/30 p-8 text-center">
+            <Users className="w-10 h-10 text-surface-600 mx-auto mb-3" />
+            <p className="text-surface-400 text-sm">
+              No activity to show yet.
+            </p>
+            <p className="text-surface-600 text-xs mt-1">
+              Follow people to see what they&apos;re watching and reviewing.
+            </p>
+          </div>
+          {/* The room is never empty: what people near you logged this week,
+              counts only, behind a k-anonymity floor (102). Renders nothing
+              until enough people are here for it to be a fact about a place
+              rather than about a person. */}
+          <RegionalWatching />
         </div>
       )}
     </div>

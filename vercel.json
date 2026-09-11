@@ -1,9 +1,19 @@
 {
-  "regions": ["iad1"],
+  "regions": [
+    "iad1"
+  ],
   "crons": [
     {
       "path": "/api/cron/purge-deleted",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-taste",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-watchlist",
+      "schedule": "30 4 * * *"
     }
   ]
 }

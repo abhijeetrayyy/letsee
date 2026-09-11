@@ -34,7 +34,23 @@ type ContinueWatchingItem = {
   up_next: { s: number; e: number }[];
   /** False when the next unwatched episode has not aired yet. */
   can_mark_next: boolean;
+  /**
+   * Everything that has aired is watched, and there is more to come. Named
+   * so the card can say "Back Friday" instead of pretending S3E1 is
+   * something you could tick tonight, and never removing the show the way
+   * Apple's Up Next does — "when does it come back?" is a question the
+   * card answers where you look.
+   */
+  waiting: boolean;
+  waiting_label: string | null;
+  show_status: string | null;
 };
+
+function shortDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -236,9 +252,39 @@ export async function GET(req: NextRequest) {
           .slice(0, 6)
           .map(({ s, e }) => ({ s, e }));
 
+        /**
+         * The waiting state. Two shapes of it: TMDB has announced the next
+         * episode and it has not aired (the head of the queue is unairable),
+         * or every announced episode is watched and the show is still going.
+         * Both used to render as a bare "Caught up" — or, worse, as a play
+         * badge for an episode nobody could have seen.
+         */
+        const showStatus = ((showData as { status?: string }).status ?? null) as string | null;
+        const returning =
+          showStatus === "Returning Series" ||
+          showStatus === "In Production" ||
+          (showData as { in_production?: boolean }).in_production === true;
+        const headUnaired = upNext.length > 0 && !hasAired(upNext[0]);
+        const allWatched = !nextEp;
+        const waiting = headUnaired || (allWatched && returning);
+        let waitingLabel: string | null = null;
+        if (waiting) {
+          const airDate = nextAir?.air_date as string | undefined;
+          waitingLabel = airDate
+            ? `Back ${shortDate(airDate)}`
+            : returning
+              ? "Waiting for the next season"
+              : "Next episode not scheduled yet";
+        } else if (allWatched && showStatus) {
+          waitingLabel = showStatus === "Ended" || showStatus === "Canceled" ? "Finished" : null;
+        }
+
         return {
           up_next: upNext,
           can_mark_next: upNext.length > 0 && hasAired(upNext[0]),
+          waiting,
+          waiting_label: waitingLabel,
+          show_status: showStatus,
           show_id: showId,
           show_name: name,
           poster_path: poster,

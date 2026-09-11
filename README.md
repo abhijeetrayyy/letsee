@@ -13,8 +13,12 @@ A **social app for deciding what to watch**: who's in the room, how long you've 
 - **Recommendations** — Personalized picks computed from your favorites, watched list and taste overlap with other users (no LLM involved)
 - **Social** — Follow friends, follow requests, DMs (text + share movie/TV cards), user-to-user recommendations
 - **Activity feed** — See what people you follow watched, favorited, added to watchlist, or rated (on home)
+- **A dated diary** — Every viewing is a dated entry with where you watched it and who was there; rewatches are entries, not a counter. "I was there too" lets a named companion add it to their own diary in one tap
+- **Saves with a plan** — A watchlist entry carries why you saved it, when it is for, and who told you; the person who told you finds out when you watch it
 - **Custom lists** — Create named lists (e.g. “Best 2024”), add/remove movies and TV, set visibility (public, followers, private); view on profile and at `/app/lists/[id]`
 - **Calendar / upcoming** — "In theaters" and "TV this week" on home (TMDB now_playing + on_the_air)
+- **On this day, a month, a year** — Memories resurface on home; a monthly card and a year in review that lead with people and moments
+- **Bring your history** — Import from Letterboxd (diary and rewatches included), Trakt, Simkl, TV Time, IMDb and Netflix; export as JSON or as a CSV Letterboxd reads (`/app/data`)
 - **Clubs** — Small groups that watch the same thing the same week and talk about it
 - **Profiles** — Public, followers-only, or private; genre breakdown; paginated lists
 
@@ -69,10 +73,19 @@ A **social app for deciding what to watch**: who's in the room, how long you've 
 
    # Cron secret (REQUIRED in production)
    # Vercel sends this as `Authorization: Bearer $CRON_SECRET` on every scheduled
-   # run. The cron routes fail closed without it: /api/cron/purge-deleted
-   # permanently deletes accounts and /api/cron/{run-jobs,check-availability}
-   # hold a service-role client, so an unset variable must not leave them open.
+   # run. Both cron routes fail closed without it: /api/cron/purge-deleted
+   # permanently deletes accounts, and /api/cron/refresh-taste holds a
+   # service-role client, so an unset variable must not leave either open.
+   #
+   # Without it, taste compatibility and "people like you" stay empty — the
+   # request path only ever reads those caches, it never builds them.
    CRON_SECRET=a-long-random-string
+
+   # Streaming Availability API (optional)
+   # Fills "leaves Netflix on the 30th" on the watchlist. TMDB's provider data
+   # carries no dates, so without this the app still knows what arrived (by
+   # diffing its own daily snapshot) but never when something goes.
+   STREAMING_AVAILABILITY_API_KEY=
    ```
 
 3. **Database**
@@ -137,7 +150,8 @@ being written.
 
 ## Docs
 
-- `docs/SURPASSING_LETTERBOXD.md` — **Start here.** Product strategy, the decisions behind Tonight, and what shipped (W1–W7, all done)
+- `docs/WHY_PEOPLE_COME_BACK.md` — **Start here.** Why people keep a record of what they watch, what Letterboxd's users love and miss, the market's open gaps, and twelve bets in three phases. Raw research with sources in `docs/research/`
+- `docs/SURPASSING_LETTERBOXD.md` — Product strategy, the decisions behind Tonight, and what shipped (W1–W7, all done)
 - `docs/EXPRESSION_AND_DISCOVERY.md` — The next plan: one place to record an opinion, and one path to find anything
 - `docs/AGENT_DB_AND_MIGRATIONS.md` — Which migrations exist, what each does, and which are applied
 - `docs/API_AUDIT_TMDB_AND_FETCH.md` — TMDB usage, India/region options, fetch patterns

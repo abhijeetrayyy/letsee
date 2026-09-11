@@ -1,5 +1,6 @@
 import { fetchTmdb } from "@/utils/tmdbClient";
 import type { createClient } from "@/utils/supabase/server";
+import { ensureFirstViewings } from "@/utils/mediaStatus";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -171,6 +172,9 @@ export async function autoTransitionStatus(
         ? (showData.genres as { name?: string }[]).map((g) => g?.name ?? "").filter(Boolean)
         : [],
     });
+    // The last episode tick finished the series: that is a viewing of it
+    // (095), dated today unless the diary already has one.
+    if (newStatus === "watched") await ensureFirstViewings(supabase, [{ itemId: showId, itemType: "tv" }]);
   }
 }
 

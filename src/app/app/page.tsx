@@ -13,6 +13,8 @@ import FollowingFeed from "@components/feed/FollowingFeed";
 import AiringSoon from "@components/home/AiringSoon";
 import PeopleYouMayKnow from "@components/home/PeopleYouMayKnow";
 import PopularReviews from "@components/home/PopularReviews";
+import OnThisDay from "@components/home/OnThisDay";
+import NewOnYourServices from "@components/home/NewOnYourServices";
 import { Film, TrendingUp, Compass, MessageCircle, Play } from "lucide-react";
 
 /**
@@ -129,6 +131,12 @@ export default async function Home() {
                   one for someone coming back. */}
               <SignedIn><ContinueWatchingProgress /></SignedIn>
 
+              {/* A memory before a decision. "A year ago today you and Priya
+                  watched…" costs one indexed read and renders nothing on most
+                  days; on the days it has something, it is the warmest thing
+                  on the page. */}
+              <SignedIn><OnThisDay /></SignedIn>
+
               {/* Tonight — the only thing here that happens *before* watching,
                   so it sits above everything that happens after. */}
               <SignedIn>
@@ -171,6 +179,12 @@ export default async function Home() {
                   produces something — but it's the reason writing a review
                   here has any distribution at all. */}
               <PopularReviews />
+
+              {/* What arrived on the services you pay for. A directed shelf:
+                  the question is the viewer's, the answer is a fact about
+                  their subscriptions, and it renders nothing until the daily
+                  job has something to say. */}
+              <SignedIn><NewOnYourServices /></SignedIn>
 
               {/* Trending Now */}
               <section>

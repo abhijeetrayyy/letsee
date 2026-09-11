@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { buildGenreVector, topGenresFromVector } from "@/utils/genreVector";
-import { getTasteMatches, buildIcebreaker } from "@/utils/tasteMatch";
+import { getTasteMatches } from "@/utils/tasteMatch";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +39,7 @@ export async function GET() {
     // Neighbours come from the rarity-weighted title-overlap engine (one
     // indexed query in Postgres) rather than pulling every user's library into
     // Node and running genre cosine over it.
-    const matches = await getTasteMatches(supabase, userId, MAX_SIMILAR_USERS);
+    const matches = await getTasteMatches(supabase, MAX_SIMILAR_USERS);
 
     if (matches.length === 0) {
       return NextResponse.json({ recommendations: [], similarUsers: [], userTopGenres, note: "No similar users found yet." });
@@ -89,16 +89,12 @@ export async function GET() {
           sharedCount: m.sharedCount,
           sharedTitles: m.sharedTitles,
           matchedItemCount: items.filter((i) => Array.isArray(i.genres) && i.genres.length > 0).length,
-          // Falls back to a shared genre when there's no shared title at all.
-          icebreaker: top
-            ? m.icebreaker
-            : buildIcebreaker(
-                [],
-                0,
-                userTopGenres.find((g) =>
-                  matchTopGenres.some((mg) => mg.toLowerCase() === g.toLowerCase()),
-                ),
-              ),
+          // No shared title, no sentence. The genre fallback that used to sit
+          // here — "You're both into Drama" — is the exact claim 043 built the
+          // rarity engine to replace: with ~20 genres it is true of almost any
+          // two active users, so it reads as filler in a panel whose whole
+          // argument is that the evidence is the product.
+          icebreaker: m.icebreaker,
           sharedItem: top
             ? { itemId: top.itemId, itemType: top.itemType, name: top.name }
             : null,

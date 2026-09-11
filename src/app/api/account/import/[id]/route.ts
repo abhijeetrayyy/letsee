@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
   const { data: unresolved } = await supabase
     .from("import_rows")
-    .select("id, title, year, letterboxd_uri, watched, watchlist, rating")
+    .select("id, title, year, letterboxd_uri, watched, watchlist, rating, media_hint")
     .eq("job_id", jobId)
     .eq("status", "unresolved")
     .order("title")
@@ -59,13 +59,14 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     watched: r.watched,
     watchlist: r.watchlist,
     rating: r.rating,
-    suggestions: [] as { tmdbId: string; title: string; year: number | null; posterPath: string | null }[],
+    mediaHint: (r.media_hint as "movie" | "tv" | null) ?? null,
+    suggestions: [] as { tmdbId: string; tmdbType: "movie" | "tv"; title: string; year: number | null; posterPath: string | null }[],
   }));
 
   if (wantSuggestions && rows.length > 0) {
     const withSuggestions = await Promise.all(
       rows.map(async (row) => {
-        const outcome = await resolveTitle(row.title, row.year, GENRE_NAME_BY_ID);
+        const outcome = await resolveTitle(row.title, row.year, GENRE_NAME_BY_ID, row.mediaHint);
         // A row here is unresolved by definition, so only the candidate list
         // matters; a "resolved" verdict on a retry just becomes the top pick.
         const candidates =
@@ -74,6 +75,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
           ...row,
           suggestions: candidates.map((c) => ({
             tmdbId: c.tmdbId,
+            tmdbType: c.tmdbType,
             title: c.matchedTitle,
             year: c.releaseYear,
             posterPath: c.posterPath,

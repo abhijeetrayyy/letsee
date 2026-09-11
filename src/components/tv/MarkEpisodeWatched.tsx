@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
+import { useWatchedEpisode } from "./useWatchedEpisode";
 
 interface MarkEpisodeWatchedProps {
   showId: string;
@@ -13,34 +14,8 @@ export default function MarkEpisodeWatched({
   seasonNumber,
   episodeNumber,
 }: MarkEpisodeWatchedProps) {
-  const [watched, setWatched] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { watched, mutate, ready, signedIn } = useWatchedEpisode(showId, seasonNumber, episodeNumber);
   const [toggling, setToggling] = useState(false);
-
-  const checkWatched = useCallback(async () => {
-    try {
-      const res = await fetch(
-        `/api/watched-episodes?showId=${encodeURIComponent(showId)}`,
-        { cache: "no-store" }
-      );
-      if (!res.ok) return;
-      const data = await res.json();
-      const episodes = data?.episodes ?? [];
-      const isWatched = episodes.some(
-        (e: { season_number: number; episode_number: number }) =>
-          e.season_number === seasonNumber && e.episode_number === episodeNumber
-      );
-      setWatched(isWatched);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [showId, seasonNumber, episodeNumber]);
-
-  useEffect(() => {
-    checkWatched();
-  }, [checkWatched]);
 
   const toggle = useCallback(async () => {
     setToggling(true);
@@ -48,22 +23,21 @@ export default function MarkEpisodeWatched({
       const res = await fetch("/api/watched-episode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          showId,
-          seasonNumber,
-          episodeNumber,
-        }),
+        body: JSON.stringify({ showId, seasonNumber, episodeNumber }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.action) {
-        setWatched(data.action === "added");
+        // Revalidate the show's shared entry: the spoiler gates lower on the
+        // page read the same key, so marking reveals the overview and thread
+        // without a reload.
+        await mutate();
       }
     } finally {
       setToggling(false);
     }
-  }, [showId, seasonNumber, episodeNumber]);
+  }, [showId, seasonNumber, episodeNumber, mutate]);
 
-  if (loading) return null;
+  if (!ready || !signedIn || watched === null) return null;
 
   return (
     <button
@@ -77,13 +51,7 @@ export default function MarkEpisodeWatched({
           : "bg-surface-700/80 text-surface-200 hover:bg-surface-600 border border-surface-600"
       } disabled:opacity-60`}
     >
-      {toggling ? (
-        "…"
-      ) : watched ? (
-        <>✓ Marked as watched</>
-      ) : (
-        <>Mark as watched</>
-      )}
+      {toggling ? "…" : watched ? <>✓ Marked as watched</> : <>Mark as watched</>}
     </button>
   );
 }

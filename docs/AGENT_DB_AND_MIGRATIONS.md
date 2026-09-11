@@ -77,6 +77,16 @@ All migration files live in **`migrations/`**. Run **in numeric order** (007 →
 | **091_dead_functions_go.sql** | Drops 14 functions nothing references, plus `notify_like()` and its trigger on `reactions`; extends `notify_reaction()` to cover `rating` targets so no notification coverage is lost. | ✅ **Applied & verified 2026-08-28** | ✅ Yes (every `DROP … IF EXISTS`) | **Fixes a duplicate-notification bug.** `reactions` carried *two* AFTER INSERT triggers that each inserted a `like` notification, so one like on a review or a list notified the owner twice — 062 added `notify_reaction` believing "liking notified nobody" and never dropped 027's `notify_like`. `notify_reaction` is kept: it covers `watched`, carries richer metadata, and checks `is_blocked`, which `notify_like` never did. The dead 14 are the eight pre-069 `increment_/decrement_*` counter mutators, `backfill_watched_episodes_for_show` (its route is deleted), `award_achievement` + `check_achievements` (achievements were removed from the product), and `popular_reviews`, `record_rewatch`, `is_club_member` (written, never called). **67 functions → 52.** |
 
 | **092_notifications_shrink_to_two_kinds.sql** | Cuts `notifications` from 13 types to 4 — `follow_request`, `follow_accepted`, `new_follower`, `dm_received` — and makes the CHECK constraint the specification. Drops the five ambient notify triggers and functions (`notify_reaction`, `notify_started_watching`, `notify_friend_watched`, `notify_comment_reply`, `notify_wave`) and five tables whose only readers were deleted in the same change: `notified_episodes`, `watchlist_alerts`, `background_jobs`, `user_notification_prefs`, `user_waves`. | ✅ **Applied & verified 2026-08-30** | ✅ Yes (`drop … if exists`, guarded table drops) | **A notification is now one person addressing another.** The nine removed types were machine-generated broadcasts that happened to land in a bell; two of them (`notify_friend_watched`, `notify_started_watching`) were `FOR EACH ROW` and fanned out one INSERT per follower per row — a 1,000-title import with 50 followers would have written 50,000 rows. `comment_reply` is the one genuinely person-to-person type dropped, deliberately: the rule is follows and messages. It is four lines to restore. **Refuses to run if any table it drops holds a row** — a migration that deletes data because the author believed a table was empty is a different and worse migration than one that proves it. **47 functions, 40 tables.** |
+| **093_taste_is_precomputed.sql** | `title_reach`, `taste_corpus`, `user_taste`, `taste_pair`, `taste_neighbours` + nightly refresh functions; replaces the per-view community rebuild. | ✅ **Applied 2026-09-11** (corpus 5, titles 604, users 9 at apply time) | ✅ Yes | **Requires `/api/cron/refresh-taste` and `CRON_SECRET`.** |
+| **094_a_season_can_be_replied_to.sql** | Adds `'season'` to `comments_item_type_check`. | ✅ **Applied 2026-09-11** | ✅ Yes | Guarded by `tests/invariants/comment-types.test.ts`. |
+| **095_a_viewing_is_a_dated_event.sql** | `viewings` (one row per time a title was watched: date, rewatch, place, provider) + backfill from watched titles; statement triggers project `watched_items.watched_at` (latest viewing) and `user_media_status.watch_count`; `get_user_stats.watched_this_year` counts viewings; `ensure_first_viewings(jsonb)` (SECURITY DEFINER, pinned to `auth.uid()`, authenticated only) inserts a today-viewing for each listed title that has none — the one call every "watched" writer makes. | ✅ **Applied 2026-09-11** (593 viewings backfilled, 0 watched titles without one) | ✅ Yes (`if not exists`, guarded backfill, `create or replace`) | **Foundation for 096–102 and for LogViewing, the profile calendar, On This Day, the month and year recaps.** Refuses to finish if a watched title has no viewing. **Deploy the code in the same release: `src/utils/mediaStatus.ts` calls the function from every status writer.** |
+| **096_a_viewing_knows_who_was_there.sql** | `viewing_companions`, the `co_log_invite` notification (trigger, block-aware, one per viewing per person), `accept_co_log(bigint)` (SECURITY DEFINER, pinned to `auth.uid()`: writes the caller's own viewing + status + mirror, links both rows), `watch_companions(uuid,int)`, `room_companions(text,text)`. | ✅ **Applied 2026-09-11** | ✅ Yes | 096, 097 and 098 each rewrite the notification CHECK to the same nine kinds, so whichever runs last leaves the same constraint and no trigger inserts a kind the CHECK refuses. |
+| **097_a_save_has_a_why_a_when_and_a_who.sql** | `user_media_status.save_note/save_for/save_for_date/save_with_user_id/save_with_name/saved_at`; `title_recommendations` (the sender may insert; the recipient may insert only naming somebody they are connected to, because the sender is notified when it closes; recipient updates); trigger on `viewings` closes open recommendations and notifies the sender once (`recommendation_watched`); trigger on `messages` turns a `cardmix` card into a recommendation. | ✅ **Applied 2026-09-11** | ✅ Yes | No fan-out: one row per recommendation, one notification per close. |
+| **098_a_notification_the_user_caused.sql** | Notification CHECK becomes nine kinds; restores `notify_comment_reply()` (092's body plus `is_blocked`); `episode_announcements` (service-role only, RLS with no policies). | ✅ **Applied 2026-09-11** | ✅ Yes | Answers 092's "four lines" note directly. |
+| **099_availability_is_a_snapshot.sql** | `title_availability` (title/region/provider/kind with first_seen/last_seen/expires_on/deep_link), `title_scans`, `catalog_scans`. Public SELECT; writes revoked from anon/authenticated (the default ACL grants ALL — the migration's own check caught this). | ✅ **Applied 2026-09-11** | ✅ Yes | **Requires `/api/cron/refresh-watchlist`** (scheduled 04:30 UTC). Optional `STREAMING_AVAILABILITY_API_KEY`. |
+| **100_a_profile_has_more_than_four_slots.sql** | `user_identity_slots`: `person` ×4, `comfort` ×1, `hill` ×1 (+ a 140-char line). | ✅ **Applied 2026-09-11** | ✅ Yes | Separate from `user_favorite_display`, whose CHECKs are movie/tv and 1..4. |
+| **101_an_import_can_come_from_anywhere.sql** | `import_rows` gains `media_hint`, `tmdb_hint`, `imdb_id`, `tvdb_id`, `viewing_dates date[]`, `episodes jsonb`; unique index widened with `media_hint`, `tmdb_hint`, `imdb_id`, `tvdb_id` (two same-titled, same-year films with different ids are two rows). | ✅ **Applied 2026-09-11** | ✅ Yes | `import_jobs.source` had no CHECK, so the five new sources need nothing there. |
+| **102_the_room_is_never_empty.sql** | `regional_watching(text,int,int,int)`: titles logged this week by people in a region, counts only, floor of 3 distinct people. | ✅ **Applied 2026-09-11** | ✅ Yes | Returns nothing on this database today; that is the floor. |
 
 > ✅ **072, 075 and 076 verified against the live database on 2026-08-19**, by issuing the exact requests that used to leak with the publishable anon key. `users?select=email` → 42501. `watched_items?select=review_text` → 42501. A forged `notifications` insert → 42501. Legitimate columns still answer 200.
 >
@@ -188,38 +198,92 @@ that never reaches 100% is a bug report waiting to happen.
 failures were observed and recovered on a later run through the backoff, exactly
 as designed. Guard confirmed: a request with `Host: letsee.app` gets 403.
 
-### There is exactly one cron, and it is not a feature
+### The three crons, and what each one costs
 
-`/api/cron/purge-deleted`, daily at 03:30 UTC. It hard-deletes accounts whose
-30-day grace period has expired. That is a data-lifecycle obligation, not a
-product feature, and it is the only thing in this app that genuinely needs a
-schedule.
+All three are daily, all three are in `vercel.json`, and all three sit
+behind `guardCron` (fail-closed on a missing `CRON_SECRET`). Each is a single
+60-second function invocation; none of them is reachable from a browser.
 
-092 deleted the other three:
+| route | when (UTC) | what it does | bounded by |
+|---|---|---|---|
+| `/api/cron/purge-deleted` | 03:30 | Hard-deletes accounts whose 30-day grace period has run out, through `auth.admin.deleteUser`, which cascades through every foreign key. | 25 accounts per run |
+| `/api/cron/refresh-taste` | 04:00 | 093's three passes in order: title rarity, each person's taste norm, each person's top-twenty neighbours. Only users whose `library_version` moved are touched, so a quiet night does nothing. Pure SQL, no external calls. | 2000 norms, 500 neighbour lists per run |
+| `/api/cron/refresh-watchlist` | 04:30 | Five phases: (1) providers for watchlisted titles, least recently scanned first, into `title_availability`; (2) one `watchlist_available` per person per day folding every arrival; (3) latest episode of each show people are watching, one `new_episode` per person per episode via `episode_announcements`; (4) one `/discover` page per (region, held provider) into `title_availability` for "new on your services"; (5) expiry dates, only if `STREAMING_AVAILABILITY_API_KEY` is set. | 120 titles, 100 shows, 16 provider pairs, 30 expiry lookups, 48 s wall clock; each phase reports `…Truncated` when it hit its cap |
 
-| route | why it went |
-|---|---|
-| `/api/cron/new-episodes` | produced `new_episode` notifications, a type that no longer exists |
-| `/api/cron/check-availability` | produced watchlist availability alerts, likewise — and was scheduled nowhere, so it had never once fired |
-| `/api/cron/run-jobs` | drove `background_jobs` (024), a queue where nothing ever called `registerJobHandler`, so `dispatchJob` always failed with "No handler registered". It had never run a job and could not have |
+The watchlist job is the only one that talks to the outside: at most roughly
+280 TMDB calls a night, paced by the shared ~8 req/s throttle, and nothing
+fans out — every notification is computed from one user's own list and
+written at most once per user per kind per day.
 
-`background_jobs`, `notified_episodes`, `watchlist_alerts` and
-`user_notification_prefs` were dropped with them.
+⚠️ **Vercel's Hobby plan allows two cron jobs.** The purge cron's own history
+notes this ("a third entry in `vercel.json` against a Hobby plan that allows
+two"). With three entries a Hobby deployment is refused. Either upgrade the
+plan, or fold `refresh-taste` and `refresh-watchlist` into one nightly route
+that runs the two in sequence under one budget.
 
-`tests/invariants/route-rules.test.ts` now asserts that **every cron route in
+Two earlier crons were deleted by 092 and are worth knowing about so nobody
+resurrects them: `/api/cron/new-episodes` and `/api/cron/check-availability`
+wrote one notification row per follower per event, and `check-availability`
+was scheduled nowhere, so it had never once fired. `refresh-watchlist` is their
+replacement, built so that it cannot fan out.
+
+`tests/invariants/route-rules.test.ts` asserts that **every cron route in
 `src/app/api/cron/` appears in `vercel.json`**. A route nothing schedules is not
-a job, it is a file — and two of them read as finished for months while never
-executing.
+a job, it is a file.
 
 ⚠️ **`CRON_SECRET` must be set in production.** `guardCron` fails closed with a
 503 when it is missing, deliberately, so an unset variable cannot turn a
 service-role endpoint into a public button. The consequence is that if it is
-unset, account deletions never finalise and the 30-day grace window becomes
-indefinite, silently.
+unset, account deletions never finalise, taste caches go stale, and no
+watchlist or episode notification is ever written — all silently, with a 503
+in the cron log as the only trace.
 
 The title metadata backfill is **not** a cron; see below.
 
 ---
+
+> ### 093–102: applied to production on 2026-09-11
+>
+> Written and first validated against a local PostgreSQL 18 built from
+> `000_baseline.sql` plus 084–094 (stub `auth` schema, the four Supabase
+> roles, an empty `supabase_realtime` publication), where each applied
+> cleanly, re-applied as a no-op, and a ten-step behavioural script passed:
+> projections (watch_count, watched_at), `watched_this_year`, a co-log invite
+> once per person, `accept_co_log` linking both rows and closing a
+> recommendation with exactly one notification, `watch_companions` grouping
+> users and names, a shared card becoming a recommendation, a reply notifying
+> its author, a stranger unable to be named as a recommender,
+> `ensure_first_viewings` adding one viewing once and refusing anon, and anon
+> reading but not writing.
+>
+> Then applied to production the same day, 093 → 102 in order, each inside
+> its own transaction, every verify block passing. Checked afterwards from
+> the outside: all ten new tables and ten new functions present; RLS on every
+> new table; nine notification kinds; `season` in the comment types; the
+> seven-column import key; anon and authenticated cannot write the
+> availability tables; anon cannot run `ensure_first_viewings` or read
+> `episode_announcements`; 593 viewings for 593 watched titles and none
+> without one. Note the backfill dates are what the old `watched_at` held —
+> 591 of the 593 fall in 2026, because the old status route re-stamped that
+> column on every status change. That is the honest record; nothing older
+> existed to recover.
+>
+> **How the connection was made.** `db.<ref>.supabase.co` resolves to an
+> IPv6 address only, and IPv6 to it times out from this network. The session
+> pooler is IPv4: host `aws-1-ap-northeast-2.pooler.supabase.com`, port
+> `5432`, user `postgres.<ref>`, the same password as `SUPABASE_DIRECT_URL`.
+> (`aws-0-…` and the other regions answer "tenant not found".) That URL now
+> lives in `.env.local` as `SUPABASE_SESSION_POLLER_URL`; use it for any
+> migration or dump from a machine without working IPv6.
+>
+> **Still to do:** `npm run db:dump` needs Docker; run it from a machine that
+> has it and delete the hand-appended block at the end of `000_baseline.sql`,
+> which was checked column-for-column against the live schema and exists
+> only so `tests/invariants` can see the new tables until the real dump
+> replaces it. Deploy the code (the writers call `ensure_first_viewings`),
+> make sure `CRON_SECRET` is set on Vercel, and after 04:30 UTC check that
+> `refresh-watchlist` reported `watchlistScanned`, `arrivals`, `showsChecked`,
+> `catalogPairs`.
 
 ## 3. What to run and what not to run
 

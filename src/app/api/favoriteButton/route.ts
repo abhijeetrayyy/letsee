@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { ensureFirstViewings } from "@/utils/mediaStatus";
 
 export async function POST(req: NextRequest) {
   const userId = await getAuthUserId();
@@ -154,6 +155,9 @@ export async function POST(req: NextRequest) {
       )
       .then(({ error }) => error && console.error("favorite implies watched (item):", error)),
   ]);
+  // A favourite you had not marked watched is now watched, and a watched
+  // title is a dated viewing (095). No-op when the diary already has one.
+  if (needsPromotion) await ensureFirstViewings(supabase, [{ itemId, itemType: mediaType }]);
 
   /**
    * No recount here.

@@ -2,9 +2,16 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
-import { resolveTitle } from "@/utils/titleResolver";
+import {
+  resolveByExternalId,
+  resolveByTmdbId,
+  resolveEpisodeNumbers,
+  resolveTitle,
+  type ResolvedTitle,
+} from "@/utils/titleResolver";
 import { applyRows, type ApplicableRow } from "@/utils/importApply";
 import { GenreList } from "@/staticData/genreList";
+import type { ImportEpisode } from "@/utils/letterboxd";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -17,13 +24,80 @@ type Ctx = { params: Promise<{ id: string }> };
  * The TMDB client throttles to a 120ms gap between request starts (~8/s), so a
  * chunk of 25 takes roughly three seconds — comfortably inside the serverless
  * limit, and short enough that the progress bar moves often enough to look
- * alive rather than hung.
+ * alive rather than hung. Id-based rows cost one call each; name-based rows
+ * the same; a Netflix series row with unnumbered episodes costs one more per
+ * season it touches.
  */
 const CHUNK = 25;
 
 const GENRE_NAME_BY_ID = new Map<number, string>(
   GenreList.genres.map((g: { id: number; name: string }) => [g.id, g.name]),
 );
+
+type PendingRow = {
+  id: number;
+  title: string;
+  year: number | null;
+  watched: boolean;
+  watchlist: boolean;
+  favorite: boolean;
+  rating: number | null;
+  review_text: string | null;
+  watched_date: string | null;
+  media_hint: "movie" | "tv" | null;
+  tmdb_hint: string | null;
+  imdb_id: string | null;
+  tvdb_id: string | null;
+  viewing_dates: string[] | null;
+  episodes: ImportEpisode[] | null;
+};
+
+/**
+ * The order of attempts is the order of certainty: an id the source carried
+ * is exact; an IMDb or TVDB id through /find is exact; only then a name.
+ */
+async function resolveRow(row: PendingRow): Promise<ResolvedTitle | null> {
+  if (row.tmdb_hint && row.media_hint) {
+    const byId = await resolveByTmdbId(row.tmdb_hint, row.media_hint);
+    if (byId) return byId;
+  }
+  if (row.imdb_id || row.tvdb_id) {
+    const byExternal = await resolveByExternalId(
+      { imdbId: row.imdb_id, tvdbId: row.tvdb_id },
+      GENRE_NAME_BY_ID,
+      row.media_hint,
+    );
+    if (byExternal) return byExternal;
+  }
+  const outcome = await resolveTitle(row.title, row.year, GENRE_NAME_BY_ID, row.media_hint);
+  return outcome.status === "resolved" ? outcome.match : null;
+}
+
+/**
+ * Netflix knows an episode's name, not its number. Map names to numbers per
+ * season; anything that does not match is left out rather than guessed.
+ */
+async function numberEpisodes(
+  showId: string,
+  episodes: ImportEpisode[],
+): Promise<{ s: number; e: number; on: string | null }[]> {
+  const numbered = episodes.filter((e) => e.e > 0).map((e) => ({ s: e.s, e: e.e, on: e.on }));
+  const unnumbered = episodes.filter((e) => !(e.e > 0) && e.name);
+  if (unnumbered.length === 0) return numbered;
+
+  const bySeason = new Map<number, ImportEpisode[]>();
+  for (const ep of unnumbered) bySeason.set(ep.s, [...(bySeason.get(ep.s) ?? []), ep]);
+
+  for (const [season, list] of bySeason) {
+    const names = [...new Set(list.map((e) => e.name as string))];
+    const map = await resolveEpisodeNumbers(showId, season, names);
+    for (const ep of list) {
+      const n = map.get(ep.name as string);
+      if (n) numbered.push({ s: season, e: n, on: ep.on });
+    }
+  }
+  return numbered;
+}
 
 /**
  * POST /api/account/import/[id]/process — resolve and apply the next chunk.
@@ -54,7 +128,9 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
 
   const { data: pending, error: pendingError } = await supabase
     .from("import_rows")
-    .select("id, title, year, watched, watchlist, favorite, rating, review_text, watched_date")
+    .select(
+      "id, title, year, watched, watchlist, favorite, rating, review_text, watched_date, media_hint, tmdb_hint, imdb_id, tvdb_id, viewing_dates, episodes",
+    )
     .eq("job_id", jobId)
     .eq("status", "pending")
     .order("id")
@@ -88,35 +164,45 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
 
   // Resolve the chunk in parallel — the TMDB client's own throttle is what
   // paces this, so there's nothing to gain from serialising here.
+  // Episode numbering rides inside the same map: it is one more TMDB call
+  // per series, and serialising it after the resolve pass made a TV Time
+  // export of forty shows wait forty round trips in a row.
+  const rows = pending as unknown as PendingRow[];
   const outcomes = await Promise.all(
-    pending.map(async (row) => ({
-      row,
-      outcome: await resolveTitle(row.title, row.year, GENRE_NAME_BY_ID),
-    })),
+    rows.map(async (row) => {
+      const match = await resolveRow(row);
+      const episodes =
+        match && match.tmdbType === "tv" && row.episodes?.length
+          ? await numberEpisodes(match.tmdbId, row.episodes)
+          : [];
+      return { row, match, episodes };
+    }),
   );
 
   const applicable: ApplicableRow[] = [];
   const unresolvedIds: number[] = [];
 
-  for (const { row, outcome } of outcomes) {
-    if (outcome.status === "resolved") {
-      applicable.push({
-        id: row.id,
-        tmdbId: outcome.match.tmdbId,
-        tmdbType: outcome.match.tmdbType,
-        matchedTitle: outcome.match.matchedTitle,
-        posterPath: outcome.match.posterPath,
-        genres: outcome.match.genres,
-        watched: row.watched,
-        watchlist: row.watchlist,
-        favorite: row.favorite,
-        rating: row.rating,
-        reviewText: row.review_text,
-        watchedDate: row.watched_date,
-      });
-    } else {
+  for (const { row, match, episodes } of outcomes) {
+    if (!match) {
       unresolvedIds.push(row.id);
+      continue;
     }
+    applicable.push({
+      id: row.id,
+      tmdbId: match.tmdbId,
+      tmdbType: match.tmdbType,
+      matchedTitle: match.matchedTitle,
+      posterPath: match.posterPath,
+      genres: match.genres,
+      watched: row.watched,
+      watchlist: row.watchlist,
+      favorite: row.favorite,
+      rating: row.rating,
+      reviewText: row.review_text,
+      watchedDate: row.watched_date,
+      viewingDates: row.viewing_dates ?? [],
+      episodes,
+    });
   }
 
   const { errors: applyErrors } = await applyRows(supabase, userId, applicable);
@@ -173,11 +259,10 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
     })
     .eq("id", jobId);
 
-  // No recount. `applyImportRows` writes through user_media_status and
-  // favorite_items, and 069's statement-level triggers recount once per
+  // No recount. `applyRows` writes through user_media_status, favorite_items
+  // and watched_episodes, and 069's statement-level triggers recount once per
   // statement — so a chunk of 200 rows costs one recount whether or not this
-  // route asks for another. Asking anyway was an extra round trip per chunk on
-  // the one path in the app that runs hundreds of them.
+  // route asks for another.
 
   /**
    * Stop the client's loop rather than spinning on rows that cannot advance.

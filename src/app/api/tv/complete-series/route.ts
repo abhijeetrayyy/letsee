@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { ensureFirstViewings } from "@/utils/mediaStatus";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { syncWatchedItem } from "@/utils/tvMediaStatus";
@@ -97,6 +98,8 @@ export async function POST(req: NextRequest) {
     poster: posterPath,
     genres,
   });
+  // Finishing a series is a viewing of it (095), dated today unless one exists.
+  await ensureFirstViewings(supabase, [{ itemId: showId, itemType: "tv" }]);
 
   // Counters are maintained by 069/078's statement triggers on
   // user_media_status, favorite_items and watched_episodes — the write above

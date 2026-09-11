@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { Share2, Camera, Download } from "lucide-react";
 import { getPosterUrl } from "@/utils/imageUrl";
+import { exportNodeAsPng } from "@/utils/exportImage";
 
 interface ShareProfileCardProps {
   username: string;
@@ -34,23 +35,7 @@ export default function ShareProfileCard({
     if (!cardRef.current) return;
     setCapturing(true);
     try {
-      const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: "#0d1117",
-        scale: 2,
-        useCORS: true,
-      });
-      const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/png")
-      );
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `letsee-${username}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
+      await exportNodeAsPng(cardRef.current, `letsee-${username}.png`, { backgroundColor: "#0d1117" });
     } catch {}
     setCapturing(false);
   };

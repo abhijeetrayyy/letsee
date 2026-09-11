@@ -5,6 +5,7 @@ import { FaChevronRight, FaChevronLeft, FaStar } from "react-icons/fa";
 import ImageViewEpisode from "@components/clientComponent/imageViewEpisode";
 import VideoEpisode from "@components/clientComponent/videoEpisode";
 import MarkEpisodeWatched from "@components/tv/MarkEpisodeWatched";
+import EpisodeSpoilerGate from "@components/tv/EpisodeSpoilerGate";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { fetchTmdb } from "@/utils/tmdbClient";
 import TitleTalk from "@components/takes/TitleTalk";
@@ -322,9 +323,16 @@ const EpisodePage = async ({ params }: PageProps) => {
             {episode.name}
           </h1>
 
-          <p className="text-base text-surface-400 mt-4 max-w-3xl leading-relaxed">
-            {episode.overview || "No overview available."}
-          </p>
+          {/* The overview spoils. Behind the viewer's own progress (client
+              side, so this page keeps its day-long cache), with "Show anyway"
+              for the person who wants it. */}
+          <div className="mt-4 max-w-3xl">
+            <EpisodeSpoilerGate showId={id} seasonNumber={seasonNum} episodeNumber={episode.episode_number} label="the overview">
+              <p className="text-base text-surface-400 leading-relaxed">
+                {episode.overview || "No overview available."}
+              </p>
+            </EpisodeSpoilerGate>
+          </div>
 
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-3 mt-6">
@@ -366,14 +374,18 @@ const EpisodePage = async ({ params }: PageProps) => {
             Discussion" a hundred lines further down, which is the same fork:
             you had to decide which box a thought belonged in before you had
             finished having it. */}
-        <TitleTalk
-          itemId={id}
-          itemType="tv"
-          scope="episode"
-          seasonNumber={seasonNum}
-          episodeNumber={episode.episode_number}
-          itemName={episode.name}
-        />
+        {/* TV Time's ritual: the thread opens once you have marked it
+            watched. Reading what everyone said is the reward for the tick. */}
+        <EpisodeSpoilerGate showId={id} seasonNumber={seasonNum} episodeNumber={episode.episode_number} label="the thread">
+          <TitleTalk
+            itemId={id}
+            itemType="tv"
+            scope="episode"
+            seasonNumber={seasonNum}
+            episodeNumber={episode.episode_number}
+            itemName={episode.name}
+          />
+        </EpisodeSpoilerGate>
 
         {/* Images */}
         {episode.images.stills.length > 0 && (
@@ -385,7 +397,9 @@ const EpisodePage = async ({ params }: PageProps) => {
                 <p className="text-sm text-surface-500 mt-0.5">{episode.images.stills.length} images</p>
               </div>
             </div>
-            <ImageViewEpisode Bimages={episode.images.stills} />
+            <EpisodeSpoilerGate showId={id} seasonNumber={seasonNum} episodeNumber={episode.episode_number} label="the stills">
+              <ImageViewEpisode Bimages={episode.images.stills} />
+            </EpisodeSpoilerGate>
           </div>
         )}
 
@@ -413,6 +427,7 @@ const EpisodePage = async ({ params }: PageProps) => {
                 <p className="text-sm text-surface-500 mt-0.5">{episode.guest_stars.length} guests</p>
               </div>
             </div>
+            <EpisodeSpoilerGate showId={id} seasonNumber={seasonNum} episodeNumber={episode.episode_number} label="who appears">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {episode.guest_stars.map((star: any) => (
                 <Link
@@ -440,6 +455,7 @@ const EpisodePage = async ({ params }: PageProps) => {
                 </Link>
               ))}
             </div>
+            </EpisodeSpoilerGate>
           </div>
         )}
 

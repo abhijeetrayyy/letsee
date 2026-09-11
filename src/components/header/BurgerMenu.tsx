@@ -186,7 +186,10 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
                 <FiHeart className="size-5 shrink-0 text-rose-400" /> Favorites
               </button>
               <button type="button" onClick={() => go("/app/import")} className={menuItemClass}>
-                <FiDownload className="size-5 shrink-0 text-emerald-400" /> Import from Letterboxd
+                <FiDownload className="size-5 shrink-0 text-emerald-400" /> Bring your history
+              </button>
+              <button type="button" onClick={() => go("/app/data")} className={menuItemClass}>
+                <FiDownload className="size-5 shrink-0 text-sky-400 rotate-180" /> Your data
               </button>
               <button type="button" onClick={() => go("/app/notification")} className={menuItemClass}>
                 <FiBell className="size-5 shrink-0 text-blue-400" /> Notifications

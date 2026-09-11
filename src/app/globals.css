@@ -23,17 +23,8 @@
   --color-surface-900: #18181b;
   --color-surface-950: #09090b;
 
-  --color-rating-1: #ff4500;
-  --color-rating-2: #ff6b35;
-  --color-rating-3: #ffa040;
-  --color-rating-4: #c4d64e;
-  --color-rating-5: #7ec850;
-  --color-rating-6: #4ade80;
-  --color-rating-7: #22c55e;
 
   --color-accent-gold: #f5c518;
-  --color-accent-silver: #c0c0c0;
-  --color-accent-bronze: #cd7f32;
 
   --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;

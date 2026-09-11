@@ -114,6 +114,7 @@ export default function UserSidebar() {
         <SidebarLink href="/app/profile/setup" label="Edit profile" />
         <SidebarLink href="/app/watchlist" label="Your watchlist" />
         <SidebarLink href="/app/messages" label="Messages" />
+        <SidebarLink href="/app/data" label="Your data" />
       </div>
     </div>
   );

@@ -19,6 +19,9 @@ import EditTasteInFour from "@components/profile/EditTasteInFour";
 import FriendCompatibility from "@components/profile/FriendCompatibility";
 import ActivityFeed from "@components/profile/ActivityFeed";
 import ProfileTvProgress from "@components/profile/ProfileTvProgress";
+import WatchCompanions from "@components/profile/WatchCompanions";
+import DiaryCalendar from "@components/profile/DiaryCalendar";
+import IdentitySlots from "@components/profile/IdentitySlots";
 import ProfileInsights from "@components/profile/ProfileInsights";
 import { getUserStats } from "@/utils/userStats";
 import ProfileHighlights from "@components/profile/ProfileHighlights";
@@ -383,6 +386,10 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 </div>
               </div>
 
+              {/* Four people, a comfort watch, a hill to die on (100). Three
+                  more finite slots beside the four films; each forces a choice. */}
+              <IdentitySlots userId={user.id} isOwner={isOwner} />
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
                 {tasteProfile.topGenres.length > 0 && (
                   <div className="rounded-xl border border-surface-800/50 bg-surface-900/30 p-5">
@@ -520,11 +527,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               </section>
             )}
 
-            {/* Film Diary lived here. It ran the same query as Films below —
-                watched_items where is_watched, newest first — with fewer
-                filters, and watched_items is UNIQUE (user_id, item_id) so it
-                could never record a rewatch, which is the only thing a diary
-                offers over a library. */}
+            {/* ═══ WHO THEY WATCH WITH, AND WHEN ═══
+                Film Diary lived here once and was removed because
+                watched_items is UNIQUE (user_id, item_id) and could never
+                record a rewatch. Since 095 a viewing is a dated row with the
+                people who were there, so the two things a diary offers over a
+                library — who, and when — are back, and nothing else is. */}
+            <DeferredSection>
+              <WatchCompanions userId={user.id} isOwner={isOwner} />
+            </DeferredSection>
+            <DeferredSection>
+              <DiaryCalendar userId={user.id} isOwner={isOwner} />
+            </DeferredSection>
 
             {/* ═══ FILMS — Their complete library ═══ */}
             <section>

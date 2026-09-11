@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import MediaCard from "@components/cards/MediaCard";
+import SeenOf from "@components/ui/SeenOf";
 import type { Credit } from "@/utils/person/model";
 
 /**
@@ -132,6 +133,8 @@ export default function PersonWork({
 
   return (
     <div className="space-y-12">
+      {/* The bounded set: how much of this person's work you have seen. */}
+      <SeenOf items={credits.filter((c) => c.mediaType === "movie" || c.mediaType === "tv").map((c) => ({ id: c.id, type: c.mediaType }))} noun="of their titles" className="mb-4" />
       {behindFirst ? [behindBlock, screenBlock] : [screenBlock, behindBlock]}
     </div>
   );

@@ -11,6 +11,7 @@ import { getPosterUrl } from "@/utils/imageUrl";
 import Avatar from "@components/ui/Avatar";
 import FollowButton from "@components/profile/FollowButton";
 import SendMessageModal from "@components/message/sendCard";
+import { fetchMyNeighbours } from "@/lib/db/taste";
 
 const USERNAME_MIN = 2;
 const USERNAME_MAX = 15;
@@ -491,9 +492,11 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/taste-matches?limit=3");
-      const data = await res.json();
-      setMatches(data?.matches ?? []);
+      // Straight from Postgres. `/api/taste-matches` was a function that held a
+      // cookie client in front of an RPC already pinned to auth.uid(), and the
+      // RPC it called rebuilt the whole community per request — 093 replaced it
+      // with a read of twenty rows computed last night.
+      setMatches(await fetchMyNeighbours(3));
     } catch {
       setMatches([]);
     } finally {

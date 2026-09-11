@@ -35,7 +35,7 @@ export type ResolvedTitle = {
   genres: string[];
   runtime: number | null;
   /** How we got here, for debugging a bad import. Not shown to users. */
-  via: "exact" | "fuzzy" | "sole-result";
+  via: "exact" | "fuzzy" | "sole-result" | "external-id" | "tmdb-id";
 };
 
 export type ResolveOutcome =
@@ -114,10 +114,11 @@ function toResolved(
   result: TmdbSearchResult,
   genreNameById: Map<number, string>,
   via: ResolvedTitle["via"],
+  tmdbType: "movie" | "tv" = "movie",
 ): ResolvedTitle {
   return {
     tmdbId: String(result.id),
-    tmdbType: "movie",
+    tmdbType,
     matchedTitle: result.title ?? result.name ?? "",
     posterPath: result.poster_path ?? null,
     releaseYear: yearOf(result),
@@ -130,18 +131,26 @@ function toResolved(
 }
 
 /**
- * Resolve one film.
+ * Resolve one title by name.
  *
- * Letterboxd is films-only, so this searches TMDB's movie index rather than
- * multi — which also avoids matching a title against a same-named TV series.
+ * Films by default: Letterboxd is films-only, and searching the movie index
+ * rather than multi avoids matching a title against a same-named series.
+ * A source that knows it holds a series passes `mediaHint: "tv"`.
  */
 export async function resolveTitle(
   title: string,
   year: number | null,
   genreNameById: Map<number, string>,
+  /**
+   * `tv` searches the series index; anything else keeps the films-only
+   * behaviour Letterboxd needs. A source that knows it is describing a series
+   * (Trakt, Simkl, TV Time, a "Show: Season 2: …" Netflix row) says so.
+   */
+  mediaHint: "movie" | "tv" | null = null,
 ): Promise<ResolveOutcome> {
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) return { status: "unresolved", candidates: [] };
+  const tmdbType: "movie" | "tv" = mediaHint === "tv" ? "tv" : "movie";
 
   const params = new URLSearchParams({
     api_key: apiKey,
@@ -151,18 +160,33 @@ export async function resolveTitle(
   });
   // Passing the year narrows TMDB's own ranking; we still verify it ourselves
   // below, because TMDB treats it as a hint rather than a filter.
-  if (year) params.set("year", String(year));
+  if (year) params.set(tmdbType === "tv" ? "first_air_date_year" : "year", String(year));
 
   let results: TmdbSearchResult[] = [];
   try {
     const data = await fetchTmdbJson<{ results?: TmdbSearchResult[] }>(
-      `${TMDB_BASE}/search/movie?${params.toString()}`,
+      `${TMDB_BASE}/search/${tmdbType}?${params.toString()}`,
       { timeoutMs: 8000 },
     );
     results = (data.results ?? []).slice(0, 10);
   } catch (err) {
     console.error(`resolveTitle "${title}":`, err);
     return { status: "unresolved", candidates: [] };
+  }
+
+  /**
+   * A series export usually has no year at all, and a show's name is far
+   * more often unique than a film's. So for series, an exact normalised name
+   * match on the top result is accepted without a year — and nothing else is.
+   */
+  if (tmdbType === "tv" && year === null && results.length > 0) {
+    const wantedName = normalizeTitle(title);
+    const top = results[0];
+    const names = [top.name, top.original_title, top.title].filter((t): t is string => !!t).map(normalizeTitle);
+    const others = results.slice(1).filter((r) => [r.name, r.title].filter(Boolean).map((t) => normalizeTitle(t as string)).includes(wantedName));
+    if (names.includes(wantedName) && others.length === 0) {
+      return { status: "resolved", match: toResolved(top, genreNameById, "exact", "tv") };
+    }
   }
 
   if (results.length === 0) return { status: "unresolved", candidates: [] };
@@ -177,7 +201,7 @@ export async function resolveTitle(
       .filter((t): t is string => !!t)
       .map(normalizeTitle);
     if (candidates.includes(wanted) && yearsAgree(year, yearOf(result))) {
-      return { status: "resolved", match: toResolved(result, genreNameById, "exact") };
+      return { status: "resolved", match: toResolved(result, genreNameById, "exact", tmdbType) };
     }
   }
 
@@ -191,7 +215,7 @@ export async function resolveTitle(
     // real film into a different real film ("Up" / "Us").
     const allowed = Math.min(MAX_EDITS, Math.floor(wanted.length / 4));
     if (closest <= allowed && yearsAgree(year, yearOf(result))) {
-      return { status: "resolved", match: toResolved(result, genreNameById, "fuzzy") };
+      return { status: "resolved", match: toResolved(result, genreNameById, "fuzzy", tmdbType) };
     }
   }
 
@@ -223,13 +247,137 @@ export async function resolveTitle(
         .map((t) => tokenOverlap(normalizeTitle(t), wanted)),
     );
     if (best >= MIN_SOLE_RESULT_OVERLAP) {
-      return { status: "resolved", match: toResolved(sole, genreNameById, "sole-result") };
+      return { status: "resolved", match: toResolved(sole, genreNameById, "sole-result", tmdbType) };
     }
   }
 
   // Otherwise hand the top few back as suggestions for a one-tap manual match.
   return {
     status: "unresolved",
-    candidates: results.slice(0, 5).map((r) => toResolved(r, genreNameById, "sole-result")),
+    candidates: results.slice(0, 5).map((r) => toResolved(r, genreNameById, "sole-result", tmdbType)),
   };
+}
+
+// ── Ids: the exact path ─────────────────────────────────────────────────────
+
+type TmdbDetail = {
+  id: number;
+  title?: string;
+  name?: string;
+  poster_path?: string | null;
+  release_date?: string;
+  first_air_date?: string;
+  genres?: { id: number; name: string }[];
+  runtime?: number | null;
+};
+
+function fromDetail(d: TmdbDetail, tmdbType: "movie" | "tv", via: ResolvedTitle["via"]): ResolvedTitle {
+  const year = Number((d.release_date ?? d.first_air_date ?? "").slice(0, 4));
+  return {
+    tmdbId: String(d.id),
+    tmdbType,
+    matchedTitle: d.title ?? d.name ?? "",
+    posterPath: d.poster_path ?? null,
+    releaseYear: Number.isInteger(year) && year > 1870 ? year : null,
+    genres: (d.genres ?? []).map((g) => g.name),
+    runtime: d.runtime ?? null,
+    via,
+  };
+}
+
+/** A TMDB id the export already carried. One fetch, no guessing. */
+export async function resolveByTmdbId(
+  tmdbId: string,
+  tmdbType: "movie" | "tv",
+): Promise<ResolvedTitle | null> {
+  const apiKey = process.env.TMDB_API_KEY;
+  if (!apiKey || !/^\d+$/.test(tmdbId)) return null;
+  try {
+    const d = await fetchTmdbJson<TmdbDetail>(
+      `${TMDB_BASE}/${tmdbType}/${tmdbId}?api_key=${apiKey}&language=en-US`,
+      { timeoutMs: 8000 },
+    );
+    return d?.id ? fromDetail(d, tmdbType, "tmdb-id") : null;
+  } catch {
+    return null;
+  }
+}
+
+type FindResponse = {
+  movie_results?: TmdbSearchResult[];
+  tv_results?: TmdbSearchResult[];
+};
+
+/**
+ * An IMDb or TheTVDB id, through TMDB's /find. This is the bridge every
+ * other export needs: Trakt and Simkl carry IMDb ids, TV Time is keyed on
+ * TheTVDB, IMDb's own export is nothing but `Const`.
+ */
+export async function resolveByExternalId(
+  ids: { imdbId?: string | null; tvdbId?: string | null },
+  genreNameById: Map<number, string>,
+  mediaHint: "movie" | "tv" | null,
+): Promise<ResolvedTitle | null> {
+  const apiKey = process.env.TMDB_API_KEY;
+  if (!apiKey) return null;
+  const attempts: [string, string][] = [];
+  if (ids.imdbId && /^tt\d+$/.test(ids.imdbId)) attempts.push([ids.imdbId, "imdb_id"]);
+  if (ids.tvdbId && /^\d+$/.test(ids.tvdbId)) attempts.push([ids.tvdbId, "tvdb_id"]);
+
+  for (const [id, source] of attempts) {
+    try {
+      const found = await fetchTmdbJson<FindResponse>(
+        `${TMDB_BASE}/find/${encodeURIComponent(id)}?api_key=${apiKey}&external_source=${source}`,
+        { timeoutMs: 8000 },
+      );
+      const movie = found.movie_results?.[0];
+      const tv = found.tv_results?.[0];
+      if (mediaHint === "tv" && tv) return toResolved(tv, genreNameById, "external-id", "tv");
+      if (mediaHint === "movie" && movie) return toResolved(movie, genreNameById, "external-id", "movie");
+      if (movie) return toResolved(movie, genreNameById, "external-id", "movie");
+      if (tv) return toResolved(tv, genreNameById, "external-id", "tv");
+    } catch {
+      // Try the next id; a miss here falls through to the name search.
+    }
+  }
+  return null;
+}
+
+/**
+ * Netflix knows the episode's name, not its number. One season fetch maps
+ * names to numbers; unmatched names are dropped rather than guessed.
+ */
+export async function resolveEpisodeNumbers(
+  showId: string,
+  seasonNumber: number,
+  names: string[],
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const apiKey = process.env.TMDB_API_KEY;
+  if (!apiKey || names.length === 0) return out;
+  try {
+    const season = await fetchTmdbJson<{ episodes?: { episode_number: number; name?: string }[] }>(
+      `${TMDB_BASE}/tv/${showId}/season/${seasonNumber}?api_key=${apiKey}&language=en-US`,
+      { timeoutMs: 8000 },
+    );
+    const episodes = (season.episodes ?? []).map((e) => ({ n: e.episode_number, name: normalizeTitle(e.name ?? "") }));
+    for (const raw of names) {
+      const wanted = normalizeTitle(raw);
+      if (!wanted) continue;
+      const exact = episodes.find((e) => e.name === wanted);
+      if (exact) {
+        out.set(raw, exact.n);
+        continue;
+      }
+      const allowed = Math.min(MAX_EDITS, Math.floor(wanted.length / 4));
+      const close = episodes
+        .map((e) => ({ e, d: distance(e.name, wanted) }))
+        .filter((x) => x.d <= allowed)
+        .sort((a, b) => a.d - b.d)[0];
+      if (close) out.set(raw, close.e.n);
+    }
+  } catch {
+    // No season: nothing resolves, nothing is guessed.
+  }
+  return out;
 }

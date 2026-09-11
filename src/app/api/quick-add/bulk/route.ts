@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { ensureFirstViewings } from "@/utils/mediaStatus";
 
 const VALID_STATUSES = ["watchlist", "watching", "watched"] as const;
 type QuickStatus = (typeof VALID_STATUSES)[number];
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
 
   const statusRows: Record<string, unknown>[] = [];
   const watchedRows: Record<string, unknown>[] = [];
+  const watchedKeys: { itemId: string; itemType: "movie" | "tv" }[] = [];
   const favoriteRows: Record<string, unknown>[] = [];
   const removeIds: string[] = [];
   const removeTypes = new Set<string>();
@@ -92,8 +94,9 @@ export async function POST(req: NextRequest) {
       watchedRows.push({
         user_id: userId, item_id: itemId, item_type: itemType, item_name: itemName,
         ...(imageUrl ? { image_url: imageUrl } : {}),
-        genres, is_watched: true, watched_at: now,
+        genres, is_watched: true,
       });
+      watchedKeys.push({ itemId, itemType });
     }
   }
 
@@ -123,6 +126,9 @@ export async function POST(req: NextRequest) {
       .from("watched_items")
       .upsert(watchedRows, { onConflict: "user_id,item_id,item_type" });
     if (error) console.error("quick-add watched_items mirror:", error);
+    // A "watched" is a dated viewing (095): one round trip for the batch,
+    // dated today, only for titles that have none yet.
+    await ensureFirstViewings(supabase, watchedKeys);
   }
 
   if (favoriteRows.length > 0) {
