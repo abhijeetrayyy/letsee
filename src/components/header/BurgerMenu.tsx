@@ -10,11 +10,12 @@ import { FaFilm, FaTv, FaUsers } from "react-icons/fa6";
 import { Film } from "lucide-react";
 import SignOut from "../buttons/signOut";
 import CountrySelector from "./CountrySelector";
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import Avatar from "@components/ui/Avatar";
 import type { AuthUser } from "@/app/contextAPI/AuthProvider";
 import { useMounted } from "@/hooks/useMounted";
 import { useUnreadCounts } from "@/hooks/useUnreadCounts";
+import { announceNavigationStart } from "@components/ui/NavigationProgress";
 
 interface BurgerMenuProps {
   status: "loading" | "anon" | "needs_profile" | "ok";
@@ -47,6 +48,7 @@ const BurgerMenu: React.FC<BurgerMenuProps> = ({ status, user }) => {
 
   const go = useCallback(
     (path: string) => {
+      announceNavigationStart();
       router.push(path);
       setIsOpen(false);
     },

@@ -47,13 +47,15 @@ export default function StatsSection({
   userId,
   isOwner = false,
   stats,
+  initialData = null,
 }: {
   userId: string;
   isOwner?: boolean;
   stats?: OverviewStats;
+  initialData?: TasteStats | null;
 }) {
-  const [data, setData] = useState<TasteStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<TasteStats | null>(initialData);
+  const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState(false);
   const [mediaFilter, setMediaFilter] = useState<MediaFilter>("all");
   const [drill, setDrill] = useState<TitleQuery | null>(null);
@@ -79,7 +81,18 @@ export default function StatsSection({
     }
   }, [userId]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    // The App Router can reuse this client component when moving directly
+    // between two profile URLs. Keep the state in step with the new server
+    // payload instead of showing the previous person's stats.
+    if (initialData) {
+      setData(initialData);
+      setLoading(false);
+      setError(false);
+      return;
+    }
+    fetchData();
+  }, [fetchData, initialData]);
 
   if (loading) {
     return (

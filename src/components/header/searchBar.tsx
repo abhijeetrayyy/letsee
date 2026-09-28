@@ -13,6 +13,7 @@ import {
   type SearchMediaType,
 } from "@/utils/searchUrl";
 import { useRouter } from "next/navigation";
+import { announceNavigationStart } from "@components/ui/NavigationProgress";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FaSearch, FaTimes } from "react-icons/fa";
 import { FaCircleNotch } from "react-icons/fa6";
@@ -362,6 +363,7 @@ function SearchBar() {
     if (!isValidSearchQuery(term)) return;
     updateRecentSearches(term);
     setIsSearchLoading(true);
+    announceNavigationStart();
     router.push(buildSearchUrl({ query: term, mediaType: category ?? "multi", page: 1 }));
     closeModal();
   };
@@ -369,6 +371,7 @@ function SearchBar() {
   const handleSelectResult = (result: FlatResult) => {
     updateRecentSearches(query);
     setIsSearchLoading(true);
+    announceNavigationStart();
     router.push(result.href);
     closeModal();
   };

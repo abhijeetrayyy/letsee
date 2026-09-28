@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import MediaCard from "@components/cards/MediaCard";
 import SeenOf from "@components/ui/SeenOf";
 import type { Credit } from "@/utils/person/model";
@@ -48,13 +48,38 @@ function roleText(c: Credit, mode: "screen" | "behind"): string | null {
   return null;
 }
 
-function CreditGrid({ credits, mode }: { credits: Credit[]; mode: "screen" | "behind" }) {
+function CreditGrid({ credits, mode, primary }: { credits: Credit[]; mode: "screen" | "behind"; primary: boolean }) {
+  const PAGE_SIZE = 32;
+  // Only the first filmography section belongs in the initial response. The
+  // second can be hundreds of cards below the fold; it fills itself before the
+  // reader reaches it instead of making the first click download it all.
+  const [visibleCount, setVisibleCount] = useState(() => primary ? Math.min(PAGE_SIZE, credits.length) : 0);
+  const moreRef = useRef<HTMLButtonElement | null>(null);
+  const visible = credits.slice(0, visibleCount);
+  const hasMore = visibleCount < credits.length;
+
+  useEffect(() => {
+    if (!hasMore || !moreRef.current || typeof IntersectionObserver === "undefined") return;
+    const node = moreRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisibleCount((count) => Math.min(count + PAGE_SIZE, credits.length));
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "800px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [credits.length, hasMore, visibleCount]);
+
   return (
     <>
       {/* Same column steps as "Known for", so poster size is constant down the
           whole page rather than changing meaning section to section. */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
-        {credits.map((c) => (
+        {visible.map((c) => (
           <MediaCard
             key={c.key}
             id={c.id}
@@ -70,7 +95,16 @@ function CreditGrid({ credits, mode }: { credits: Credit[]; mode: "screen" | "be
           />
         ))}
       </div>
-
+      {hasMore && (
+        <button
+          ref={moreRef}
+          type="button"
+          onClick={() => setVisibleCount((count) => Math.min(count + PAGE_SIZE, credits.length))}
+          className="mx-auto mt-6 block rounded-full border border-surface-700 bg-surface-900 px-5 py-2 text-sm text-surface-300 transition-colors hover:border-brand-500/40 hover:text-white"
+        >
+          Show more <span className="text-surface-500">({credits.length - visibleCount} left)</span>
+        </button>
+      )}
     </>
   );
 }
@@ -119,13 +153,13 @@ export default function PersonWork({
   const screenBlock = screen.length > 0 && (
     <div key="screen">
       <Heading title="On screen" count={screen.length} />
-      <CreditGrid credits={screen} mode="screen" />
+      <CreditGrid credits={screen} mode="screen" primary={!behindFirst} />
     </div>
   );
   const behindBlock = behind.length > 0 && (
     <div key="behind">
       <Heading title="Behind the camera" count={behind.length} />
-      <CreditGrid credits={behind} mode="behind" />
+      <CreditGrid credits={behind} mode="behind" primary={behindFirst} />
     </div>
   );
 

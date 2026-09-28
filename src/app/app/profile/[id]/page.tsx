@@ -29,10 +29,52 @@ import ShareProfileCard from "@components/profile/ShareProfileCard";
 import StatsSection from "@components/profile/StatsSection";
 import FavoritesSection from "@components/profile/FavoritesSection";
 import DeferredSection from "@components/profile/DeferredSection";
-import { computeTasteSummary, buildTasteInsight, type TasteProfile, type TasteInsight } from "@/utils/tasteProfile";
+import { buildTasteInsight, type TasteProfile, type TasteInsight } from "@/utils/tasteProfile";
+import type { TasteStats } from "@components/profile/stats/types";
 import JsonLd from "@components/seo/JsonLd";
 import { profileLd, breadcrumbLd } from "@/utils/structuredData";
 import { profilePath } from "@/utils/urls";
+
+const EMPTY_TASTE: TasteProfile = {
+  topGenres: [],
+  loves: [],
+  avoids: [],
+  ratesHighest: null,
+  totalGenresExplored: 0,
+};
+
+/** Build the small profile summary from the same bounded SQL result as Stats. */
+function tasteProfileFromStats(stats: TasteStats | null): TasteProfile {
+  if (!stats) return EMPTY_TASTE;
+  const genres = stats.genres.map((genre) => {
+    const shrink = genre.rated_count / (genre.rated_count + 3);
+    const affinity = genre.your_avg == null
+      ? null
+      : Math.round((((genre.your_avg - 5.5) / 4.5) * shrink) * 100);
+    return {
+      genre: genre.genre,
+      count: genre.count,
+      ratedCount: genre.rated_count,
+      affinity,
+      average: genre.your_avg,
+    };
+  });
+
+  return {
+    topGenres: genres.slice(0, 6).map((genre) => ({
+      genre: genre.genre,
+      count: genre.count,
+      ratedCount: genre.ratedCount,
+      affinity: genre.affinity,
+    })),
+    loves: genres.filter((genre) => genre.affinity != null && genre.affinity > 20).slice(0, 3).map((genre) => genre.genre),
+    avoids: genres.filter((genre) => genre.affinity != null && genre.affinity < -20).slice(0, 2).map((genre) => genre.genre),
+    ratesHighest: genres
+      .filter((genre) => genre.average != null && genre.ratedCount >= 2)
+      .sort((a, b) => (b.average ?? 0) - (a.average ?? 0))[0]?.genre ?? null,
+    totalGenresExplored: genres.length,
+  };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -125,12 +167,14 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
 }
 
-async function fetchProfileData(username: string | null, currentUserId: string | null) {
+async function fetchProfileData(username: string | null, currentUserIdInput: string | null | Promise<string | null>) {
   const supabase = await createClient();
   let profileId: string;
   let user: any;
+  let currentUserId: string | null;
 
   if (!username) {
+    currentUserId = await currentUserIdInput;
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (!authUser) redirect("/login");
     const { data: profile } = await supabase.from("users").select("id, username, about, visibility, avatar_url, banner_url, tagline, created_at, featured_list_id, pinned_review_id").eq("id", authUser.id).single();
@@ -142,34 +186,19 @@ async function fetchProfileData(username: string | null, currentUserId: string |
     // `data` when the username does not exist, but `single()` also logs a
     // PostgREST error to do it, and "that profile does not exist" is a normal
     // answer to a URL somebody typed.
-    const data = await getProfileByUsername(username);
+    // Viewer verification and the public profile lookup do not depend on each
+    // other. Starting them together removes another full network round trip
+    // from every named profile navigation.
+    const [data, resolvedCurrentUserId] = await Promise.all([
+      getProfileByUsername(username),
+      currentUserIdInput,
+    ]);
+    currentUserId = resolvedCurrentUserId;
     if (!data) return null;
     user = data; profileId = user.id;
   }
 
   const isOwner = currentUserId === profileId;
-
-  // All counters come from getUserStats so the profile and the home sidebar
-  // can't drift apart — they used to compute hours from different formulas.
-  const [baseStats, { count: followersCount }, { count: followingCount }, { data: connection }] =
-    await Promise.all([
-      getUserStats(supabase, profileId),
-      supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("followed_id", profileId),
-      supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("follower_id", profileId),
-      isOwner || !currentUserId ? { data: null } : supabase.from("user_connections").select("*").eq("follower_id", currentUserId!).eq("followed_id", profileId).single(),
-    ]);
-
-  const stats = {
-    ...baseStats,
-    followersCount: followersCount ?? 0,
-    followingCount: followingCount ?? 0,
-  };
-
-  const followData = {
-    followersCount: stats.followersCount,
-    followingCount: stats.followingCount,
-    isFollowing: !!connection?.id,
-  };
 
   /**
    * ── Nine queries that were standing in a queue for no reason ──────────────
@@ -197,6 +226,10 @@ async function fetchProfileData(username: string | null, currentUserId: string |
    * visitor, and a profile with no pinned review still asks for nothing.
    */
   const [
+    baseStats,
+    { count: followersCount },
+    { count: followingCount },
+    { data: connection },
     favoriteDisplayRes,
     favoriteItemsRes,
     recentActivityRes,
@@ -207,6 +240,14 @@ async function fetchProfileData(username: string | null, currentUserId: string |
     featuredListRes,
     pinnedReviewRes,
   ] = await Promise.all([
+    // Counters and relationship state used to form a separate awaited wave
+    // before the content reads below. None of the content reads depends on a
+    // counter, so that made the render pay two Supabase latencies back to back.
+    getUserStats(supabase, profileId),
+    supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("followed_id", profileId),
+    supabase.from("user_connections").select("*", { count: "exact", head: true }).eq("follower_id", profileId),
+    isOwner || !currentUserId ? { data: null } : supabase.from("user_connections").select("*").eq("follower_id", currentUserId).eq("followed_id", profileId).single(),
+
     // Taste in 4
     supabase.from("user_favorite_display").select("position, item_id, item_type, image_url, item_name").eq("user_id", profileId).order("position", { ascending: true }),
 
@@ -235,15 +276,11 @@ async function fetchProfileData(username: string | null, currentUserId: string |
     // Watch later — was counted in the stats strip but never actually listed anywhere.
     supabase.from("user_media_status").select("item_id, item_type, item_name, image_url, genres").eq("user_id", profileId).eq("status", "watchlist").order("updated_at", { ascending: false }).limit(12),
 
-    // Taste profile + insight text. Kept as its own nested pair so the existing
-    // "one failure here must not take the profile down with it" behaviour is
-    // preserved — the `.catch` replaces the `try` that used to wrap it, and
-    // resolving to `null` is what the empty defaults below read as "no taste
-    // data", exactly as an exception did.
-    Promise.all([
-      supabase.from("watched_items").select("item_id, item_type, genres").eq("user_id", profileId).eq("is_watched", true).not("genres", "is", null),
-      supabase.from("user_ratings").select("item_id, item_type, score").eq("user_id", profileId),
-    ]).catch(() => null),
+    // One bounded SQL aggregate replaces downloading the complete watched and
+    // ratings tables into the function. It is also the exact payload the
+    // deferred Stats section needs, so scrolling there creates no second call.
+    Promise.resolve(supabase.rpc("profile_taste_stats", { p_user_id: profileId }))
+      .catch(() => ({ data: null })),
 
     // Featured list and pinned review
     user.featured_list_id
@@ -255,6 +292,20 @@ async function fetchProfileData(username: string | null, currentUserId: string |
       ? supabase.from("watched_items").select("id, item_id, item_type, item_name, watched_at").eq("id", user.pinned_review_id).eq("user_id", profileId).maybeSingle()
       : null,
   ]);
+
+  // All counters come from getUserStats so the profile and home sidebar cannot
+  // drift apart — they used to compute hours from different formulas.
+  const stats = {
+    ...baseStats,
+    followersCount: followersCount ?? 0,
+    followingCount: followingCount ?? 0,
+  };
+
+  const followData = {
+    followersCount: stats.followersCount,
+    followingCount: stats.followingCount,
+    isFollowing: !!connection?.id,
+  };
 
   const favoriteDisplay = favoriteDisplayRes.data;
   const favoriteItems = favoriteItemsRes.data;
@@ -271,13 +322,11 @@ async function fetchProfileData(username: string | null, currentUserId: string |
     review_text: diaryByKey.get(`${item.item_type}:${item.item_id}`) ?? null,
   }));
 
-  let tasteProfile: TasteProfile = { topGenres: [], loves: [], avoids: [], ratesHighest: null, totalGenresExplored: 0 };
+  const tasteStats = (tasteRes?.data ?? null) as TasteStats | null;
+  const tasteProfile = tasteProfileFromStats(tasteStats);
   let tasteInsight: TasteInsight | null = null;
-  const watchedItems = tasteRes?.[0]?.data;
-  const ratings = tasteRes?.[1]?.data;
-  if (watchedItems && ratings) {
-    tasteProfile = computeTasteSummary(watchedItems, ratings);
-    const avgRating = ratings.length ? ratings.reduce((sum, r) => sum + r.score, 0) / ratings.length : null;
+  if (tasteStats) {
+    const avgRating = tasteStats.you?.average ?? null;
     // stats.watchedCount, not watchedItems.length — the legacy watched_items
     // mirror carries rows user_media_status doesn't, so the blurb used to
     // claim a different total than the header right above it.
@@ -287,19 +336,21 @@ async function fetchProfileData(username: string | null, currentUserId: string |
   const featuredList: { id: number; name: string } | null = featuredListRes?.data ?? null;
   const pinnedReview: any = pinnedReviewRes?.data ?? null;
 
-  return { user, isOwner, stats, followData, favoriteDisplay: favoriteDisplay ?? [], favoriteItems: favoriteItems ?? [], recentActivity, currentlyWatching: currentlyWatching ?? [], watchlistItems: watchlistItems ?? [], tasteProfile, tasteInsight, featuredList, pinnedReview };
+  return { user, isOwner, stats, followData, favoriteDisplay: favoriteDisplay ?? [], favoriteItems: favoriteItems ?? [], recentActivity, currentlyWatching: currentlyWatching ?? [], watchlistItems: watchlistItems ?? [], tasteProfile, tasteInsight, tasteStats, featuredList, pinnedReview };
 }
 
 export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: username } = await params;
   const supabase = await createClient();
-  const { data: { user: currentUser } } = await supabase.auth.getUser();
-  const currentUserId = currentUser?.id || null;
+  const currentUserIdPromise = supabase.auth
+    .getUser()
+    .then(({ data: { user } }) => user?.id || null);
 
-  const profileData = await fetchProfileData(username, currentUserId);
+  const profileData = await fetchProfileData(username, currentUserIdPromise);
   if (!profileData) return notFound();
 
-  const { user, isOwner, stats, followData, favoriteDisplay, favoriteItems, recentActivity, currentlyWatching, watchlistItems, tasteProfile, tasteInsight, featuredList, pinnedReview } = profileData;
+  const { user, isOwner, stats, followData, favoriteDisplay, favoriteItems, recentActivity, currentlyWatching, watchlistItems, tasteProfile, tasteInsight, tasteStats, featuredList, pinnedReview } = profileData;
+  const currentUserId = await currentUserIdPromise;
   if (!username && user.username) redirect(`/app/profile/${user.username}`);
 
   const visibility = String(user?.visibility ?? "public").toLowerCase();
@@ -594,6 +645,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 <StatsSection
                   userId={user.id}
                   isOwner={isOwner}
+                  initialData={tasteStats}
                   // episodesCount was hardcoded to 0 here, so Stats reported no
                   // episodes while getUserStats already had the real figure.
                   // Genres are no longer passed down: profile_taste_stats

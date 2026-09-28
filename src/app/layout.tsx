@@ -11,6 +11,8 @@ import RegisterServiceWorker from "@/components/pwa/RegisterServiceWorker";
 import { siteUrl } from "@/utils/siteUrl";
 import JsonLd from "@components/seo/JsonLd";
 import { organisationLd } from "@/utils/structuredData";
+import NavigationProgress from "@components/ui/NavigationProgress";
+import { Suspense } from "react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -136,6 +138,9 @@ export default function RootLayout({
         */}
         <JsonLd data={organisationLd()} />
         <RegisterServiceWorker />
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
         <AuthProvider>
           <SearchProvider>
             <CountryProvider>

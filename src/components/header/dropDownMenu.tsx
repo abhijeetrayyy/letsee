@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { useEffect, useRef, useState } from "react";
 import { FaChevronDown, FaFilm, FaTv, FaUsers } from "react-icons/fa6";
 import { FiBell, FiMessageSquare, FiBookmark, FiHeart, FiDownload } from "react-icons/fi";

@@ -113,6 +113,24 @@
   100% { background-position: 200% center; }
 }
 
+@keyframes navigation-progress {
+  0% { transform: translateX(-110%) scaleX(0.35); }
+  45% { transform: translateX(65vw) scaleX(0.85); }
+  100% { transform: translateX(250vw) scaleX(0.45); }
+}
+
+.navigation-progress {
+  transform-origin: left center;
+  animation: navigation-progress 1.15s var(--ease-out-expo) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navigation-progress {
+    width: 100%;
+    animation: none;
+  }
+}
+
 @layer base {
   * {
     -webkit-tap-highlight-color: transparent;
@@ -937,4 +955,3 @@
   margin-right: 0.625rem;
   color: var(--color-surface-600);
 }
-

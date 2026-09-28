@@ -1,5 +1,9 @@
+"use client";
+
 import NextLink from "next/link";
+import { useRouter } from "next/navigation";
 import type { ComponentProps } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 type AppLinkProps = ComponentProps<typeof NextLink>;
 
@@ -36,13 +40,58 @@ type AppLinkProps = ComponentProps<typeof NextLink>;
  * the default should sit. Anything that genuinely wants it says `prefetch`
  * explicitly, which also makes the cost visible at the call site.
  *
- * Navigation itself is unaffected. The detail pages are ISR-cached
- * (`s-maxage=86400`), so a click still lands on a CDN copy; what stops is
- * fetching them for the 95% of cards nobody clicks.
- *
- * Not a client component on purpose: adding `"use client"` here would drag
- * every server component that links anywhere into the client bundle.
+ * Viewport prefetch remains off, but a deliberate hover, keyboard focus, or
+ * touch starts an intent prefetch. That keeps dense grids cheap without making
+ * the click itself pay the entire network wait.
  */
-export default function AppLink({ prefetch = false, ...rest }: AppLinkProps) {
-  return <NextLink prefetch={prefetch} {...rest} />;
+export default function AppLink({
+  prefetch = false,
+  href,
+  onPointerEnter,
+  onPointerLeave,
+  onFocus,
+  onTouchStart,
+  ...rest
+}: AppLinkProps) {
+  const router = useRouter();
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didPrefetch = useRef(false);
+  const target = typeof href === "string" ? href : null;
+
+  const prefetchOnIntent = useCallback(() => {
+    if (prefetch || didPrefetch.current || !target || !target.startsWith("/")) return;
+    didPrefetch.current = true;
+    router.prefetch(target);
+  }, [prefetch, router, target]);
+
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
+  return (
+    <NextLink
+      {...rest}
+      href={href}
+      prefetch={prefetch}
+      onPointerEnter={(event) => {
+        onPointerEnter?.(event);
+        if (event.defaultPrevented || prefetch) return;
+        // Ignore fly-by cursor movement across a dense poster grid. A short,
+        // deliberate hover is a much stronger signal than being in viewport.
+        timer.current = setTimeout(prefetchOnIntent, 80);
+      }}
+      onPointerLeave={(event) => {
+        onPointerLeave?.(event);
+        if (timer.current) clearTimeout(timer.current);
+      }}
+      onFocus={(event) => {
+        onFocus?.(event);
+        if (!event.defaultPrevented) prefetchOnIntent();
+      }}
+      onTouchStart={(event) => {
+        onTouchStart?.(event);
+        if (!event.defaultPrevented) prefetchOnIntent();
+      }}
+    />
+  );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@components/ui/AppLink";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import { FiUsers, FiPlusSquare, FiCompass, FiPlay } from "react-icons/fi";
 import { Film } from "lucide-react";

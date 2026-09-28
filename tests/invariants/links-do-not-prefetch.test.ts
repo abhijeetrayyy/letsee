@@ -63,4 +63,20 @@ describe("links are cheap by default", () => {
     expect(wrapper).toBeDefined();
     expect(read(wrapper!)).toContain("prefetch = false");
   });
+
+  it("warms links on intent without restoring viewport prefetch", () => {
+    const wrapper = sourceFiles().find((f) => rel(f) === "src/components/ui/AppLink.tsx");
+    const source = read(wrapper!);
+
+    expect(source).toContain("router.prefetch(target)");
+    expect(source).toContain("onPointerEnter");
+    expect(source).toContain("onFocus");
+    expect(source).toContain("onTouchStart");
+  });
+
+  it("keeps global navigation feedback mounted", () => {
+    const layout = sourceFiles().find((f) => rel(f) === "src/app/layout.tsx");
+    expect(layout).toBeDefined();
+    expect(read(layout!)).toContain("<NavigationProgress />");
+  });
 });

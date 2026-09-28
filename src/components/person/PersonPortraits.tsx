@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Lightbox from "@components/ui/Lightbox";
 
 /**
@@ -19,6 +19,30 @@ export default function PersonPortraits({
   profiles: { file_path: string; width?: number; height?: number }[];
 }) {
   const [index, setIndex] = useState<number | null>(null);
+  const PAGE_SIZE = 24;
+  // Portraits sit after the complete body of work. Rendering even the first
+  // two dozen into the route payload delays the hero for content several
+  // screens away, so the observer brings them in as the reader approaches.
+  const [visibleCount, setVisibleCount] = useState(0);
+  const moreRef = useRef<HTMLButtonElement | null>(null);
+  const hasMore = visibleCount < profiles.length;
+
+  useEffect(() => {
+    if (!hasMore || !moreRef.current || typeof IntersectionObserver === "undefined") return;
+    const node = moreRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisibleCount((count) => Math.min(count + PAGE_SIZE, profiles.length));
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "800px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, profiles.length, visibleCount]);
+
   if (profiles.length < 4) return null;
 
   const images = profiles.map((p) => ({
@@ -29,7 +53,7 @@ export default function PersonPortraits({
   return (
     <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-        {profiles.map((p, i) => (
+        {profiles.slice(0, visibleCount).map((p, i) => (
           <button
             key={p.file_path}
             type="button"
@@ -49,6 +73,16 @@ export default function PersonPortraits({
           </button>
         ))}
       </div>
+      {hasMore && (
+        <button
+          ref={moreRef}
+          type="button"
+          onClick={() => setVisibleCount((count) => Math.min(count + PAGE_SIZE, profiles.length))}
+          className="mx-auto mt-6 block rounded-full border border-surface-700 bg-surface-900 px-5 py-2 text-sm text-surface-300 transition-colors hover:border-brand-500/40 hover:text-white"
+        >
+          Show more portraits <span className="text-surface-500">({profiles.length - visibleCount} left)</span>
+        </button>
+      )}
       <Lightbox images={images} index={index} onClose={() => setIndex(null)} onIndexChange={setIndex} />
     </>
   );
