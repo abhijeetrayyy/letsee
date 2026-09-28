@@ -23,6 +23,7 @@ import { movieFacts } from "@components/detail/TitleFacts";
 import TitleVitals from "@components/detail/TitleVitals";
 import ShareModal from "@components/social/ShareModal";
 import { useMounted } from "@/hooks/useMounted";
+import { titlePath } from "@/utils/urls";
 
 /**
  * A film page, ordered the way a journal owes it.
@@ -225,6 +226,22 @@ export default function MovieDetailClient({
           room={<TheRoom itemId={movie.id} itemType="movie" />}
         />
 
+        <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
+          <Section title="Where to watch">
+            <Availability mediaId={movie.id} mediaType="movie" />
+          </Section>
+          <Section title="Your entry">
+            <TitleTalk
+              itemId={String(movie.id)}
+              itemType="movie"
+              itemName={movie.title}
+              imageUrl={movie.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : null}
+              genres={(movie.genres ?? []).map((g: { name: string }) => g.name)}
+              isAuthenticated={isAuthenticated}
+            />
+          </Section>
+        </div>
+
         {/* Movement two: the film itself. Both of these render their own
             Section and return null when they have nothing, so a standalone
             film with no dates on file adds no empty headings. */}
@@ -234,7 +251,7 @@ export default function MovieDetailClient({
 
         {cast.length > 0 && (
           <Section title="Cast" subtitle={`${cast.length} actors`}>
-            <CastRow cast={cast} />
+            <CastRow cast={cast} fullCreditsHref={`${titlePath("movie", movie.id, movie.title)}/cast`} />
           </Section>
         )}
 
@@ -262,10 +279,6 @@ export default function MovieDetailClient({
             attention, so they sit together rather than being split across the
             page — your entry and the room beside the strangers on TMDB who
             reviewed the same film. */}
-        <Section title="Where to watch">
-          <Availability mediaId={movie.id} mediaType="movie" />
-        </Section>
-
         {/* No longer a grid. Its right column held only "Who's here", which has
             moved up beside the details where it can actually be seen; leaving
             the two-thirds cap behind would strand the composer in 880px with a
@@ -276,19 +289,6 @@ export default function MovieDetailClient({
                 "Your take" here and "Discussion" below — which made the reader
                 choose which box a thought belonged in before they had finished
                 having it. */}
-            <Section title="Your entry">
-              <TitleTalk
-                itemId={String(movie.id)}
-                itemType="movie"
-                itemName={movie.title}
-                imageUrl={
-                  movie.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : null
-                }
-                genres={(movie.genres ?? []).map((g: { name: string }) => g.name)}
-                isAuthenticated={isAuthenticated}
-              />
-            </Section>
-
             {/* The card for the group chat: two names, two scores, one poster.
                 Exists only when somebody the viewer watched with (or follows)
                 also scored this. */}

@@ -27,10 +27,10 @@ export interface ProfileUser {
 }
 
 const SORTS: { key: SortKey; label: string }[] = [
-  { key: "recent", label: "Recent" },
-  { key: "watched", label: "Most watched" },
+  { key: "recent", label: "Recently active" },
+  { key: "watched", label: "Most logged" },
   { key: "favorites", label: "Most favorites" },
-  { key: "watchlist", label: "Most watchlist" },
+  { key: "watchlist", label: "Biggest watchlist" },
 ];
 
 export default function SearchAndFilters({
@@ -99,7 +99,7 @@ export default function SearchAndFilters({
             placeholder="Search by username…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 rounded-xl bg-surface-800/80 border border-surface-700 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-amber-500/50 transition-colors"
+            className="w-full pl-10 pr-4 py-3 rounded-xl bg-surface-800/80 border border-surface-700 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-colors"
             aria-label="Search profiles"
           />
         </div>
@@ -111,7 +111,7 @@ export default function SearchAndFilters({
               onClick={() => setSort(key)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-surface-900 ${
                 sort === key
-                  ? "bg-amber-500 text-surface-900"
+                  ? "bg-brand-500 text-surface-950"
                   : "bg-surface-800 text-surface-300 hover:bg-surface-700 hover:text-white border border-surface-700"
               }`}
             >

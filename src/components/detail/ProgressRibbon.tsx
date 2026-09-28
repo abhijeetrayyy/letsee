@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { swrFetcher } from "@/utils/swrFetcher";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
+import Link from "@components/ui/AppLink";
 
 /**
  * Where you are in a series, as one object.
@@ -211,6 +212,13 @@ export default function ProgressRibbon({
 
       {failed && (
         <p className="mt-3 text-xs text-red-400">Couldn&apos;t save that one. Tap it again.</p>
+      )}
+
+      {!isAuthenticated && (
+        <p className="mt-4 border-t border-surface-800 pt-3 text-xs text-surface-500">
+          <Link href="/login" className="font-medium text-brand-400 hover:text-brand-300">Sign in</Link>
+          {" "}to mark episodes and keep your place.
+        </p>
       )}
 
       {/* No instruction line. A grid of squares that fill when you tap them

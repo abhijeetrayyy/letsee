@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Play, X } from "lucide-react";
 
 export type TmdbVideo = {
@@ -55,6 +55,22 @@ const PER_KIND = 6;
 
 export default function VideoShelf({ videos = [] }: { videos?: TmdbVideo[] }) {
   const [playing, setPlaying] = useState<TmdbVideo | null>(null);
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!playing) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPlaying(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [playing]);
 
   const youtube = videos.filter((v) => v.site === "YouTube" && v.key);
   if (youtube.length === 0) return null;
@@ -83,6 +99,7 @@ export default function VideoShelf({ videos = [] }: { videos?: TmdbVideo[] }) {
           aria-label={playing.name}
         >
           <button
+            ref={closeRef}
             type="button"
             onClick={() => setPlaying(null)}
             aria-label="Close video"
@@ -116,6 +133,7 @@ export default function VideoShelf({ videos = [] }: { videos?: TmdbVideo[] }) {
                 key={v.key}
                 type="button"
                 onClick={() => setPlaying(v)}
+                aria-label={`Play ${v.name}`}
                 className="group w-52 shrink-0 text-left"
               >
                 <span className="relative block aspect-video overflow-hidden rounded-lg bg-surface-800">

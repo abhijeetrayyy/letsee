@@ -59,9 +59,14 @@ export function LogedNavbar() {
             duplicating it just crowded a 375px bar with six identical squares. */}
         <div className="flex items-center gap-1 ml-auto">
           {/* Mobile search trigger */}
-          <Link href="/app/search" className="nav-icon-btn sm:hidden" aria-label="Search">
-            <FaMagnifyingGlass className="size-4" />
-          </Link>
+          {/* Keep the responsive display rule on a wrapper. `.nav-icon-btn`
+              owns `display`, so putting `sm:hidden` on the link itself lets
+              the component rule win and duplicates search on desktop. */}
+          <div className="sm:hidden">
+            <Link href="/app/search" className="nav-icon-btn" aria-label="Search">
+              <FaMagnifyingGlass className="size-4" />
+            </Link>
+          </div>
 
           {/* People — the whole point of the product, so it's top-level and
               visible to signed-out visitors too. */}

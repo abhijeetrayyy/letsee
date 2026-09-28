@@ -4,10 +4,8 @@ import { getHomeContent } from "@/utils/homeData";
 import { SignedIn, SignedOut } from "@components/home/AuthGate";
 import HomeGreeting from "@components/home/HomeGreeting";
 import HomeHero from "@components/home/HomeHero";
-import QuickActions from "@components/home/QuickActions";
 import TrendingNow from "@components/home/TrendingNow";
 import GenreExplorer from "@components/home/GenreExplorer";
-import UserSidebar from "@components/home/UserSidebar";
 import ContinueWatchingProgress from "@components/tv/ContinueWatchingProgress";
 import FollowingFeed from "@components/feed/FollowingFeed";
 import AiringSoon from "@components/home/AiringSoon";
@@ -77,10 +75,11 @@ export default async function Home() {
 
           {/* Main layout: sidebar (personal) + feed */}
           <div className="flex flex-col lg:flex-row gap-8 mt-6">
-            {/* ═══════ SIDEBAR ═══════ */}
+            {/* The sidebar is supporting context only. Profile statistics and
+                shortcut grids duplicated the global navigation and pushed the
+                useful schedule below the first viewport. */}
             <aside className="lg:w-[340px] lg:shrink-0 order-2 lg:order-1 space-y-6">
               <SignedIn>
-                <UserSidebar />
                 <AiringSoon />
               </SignedIn>
               <SignedOut>
@@ -96,15 +95,6 @@ export default async function Home() {
                   </p>
                 </div>
               </SignedOut>
-
-              {/* Quick actions */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Compass className="size-4 text-surface-500" />
-                  <h2 className="text-xs font-semibold text-surface-500 uppercase tracking-[0.2em]">Explore</h2>
-                </div>
-                <QuickActions />
-              </div>
 
               {/* Errors */}
               {errors.length > 0 && (

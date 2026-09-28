@@ -94,7 +94,7 @@ function getHref(item: SearchResult, mediaType: SearchMediaType) {
 export default function SearchLandingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(() => searchParams.get("q") ?? "");
   const [recent, setRecent] = useState<string[]>([]);
   const [results, setResults] = useState<ResultsState>(emptyResults);
   const [isLoading, setIsLoading] = useState(false);

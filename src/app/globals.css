@@ -655,6 +655,13 @@
     color: var(--color-surface-100);
   }
 
+  @media (pointer: coarse) {
+    .nav-icon-btn {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+  }
+
   .nav-search {
     display: flex;
     align-items: center;

@@ -1,5 +1,5 @@
 import Link from "@components/ui/AppLink";
-import { Users } from "lucide-react";
+import { ArrowRight, Users } from "lucide-react";
 import { personPath } from "@/utils/urls";
 
 type CastMember = {
@@ -13,7 +13,13 @@ type CastMember = {
  * Cast strip. Portraits rather than small circles — faces are the point, and
  * at 80px in a circle most of the head was cropped away.
  */
-export default function CastRow({ cast = [] }: { cast?: CastMember[] }) {
+export default function CastRow({
+  cast = [],
+  fullCreditsHref,
+}: {
+  cast?: CastMember[];
+  fullCreditsHref?: string;
+}) {
   if (cast.length === 0) return null;
 
   return (
@@ -46,6 +52,20 @@ export default function CastRow({ cast = [] }: { cast?: CastMember[] }) {
           )}
         </Link>
       ))}
+      {fullCreditsHref && cast.length > 0 && (
+        <Link
+          href={fullCreditsHref}
+          className="group flex w-28 shrink-0 flex-col sm:w-32"
+          aria-label="View the full cast and crew"
+        >
+          <span className="flex aspect-[2/3] w-full items-center justify-center rounded-xl border border-dashed border-surface-700 bg-surface-900/60 text-surface-400 transition-colors group-hover:border-brand-500/50 group-hover:text-brand-300">
+            <ArrowRight className="size-6" />
+          </span>
+          <span className="mt-2 text-sm font-medium text-surface-300 group-hover:text-white">
+            Full cast &amp; crew
+          </span>
+        </Link>
+      )}
     </div>
   );
 }

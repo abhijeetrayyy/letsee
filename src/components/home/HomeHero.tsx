@@ -31,9 +31,10 @@ export default function HomeHero({ items }: { items: HeroItem[] }) {
     setCurrent((c) => (c - 1 + valid.length) % valid.length);
   }, [valid.length]);
 
-  // Auto-rotate every 8 seconds
+  // Auto-rotate every 8 seconds, unless the reader has asked interfaces not
+  // to move on their own.
   useEffect(() => {
-    if (valid.length <= 1) return;
+    if (valid.length <= 1 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const t = setInterval(next, 8000);
     return () => clearInterval(t);
   }, [next, valid.length]);
@@ -51,7 +52,7 @@ export default function HomeHero({ items }: { items: HeroItem[] }) {
 
   return (
     <div
-      className="relative w-full h-[55vh] sm:h-[65vh] min-h-[420px] max-h-[700px] overflow-hidden bg-surface-950 group"
+      className="group relative h-[360px] w-full overflow-hidden bg-surface-950 sm:h-[430px] lg:h-[480px]"
       onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
       onTouchEnd={(e) => {
         if (touchStart == null) return;
@@ -77,7 +78,7 @@ export default function HomeHero({ items }: { items: HeroItem[] }) {
       </div>
 
       {/* Content overlay */}
-      <div className="relative h-full max-w-[1400px] mx-auto px-6 lg:px-12 flex items-end pb-12 sm:pb-16">
+      <div className="relative mx-auto flex h-full max-w-[1400px] items-end px-4 pb-10 sm:px-6 sm:pb-12 lg:px-8">
         <div className="max-w-xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/20 border border-brand-500/30 text-brand-300 text-xs font-medium mb-4">
             <Play className="size-3 fill-current" />
@@ -85,7 +86,7 @@ export default function HomeHero({ items }: { items: HeroItem[] }) {
           </div>
 
           <Link href={titlePath(mediaType, item.id, title)}>
-            <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight hover:text-brand-400 transition-colors">
+            <h2 className="text-2xl font-bold leading-tight tracking-tight text-white transition-colors hover:text-brand-400 sm:text-3xl lg:text-4xl">
               {title}
             </h2>
           </Link>
@@ -140,7 +141,7 @@ export default function HomeHero({ items }: { items: HeroItem[] }) {
             <button
               key={i}
               onClick={() => setCurrent(i)}
-              className={`w-2 h-2 rounded-full transition-all ${i === current ? "bg-brand-500 w-6" : "bg-white/30 hover:bg-white/50"}`}
+              className={`h-2 rounded-full transition-all ${i === current ? "w-6 bg-brand-500" : "w-2 bg-white/30 hover:bg-white/50"}`}
               aria-label={`Slide ${i + 1}`}
             />
           ))}

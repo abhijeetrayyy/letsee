@@ -8,8 +8,8 @@ import { ShowFollowing, ShowFollower, FollowerBtnClient } from "@/components/pro
 import Logornot from "@components/guide/logornot";
 import VisibilityGate from "@components/profile/VisibilityGate";
 import ProfileHeroNew from "@components/profile/ProfileHeroNew";
+import ProfileSectionNav from "@components/profile/ProfileSectionNav";
 import ProfileActionsDropdown from "@components/profile/ProfileActionsDropdown";
-import Visibility from "@components/profile/visibility";
 import WatchedGrid from "@components/profile/WatchedGrid";
 import TrackedPosterCard from "@components/profile/TrackedPosterCard";
 import ReviewsSection from "@components/profile/ReviewsSection";
@@ -398,7 +398,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
           followButton={!isOwner && currentUserId ? <FollowerBtnClient profileId={user.id} currentUserId={currentUserId!} initialStatus={followData.isFollowing ? "following" : "follow"} profileVisibility={visibility} /> : <></>}
           messageLink={!isOwner && currentUserId ? <Link href={`/app/messages/${user.id}`} className="inline-flex items-center px-5 py-2.5 rounded-full bg-brand-500/10 hover:bg-brand-500/15 text-brand-300 text-sm font-medium border border-brand-500/20 transition-colors">Message</Link> : <></>}
           loginPrompt={!currentUserId ? <Logornot message="Log in to follow or message." /> : <></>}
-          visibilityControl={isOwner ? <Visibility /> : <></>}
           actionsMenu={!isOwner && currentUserId ? <ProfileActionsDropdown profileId={user.id} currentUserId={currentUserId} /> : undefined}
           showFollow={!isOwner && !!currentUserId} showMessage={!isOwner && !!currentUserId} showLoginPrompt={!currentUserId}
           ShowFollowing={ShowFollowing} ShowFollower={ShowFollower}
@@ -417,8 +416,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
           />
         ) : (
           <>
+            <ProfileSectionNav />
             {/* ═══ AT A GLANCE — Personality snapshot ═══ */}
-            <section>
+            <section id="profile-overview" className="scroll-mt-28">
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                 <span className="w-1 h-5 rounded-full bg-brand-500" />
                 At a Glance
@@ -491,7 +491,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             </section>
 
             {/* ═══ FAVORITES — What they love ═══ */}
-            <section>
+            <section id="profile-favorites" className="scroll-mt-28">
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                 <span className="w-1 h-5 rounded-full bg-rose-500" />
                 Favorites
@@ -584,15 +584,17 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 record a rewatch. Since 095 a viewing is a dated row with the
                 people who were there, so the two things a diary offers over a
                 library — who, and when — are back, and nothing else is. */}
-            <DeferredSection>
-              <WatchCompanions userId={user.id} isOwner={isOwner} />
-            </DeferredSection>
-            <DeferredSection>
-              <DiaryCalendar userId={user.id} isOwner={isOwner} />
-            </DeferredSection>
+            <section id="profile-activity" className="scroll-mt-28 space-y-8">
+              <DeferredSection>
+                <WatchCompanions userId={user.id} isOwner={isOwner} />
+              </DeferredSection>
+              <DeferredSection>
+                <DiaryCalendar userId={user.id} isOwner={isOwner} />
+              </DeferredSection>
+            </section>
 
             {/* ═══ FILMS — Their complete library ═══ */}
-            <section>
+            <section id="profile-library" className="scroll-mt-28">
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                 <span className="w-1 h-5 rounded-full bg-emerald-500" />
                 Films
@@ -614,7 +616,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             </section>
 
             {/* ═══ REVIEWS — Their thoughts ═══ */}
-            <section>
+            <section id="profile-reviews" className="scroll-mt-28">
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                 <span className="w-1 h-5 rounded-full bg-brand-500" />
                 Reviews
@@ -625,7 +627,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             </section>
 
             {/* ═══ LISTS — Their curated collections ═══ */}
-            <section>
+            <section id="profile-lists" className="scroll-mt-28">
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                 <span className="w-1 h-5 rounded-full bg-rose-500" />
                 Lists
@@ -636,7 +638,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             </section>
 
             {/* ═══ STATS — The numbers ═══ */}
-            <section>
+            <section id="profile-stats" className="scroll-mt-28">
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                 <span className="w-1 h-5 rounded-full bg-amber-500" />
                 Stats

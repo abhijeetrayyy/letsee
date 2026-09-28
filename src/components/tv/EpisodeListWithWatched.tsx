@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "@components/ui/AppLink";
 import { CheckCheck, Clock, ArrowUpDown, Star, Search } from "lucide-react";
+import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 
 export interface EpisodeItem {
   id: number;
@@ -107,12 +108,14 @@ export default function EpisodeListWithWatched({
   initialCount = 24,
   seeAllHref,
 }: EpisodeListWithWatchedProps) {
+  const { isAuthenticated } = useMediaInteraction();
   const [watched, setWatched] = useState<
     { season_number: number; episode_number: number; watched_at?: string }[]
   >([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("number");
   const [expandedEpisodes, setExpandedEpisodes] = useState<Set<number>>(new Set());
   const [visibleCount, setVisibleCount] = useState(initialCount);
@@ -149,13 +152,14 @@ export default function EpisodeListWithWatched({
   }, [showId]);
 
   useEffect(() => {
-    fetchWatched();
-  }, [fetchWatched]);
+    if (isAuthenticated) fetchWatched();
+  }, [fetchWatched, isAuthenticated]);
 
   const toggleEpisode = useCallback(
     async (e: React.MouseEvent, episodeNumber: number) => {
       e.preventDefault();
       e.stopPropagation();
+      if (!isAuthenticated) return;
       const key = `${seasonNumber}-${episodeNumber}`;
       setToggling(key);
       try {
@@ -168,12 +172,16 @@ export default function EpisodeListWithWatched({
             episodeNumber,
           }),
         });
-        if (res.ok) await fetchWatched();
+        if (!res.ok) throw new Error(String(res.status));
+        setSaveError(null);
+        await fetchWatched();
+      } catch {
+        setSaveError("Couldn’t save that episode. Please try again.");
       } finally {
         setToggling(null);
       }
     },
-    [showId, seasonNumber, fetchWatched],
+    [showId, seasonNumber, fetchWatched, isAuthenticated],
   );
 
   const handleBulkMark = async (
@@ -191,7 +199,11 @@ export default function EpisodeListWithWatched({
           action: "mark",
         }),
       });
-      if (res.ok) await fetchWatched();
+      if (!res.ok) throw new Error(String(res.status));
+      setSaveError(null);
+      await fetchWatched();
+    } catch {
+      setSaveError("Couldn’t update the season. Please try again.");
     } finally {
       setBulkUpdating(false);
     }
@@ -346,15 +358,21 @@ export default function EpisodeListWithWatched({
             >
               {showOverviews ? "Hide spoilers" : "Show overviews"}
             </button>
-            {/* Mark Season Watched */}
-            <button
-              onClick={markSeasonWatched}
-              disabled={bulkUpdating || loading}
-              className="btn-secondary text-xs py-1.5 disabled:opacity-50"
-            >
-              <CheckCheck className="w-3.5 h-3.5" />
-              {bulkUpdating ? "Updating..." : "Mark All"}
-            </button>
+            {/* Account state is never presented as a control that will fail. */}
+            {isAuthenticated ? (
+              <button
+                onClick={markSeasonWatched}
+                disabled={bulkUpdating || loading}
+                className="btn-secondary text-xs py-1.5 disabled:opacity-50"
+              >
+                <CheckCheck className="w-3.5 h-3.5" />
+                {bulkUpdating ? "Updating..." : "Mark All"}
+              </button>
+            ) : (
+              <Link href="/login" className="text-xs font-medium text-brand-400 hover:text-brand-300">
+                Sign in to track
+              </Link>
+            )}
           </div>
         </div>
         {/* Progress Track */}
@@ -364,6 +382,7 @@ export default function EpisodeListWithWatched({
             style={{ width: `${progressPct}%` }}
           />
         </div>
+        {saveError && <p className="mt-3 text-xs text-red-400" role="status">{saveError}</p>}
       </div>
 
       {/* Find an episode — only worth showing on a season long enough to get lost in */}
@@ -489,7 +508,7 @@ export default function EpisodeListWithWatched({
                           ) : null}
                         </span>
                       )}
-                      {!loading && !unaired && (
+                      {isAuthenticated && !loading && !unaired && (
                         <button
                           type="button"
                           onClick={(e) => markAllPrevious(episode.episode_number)}
@@ -500,7 +519,7 @@ export default function EpisodeListWithWatched({
                           <CheckCheck className="w-4 h-4" />
                         </button>
                       )}
-                      {!loading && !unaired && (
+                      {isAuthenticated && !loading && !unaired && (
                         <button
                           type="button"
                           onClick={(e) => toggleEpisode(e, episode.episode_number)}

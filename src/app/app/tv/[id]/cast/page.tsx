@@ -1,11 +1,11 @@
-import Link from "@components/ui/AppLink";
-import React from "react";
 import { tmdbFetchJson } from "@/utils/tmdb";
 import { notFound } from "next/navigation";
-import { parseRouteId, titlePath, personPath } from "@/utils/urls";
+import { parseRouteId, titlePath } from "@/utils/urls";
 import { seriesCast } from "@/utils/title/tvCast";
 import { seriesCrew } from "@/utils/title/tvCrew";
 import type { Metadata } from "next";
+import CreditsHero from "@components/detail/CreditsHero";
+import CreditsDirectory from "@components/detail/CreditsDirectory";
 
 /** Impersonal HTML; see the movie page for why this is cached. */
 /**
@@ -204,181 +204,16 @@ async function page({ params }: PageProps) {
   const cast = seriesCast(creditsResult.data, stubResult.data?.cast, Number.MAX_SAFE_INTEGER);
   const crew = seriesCrew(creditsResult.data, stubResult.data?.crew, 12);
   return (
-    <div>
-      <div className="relative w-full flex flex-col  overflow-y-clip justify-center items-center min-h-[590px]">
-        <div className="absolute w-full  h-full overflow-hidden">
-          <div
-            className="absolute inset-0 z-10 bg-linear-to-r from-surface-900 via-transparent to-surface-900"
-            style={{
-              background:
-                "linear-gradient(to left,  #171717, transparent 60%, #171717, #171717)",
-            }}
-          ></div>
-          <div
-            className="absolute inset-0 z-10 bg-linear-to-l from-surface-900 via-transparent to-surface-900"
-            style={{
-              background:
-                "linear-gradient(to right,  #171717, transparent 60%, #171717, #171717)",
-            }}
-          ></div>
-          <img loading="lazy" decoding="async"
-            className="object-cover max-w-[2100px] w-full h-full  m-auto opacity-20"
-            src={`${
-              show.backdrop_path && !show.adult
-                ? `https://image.tmdb.org/t/p/w300${show.backdrop_path}`
-                : "/backgroundjpeg.webp"
-            }`}
-            width={300}
-            height={300}
-            alt=""
-          />
-        </div>
-
-        <div className="z-10 relative flex flex-row gap-5 py-3 px-6 w-full max-w-6xl">
-          <div className="flex-1">
-            <img loading="lazy" decoding="async"
-              className="min-h-[500px] rounded-md"
-              src={
-                show.adult
-                  ? "/pixeled.webp"
-                  : `https://image.tmdb.org/t/p/w342${show.poster_path}`
-              }
-              alt={show.name}
-            />
-          </div>
-          <div className="flex-2">
-            <h1 className="text-4xl font-bold mb-4">
-              {" "}
-              {show?.adult && (
-                <span className="text-sm px-3 py-1 rounded-md m-2 bg-red-600 text-white z-20">
-                  Adult
-                </span>
-              )}
-              <Link
-                className="hover:text-surface-200 hover:underline"
-                href={titlePath("tv", show.id, show.name)}
-              >
-                <h1 className="text-xl font-bold">{show.name}</h1>
-              </Link>
-            </h1>
-
-            <div className="text-5xl font-bold my-3">Cast &amp; Crew</div>
-            {/* <div className="mb-4  text-gray-400">
-              <span>Staring: </span>
-              {cast?.slice(0, 5).map((item: any, index: number) =>
-                cast?.slice(0, 5).length - 1 > index ? (
-                  <Link
-                    key={item.id}
-                    className={
-                      " inline-block hover:underline  px-1 whitespace-nowrap"
-                    }
-                    href={`/app/person/${item.id}`}
-                  >
-                    {item.name},
-                  </Link>
-                ) : (
-                  <Link
-                    key={item.id}
-                    className={
-                      " inline-block hover:underline px-1 whitespace-nowrap"
-                    }
-                    href={`/app/person/${item.id}`}
-                  >
-                    {item.name}
-                  </Link>
-                )
-              )}
-            </div> */}
-          </div>
-        </div>
-      </div>
-      <div className="mx-auto my-3 w-full max-w-6xl px-4 pb-16">
-        {cast.length > 0 && (
-          <>
-            <div className="mb-4 flex items-baseline gap-2">
-              <div className="h-5 w-1 rounded-full bg-brand-500" />
-              <div>
-                <h2 className="text-lg font-bold text-white">Cast</h2>
-                {/* The count is the point of this page now. It used to say 8. */}
-                <p className="text-xs text-surface-500">{cast.length} across the series</p>
-              </div>
-            </div>
-            <div className="mb-12 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {cast.map((item) => (
-                <Link
-                  key={item.id}
-                  className="flex items-center gap-3 rounded-xl border border-surface-800/50 bg-surface-900/30 p-2.5 transition-colors hover:border-brand-500/40 hover:bg-surface-800/40"
-                  href={personPath(item.id, item.name)}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    className="size-14 shrink-0 rounded-lg object-cover"
-                    src={
-                      item.profile_path
-                        ? `https://image.tmdb.org/t/p/w185${item.profile_path}`
-                        : "/avatar.svg"
-                    }
-                    alt=""
-                    loading="lazy"
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-white">{item.name}</p>
-                    {item.character && (
-                      <p className="truncate text-xs text-surface-400">{item.character}</p>
-                    )}
-                    {item.episodeCount > 0 && (
-                      /* What `credits` could never tell you, and the only honest
-                         way to read a 348-name list: who was actually in it. */
-                      <p className="mt-0.5 text-[11px] tabular-nums text-surface-500">
-                        {item.episodeCount} episode{item.episodeCount === 1 ? "" : "s"}
-                      </p>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </>
-        )}
-
-        {crew.length > 0 && (
-          <>
-            <div className="mb-4 flex items-baseline gap-2">
-              <div className="h-5 w-1 rounded-full bg-brand-500" />
-              <div>
-                <h2 className="text-lg font-bold text-white">Crew</h2>
-                <p className="text-xs text-surface-500">{crew.length} people</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-              {crew.map((item) => (
-                <Link
-                  className="group flex flex-col items-center"
-                  key={`${item.id}-${item.job ?? item.department ?? ""}`}
-                  href={personPath(item.id, item.name)}
-                >
-                  <div className="aspect-[2/3] w-full overflow-hidden rounded-lg bg-surface-800">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      className="size-full object-cover transition-opacity group-hover:opacity-80"
-                      src={
-                        item.profile_path
-                          ? `https://image.tmdb.org/t/p/w342${item.profile_path}`
-                          : "/avatar.svg"
-                      }
-                      alt={item.name}
-                      loading="lazy"
-                    />
-                  </div>
-                  <p className="mt-2 text-center text-sm text-white">{item.name}</p>
-                  <p className="text-center text-xs text-surface-500">
-                    {item.job || item.department}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+    <div className="min-h-screen bg-surface-950">
+      <CreditsHero
+        mediaType="tv"
+        id={show.id}
+        title={show.name}
+        posterPath={show.poster_path}
+        backdropPath={show.backdrop_path}
+        adult={show.adult}
+      />
+      <CreditsDirectory cast={cast} crew={crew} />
     </div>
   );
 }

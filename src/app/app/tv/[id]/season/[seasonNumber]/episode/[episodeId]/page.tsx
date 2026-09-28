@@ -2,8 +2,8 @@ import React from "react";
 import Link from "@components/ui/AppLink";
 import { notFound } from "next/navigation";
 import { FaChevronRight, FaChevronLeft, FaStar } from "react-icons/fa";
-import ImageViewEpisode from "@components/clientComponent/imageViewEpisode";
-import VideoEpisode from "@components/clientComponent/videoEpisode";
+import MediaGallery from "@components/detail/MediaGallery";
+import VideoShelf from "@components/detail/VideoShelf";
 import MarkEpisodeWatched from "@components/tv/MarkEpisodeWatched";
 import EpisodeSpoilerGate from "@components/tv/EpisodeSpoilerGate";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
@@ -38,7 +38,7 @@ interface EpisodeDetails {
     profile_path: string | null;
   }[];
   images: { stills: { file_path: string }[] };
-  videos: { key: string; type: string; site: string }[];
+  videos: { key: string; name: string; type: string; site: string; official?: boolean; published_at?: string }[];
 }
 
 interface PageProps {
@@ -398,7 +398,7 @@ const EpisodePage = async ({ params }: PageProps) => {
               </div>
             </div>
             <EpisodeSpoilerGate showId={id} seasonNumber={seasonNum} episodeNumber={episode.episode_number} label="the stills">
-              <ImageViewEpisode Bimages={episode.images.stills} />
+              <MediaGallery backdrops={episode.images.stills} title={`${seriesName}: ${episode.name}`} />
             </EpisodeSpoilerGate>
           </div>
         )}
@@ -413,7 +413,7 @@ const EpisodePage = async ({ params }: PageProps) => {
                 <p className="text-sm text-surface-500 mt-0.5">{episode.videos.length} videos</p>
               </div>
             </div>
-            <VideoEpisode videos={episode.videos} />
+            <VideoShelf videos={episode.videos} />
           </div>
         )}
 

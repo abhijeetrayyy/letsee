@@ -25,6 +25,7 @@ import TitleVitals from "@components/detail/TitleVitals";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import ShareModal from "@components/social/ShareModal";
 import { useMounted } from "@/hooks/useMounted";
+import { titlePath } from "@/utils/urls";
 
 /**
  * A series page, which is not a film page with more rows.
@@ -237,6 +238,10 @@ export default function TvDetailClient({
           room={<TheRoom itemId={show.id} itemType="tv" />}
         />
 
+        <Section title="Where to watch">
+          <Availability mediaId={show.id} mediaType="tv" />
+        </Section>
+
         <Section title="Episodes">
           <SeasonBrowser
             showId={show.id}
@@ -248,7 +253,7 @@ export default function TvDetailClient({
 
         {cast.length > 0 && (
           <Section title="Cast" subtitle={`${cast.length} regulars`}>
-            <CastRow cast={cast} />
+            <CastRow cast={cast} fullCreditsHref={`${titlePath("tv", show.id, show.name)}/cast`} />
           </Section>
         )}
 
@@ -270,10 +275,6 @@ export default function TvDetailClient({
         {/* Watching, writing and reading what others wrote are one act of
             attention, so they sit together rather than being split across the
             page. */}
-        <Section title="Where to watch">
-          <Availability mediaId={show.id} mediaType="tv" />
-        </Section>
-
         {/* Not a grid any more: its right column held only "Who's here", which
             now sits beside the details where it can be seen. */}
         <div className="space-y-10">

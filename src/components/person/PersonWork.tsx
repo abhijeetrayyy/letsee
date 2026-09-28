@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import MediaCard from "@components/cards/MediaCard";
 import SeenOf from "@components/ui/SeenOf";
 import type { Credit } from "@/utils/person/model";
+import { Search } from "lucide-react";
 
 /**
  * A filmography is a wall of posters, not a table of rows.
@@ -125,9 +126,20 @@ export default function PersonWork({
   credits: Credit[];
   knownForDepartment: string | null;
 }) {
+  const [query, setQuery] = useState("");
+  const [mediaType, setMediaType] = useState<"all" | "movie" | "tv">("all");
+  const [sort, setSort] = useState<"newest" | "popular">("newest");
+
   const { screen, behind } = useMemo(() => {
-    const work = credits.filter((c) => c.bucket === "performance" || c.bucket === "presenting");
+    const needle = query.trim().toLowerCase();
+    const work = credits.filter((c) => {
+      if (c.bucket !== "performance" && c.bucket !== "presenting") return false;
+      if (mediaType !== "all" && c.mediaType !== mediaType) return false;
+      if (!needle) return true;
+      return [c.title, ...c.characters, ...c.jobs].some((value) => value.toLowerCase().includes(needle));
+    });
     const byDate = (a: Credit, b: Credit) => {
+      if (sort === "popular") return b.voteCount - a.voteCount || b.voteAverage - a.voteAverage;
       if (!a.date && !b.date) return b.voteCount - a.voteCount;
       if (!a.date) return 1;
       if (!b.date) return -1;
@@ -137,7 +149,7 @@ export default function PersonWork({
       screen: work.filter((c) => c.characters.length > 0).sort(byDate),
       behind: work.filter((c) => c.isCrew && c.jobs.length > 0).sort(byDate),
     };
-  }, [credits]);
+  }, [credits, mediaType, query, sort]);
 
   /**
    * Both lists are always on screen, and the order follows the person.
@@ -153,23 +165,65 @@ export default function PersonWork({
   const screenBlock = screen.length > 0 && (
     <div key="screen">
       <Heading title="On screen" count={screen.length} />
-      <CreditGrid credits={screen} mode="screen" primary={!behindFirst} />
+      <CreditGrid key={`screen-${query}-${mediaType}-${sort}`} credits={screen} mode="screen" primary={!behindFirst} />
     </div>
   );
   const behindBlock = behind.length > 0 && (
     <div key="behind">
       <Heading title="Behind the camera" count={behind.length} />
-      <CreditGrid credits={behind} mode="behind" primary={behindFirst} />
+      <CreditGrid key={`behind-${query}-${mediaType}-${sort}`} credits={behind} mode="behind" primary={behindFirst} />
     </div>
   );
-
-  if (!screenBlock && !behindBlock) return null;
 
   return (
     <div className="space-y-12">
       {/* The bounded set: how much of this person's work you have seen. */}
       <SeenOf items={credits.filter((c) => c.mediaType === "movie" || c.mediaType === "tv").map((c) => ({ id: c.id, type: c.mediaType }))} noun="of their titles" className="mb-4" />
-      {behindFirst ? [behindBlock, screenBlock] : [screenBlock, behindBlock]}
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-surface-800/70 bg-surface-900/40 p-3 sm:flex-row sm:items-center">
+        <label className="flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-surface-700 bg-surface-950/60 px-3 focus-within:border-brand-500/50">
+          <Search className="size-4 text-surface-500" />
+          <span className="sr-only">Search filmography</span>
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search titles or roles"
+            className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-surface-600"
+          />
+        </label>
+        <div className="flex gap-1 rounded-xl bg-surface-950/60 p-1" aria-label="Media type">
+          {(["all", "movie", "tv"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setMediaType(value)}
+              className={`min-h-9 rounded-lg px-3 text-xs font-medium capitalize transition-colors ${mediaType === value ? "bg-surface-700 text-white" : "text-surface-400 hover:text-white"}`}
+            >
+              {value === "all" ? "All" : value === "tv" ? "TV" : "Movies"}
+            </button>
+          ))}
+        </div>
+        <select
+          value={sort}
+          onChange={(event) => setSort(event.target.value as "newest" | "popular")}
+          aria-label="Sort filmography"
+          className="min-h-11 rounded-xl border border-surface-700 bg-surface-950/60 px-3 text-sm text-surface-200 outline-none focus:border-brand-500/50"
+        >
+          <option value="newest">Newest first</option>
+          <option value="popular">Most popular</option>
+        </select>
+      </div>
+
+      {screenBlock || behindBlock ? (
+        behindFirst ? [behindBlock, screenBlock] : [screenBlock, behindBlock]
+      ) : (
+        <div className="rounded-xl border border-dashed border-surface-700 px-5 py-12 text-center">
+          <p className="font-medium text-surface-300">No matching credits</p>
+          <button type="button" onClick={() => { setQuery(""); setMediaType("all"); }} className="mt-2 text-sm text-brand-400 hover:text-brand-300">
+            Clear filters
+          </button>
+        </div>
+      )}
     </div>
   );
 }
