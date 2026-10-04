@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
-import { fetchTmdbJson } from "@/utils/tmdbClient";
+import { fetchTmdbJson, tmdbConfigured } from "@/utils/tmdbClient";
 import { applyRows } from "@/utils/importApply";
 
 export const dynamic = "force-dynamic";
@@ -73,13 +73,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   // Fetch the real record rather than trusting the client's title/poster: the
   // id is the only part of that payload worth believing.
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return jsonError("TMDB is not configured", 500);
+  if (!tmdbConfigured()) return jsonError("TMDB is not configured", 500);
 
   let detail: TmdbDetail;
   try {
     detail = await fetchTmdbJson<TmdbDetail>(
-      `${TMDB_BASE}/${tmdbType}/${encodeURIComponent(tmdbId)}?api_key=${apiKey}`,
+      `${TMDB_BASE}/${tmdbType}/${encodeURIComponent(tmdbId)}`,
       { timeoutMs: 8000 },
     );
   } catch {

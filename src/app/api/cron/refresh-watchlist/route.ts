@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/server";
 import { guardCron } from "@/utils/cronAuth";
 import { jsonError } from "@/utils/apiResponse";
-import { fetchTmdbJson } from "@/utils/tmdbClient";
+import { fetchTmdbJson, tmdbConfigured } from "@/utils/tmdbClient";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -71,8 +71,7 @@ export async function GET(request: Request) {
   const denied = guardCron(request);
   if (denied) return denied;
 
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return jsonError("TMDB API key is missing", 500);
+  if (!tmdbConfigured()) return jsonError("TMDB_READ_TOKEN is missing", 500);
 
   const supabase = createAdminClient();
   const started = Date.now();
@@ -146,7 +145,7 @@ export async function GET(request: Request) {
     if (overBudget()) break;
     let res: ProvidersResponse;
     try {
-      res = await fetchTmdbJson<ProvidersResponse>(`${TMDB}/${t.item_type}/${t.item_id}/watch/providers?api_key=${apiKey}`, { timeoutMs: 8000 });
+      res = await fetchTmdbJson<ProvidersResponse>(`${TMDB}/${t.item_type}/${t.item_id}/watch/providers`, { timeoutMs: 8000 });
     } catch {
       continue;
     }
@@ -276,7 +275,7 @@ export async function GET(request: Request) {
       if (overBudget()) break;
       let show: ShowResponse;
       try {
-        show = await fetchTmdbJson<ShowResponse>(`${TMDB}/tv/${showId}?api_key=${apiKey}&language=en-US`, { timeoutMs: 8000 });
+        show = await fetchTmdbJson<ShowResponse>(`${TMDB}/tv/${showId}?language=en-US`, { timeoutMs: 8000 });
       } catch {
         continue;
       }
@@ -346,7 +345,7 @@ export async function GET(request: Request) {
       for (const type of ["movie", "tv"] as const) {
         try {
           const d = await fetchTmdbJson<DiscoverResponse>(
-            `${TMDB}/discover/${type}?api_key=${apiKey}&watch_region=${pair.region}&with_watch_providers=${pair.provider_id}&with_watch_monetization_types=flatrate&sort_by=popularity.desc&vote_count.gte=50&page=1`,
+            `${TMDB}/discover/${type}?watch_region=${pair.region}&with_watch_providers=${pair.provider_id}&with_watch_monetization_types=flatrate&sort_by=popularity.desc&vote_count.gte=50&page=1`,
             { timeoutMs: 8000 },
           );
           for (const r of d.results ?? []) {

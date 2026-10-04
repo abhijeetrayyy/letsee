@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { parseRouteId, titlePath } from "@/utils/urls";
 import { seriesCast } from "@/utils/title/tvCast";
 import { seriesCrew } from "@/utils/title/tvCrew";
+import { getSeriesPeople } from "@/utils/title/seriesPeople";
 import type { Metadata } from "next";
 import CreditsHero from "@components/detail/CreditsHero";
 import CreditsDirectory from "@components/detail/CreditsDirectory";
@@ -47,7 +48,7 @@ interface PageProps {
 
 async function getShowDetails(id: string) {
   return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}`,
+    `https://api.themoviedb.org/3/tv/${id}`,
     "TV show details",
     {
       // Top level, not `next: { revalidate }`. tmdbFetchJson reads it here and
@@ -72,26 +73,29 @@ async function getShowDetails(id: string) {
  * aggregate entry carries `total_episode_count`, which is what "main cast"
  * means for television and cannot be derived from billing order.
  *
- * Both are fetched. `seriesCast` and `seriesCrew` fall back to the stub for the
- * handful of shows TMDB holds no aggregate for.
+ * Both are fetched. The page falls back to the stub for the handful of shows
+ * TMDB holds no aggregate for.
+ *
+ * No cap on the cast here, unlike the twenty on the detail page's row. This
+ * page is the place the full list is supposed to live — capping it would
+ * reproduce the exact fault it exists to fix. Crew stays capped per
+ * department, because ninety directors would otherwise bury the composer.
+ *
+ * Reduced before caching, as on the detail page: SVU's raw aggregate is 2.6MB,
+ * over Next's data-cache limit, so fetched directly it was never cached and was
+ * downloaded twice per render.
  */
-async function getShowCredit(id: string) {
-  return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/tv/${id}/aggregate_credits?api_key=${process.env.TMDB_API_KEY}&language=en-US`,
-    "TV show credits",
-    {
-      // Top level, not `next: { revalidate }`. tmdbFetchJson reads it here and
-      // ignores the nested form, so these calls were running `no-store` — which
-      // was invisible until the page became static and Next refused to serve a
-      // prerender that re-fetched on every request.
-      revalidate: 86400,
-    }
-  );
+async function getShowPeople(id: string) {
+  return getSeriesPeople(id, {
+    castLimit: Number.MAX_SAFE_INTEGER,
+    crewPerDepartment: 12,
+    revalidate: 86400,
+  });
 }
 
 async function getShowCreditFallback(id: string) {
   return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/tv/${id}/credits?api_key=${process.env.TMDB_API_KEY}&language=en-US`,
+    `https://api.themoviedb.org/3/tv/${id}/credits?language=en-US`,
     "TV show credits",
     {
       // Top level, not `next: { revalidate }`. tmdbFetchJson reads it here and
@@ -112,9 +116,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: "Cast & Crew", description: "Cast and crew information" };
   }
 
-  const [showResult, creditsResult] = await Promise.all([
+  const [showResult, peopleResult] = await Promise.all([
     getShowDetails(numericId),
-    getShowCredit(numericId),
+    getShowPeople(numericId),
   ]);
   const show = showResult.data;
   if (!show?.name) {
@@ -124,9 +128,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
-  // Through the same helper the page body uses, so the names in the description
+  // The same ranked list the page body shows, so the names in the description
   // are the ones highest up the page rather than TMDB's billing order.
-  const cast = seriesCast(creditsResult.data, undefined, 6);
+  const cast = (peopleResult.data?.cast ?? []).slice(0, 6);
   const creators: any[] = show.created_by ?? [];
   const leads = cast.map((c) => c.name);
 
@@ -164,17 +168,17 @@ async function page({ params }: PageProps) {
     return notFound();
   }
 
-  const [showResult, creditsResult, stubResult] = await Promise.all([
+  const [showResult, peopleResult, stubResult] = await Promise.all([
     getShowDetails(numericId),
-    getShowCredit(numericId),
+    getShowPeople(numericId),
     getShowCreditFallback(numericId),
   ]);
 
-  const errors = [showResult.error, creditsResult.error].filter(
+  const errors = [showResult.error, peopleResult.error].filter(
     Boolean
   ) as string[];
 
-  if (!showResult.data || !creditsResult.data) {
+  if (!showResult.data || !peopleResult.data) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-raised text-ink-200 p-4">
         <div className="max-w-sheet text-center">
@@ -195,14 +199,11 @@ async function page({ params }: PageProps) {
   }
 
   const show = showResult.data;
-  /**
-   * No cap on the cast here, unlike the twenty on the detail page's row. This
-   * page is the place the full list is supposed to live — capping it would
-   * reproduce the exact fault it exists to fix. Crew stays capped per
-   * department, because ninety directors would otherwise bury the composer.
-   */
-  const cast = seriesCast(creditsResult.data, stubResult.data?.cast, Number.MAX_SAFE_INTEGER);
-  const crew = seriesCrew(creditsResult.data, stubResult.data?.crew, 12);
+  const people = peopleResult.data;
+  const cast = people.cast.length
+    ? people.cast
+    : seriesCast(undefined, stubResult.data?.cast, Number.MAX_SAFE_INTEGER);
+  const crew = people.crew.length ? people.crew : seriesCrew(undefined, stubResult.data?.crew);
   return (
     <div className="min-h-screen bg-page">
       <CreditsHero

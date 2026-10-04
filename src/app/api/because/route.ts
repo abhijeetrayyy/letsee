@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { serverFetchJson } from "@/utils/serverFetch";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 import { rankBecause, type BecauseCandidate, type BecauseItem } from "@/utils/title/because";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 
 /**
  * "Because you love …": titles to watch next from one favourite.
@@ -29,8 +30,7 @@ type TmdbTitle = {
 };
 
 export async function GET(request: NextRequest) {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return jsonError("TMDB API key is missing on the server.", 500);
+  if (!tmdbConfigured()) return jsonError("TMDB_READ_TOKEN is missing on the server.", 500);
 
   const params = new URL(request.url).searchParams;
   const type = params.get("type");
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
   let data: TmdbTitle;
   try {
-    data = await serverFetchJson(`https://api.themoviedb.org/3/${type}/${id}?api_key=${apiKey}&append_to_response=recommendations,similar`, { timeoutMs: 8000 });
+    data = await serverFetchJson(`https://api.themoviedb.org/3/${type}/${id}?append_to_response=recommendations,similar`, { timeoutMs: 8000 });
   } catch (err) {
     return jsonError((err as Error).message ?? "Failed to fetch recommendations.", 502);
   }

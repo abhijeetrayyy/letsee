@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import { fetchTmdb } from "@/utils/tmdbClient";
+import { fetchTmdb, tmdbConfigured } from "@/utils/tmdbClient";
 import { seasonRuntimes, type Ep, type SeasonRuntime } from "@/utils/title/glance";
 
 /**
@@ -34,10 +34,9 @@ class Partial extends Error {
 }
 
 async function measure(showId: string, list: { season_number: number; episode_count?: number | null }[], lastAired: Ep) {
-  const key = process.env.TMDB_API_KEY;
   const payloads: SeasonPayload[] = await Promise.all(
     list.map((s) =>
-      fetchTmdb(`https://api.themoviedb.org/3/tv/${showId}/season/${s.season_number}?api_key=${key}`, { cache: "no-store" })
+      fetchTmdb(`https://api.themoviedb.org/3/tv/${showId}/season/${s.season_number}`, { cache: "no-store" })
         .then((r) => (r.ok ? (r.json() as Promise<SeasonPayload>) : null))
         .catch(() => null),
     ),
@@ -59,7 +58,7 @@ export async function seriesRuntime(
   seasons: { season_number: number; episode_count?: number | null }[],
   lastAired: Ep | null,
 ): Promise<SeasonRuntime[] | null> {
-  if (!lastAired || !process.env.TMDB_API_KEY) return null;
+  if (!lastAired || !tmdbConfigured()) return null;
   // A special as the last episode out says nothing about the regular ones —
   // read it as "everything listed has aired", as progressOf does.
   if (lastAired.s <= 0) {

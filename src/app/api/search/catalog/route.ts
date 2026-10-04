@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import { tmdbFetchJson } from "@/utils/tmdb";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 import { normalizeQuery, type IndexRow } from "@/utils/searchIndex";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 
 /**
  * The public half of the local search index.
@@ -29,7 +30,6 @@ import { normalizeQuery, type IndexRow } from "@/utils/searchIndex";
 export const revalidate = 3600;
 
 const BASE = "https://api.themoviedb.org/3";
-const KEY = process.env.TMDB_API_KEY;
 
 /** 10 pages × 20 results × 2 media types, plus 2 pages of people. */
 const TITLE_PAGES = 10;
@@ -66,11 +66,11 @@ function year(value: string | undefined): number | null {
 async function buildRows(): Promise<IndexRow[]> {
   const urls: { url: string; t: IndexRow["t"] }[] = [];
   for (let page = 1; page <= TITLE_PAGES; page++) {
-    urls.push({ url: `${BASE}/movie/popular?api_key=${KEY}&page=${page}`, t: "movie" });
-    urls.push({ url: `${BASE}/tv/popular?api_key=${KEY}&page=${page}`, t: "tv" });
+    urls.push({ url: `${BASE}/movie/popular?page=${page}`, t: "movie" });
+    urls.push({ url: `${BASE}/tv/popular?page=${page}`, t: "tv" });
   }
   for (let page = 1; page <= PERSON_PAGES; page++) {
-    urls.push({ url: `${BASE}/person/popular?api_key=${KEY}&page=${page}`, t: "person" });
+    urls.push({ url: `${BASE}/person/popular?page=${page}`, t: "person" });
   }
 
   // `revalidate` must be top level — tmdbClient reads it there and ignores a
@@ -107,7 +107,7 @@ async function buildRows(): Promise<IndexRow[]> {
 }
 
 export async function GET() {
-  if (!KEY) return jsonError("TMDB_API_KEY is missing on the server.", 500);
+  if (!tmdbConfigured()) return jsonError("TMDB_READ_TOKEN is missing on the server.", 500);
 
   const rows = await unstable_cache(buildRows, ["search-index-v2"], {
     revalidate: TTL,

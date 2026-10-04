@@ -14,7 +14,7 @@
  */
 
 import { distance } from "fastest-levenshtein";
-import { fetchTmdbJson } from "@/utils/tmdbClient";
+import { fetchTmdbJson, tmdbConfigured } from "@/utils/tmdbClient";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
@@ -148,12 +148,10 @@ export async function resolveTitle(
    */
   mediaHint: "movie" | "tv" | null = null,
 ): Promise<ResolveOutcome> {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return { status: "unresolved", candidates: [] };
+  if (!tmdbConfigured()) return { status: "unresolved", candidates: [] };
   const tmdbType: "movie" | "tv" = mediaHint === "tv" ? "tv" : "movie";
 
   const params = new URLSearchParams({
-    api_key: apiKey,
     query: title,
     include_adult: "false",
     language: "en-US",
@@ -290,11 +288,10 @@ export async function resolveByTmdbId(
   tmdbId: string,
   tmdbType: "movie" | "tv",
 ): Promise<ResolvedTitle | null> {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey || !/^\d+$/.test(tmdbId)) return null;
+  if (!tmdbConfigured() || !/^\d+$/.test(tmdbId)) return null;
   try {
     const d = await fetchTmdbJson<TmdbDetail>(
-      `${TMDB_BASE}/${tmdbType}/${tmdbId}?api_key=${apiKey}&language=en-US`,
+      `${TMDB_BASE}/${tmdbType}/${tmdbId}?language=en-US`,
       { timeoutMs: 8000 },
     );
     return d?.id ? fromDetail(d, tmdbType, "tmdb-id") : null;
@@ -318,8 +315,7 @@ export async function resolveByExternalId(
   genreNameById: Map<number, string>,
   mediaHint: "movie" | "tv" | null,
 ): Promise<ResolvedTitle | null> {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return null;
+  if (!tmdbConfigured()) return null;
   const attempts: [string, string][] = [];
   if (ids.imdbId && /^tt\d+$/.test(ids.imdbId)) attempts.push([ids.imdbId, "imdb_id"]);
   if (ids.tvdbId && /^\d+$/.test(ids.tvdbId)) attempts.push([ids.tvdbId, "tvdb_id"]);
@@ -327,7 +323,7 @@ export async function resolveByExternalId(
   for (const [id, source] of attempts) {
     try {
       const found = await fetchTmdbJson<FindResponse>(
-        `${TMDB_BASE}/find/${encodeURIComponent(id)}?api_key=${apiKey}&external_source=${source}`,
+        `${TMDB_BASE}/find/${encodeURIComponent(id)}?external_source=${source}`,
         { timeoutMs: 8000 },
       );
       const movie = found.movie_results?.[0];
@@ -353,11 +349,10 @@ export async function resolveEpisodeNumbers(
   names: string[],
 ): Promise<Map<string, number>> {
   const out = new Map<string, number>();
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey || names.length === 0) return out;
+  if (!tmdbConfigured() || names.length === 0) return out;
   try {
     const season = await fetchTmdbJson<{ episodes?: { episode_number: number; name?: string }[] }>(
-      `${TMDB_BASE}/tv/${showId}/season/${seasonNumber}?api_key=${apiKey}&language=en-US`,
+      `${TMDB_BASE}/tv/${showId}/season/${seasonNumber}?language=en-US`,
       { timeoutMs: 8000 },
     );
     const episodes = (season.episodes ?? []).map((e) => ({ n: e.episode_number, name: normalizeTitle(e.name ?? "") }));

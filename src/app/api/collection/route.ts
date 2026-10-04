@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { serverFetchJson } from "@/utils/serverFetch";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 
 /**
  * The films in a collection, in the order they were released.
@@ -58,9 +59,8 @@ export type CollectionResponse = {
 };
 
 export async function GET(request: NextRequest) {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) {
-    return jsonError("TMDB API key is missing on the server.", 500);
+  if (!tmdbConfigured()) {
+    return jsonError("TMDB_READ_TOKEN is missing on the server.", 500);
   }
 
   const id = new URL(request.url).searchParams.get("id");
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
   let data: TmdbCollection;
   try {
     data = await serverFetchJson<TmdbCollection>(
-      `https://api.themoviedb.org/3/collection/${id}?api_key=${apiKey}`,
+      `https://api.themoviedb.org/3/collection/${id}`,
       { timeoutMs: 8000 },
     );
   } catch (err) {

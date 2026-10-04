@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { serverFetchJson } from "@/utils/serverFetch";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 import { Countrydata } from "@/staticData/countryName";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 
 type WatchProvider = {
   provider_id: number;
@@ -84,14 +85,13 @@ function hasAnyOffer(offers: RegionOffers | undefined): boolean {
 }
 
 export async function GET(request: NextRequest) {
-  const apiKey = process.env.TMDB_API_KEY;
   const { searchParams } = new URL(request.url);
   const mediaType = searchParams.get("mediaType");
   const mediaId = searchParams.get("mediaId");
   const country = (searchParams.get("country") || "US").slice(0, 2).toUpperCase();
 
-  if (!apiKey) {
-    return jsonError("TMDB API key is missing on the server.", 500);
+  if (!tmdbConfigured()) {
+    return jsonError("TMDB_READ_TOKEN is missing on the server.", 500);
   }
 
   if (!mediaId || !/^\d+$/.test(mediaId)) {
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
 
   // `watch/providers` with a slash, as its own request. `watch_providers` is
   // not a valid append_to_response key — measured, TMDB silently omits it.
-  const url = `https://api.themoviedb.org/3/${mediaType}/${mediaId}/watch/providers?api_key=${apiKey}`;
+  const url = `https://api.themoviedb.org/3/${mediaType}/${mediaId}/watch/providers`;
 
   let data: { results?: Record<string, RegionOffers> };
   try {

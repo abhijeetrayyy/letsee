@@ -8,9 +8,9 @@ import { tmdbFetchJson } from "@/utils/tmdb";
 import { MAX_BROWSE_PAGE, type BrowseFilterKey, type BrowseParams } from "@/utils/browseUrl";
 import { buildDiscoverQuery } from "@/utils/browseQuery";
 import { genreLabel, languageLabel } from "@/staticData/browseFilters";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 
 const BASE = "https://api.themoviedb.org/3";
-const KEY = process.env.TMDB_API_KEY;
 
 export type BrowseItem = {
   id: number;
@@ -35,7 +35,7 @@ const RESULTS_TTL = 3600;
  * their own fresh object, and the fetches would double rather than dedupe.
  */
 const entityName = cache(async (kind: string, id: string): Promise<string | null> => {
-  if (!KEY) return null;
+  if (!tmdbConfigured()) return null;
   const path =
     kind === "keyword" ? `keyword/${id}`
     : kind === "company" ? `company/${id}`
@@ -48,7 +48,7 @@ const entityName = cache(async (kind: string, id: string): Promise<string | null
   // `next: { revalidate }` object, which is why the old genre list pages were
   // uncached without anyone noticing.
   const { data } = await tmdbFetchJson<{ name?: string }>(
-    `${BASE}/${path}?api_key=${KEY}`,
+    `${BASE}/${path}`,
     `browse:${kind}`,
     { revalidate: LABEL_TTL },
   );
@@ -79,14 +79,14 @@ export async function resolveLabels(
 export async function loadResults(
   p: BrowseParams,
 ): Promise<{ items: BrowseItem[]; totalPages: number; total: number }> {
-  if (!KEY) return { items: [], totalPages: 0, total: 0 };
+  if (!tmdbConfigured()) return { items: [], totalPages: 0, total: 0 };
 
   // A collection is not a discover query — TMDB has no `with_collection`
   // parameter. It is a different source feeding the same grid, which is what
   // keeps this one page type rather than two.
   if (p.collection) {
     const { data } = await tmdbFetchJson<{ parts?: BrowseItem[] }>(
-      `${BASE}/collection/${p.collection}?api_key=${KEY}&language=en-US`,
+      `${BASE}/collection/${p.collection}?language=en-US`,
       "browse:collection",
       { revalidate: RESULTS_TTL },
     );
@@ -120,7 +120,7 @@ export async function loadResults(
     total_pages?: number;
     total_results?: number;
   }>(
-    `${BASE}/discover/${p.type}?${buildDiscoverQuery(p, KEY).toString()}`,
+    `${BASE}/discover/${p.type}?${buildDiscoverQuery(p).toString()}`,
     "browse:discover",
     { revalidate: RESULTS_TTL },
   );

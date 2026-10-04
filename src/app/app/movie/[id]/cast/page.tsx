@@ -78,7 +78,7 @@ type MovieWithCredits = MovieDetails & { credits?: CreditResponse };
 /** Single TMDB call: movie details + credits (2 → 1). */
 async function getMovieWithCredits(id: string) {
   return tmdbFetchJson<MovieWithCredits>(
-    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits`,
+    `https://api.themoviedb.org/3/movie/${id}?append_to_response=credits`,
     "Movie cast",
     {
       // Top level, not `next: { revalidate }`. tmdbFetchJson reads it here and

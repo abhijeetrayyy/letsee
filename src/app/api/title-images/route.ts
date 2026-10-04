@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
-import { fetchTmdbJson } from "@/utils/tmdbClient";
+import { fetchTmdbJson, tmdbConfigured } from "@/utils/tmdbClient";
 
 const TMDB = "https://api.themoviedb.org/3";
 
@@ -14,8 +14,7 @@ const TMDB = "https://api.themoviedb.org/3";
 type Image = { file_path: string; iso_639_1: string | null; vote_average: number; width: number; height: number };
 
 export async function GET(req: NextRequest) {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return jsonError("TMDB is not configured", 500);
+  if (!tmdbConfigured()) return jsonError("TMDB is not configured", 500);
 
   const type = req.nextUrl.searchParams.get("type") === "tv" ? "tv" : "movie";
   const id = req.nextUrl.searchParams.get("id") ?? "";
@@ -23,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const data = await fetchTmdbJson<{ posters?: Image[] }>(
-      `${TMDB}/${type}/${id}/images?api_key=${apiKey}&include_image_language=en,null,hi,ja,ko,fr,es,de,it`,
+      `${TMDB}/${type}/${id}/images?include_image_language=en,null,hi,ja,ko,fr,es,de,it`,
       { timeoutMs: 8000, revalidate: 86400 },
     );
     const posters = (data.posters ?? [])

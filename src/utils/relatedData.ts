@@ -10,6 +10,7 @@ import {
   type RelatedItem,
   type RelatedSeed,
 } from "@/utils/related";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 
 /**
  * The side of D5 that needs a network and a database.
@@ -26,7 +27,6 @@ import {
  */
 
 const BASE = "https://api.themoviedb.org/3";
-const KEY = process.env.TMDB_API_KEY;
 
 /**
  * Enrich exactly as many as we show, and no more.
@@ -60,9 +60,9 @@ type Raw = Record<string, unknown>;
  */
 const keywordsFor = unstable_cache(
   async (mediaType: MediaType, id: number): Promise<number[]> => {
-    if (!KEY) return [];
+    if (!tmdbConfigured()) return [];
     const { data } = await tmdbFetchJson<Raw>(
-      `${BASE}/${mediaType}/${id}/keywords?api_key=${KEY}`,
+      `${BASE}/${mediaType}/${id}/keywords`,
       "related:keywords",
       { revalidate: KEYWORD_TTL },
     );
@@ -90,14 +90,14 @@ const keywordsFor = unstable_cache(
  */
 const filmographyFor = unstable_cache(
   async (mediaType: MediaType, personIds: number[]): Promise<number[]> => {
-    if (!KEY || personIds.length === 0) return [];
+    if (!tmdbConfigured() || personIds.length === 0) return [];
     const ids = new Set<number>();
 
     await Promise.all(
       personIds.slice(0, 2).map(async (personId) => {
         if (mediaType === "movie") {
           const { data } = await tmdbFetchJson<Raw>(
-            `${BASE}/discover/movie?api_key=${KEY}&with_crew=${personId}&sort_by=popularity.desc`,
+            `${BASE}/discover/movie?with_crew=${personId}&sort_by=popularity.desc`,
             "related:filmography",
             { revalidate: FILMOGRAPHY_TTL },
           );
@@ -106,7 +106,7 @@ const filmographyFor = unstable_cache(
           }
         } else {
           const { data } = await tmdbFetchJson<Raw>(
-            `${BASE}/person/${personId}/tv_credits?api_key=${KEY}`,
+            `${BASE}/person/${personId}/tv_credits`,
             "related:tv-credits",
             { revalidate: FILMOGRAPHY_TTL },
           );
@@ -128,9 +128,9 @@ const filmographyFor = unstable_cache(
 
 const collectionPartsFor = unstable_cache(
   async (collectionId: number): Promise<number[]> => {
-    if (!KEY) return [];
+    if (!tmdbConfigured()) return [];
     const { data } = await tmdbFetchJson<Raw>(
-      `${BASE}/collection/${collectionId}?api_key=${KEY}`,
+      `${BASE}/collection/${collectionId}`,
       "related:collection",
       { revalidate: FILMOGRAPHY_TTL },
     );

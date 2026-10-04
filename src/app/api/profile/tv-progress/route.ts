@@ -4,6 +4,7 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { getAuthUserId } from "@/utils/apiAuth";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 
 const BATCH_SIZE = 3;
 const BATCH_DELAY_MS = 150;
@@ -79,8 +80,8 @@ export async function GET(req: NextRequest) {
       return jsonError("Forbidden", 403);
     }
 
-    if (!process.env.TMDB_API_KEY) {
-      return jsonError("TMDB API key is missing", 500);
+    if (!tmdbConfigured()) {
+      return jsonError("TMDB_READ_TOKEN is missing", 500);
     }
 
     // 1. Aggregate show IDs from user_media_status (canonical) plus any

@@ -74,12 +74,12 @@ describe("what browse asks TMDB for", () => {
   const today = new Date().toISOString().slice(0, 10);
   it("only titles already out, whatever the order", () => {
     for (const sort of ["popular", "rating", "votes", "new"] as const) {
-      const q = buildDiscoverQuery({ ...parseBrowseParams({ genre: "18" }), sort }, "k");
+      const q = buildDiscoverQuery({ ...parseBrowseParams({ genre: "18" }), sort });
       expect(q.get("primary_release_date.lte")).toBe(today);
     }
   });
   it("keeps a decade's own ceiling when it is earlier", () => {
-    const q = buildDiscoverQuery(parseBrowseParams({ genre: "18", decade: "1990" }), "k");
+    const q = buildDiscoverQuery(parseBrowseParams({ genre: "18", decade: "1990" }));
     expect(q.get("primary_release_date.lte")).toBe("1999-12-31");
   });
 });

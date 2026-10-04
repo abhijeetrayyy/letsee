@@ -6,6 +6,7 @@ import SeasonEpisodes from "@components/tv/SeasonEpisodes";
 import TitleTalk from "@components/takes/TitleTalk";
 import LazyFold from "@components/ds/LazyFold";
 import { getTvShowWithSeasons, getSeasonEpisodes } from "@/utils/tmdbTvShow";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 import { parseRouteId } from "@/utils/urls";
 import type { Metadata } from "next";
 import JsonLd from "@components/seo/JsonLd";
@@ -99,9 +100,8 @@ const fetchSeriesAndSeasonData = async (
   seriesId: string,
   seasonNumber: string,
 ) => {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) {
-    throw new Error("TMDb API key is missing");
+  if (!tmdbConfigured()) {
+    throw new Error("TMDB_READ_TOKEN is missing");
   }
 
   const seriesData = await getTvShowWithSeasons(seriesId);
