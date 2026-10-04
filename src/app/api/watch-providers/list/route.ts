@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { serverFetchJson } from "@/utils/serverFetch";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 
 type TmdbProvider = {
   provider_id: number;
@@ -17,13 +18,12 @@ type TmdbResponse = {
  * Returns list of watch providers for use in discover/search "Where to watch" filter.
  */
 export async function GET(request: NextRequest) {
-  const apiKey = process.env.TMDB_API_KEY;
   const { searchParams } = new URL(request.url);
   const mediaType = searchParams.get("mediaType") || "movie";
   const region = searchParams.get("region") || "US";
 
-  if (!apiKey) {
-    return jsonError("TMDB API key is missing on the server.", 500);
+  if (!tmdbConfigured()) {
+    return jsonError("TMDB_READ_TOKEN is missing on the server.", 500);
   }
 
   if (mediaType !== "movie" && mediaType !== "tv") {
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   }
 
   const path = mediaType === "movie" ? "watch/providers/movie" : "watch/providers/tv";
-  const url = `https://api.themoviedb.org/3/${path}?api_key=${apiKey}&watch_region=${encodeURIComponent(region)}`;
+  const url = `https://api.themoviedb.org/3/${path}?watch_region=${encodeURIComponent(region)}`;
 
   try {
     const data = await serverFetchJson<TmdbResponse>(url, { timeoutMs: 8000 });

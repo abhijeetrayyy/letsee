@@ -1,12 +1,48 @@
 /**
  * Central TMDB fetch with rate limiting and robust retry.
  * All TMDB requests across the app should go through fetchTmdb so we:
+ * - Authenticate with a bearer header, never a key in the URL
  * - Stay under ~40 req/s (throttle: max concurrent + min gap between starts)
  * - Retry on 429/5xx with backoff and Respect Retry-After
  * - Use consistent timeout and error handling
  */
 
 const TMDB_BASE = "https://api.themoviedb.org";
+
+/**
+ * TMDB's "API Read Access Token" (themoviedb.org → Settings → API), sent as
+ * `Authorization: Bearer`. It authenticates every v3 endpoint exactly as the
+ * old `?api_key=` did.
+ *
+ * The key used to ride in the query string, and a URL is not a place a secret
+ * survives. Next prints the full fetch URL whenever it can't write a response
+ * to the data cache — anything over 2MB as Next measures it, which `/tv/2734`
+ * with `aggregate_credits` was at 3.7MB — so the key went into the server log
+ * and, on Vercel, into production logs. Headers are never printed there; Next
+ * only hashes them into the fetch cache key, which stays stable for as long as
+ * the token does.
+ */
+function readToken(): string | undefined {
+  return process.env.TMDB_READ_TOKEN?.trim() || undefined;
+}
+
+/** Whether TMDB can be called at all. Replaces checks on the old key. */
+export function tmdbConfigured(): boolean {
+  return readToken() !== undefined;
+}
+
+let warnedUnconfigured = false;
+
+/**
+ * Drop an `api_key` a caller still put in the URL. Nothing in the app builds
+ * one any more; this keeps a stale call site from reintroducing the leak.
+ */
+function withoutApiKey(url: string): string {
+  if (!url.includes("api_key")) return url;
+  const parsed = new URL(url);
+  parsed.searchParams.delete("api_key");
+  return parsed.toString();
+}
 
 /** Throttle: max concurrent TMDB requests (stay under ~40/s per IP) */
 const MAX_CONCURRENT = 8;
@@ -82,6 +118,17 @@ export async function fetchTmdb(
     return fetch(url, options);
   }
 
+  const token = readToken();
+  if (!token) {
+    if (!warnedUnconfigured) {
+      warnedUnconfigured = true;
+      console.error("TMDB_READ_TOKEN is not set; TMDB requests are disabled.");
+    }
+    // Answered here rather than sent unauthenticated: every caller already
+    // handles a non-OK response, and TMDB would only say 401 anyway.
+    return new Response(null, { status: 401, statusText: "TMDB_READ_TOKEN is not set" });
+  }
+
   const {
     timeoutMs = DEFAULT_TIMEOUT_MS,
     maxAttempts = DEFAULT_MAX_ATTEMPTS,
@@ -89,6 +136,12 @@ export async function fetchTmdb(
     cache = revalidate != null ? "force-cache" : "no-store",
     ...restInit
   } = options;
+
+  const target = withoutApiKey(url);
+  // Built the same way on every call so Next's fetch cache key — URL plus
+  // headers — is identical for identical requests.
+  const headers = new Headers(restInit.headers);
+  headers.set("Authorization", `Bearer ${token}`);
 
   const nextOptions: RequestInit =
     cache === "no-store"
@@ -108,9 +161,10 @@ export async function fetchTmdb(
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(url, {
+      const response = await fetch(target, {
         ...nextOptions,
         ...restInit,
+        headers,
         signal: controller.signal,
       });
 

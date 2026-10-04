@@ -1,10 +1,9 @@
-import { fetchTmdb } from "@/utils/tmdbClient";
+import { fetchTmdb, tmdbConfigured } from "@/utils/tmdbClient";
 import type { createClient } from "@/utils/supabase/server";
 import { ensureFirstViewings } from "@/utils/mediaStatus";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
 
 /**
  * Ensure a show has a user_media_status row before recording episode progress.
@@ -45,10 +44,10 @@ export async function ensureShowInMediaStatus(
   }
 
   if (existing) return;
-  if (!TMDB_API_KEY) return;
+  if (!tmdbConfigured()) return;
 
   const res = await fetchTmdb(
-    `https://api.themoviedb.org/3/tv/${showId}?api_key=${TMDB_API_KEY}`,
+    `https://api.themoviedb.org/3/tv/${showId}`,
     // `fetchTmdb` falls back to `no-store` when no revalidate is given, so
     // these three call sites — which request the identical URL — were each
     // hitting TMDB fresh on every write that passed through them. Six hours
@@ -97,7 +96,7 @@ export async function autoTransitionStatus(
   userId: string,
   showId: string,
 ) {
-  if (!TMDB_API_KEY) return;
+  if (!tmdbConfigured()) return;
 
   const [{ data: statusRow }, { count: watchedCount }] = await Promise.all([
     supabase
@@ -121,7 +120,7 @@ export async function autoTransitionStatus(
   const currentStatus = (statusRow as { status?: string } | null)?.status;
 
   const res = await fetchTmdb(
-    `https://api.themoviedb.org/3/tv/${showId}?api_key=${TMDB_API_KEY}`,
+    `https://api.themoviedb.org/3/tv/${showId}`,
     // `fetchTmdb` falls back to `no-store` when no revalidate is given, so
     // these three call sites — which request the identical URL — were each
     // hitting TMDB fresh on every write that passed through them. Six hours
@@ -196,10 +195,10 @@ export async function fetchShowMeta(
   showId: string,
 ): Promise<{ name: string | null; poster: string | null; genres: string[] }> {
   const empty = { name: null, poster: null, genres: [] as string[] };
-  if (!TMDB_API_KEY) return empty;
+  if (!tmdbConfigured()) return empty;
   try {
     const res = await fetchTmdb(
-      `https://api.themoviedb.org/3/tv/${showId}?api_key=${TMDB_API_KEY}`,
+      `https://api.themoviedb.org/3/tv/${showId}`,
       { revalidate: 21600 },
     );
     if (!res.ok) return empty;

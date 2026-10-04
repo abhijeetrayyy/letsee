@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import EpisodeListWithWatched from "@components/tv/EpisodeListWithWatched";
 import TitleTalk from "@components/takes/TitleTalk";
 import { getTvShowWithSeasons, getSeasonEpisodes } from "@/utils/tmdbTvShow";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 import TvStatusSelector from "@/components/tv/TvStatusSelector";
 import { ArrowLeft, Tv, Calendar, Film } from "lucide-react";
 import { parseRouteId } from "@/utils/urls";
@@ -123,9 +124,8 @@ const fetchSeriesAndSeasonData = async (
   seriesId: string,
   seasonNumber: string,
 ) => {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) {
-    throw new Error("TMDb API key is missing");
+  if (!tmdbConfigured()) {
+    throw new Error("TMDB_READ_TOKEN is missing");
   }
 
   const seriesData = await getTvShowWithSeasons(seriesId);

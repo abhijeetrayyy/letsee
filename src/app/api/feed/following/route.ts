@@ -303,7 +303,7 @@ export async function GET(request: Request) {
         const [kind, id] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
         if (kind !== "movie" && kind !== "tv") return;
         const res = await tmdbFetchJson<{ title?: string; name?: string; poster_path?: string | null }>(
-          `https://api.themoviedb.org/3/${kind}/${encodeURIComponent(id)}?api_key=${process.env.TMDB_API_KEY}`,
+          `https://api.themoviedb.org/3/${kind}/${encodeURIComponent(id)}`,
           "feed title",
           { revalidate: 86400 },
         );

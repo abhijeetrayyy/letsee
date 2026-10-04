@@ -33,7 +33,7 @@
  */
 
 import { createAdminClient } from "@/utils/supabase/server";
-import { fetchTmdb } from "@/utils/tmdbClient";
+import { fetchTmdb, tmdbConfigured } from "@/utils/tmdbClient";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
@@ -229,9 +229,8 @@ export async function backfillTitleMetadata(
     return result;
   };
 
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) {
-    emit({ type: "notice", message: "TMDB_API_KEY is not set — nothing to do." });
+  if (!tmdbConfigured()) {
+    emit({ type: "notice", message: "TMDB_READ_TOKEN is not set — nothing to do." });
     return finish("not-configured", null);
   }
 
@@ -351,7 +350,7 @@ export async function backfillTitleMetadata(
 
         const url =
           `${TMDB_BASE}/${item.item_type === "tv" ? "tv" : "movie"}/` +
-          `${encodeURIComponent(item.item_id)}?api_key=${apiKey}&language=en-US`;
+          `${encodeURIComponent(item.item_id)}?language=en-US`;
 
         const report = (
           outcome: TitleOutcome,

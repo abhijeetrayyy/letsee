@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { fetchTmdb } from "@/utils/tmdbClient";
+import { fetchTmdb, tmdbConfigured } from "@/utils/tmdbClient";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 /** TMDB's search endpoints. Anything else 404s upstream, so it is rejected here. */
@@ -54,13 +54,11 @@ export async function GET(request: NextRequest) {
       return jsonError("Unsupported media_type", 400);
     }
 
-    if (!process.env.TMDB_API_KEY) {
-      return jsonError("TMDB_API_KEY is missing on the server.", 500);
+    if (!tmdbConfigured()) {
+      return jsonError("TMDB_READ_TOKEN is missing on the server.", 500);
     }
 
-    const url = `https://api.themoviedb.org/3/search/${mediaType}?api_key=${
-      process.env.TMDB_API_KEY
-    }&query=${encodeURIComponent(query)}&page=${page}`;
+    const url = `https://api.themoviedb.org/3/search/${mediaType}?query=${encodeURIComponent(query)}&page=${page}`;
 
     // `fetchTmdb` defaults to `no-store` when no revalidate is given, so this
     // call was re-hitting TMDB even for a repeat of the identical search. The

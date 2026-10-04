@@ -3,16 +3,12 @@
  * Uses central tmdbClient (throttle + retry) for all TMDB calls.
  */
 
-import { fetchTmdb } from "@/utils/tmdbClient";
+import { fetchTmdb, tmdbConfigured } from "@/utils/tmdbClient";
 
 export type TmdbResult<T> = {
   data: T | null;
   error?: string;
 };
-
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
-
-export const tmdbKeyMissing = () => !TMDB_API_KEY;
 
 export type TmdbFetchOptions = RequestInit & {
   /** Next.js revalidate in seconds (ISR). Ignored if cache is "no-store". */
@@ -30,8 +26,8 @@ export async function tmdbFetchJson<T>(
   label: string,
   init?: TmdbFetchOptions
 ): Promise<TmdbResult<T>> {
-  if (!TMDB_API_KEY) {
-    return { data: null, error: `${label}: TMDB_API_KEY is missing.` };
+  if (!tmdbConfigured()) {
+    return { data: null, error: `${label}: TMDB_READ_TOKEN is missing.` };
   }
 
   try {

@@ -2,6 +2,7 @@ import Link from "@components/ui/AppLink";
 import { cache } from "react";
 import { Compass } from "lucide-react";
 import { tmdbFetchJson } from "@/utils/tmdb";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 import {
   activeFacet,
   activeFilters,
@@ -20,7 +21,6 @@ import BrowseFilterBar from "./BrowseFilterBar";
 export const dynamic = "force-dynamic";
 
 const BASE = "https://api.themoviedb.org/3";
-const KEY = process.env.TMDB_API_KEY;
 
 /** A facet's own name changes about never; its result set changes daily. */
 const LABEL_TTL = 86400;
@@ -48,7 +48,7 @@ type Item = {
  * their own fresh object, and the fetches would double rather than dedupe.
  */
 const entityName = cache(async (kind: string, id: string): Promise<string | null> => {
-  if (!KEY) return null;
+  if (!tmdbConfigured()) return null;
   const path =
     kind === "keyword" ? `keyword/${id}`
     : kind === "company" ? `company/${id}`
@@ -61,7 +61,7 @@ const entityName = cache(async (kind: string, id: string): Promise<string | null
   // `next: { revalidate }` object, which is why the old genre list pages were
   // uncached without anyone noticing.
   const { data } = await tmdbFetchJson<{ name?: string }>(
-    `${BASE}/${path}?api_key=${KEY}`,
+    `${BASE}/${path}`,
     `browse:${kind}`,
     { revalidate: LABEL_TTL },
   );
@@ -92,14 +92,14 @@ async function resolveLabels(
 async function loadResults(
   p: BrowseParams,
 ): Promise<{ items: Item[]; totalPages: number; total: number }> {
-  if (!KEY) return { items: [], totalPages: 0, total: 0 };
+  if (!tmdbConfigured()) return { items: [], totalPages: 0, total: 0 };
 
   // A collection is not a discover query — TMDB has no `with_collection`
   // parameter. It is a different source feeding the same grid, which is what
   // keeps this one page type rather than two.
   if (p.collection) {
     const { data } = await tmdbFetchJson<{ parts?: Item[] }>(
-      `${BASE}/collection/${p.collection}?api_key=${KEY}&language=en-US`,
+      `${BASE}/collection/${p.collection}?language=en-US`,
       "browse:collection",
       { revalidate: RESULTS_TTL },
     );
@@ -133,7 +133,7 @@ async function loadResults(
     total_pages?: number;
     total_results?: number;
   }>(
-    `${BASE}/discover/${p.type}?${buildDiscoverQuery(p, KEY).toString()}`,
+    `${BASE}/discover/${p.type}?${buildDiscoverQuery(p).toString()}`,
     "browse:discover",
     { revalidate: RESULTS_TTL },
   );

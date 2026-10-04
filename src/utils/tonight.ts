@@ -24,7 +24,7 @@
  */
 
 import type { createClient } from "@/utils/supabase/server";
-import { fetchTmdbJson } from "@/utils/tmdbClient";
+import { fetchTmdbJson, tmdbConfigured } from "@/utils/tmdbClient";
 import { buildGenreVector, cosineSimilarity, type GenreVector } from "@/utils/genreVector";
 import { GenreList } from "@/staticData/genreList";
 import { MOODS } from "@/staticData/moodMapping";
@@ -308,8 +308,7 @@ async function discoverPool(
   participants: TonightParticipant[],
   constraints: TonightConstraints,
 ): Promise<PoolEntry[]> {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return [];
+  if (!tmdbConfigured()) return [];
 
   const providerUnion = new Set<number>();
   for (const p of participants) for (const id of p.providerIds) providerUnion.add(id);
@@ -325,7 +324,6 @@ async function discoverPool(
   for (const type of types) {
     for (let page = 1; page <= DISCOVER_PAGES; page += 1) {
       const params = new URLSearchParams({
-        api_key: apiKey,
         include_adult: "false",
         language: "en-US",
         sort_by: "popularity.desc",
@@ -586,13 +584,12 @@ async function hydrate(
   participants: TonightParticipant[],
   constraints: TonightConstraints,
 ): Promise<TonightCandidate | null> {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return null;
+  if (!tmdbConfigured()) return null;
 
   let detail: TmdbDetail;
   try {
     detail = await fetchTmdbJson<TmdbDetail>(
-      `${TMDB_BASE}/${entry.itemType}/${entry.itemId}?api_key=${apiKey}&append_to_response=watch/providers`,
+      `${TMDB_BASE}/${entry.itemType}/${entry.itemId}?append_to_response=watch/providers`,
       { timeoutMs: 8000 },
     );
   } catch (err) {
@@ -717,8 +714,7 @@ async function fetchShowProviders(
   participants: TonightParticipant[],
   region: string,
 ): Promise<TonightProvider[]> {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return [];
+  if (!tmdbConfigured()) return [];
 
   try {
     const data = await fetchTmdbJson<{
@@ -726,7 +722,7 @@ async function fetchShowProviders(
         string,
         { flatrate?: { provider_id: number; provider_name: string; logo_path?: string }[] }
       >;
-    }>(`${TMDB_BASE}/tv/${showId}/watch/providers?api_key=${apiKey}`, { timeoutMs: 6000 });
+    }>(`${TMDB_BASE}/tv/${showId}/watch/providers`, { timeoutMs: 6000 });
 
     const providers = (data.results?.[region]?.flatrate ?? []).map((p) => ({
       id: p.provider_id,

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { createClient } from "@/utils/supabase/server";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 
 interface UpcomingEpisode {
   show_id: string;
@@ -20,8 +21,8 @@ export async function GET(req: NextRequest) {
 
   const supabase = await createClient();
 
-  if (!process.env.TMDB_API_KEY) {
-    return jsonError("TMDB API key missing", 500);
+  if (!tmdbConfigured()) {
+    return jsonError("TMDB_READ_TOKEN is missing", 500);
   }
 
   // Get user's watching shows
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
       try {
         const [showRes, watchedRes] = await Promise.all([
           fetchTmdb(
-            `https://api.themoviedb.org/3/tv/${showId}?api_key=${process.env.TMDB_API_KEY}`
+            `https://api.themoviedb.org/3/tv/${showId}`
           ),
           supabase
             .from("watched_episodes")

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchTmdb } from "@/utils/tmdbClient";
+import { fetchTmdb, tmdbConfigured } from "@/utils/tmdbClient";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 export async function POST(request: NextRequest) {
@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
       return jsonError("Search query is required", 400);
     }
 
-    if (!process.env.TMDB_API_KEY) {
-      return jsonError("TMDB_API_KEY is missing on the server.", 500);
+    if (!tmdbConfigured()) {
+      return jsonError("TMDB_READ_TOKEN is missing on the server.", 500);
     }
 
     const normalizedMediaType =
@@ -62,7 +62,6 @@ export async function POST(request: NextRequest) {
     let url: URL;
 
     const appendDiscoverParams = (target: URL, type: "movie" | "tv") => {
-      target.searchParams.append("api_key", process.env.TMDB_API_KEY || "");
       target.searchParams.append("page", safePage.toString());
       target.searchParams.append("language", lang);
       target.searchParams.append("include_adult", includeAdult ? "true" : "false");
@@ -168,14 +167,12 @@ export async function POST(request: NextRequest) {
     } else if (normalizedMediaType === "keyword" && isKeywordId) {
       url = new URL("https://api.themoviedb.org/3/discover/movie");
       url.searchParams.append("with_keywords", String(query));
-      url.searchParams.append("api_key", process.env.TMDB_API_KEY || "");
       url.searchParams.append("page", safePage.toString());
       url.searchParams.append("include_adult", includeAdult ? "true" : "false");
       url.searchParams.append("language", lang);
     } else if (normalizedMediaType === "keyword") {
       url = new URL("https://api.themoviedb.org/3/search/keyword");
       url.searchParams.append("query", String(query));
-      url.searchParams.append("api_key", process.env.TMDB_API_KEY || "");
       url.searchParams.append("page", safePage.toString());
       url.searchParams.append("language", lang);
       url.searchParams.append("include_adult", includeAdult ? "true" : "false");
@@ -186,7 +183,6 @@ export async function POST(request: NextRequest) {
       else if (normalizedMediaType === "person") endpoint = "person";
       url = new URL(`https://api.themoviedb.org/3/search/${endpoint}`);
       url.searchParams.append("query", String(query));
-      url.searchParams.append("api_key", process.env.TMDB_API_KEY || "");
       url.searchParams.append("page", safePage.toString());
       url.searchParams.append("include_adult", includeAdult ? "true" : "false");
       url.searchParams.append("language", lang);

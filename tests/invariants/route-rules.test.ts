@@ -205,7 +205,7 @@ describe("no unauthenticated third-party proxy without a caller", () => {
 
     const offenders = routes().filter((f) => {
       const src = read(f);
-      const spendsKey = /api\.themoviedb\.org|omdbapi\.com|TMDB_API_KEY|OMDB_API_KEY/.test(src);
+      const spendsKey = /api\.themoviedb\.org|omdbapi\.com|tmdbConfigured|TMDB_READ_TOKEN|OMDB_API_KEY/.test(src);
       if (!spendsKey) return false;
       // `guardLocalOnly` counts as a guard, and is a stronger one than the
       // rest: it refuses on a production build and off-loopback Host alike, so

@@ -21,7 +21,7 @@ type PopularPerson = {
 
 async function getPopularPeople(): Promise<PopularPerson[]> {
   const { data } = await tmdbFetchJson<{ results?: PopularPerson[] }>(
-    `https://api.themoviedb.org/3/person/popular?api_key=${process.env.TMDB_API_KEY}&language=en-US&page=1`,
+    `https://api.themoviedb.org/3/person/popular?language=en-US&page=1`,
     "Popular people",
     { revalidate: 86400 },
   );

@@ -61,7 +61,11 @@ A **social app for deciding what to watch**: who's in the room, how long you've 
    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
    # TMDB (required for discovery and watch providers)
-   TMDB_API_KEY=your-tmdb-api-key
+   # The "API Read Access Token" from themoviedb.org → Settings → API: the long
+   # token, not the short "API Key". It is sent as an Authorization header. The
+   # old TMDB_API_KEY went in the query string, and Next prints the full URL
+   # when a response is too big for its data cache, so the key reached the logs.
+   TMDB_READ_TOKEN=your-tmdb-read-access-token
 
    # OMDb (optional – for IMDb ratings on movie/TV pages)
    OMDB_API_KEY=your-omdb-api-key

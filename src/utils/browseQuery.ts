@@ -54,12 +54,11 @@ function sortParam(sort: BrowseSort, type: BrowseType): string {
 /**
  * Build the querystring for `/discover/{type}`.
  *
- * Returns the params only; the caller owns the base URL and the api key, which
- * keeps this function testable without a network or a secret.
+ * Returns the params only; the caller owns the base URL, which keeps this
+ * function testable without a network.
  */
-export function buildDiscoverQuery(p: BrowseParams, apiKey: string): URLSearchParams {
+export function buildDiscoverQuery(p: BrowseParams): URLSearchParams {
   const q = new URLSearchParams({
-    api_key: apiKey,
     language: "en-US",
     include_adult: "false", // TMDB's default varies by endpoint; be explicit.
     sort_by: sortParam(p.sort, p.type),

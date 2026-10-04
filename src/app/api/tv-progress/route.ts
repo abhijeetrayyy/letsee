@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { getAuthUserId } from "@/utils/apiAuth";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -16,8 +17,8 @@ export async function GET(req: NextRequest) {
     return jsonError("showId query parameter is required", 400);
   }
 
-  if (!process.env.TMDB_API_KEY) {
-    return jsonError("TMDB API key is missing", 500);
+  if (!tmdbConfigured()) {
+    return jsonError("TMDB_READ_TOKEN is missing", 500);
   }
 
   const watchedRes = await supabase

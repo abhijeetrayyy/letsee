@@ -4,7 +4,7 @@
  * Uses central tmdbClient (throttle + retry).
  */
 import { unstable_cache } from "next/cache";
-import { fetchTmdb } from "@/utils/tmdbClient";
+import { fetchTmdb, tmdbConfigured } from "@/utils/tmdbClient";
 
 /**
  * Six hours, up from five minutes.
@@ -33,9 +33,8 @@ import { fetchTmdb } from "@/utils/tmdbClient";
 const TMDB_REVALIDATE_SEC = 21600; // 6h
 
 async function fetchTvShowWithSeasonsUncached(showId: string): Promise<Record<string, unknown> | null> {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return null;
-  const url = `https://api.themoviedb.org/3/tv/${showId}?api_key=${apiKey}&append_to_response=seasons`;
+  if (!tmdbConfigured()) return null;
+  const url = `https://api.themoviedb.org/3/tv/${showId}?append_to_response=seasons`;
 
   try {
     const res = await fetchTmdb(url, { revalidate: TMDB_REVALIDATE_SEC });
@@ -64,9 +63,8 @@ async function fetchSeasonEpisodesUncached(
   showId: string,
   seasonNumber: number | string
 ): Promise<Record<string, unknown> | null> {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return null;
-  const url = `https://api.themoviedb.org/3/tv/${showId}/season/${seasonNumber}?api_key=${apiKey}`;
+  if (!tmdbConfigured()) return null;
+  const url = `https://api.themoviedb.org/3/tv/${showId}/season/${seasonNumber}`;
 
   try {
     const res = await fetchTmdb(url, { revalidate: TMDB_REVALIDATE_SEC });

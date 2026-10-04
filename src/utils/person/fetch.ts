@@ -30,7 +30,7 @@ const WEEK = 604800;
  */
 export const getPerson = cache(async (id: string) => {
   const res = await tmdbFetchJson<Record<string, any>>(
-    `https://api.themoviedb.org/3/person/${id}?api_key=${process.env.TMDB_API_KEY}&language=en-US&append_to_response=external_ids,combined_credits,images`,
+    `https://api.themoviedb.org/3/person/${id}?language=en-US&append_to_response=external_ids,combined_credits,images`,
     "Person",
     { revalidate: DAY },
   );
@@ -70,10 +70,10 @@ export const getTitleGraph = (mediaType: "movie" | "tv", id: number) =>
     async (): Promise<TitleGraph | null> => {
       const url =
         mediaType === "movie"
-          ? `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos`
+          ? `https://api.themoviedb.org/3/movie/${id}?append_to_response=credits,videos`
           : // NEVER aggregate_credits: measured 143KB vs 9.6KB on Breaking Bad,
             // and the extra is every guest star in every season.
-            `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos`;
+            `https://api.themoviedb.org/3/tv/${id}?append_to_response=credits,videos`;
 
       const res = await tmdbFetchJson<any>(url, "Title graph", { revalidate: WEEK });
       const d = res.data;

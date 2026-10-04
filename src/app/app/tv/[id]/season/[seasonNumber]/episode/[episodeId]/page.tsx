@@ -7,7 +7,7 @@ import VideoShelf from "@components/detail/VideoShelf";
 import MarkEpisodeWatched from "@components/tv/MarkEpisodeWatched";
 import EpisodeSpoilerGate from "@components/tv/EpisodeSpoilerGate";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
-import { fetchTmdb } from "@/utils/tmdbClient";
+import { fetchTmdb, tmdbConfigured } from "@/utils/tmdbClient";
 import TitleTalk from "@components/takes/TitleTalk";
 import { ArrowLeft, Clock, Calendar, Users, Clapperboard, Star } from "lucide-react";
 import { episodePath, parseRouteId, personPath, seasonPath, titlePath } from "@/utils/urls";
@@ -98,12 +98,11 @@ const fetchEpisodeData = async (
   seasonNumber: string,
   episodeId: string,
 ) => {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) {
-    throw new Error("TMDb API key is missing");
+  if (!tmdbConfigured()) {
+    throw new Error("TMDB_READ_TOKEN is missing");
   }
 
-  const url = `https://api.themoviedb.org/3/tv/${id}/season/${seasonNumber}/episode/${episodeId}?api_key=${apiKey}&append_to_response=images,videos`;
+  const url = `https://api.themoviedb.org/3/tv/${id}/season/${seasonNumber}/episode/${episodeId}?append_to_response=images,videos`;
   const response = await fetchTmdb(url, { revalidate: EPISODE_REVALIDATE_SEC });
 
   if (!response.ok) {

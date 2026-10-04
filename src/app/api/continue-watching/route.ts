@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { getAuthUserId } from "@/utils/apiAuth";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 
 /**
  * Fetch at most this many, and render at most 8 — the ninth exists so the
@@ -57,8 +58,8 @@ export async function GET(req: NextRequest) {
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 
-  if (!process.env.TMDB_API_KEY) {
-    return jsonError("TMDB API key is missing", 500);
+  if (!tmdbConfigured()) {
+    return jsonError("TMDB_READ_TOKEN is missing", 500);
   }
 
   /**

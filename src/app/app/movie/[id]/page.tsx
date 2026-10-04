@@ -95,7 +95,7 @@ type PageProps = { params: Promise<{ id: string }> };
  */
 async function getMovie(id: string) {
   return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar,keywords,release_dates,reviews`,
+    `https://api.themoviedb.org/3/movie/${id}?append_to_response=credits,videos,images,recommendations,similar,keywords,release_dates,reviews`,
     "Movie detail",
     {
       // A day. This caps the page's own cache — Next takes the minimum of the

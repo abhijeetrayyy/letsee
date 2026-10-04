@@ -1,6 +1,6 @@
 import { tmdbFetchJson } from "./tmdb";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 
-const KEY = process.env.TMDB_API_KEY;
 const BASE = "https://api.themoviedb.org/3";
 const HOUR = { revalidate: 3600 } as const;
 
@@ -29,13 +29,13 @@ export interface HomeData {
 }
 
 export async function getHomeContent(): Promise<HomeData> {
-  if (!KEY) return { content: emptyContent(), errors: ["TMDB API key missing"] };
+  if (!tmdbConfigured()) return { content: emptyContent(), errors: ["TMDB_READ_TOKEN is missing"] };
 
   const [movieGenres, tvGenres, trending, trendingTv] = await Promise.all([
-    tmdbFetchJson(`${BASE}/genre/movie/list?api_key=${KEY}`, "Movie genres", HOUR),
-    tmdbFetchJson(`${BASE}/genre/tv/list?api_key=${KEY}`, "TV genres", HOUR),
-    tmdbFetchJson(`${BASE}/trending/all/day?api_key=${KEY}`, "Trending", HOUR),
-    tmdbFetchJson(`${BASE}/trending/tv/day?api_key=${KEY}`, "Trending TV", HOUR),
+    tmdbFetchJson(`${BASE}/genre/movie/list`, "Movie genres", HOUR),
+    tmdbFetchJson(`${BASE}/genre/tv/list`, "TV genres", HOUR),
+    tmdbFetchJson(`${BASE}/trending/all/day`, "Trending", HOUR),
+    tmdbFetchJson(`${BASE}/trending/tv/day`, "Trending TV", HOUR),
   ]);
 
   const errors = [movieGenres, tvGenres, trending, trendingTv]
