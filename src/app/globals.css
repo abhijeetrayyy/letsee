@@ -605,11 +605,28 @@
 }
 
 /* Metadata rows like "2010 · Film · ★8.4". The separator belongs to the item
-   that follows it, so when the row wraps the dot travels to the next line with
-   its value instead of stranding at the end of the previous one. */
-.meta-row > * + *::before {
+   that follows it, so a wrapped row never strands a dot at the end of a line.
+   It hangs in the gap before its item rather than inside it, and the row clips
+   its own left edge, so the dot of whichever item starts a line falls outside
+   and disappears: Inception's genres wrapped onto a second line that opened
+   "· Action". The quarter-rem of padding keeps a focus ring on a line's first
+   link inside the clip; the dot sits further out than that. */
+.meta-row {
+  --meta-gap: 1.5rem;
+  column-gap: var(--meta-gap);
+  overflow-x: clip;
+  margin-inline-start: -0.25rem;
+  padding-inline-start: 0.25rem;
+}
+.meta-row > * {
+  position: relative;
+}
+.meta-row > *::before {
   content: "·";
-  margin-right: 0.625rem;
+  position: absolute;
+  right: 100%;
+  width: var(--meta-gap);
+  text-align: center;
   /* Text colour, not a surface one: --color-active is a button fill and all
      but vanished on the dark title band. */
   color: var(--color-ink-500);

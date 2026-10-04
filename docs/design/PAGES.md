@@ -128,7 +128,7 @@ Phone heights are at 375 × 812 with every fold closed; a "screen" is 812 px.
   10. Lists containing it, your people's first.
   11. More like this, with faces on posters your people have seen.
   12. `Fold`s: Details (runtime, languages, studios, box office, keywords, release dates, links) · Trailers and clips · From TMDB.
-- **Done when:** hero, action bar and the first friend on screen one; ≤ 4 screens; one poster image above the fold.
+- **Done when:** hero, action bar and the first friend on screen one; ≤ 5 screens (was 4; raised 4 Oct 2026, see EXECUTION.md §0); one poster image above the fold.
 
 ### `/app/movie/[id]/cast`, `/app/tv/[id]/cast` — credits
 - **New:** title strip → search in credits → department chips with counts → rows (headshot, name, role, a dot if you've seen them elsewhere; episode counts on TV). Paginated. Quiet by design; no people layer needed.
@@ -137,7 +137,7 @@ Phone heights are at 375 × 812 with every fold closed; a "screen" is 812 px.
 - **Job:** continue it.
 - **New order:** `TitleHero` → your status ("Watching with Priya · you're on S3E4") → **next episode card** (still, code, title, runtime, **Watched E04**), season `Progress` with your people's faces above the episode they've reached ("Priya is 2 ahead; her notes open as you catch up") → `ActionBar` → your people's takes, labelled by episode and locked past your progress → `WhereToWatch` → seasons (your progress, who finished) → cast, reviews, lists, similar → `Fold`: details.
 - **States:** not started → "Start with S1E1"; finished → "You finished it on 2 Aug · rate the last season".
-- **Done when:** the next episode and its check on screen one; ≤ 4 screens.
+- **Done when:** the next episode and its check on screen one; ≤ 5 screens (was 4; raised 4 Oct 2026, see EXECUTION.md §0).
 
 ### `/app/tv/[id]/season/[seasonNumber]` — a season
 - **New:** crumb → season chips → "6 of 10 · Priya finished" → `EpisodeRow`s (code, title, date, your check, faces) → unwatched episodes show no still and no overview → checking E5 with E1–4 open offers "Mark E1–4 too?" with Undo → season talk as a `Fold`.

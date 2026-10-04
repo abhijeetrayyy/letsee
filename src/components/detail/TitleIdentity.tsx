@@ -25,8 +25,8 @@ import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
  * So the chips become one line. "2014 · 2h 49m · UA · Sci-Fi, Drama" is the
  * same five facts in the order a person would say them, and it costs one row
  * instead of four. The separators come from `.meta-row`, which hangs the dot
- * off the item that FOLLOWS it, so a wrapped line never strands a dot at the
- * end and a missing year never leaves one at the start.
+ * off the item that FOLLOWS it and clips the dot of whichever item starts a
+ * line, so a wrapped line neither ends nor begins with one.
  *
  * The heading above it is the title's own artwork wherever TMDB has it, which
  * measured 12 titles out of 12 — including the Indian ones, which is where a
@@ -230,15 +230,14 @@ export default function TitleIdentity({
         <h1 className="text-3xl sm:text-4xl font-medium text-ink-0 tracking-tight">{view.title}</h1>
       )}
 
-      <div className="meta-row mt-3.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-ink-300">
+      <div className="meta-row mt-3.5 flex flex-wrap items-center gap-y-1 text-sm text-ink-300">
         {segments.map((s, i) => (
           <span
             key={s.key}
             title={s.title}
             // `hidden` is display:none, so a dropped segment takes its dot with
             // it. Guarding on the index keeps the first one visible whatever
-            // its priority, since `.meta-row` only skips the leading dot for
-            // the first CHILD, not the first visible one.
+            // its priority, so the line always opens with something.
             className={s.minor && i > 0 ? "hidden items-center sm:block" : undefined}
           >
             {s.node}

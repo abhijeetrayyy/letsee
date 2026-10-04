@@ -354,10 +354,14 @@ function HeroStats({ username, stats, thisMonth }: { username: string; stats: Us
         : null,
   ].filter((x): x is { value: number; label: string; href: string } => !!x);
   if (!stats.movieCount && !stats.tvCount && !thisMonth) return null;
+  // On a phone four fit one row and five left the fifth alone on a second
+  // line under the other four. Rows are shaped by count instead: four as two
+  // and two, five or more as threes, the last row centred under the first.
+  const phoneRow = items.length >= 5 ? "max-sm:basis-[26%]" : items.length === 4 ? "max-sm:basis-[40%]" : "";
   return (
-    <ul className="mt-5 flex flex-wrap justify-center gap-x-7 gap-y-3 sm:justify-start" aria-label="What they've watched">
+    <ul className="mt-5 flex flex-wrap justify-center gap-x-7 gap-y-4 sm:justify-start sm:gap-y-3" aria-label="What they've watched">
       {items.map((s) => (
-        <li key={s.label}>
+        <li key={s.label} className={phoneRow}>
           {s.href.startsWith("#") ? (
             <a href={s.href} className="group block text-center sm:text-left">
               <span className="block font-display text-3xl leading-none tabular-nums text-ink-0 sm:text-4xl">{n(s.value)}</span>
