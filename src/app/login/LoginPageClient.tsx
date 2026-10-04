@@ -5,6 +5,17 @@ import { supabase } from "@/utils/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+/**
+ * Where to go after signing in: back to the page that sent you here (a film
+ * you tried to log, a pass someone shared), or Home. Only paths inside the app
+ * are accepted, so `next` cannot be used to send someone to another site.
+ */
+function returnTo(next: string | null): string {
+  // Back into the app, or back to the link that sent you here (`/invite?t=…`).
+  if (!next || !(next.startsWith("/app") || next.startsWith("/invite?")) || next.startsWith("//") || next.includes("\\")) return "/app";
+  return next;
+}
+
 export default function LoginPageClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -41,7 +52,7 @@ export default function LoginPageClient() {
         data: { session },
       } = await supabase.auth.getSession();
       if (session) {
-        router.push("/app");
+        router.push(returnTo(searchParams.get("next")));
       }
     };
     checkUser();
@@ -100,7 +111,7 @@ export default function LoginPageClient() {
       if (error) {
         setError(error.message);
       } else {
-        router.push("/app");
+        router.push(returnTo(searchParams.get("next")));
       }
     } catch {
       setError("An unexpected error occurred. Please try again.");
@@ -111,11 +122,11 @@ export default function LoginPageClient() {
 
   if (deletedAccount) {
     return (
-      <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold text-white">
+      <div className="mx-auto max-w-sheet px-4 py-16 text-center">
+        <h1 className="text-xl font-medium text-ink-0">
           This account is scheduled for deletion
         </h1>
-        <p className="mt-3 text-sm text-surface-300">
+        <p className="mt-3 text-sm text-ink-300">
           You asked us to delete it. Nothing has been removed yet — you can
           bring it back exactly as it was, with everything still in place.
           Once the 30 days are up it is deleted permanently.
@@ -123,12 +134,12 @@ export default function LoginPageClient() {
         <button
           onClick={reactivate}
           disabled={reactivating}
-          className="mt-6 w-full rounded-lg bg-brand-500 px-4 py-2 font-medium text-white min-h-[44px] hover:bg-brand-400 disabled:opacity-50 transition-colors"
+          className="mt-6 w-full rounded-lg bg-action px-4 py-2 font-medium text-on-action-light min-h-11 hover:bg-action-hover disabled:opacity-50 transition-colors"
         >
           {reactivating ? "Bringing it back…" : "Reactivate my account"}
         </button>
         {error ? (
-          <p role="alert" className="mt-3 text-sm text-red-400">
+          <p role="alert" className="mt-3 text-sm text-danger">
             {error}
           </p>
         ) : null}
@@ -137,7 +148,7 @@ export default function LoginPageClient() {
             await supabase.auth.signOut().catch(() => {});
             setDeletedAccount(false);
           }}
-          className="mt-4 text-sm text-surface-400 underline hover:text-surface-200"
+          className="mt-4 text-sm text-ink-400 underline hover:text-ink-200"
         >
           Sign out and leave it deleted
         </button>

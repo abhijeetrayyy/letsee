@@ -166,7 +166,12 @@ function resolveType(p: { collection?: unknown; network?: unknown; type?: string
   return p.type === "tv" ? "tv" : "movie";
 }
 
-export function buildBrowseUrl(p: Partial<BrowseParams>): string {
+/**
+ * The canonical query for a set of filters, without the page's own `browse=1`
+ * — what `/api/browse` is asked, and the key its CDN cache is keyed on, so the
+ * same filters written two ways cost one cached response, not two.
+ */
+export function browseQueryString(p: Partial<BrowseParams>): string {
   const q = new URLSearchParams();
   const type = resolveType({ collection: p.collection, network: p.network, type: p.type });
 
@@ -188,8 +193,17 @@ export function buildBrowseUrl(p: Partial<BrowseParams>): string {
   const page = cleanPage(p.page == null ? undefined : String(Math.floor(Number(p.page) || 1)));
   if (page > 1) q.set("page", String(page));
 
-  const qs = q.toString();
-  return qs ? `/app/browse?${qs}` : "/app/browse";
+  return q.toString();
+}
+
+/**
+ * Where a set of filters is shown: browse lives inside Search
+ * (docs/design/PAGES.md §4), as `/app/search?browse=1&…`. `/app/browse`
+ * redirects there with its query intact.
+ */
+export function buildBrowseUrl(p: Partial<BrowseParams>): string {
+  const qs = browseQueryString(p);
+  return `/app/search?browse=1${qs ? `&${qs}` : ""}`;
 }
 
 export function parseBrowseParams(
@@ -283,4 +297,22 @@ export function activeFilters(
     label: labels[key] ?? String(p[key]),
     removeUrl: buildBrowseUrl(withBrowseFilters(p, { [key]: undefined, page: 1 })),
   }));
+}
+
+/** How many filters are applied — the badge on the phone's Filters button. Sort counts when it isn't the default. */
+export function appliedCount(p: BrowseParams): number {
+  return FILTER_KEYS.filter((k) => p[k]).length + (p.sort !== "popular" ? 1 : 0);
+}
+
+/**
+ * What a set of filters is, in words: "Korean thrillers from the 2010s".
+ * A facet (a keyword, a studio, a network, a collection) names itself.
+ */
+export function browseHeadline(p: BrowseParams, labels: Partial<Record<BrowseFilterKey, string>>): string {
+  const facet = activeFacet(p);
+  const noun = p.type === "tv" ? "series" : "films";
+  const phrase = [labels.lang, labels.genre?.toLowerCase(), noun].filter(Boolean).join(" ");
+  // TMDB writes keywords in lower case ("time loop"); a heading starts with a capital.
+  const said = facet && labels[facet] ? labels[facet]! : labels.decade ? `${phrase} from the ${labels.decade}` : phrase;
+  return said.charAt(0).toUpperCase() + said.slice(1);
 }

@@ -3,7 +3,7 @@
 import { buildBrowseUrl } from "@/utils/browseUrl";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import MediaCard from "@components/cards/MediaCard";
+import TitleCard from "@components/ds/TitleCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Search, Sparkles, X, Mic, MicOff, RefreshCw, Star, Filter, ChevronDown, Clock } from "lucide-react";
 
@@ -72,7 +72,7 @@ function saveRecent(q: string) {
 
 function InterpretationPill({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-xs text-brand-300 whitespace-nowrap">
+    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-action/10 border border-accent-strong/20 text-xs text-accent-soft whitespace-nowrap">
       <Sparkles className="w-3 h-3" />
       {label}
     </span>
@@ -184,7 +184,7 @@ export default function NaturalSearch() {
       <div>
         <div className="flex gap-2">
           <div className="relative flex-1" data-recent-dropdown>
-            <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-400 pointer-events-none" />
+            <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent pointer-events-none" />
             <input
               ref={inputRef}
               type="text"
@@ -195,28 +195,28 @@ export default function NaturalSearch() {
               }}
               onFocus={() => setShowRecent(true)}
               placeholder='Try: "sci-fi after 2020 similar to Inception"'
-              className="w-full bg-surface-800 border border-surface-700 rounded-xl pl-10 pr-12 py-3 text-sm text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/50"
+              className="w-full bg-overlay border border-line-strong rounded-xl pl-10 pr-12 py-3 text-sm text-ink-0 placeholder-ink-500 focus:outline-none focus:ring-2 focus:ring-focus/40 focus:border-accent-strong/50"
             />
             {/* Voice button */}
             <button
               onClick={toggleVoice}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-500 hover:text-surface-200 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-500 hover:text-ink-200 transition-colors"
               title={listening ? "Stop listening" : "Search by voice"}
             >
-              {listening ? <MicOff className="w-4 h-4 text-red-400 animate-pulse" /> : <Mic className="w-4 h-4" />}
+              {listening ? <MicOff className="w-4 h-4 text-danger animate-pulse" /> : <Mic className="w-4 h-4" />}
             </button>
 
             {/* Recent searches dropdown */}
             {showRecent && recent.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-surface-800 border border-surface-700 rounded-xl shadow-xl overflow-hidden">
-                <div className="px-3 py-2 text-[11px] text-surface-500 uppercase tracking-wider flex items-center gap-1.5">
+              <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-overlay border border-line-strong rounded-xl shadow-xl overflow-hidden">
+                <div className="px-3 py-2 text-xs text-ink-500 uppercase tracking-wider flex items-center gap-1.5">
                   <Clock className="w-3 h-3" /> Recent
                 </div>
                 {recent.map((r) => (
                   <button
                     key={r}
                     onClick={() => { setQuery(r); setShowRecent(false); handleSearch(r); }}
-                    className="w-full text-left px-3 py-2 text-sm text-surface-300 hover:bg-surface-700 hover:text-white transition-colors truncate"
+                    className="w-full text-left px-3 py-2 text-sm text-ink-300 hover:bg-hover hover:text-ink-0 transition-colors truncate"
                   >
                     {r}
                   </button>
@@ -227,10 +227,10 @@ export default function NaturalSearch() {
           <button
             onClick={() => handleSearch()}
             disabled={loading || !query.trim()}
-            className="px-5 py-3 bg-brand-500 text-surface-950 font-semibold rounded-xl hover:bg-brand-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0 transition-all"
+            className="px-5 py-3 bg-action text-on-action font-semibold rounded-xl hover:bg-action-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0 transition-all"
           >
             {loading ? (
-              <LoadingSpinner size="sm" className="border-t-surface-950" />
+              <LoadingSpinner size="sm" className="border-t-page" />
             ) : (
               <Search className="w-4 h-4" />
             )}
@@ -244,7 +244,7 @@ export default function NaturalSearch() {
             <button
               key={ex.query}
               onClick={() => { setQuery(ex.query); handleSearch(ex.query); }}
-              className="px-2.5 py-1 text-[11px] bg-surface-800/60 hover:bg-surface-700 text-surface-400 hover:text-surface-200 rounded-full border border-surface-700/50 transition-colors"
+              className="px-2.5 py-1 text-xs bg-overlay/60 hover:bg-hover text-ink-400 hover:text-ink-200 rounded-full border border-line-strong/50 transition-colors"
             >
               {ex.label}
             </button>
@@ -254,8 +254,8 @@ export default function NaturalSearch() {
 
       {/* Error */}
       {error && (
-        <div className="rounded-xl border border-red-800/40 bg-red-900/20 p-4">
-          <p className="text-red-400 text-sm">{error}</p>
+        <div className="rounded-xl border border-danger/40 bg-danger/20 p-4">
+          <p className="text-danger text-sm">{error}</p>
         </div>
       )}
 
@@ -264,9 +264,9 @@ export default function NaturalSearch() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="space-y-2 animate-pulse">
-              <div className="aspect-[2/3] bg-surface-800 rounded-xl" />
-              <div className="h-3 bg-surface-800 rounded w-3/4" />
-              <div className="h-2 bg-surface-800 rounded w-1/2" />
+              <div className="aspect-2/3 bg-overlay rounded-xl" />
+              <div className="h-3 bg-overlay rounded w-3/4" />
+              <div className="h-2 bg-overlay rounded w-1/2" />
             </div>
           ))}
         </div>
@@ -280,24 +280,24 @@ export default function NaturalSearch() {
 
           {/* Meta row */}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2 text-sm text-surface-400">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-ink-400">
               <span>
-                <span className="text-white font-semibold">{result.total.toLocaleString()}</span> results
+                <span className="text-ink-0 font-semibold">{result.total.toLocaleString()}</span> results
                 {result.matched > 0 && result.matched < result.total && (
-                  <span className="text-surface-500"> — showing top {result.matched}</span>
+                  <span className="text-ink-500"> — showing top {result.matched}</span>
                 )}
               </span>
               {result.parsed.minRating && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-400">
-                  <Star className="w-3 h-3 fill-amber-400" /> {result.parsed.minRating}+
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-ink-0/10 border border-ink-0/20 text-xs text-ink-300">
+                  <Star className="w-3 h-3 fill-ink-0" /> {result.parsed.minRating}+
                 </span>
               )}
               {result.parsed.language && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-400">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-ink-0/10 border border-ink-0/20 text-xs text-ink-300">
                   {languageName(result.parsed.language)}
                 </span>
               )}
-              <span className="text-[10px] text-surface-500 uppercase tracking-wider bg-surface-800 px-2 py-0.5 rounded-full">
+              <span className="text-xs text-ink-500 uppercase tracking-wider bg-overlay px-2 py-0.5 rounded-full">
                 {result.parsed.mediaType === "tv" ? "TV" : "Movie"}
               </span>
             </div>
@@ -319,14 +319,14 @@ export default function NaturalSearch() {
                       decade: year ? String(Math.floor(Number(year) / 10) * 10) : undefined,
                     });
                   }}
-                  className="flex items-center gap-1 px-2.5 py-1 text-xs text-surface-400 hover:text-surface-200 bg-surface-800 hover:bg-surface-700 rounded-lg transition-colors"
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs text-ink-400 hover:text-ink-200 bg-overlay hover:bg-hover rounded-lg transition-colors"
                 >
                   <Filter className="w-3 h-3" /> Refine
                 </button>
               )}
               <button
                 onClick={() => handleSearch()}
-                className="flex items-center gap-1 px-2.5 py-1 text-xs text-surface-400 hover:text-surface-200 bg-surface-800 hover:bg-surface-700 rounded-lg transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1 text-xs text-ink-400 hover:text-ink-200 bg-overlay hover:bg-hover rounded-lg transition-colors"
               >
                 <RefreshCw className="w-3 h-3" /> Shuffle
               </button>
@@ -342,7 +342,7 @@ export default function NaturalSearch() {
                   className="relative animate-in fade-in slide-in-from-bottom-2"
                   style={{ animationDuration: "400ms", animationDelay: `${idx * 60}ms`, animationFillMode: "both" }}
                 >
-                  <MediaCard
+                  <TitleCard
                     id={Number(item.id)}
                     title={item.title}
                     mediaType={item.mediaType as "movie" | "tv"}
@@ -357,8 +357,8 @@ export default function NaturalSearch() {
                     voteCount={item.voteCount}
                   />
                   {item.voteAverage > 0 && (
-                    <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-full px-2 py-0.5 text-xs font-semibold flex items-center gap-1 text-amber-400">
-                      <Star className="w-3 h-3 fill-amber-400" />
+                    <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-full px-2 py-0.5 text-xs font-semibold flex items-center gap-1 text-ink-300">
+                      <Star className="w-3 h-3 fill-ink-0" />
                       {item.voteAverage.toFixed(1)}
                     </div>
                   )}
@@ -366,8 +366,8 @@ export default function NaturalSearch() {
               ))}
             </div>
           ) : (
-            <div className="rounded-xl border border-surface-700/60 bg-surface-900/40 p-8 text-center">
-              <p className="text-surface-400 text-sm">No results found. Try a different search.</p>
+            <div className="rounded-xl border border-line-strong/60 bg-raised/40 p-8 text-center">
+              <p className="text-ink-400 text-sm">No results found. Try a different search.</p>
             </div>
           )}
         </div>

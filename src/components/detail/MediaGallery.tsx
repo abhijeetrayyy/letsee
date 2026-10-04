@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Lightbox from "@components/ui/Lightbox";
 
+import Rail from "@components/ds/Rail";
 type TmdbImage = { file_path: string };
 
 /**
@@ -36,27 +37,29 @@ export default function MediaGallery({
 
   return (
     <>
-      <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
-        {images.map((img, i) => (
-          <button
-            key={img.path}
-            type="button"
-            onClick={() => setOpenAt(i)}
-            aria-label={`Open image ${i + 1} of ${images.length}`}
-            className={`group relative shrink-0 overflow-hidden rounded-xl bg-surface-800 ring-1 ring-surface-700/50 transition-all hover:ring-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
-              img.wide ? "aspect-video w-[22rem] sm:w-[28rem]" : "aspect-[2/3] w-40 sm:w-48"
-            }`}
-          >
-            <img
-              src={`https://image.tmdb.org/t/p/w780${img.path}`}
-              alt=""
-              loading="lazy"
-              className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-            <span className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
-          </button>
-        ))}
-      </div>
+      <Rail>
+        <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+          {images.map((img, i) => (
+            <button
+              key={img.path}
+              type="button"
+              onClick={() => setOpenAt(i)}
+              aria-label={`Open image ${i + 1} of ${images.length}`}
+              className={`group relative shrink-0 overflow-hidden rounded-xl bg-overlay ring-1 ring-line-strong/50 transition-all hover:ring-focus/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
+                img.wide ? "aspect-video w-88 sm:w-112" : "aspect-2/3 w-40 sm:w-48"
+              }`}
+            >
+              <img
+                src={`https://image.tmdb.org/t/p/w780${img.path}`}
+                alt=""
+                loading="lazy"
+                className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <span className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
+            </button>
+          ))}
+        </div>
+      </Rail>
 
       <Lightbox
         images={full}

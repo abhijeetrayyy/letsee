@@ -185,33 +185,33 @@ function ReviewCard({ review }: { review: PreparedReview }) {
   const canToggle = review.spoiler || review.needsExpanding;
 
   return (
-    <article className="rounded-xl border border-surface-800/50 bg-surface-900/30 p-4">
+    <article className="rounded-xl border border-line/50 bg-raised/30 p-4">
       <header className="flex items-center gap-2">
-        <p className="min-w-0 truncate text-sm font-medium text-surface-200">{review.author}</p>
+        <p className="min-w-0 truncate text-sm font-medium text-ink-200">{review.author}</p>
         {review.rating != null && (
           // The same amber chip the hero uses for TMDB's aggregate score,
           // because it is the same scale from the same place.
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs font-semibold text-amber-400">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-ink-0/10 px-1.5 py-0.5 text-xs font-semibold text-ink-300">
             <Star className="size-3 fill-current" aria-hidden />
             {formatRating(review.rating)}
-            <span className="font-normal text-amber-400/60">/10</span>
+            <span className="font-normal text-ink-300/60">/10</span>
           </span>
         )}
         {review.date && review.dateIso && (
-          <time dateTime={review.dateIso} className="ml-auto shrink-0 text-[11px] text-surface-500">
+          <time dateTime={review.dateIso} className="ml-auto shrink-0 text-xs text-ink-500">
             {review.date}
           </time>
         )}
       </header>
 
       {concealed ? (
-        <p className="mt-2 flex items-center gap-1.5 text-sm text-surface-500">
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-500">
           <EyeOff className="size-3.5 shrink-0" aria-hidden />
           Mentions spoilers
         </p>
       ) : (
         <p
-          className={`mt-2 text-sm leading-relaxed text-surface-300 ${
+          className={`mt-2 text-sm leading-relaxed text-ink-300 ${
             open ? "whitespace-pre-line" : ""
           }`}
         >
@@ -226,7 +226,7 @@ function ReviewCard({ review }: { review: PreparedReview }) {
               type="button"
               onClick={() => setOpen((wasOpen) => !wasOpen)}
               aria-expanded={open}
-              className="inline-flex items-center gap-1 text-xs font-medium text-brand-400 transition-colors hover:text-brand-300"
+              className="inline-flex items-center gap-1 text-xs font-medium text-accent transition-colors hover:text-accent-soft"
             >
               {open ? "Show less" : review.spoiler ? "Show anyway" : "Read more"}
               <ChevronDown
@@ -243,7 +243,7 @@ function ReviewCard({ review }: { review: PreparedReview }) {
               href={review.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-surface-500 transition-colors hover:text-surface-300"
+              className="inline-flex items-center gap-1 text-xs text-ink-500 transition-colors hover:text-ink-300"
             >
               on TMDB
               <ExternalLink className="size-3" aria-hidden />
@@ -280,7 +280,7 @@ export default function TmdbReviews({
 
   return (
     <section className={className}>
-      <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
+      <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
         <MessageSquareQuote className="size-3.5" aria-hidden /> Reviews on TMDB
       </h3>
 
@@ -294,7 +294,7 @@ export default function TmdbReviews({
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="mt-3 rounded-lg border border-surface-700/30 bg-surface-800/60 px-3 py-1.5 text-xs font-medium text-surface-300 transition-colors hover:bg-surface-700 hover:text-white"
+          className="mt-3 rounded-lg border border-line-strong/30 bg-overlay/60 px-3 py-1.5 text-xs font-medium text-ink-300 transition-colors hover:bg-hover hover:text-ink-0"
         >
           Show {remaining} more
         </button>

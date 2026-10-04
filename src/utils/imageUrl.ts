@@ -1,6 +1,6 @@
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 
-export const NO_POSTER = "/no-photo.webp";
+export const NO_POSTER = "/no-photo.svg";
 export const DEFAULT_AVATAR = "/avatar.svg";
 
 function isAbsoluteUrl(value: string): boolean {

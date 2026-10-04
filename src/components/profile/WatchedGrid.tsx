@@ -1,8 +1,7 @@
 "use client";
 
 import { formatStars } from "@/utils/ratingScale";
-import MediaCard from "@/components/cards/MediaCard";
-import SendMessageModal from "@components/message/sendCard";
+import TitleCard from "@components/ds/TitleCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWRInfinite from "swr/infinite";
@@ -68,8 +67,6 @@ export default function WatchedGrid({
   const viewerId = user?.id ?? null;
   const [genreFilter, setGenreFilter] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<string | undefined>(undefined);
-  const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [shareCardData, setShareCardData] = useState<any>(null);
 
   const getKey = (
     pageIndex: number,
@@ -117,30 +114,12 @@ export default function WatchedGrid({
     setGenreFilter(null);
   }, []);
 
-  const handleShare = useCallback((item: any) => {
-    setShareCardData({
-      id: item.item_id,
-      media_type: item.item_type,
-      title: item.item_name,
-      name: item.item_name,
-      poster_path: item.image_url,
-    });
-    setShareModalOpen(true);
-  }, []);
-
   return (
     <div className="space-y-6">
-      <SendMessageModal
-        data={shareCardData}
-        media_type={shareCardData?.media_type ?? null}
-        isOpen={shareModalOpen}
-        onClose={() => setShareModalOpen(false)}
-      />
-
       {/* Filters */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
         {/* Media Type Filter */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-800 border border-surface-700">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-overlay border border-line-strong">
           {[
             { id: undefined, label: "All" },
             { id: "movie", label: "Movies" },
@@ -151,8 +130,8 @@ export default function WatchedGrid({
               onClick={() => setActiveType(type.id as any)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 activeType === type.id
-                  ? "bg-surface-700 text-white shadow-sm"
-                  : "text-surface-400 hover:text-surface-200"
+                  ? "bg-hover text-ink-0 shadow-sm"
+                  : "text-ink-400 hover:text-ink-200"
               }`}
             >
               {type.label}
@@ -170,7 +149,7 @@ export default function WatchedGrid({
               handleClearFilter();
             }
           }}
-          className="bg-surface-800 border border-surface-700 text-surface-200 text-sm py-2 px-3 rounded-lg focus:ring-1 focus:ring-brand-500 outline-none"
+          className="bg-overlay border border-line-strong text-ink-200 text-sm py-2 px-3 rounded-lg focus:ring-1 focus:ring-focus outline-none"
         >
           <option value="">All genres</option>
           {genreList.map((genre) => (
@@ -183,7 +162,7 @@ export default function WatchedGrid({
         {genreFilter && (
           <button
             onClick={handleClearFilter}
-            className="text-sm text-surface-400 hover:text-surface-200 transition-colors"
+            className="text-sm text-ink-400 hover:text-ink-200 transition-colors"
           >
             Clear genre filter
           </button>
@@ -192,19 +171,19 @@ export default function WatchedGrid({
 
       {/* Movie Grid */}
       {loading && memoizedMovies.length === 0 && (
-        <div className="w-full p-12 flex flex-col items-center justify-center gap-4 min-h-[200px]">
+        <div className="w-full p-12 flex flex-col items-center justify-center gap-4 min-h-50">
           <LoadingSpinner size="lg" className="border-t-white" />
-          <p className="text-surface-400 text-sm animate-pulse">
+          <p className="text-ink-400 text-sm animate-pulse">
             Loading your watched list…
           </p>
         </div>
       )}
       {!loading && error && memoizedMovies.length === 0 && (
-        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-12 text-center flex flex-col items-center gap-3">
-          <p className="text-sm text-red-300">Couldn’t load your watched list.</p>
+        <div className="rounded-xl border border-danger/20 bg-danger/5 p-12 text-center flex flex-col items-center gap-3">
+          <p className="text-sm text-danger">Couldn’t load your watched list.</p>
           <button
             onClick={() => mutate()}
-            className="text-xs px-3 py-1.5 rounded-full border border-red-500/30 text-red-300 hover:bg-red-500/10 transition-colors"
+            className="text-xs px-3 py-1.5 rounded-full border border-danger/30 text-danger hover:bg-danger/10 transition-colors"
           >
             Retry
           </button>
@@ -212,7 +191,7 @@ export default function WatchedGrid({
       )}
       {!loading && !error && memoizedMovies.length === 0 ? (
         <div className="w-full p-10">
-          <p className="m-auto w-fit text-surface-400">No items yet.</p>
+          <p className="m-auto w-fit text-ink-400">No items yet.</p>
         </div>
       ) : !loading && !error ? (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
@@ -228,27 +207,17 @@ export default function WatchedGrid({
               item.item_type === "tv" && typeof item.tv_status === "string"
                 ? (tvStatusLabels[item.tv_status] ?? item.tv_status)
                 : null;
-            const subtitle = (
-              <>
-                {tvStatusLabel && (
-                  <span className="block text-xs text-brand-400/90 font-medium">
-                    {tvStatusLabel}
-                  </span>
-                )}
-                {item.watched_at && (
-                  <span className="block text-xs text-surface-500">
-                    Watched {formatWatchedDate(item.watched_at)}
-                  </span>
-                )}
-                {item.score != null && (
-                  <span className="block text-xs text-accent-gold/90 font-medium">
-                    {formatStars(item.score)}
-                  </span>
-                )}
-              </>
-            );
+            // One quiet line: when, your stars, and for a series where it stands
+            // if it isn't simply finished. Every card here is watched, so no mark.
+            const line = [
+              item.watched_at ? formatWatchedDate(item.watched_at) : null,
+              item.score != null ? formatStars(item.score) : null,
+              tvStatusLabel && tvStatusLabel !== "Watched" ? tvStatusLabel : null,
+            ]
+              .filter(Boolean)
+              .join(" · ");
             return (
-              <MediaCard
+              <TitleCard
                 key={item.item_id}
                 id={item.item_id}
                 title={item.item_name}
@@ -261,37 +230,25 @@ export default function WatchedGrid({
                       : null
                 }
                 adult={item.item_adult}
-                genres={item.genres ?? []}
-                showActions
-                onShare={() => handleShare(item)}
-                typeLabel={item.item_type}
-                subtitle={subtitle}
+                role={line || null}
+                hideState
               />
             );
           })}
 
-          {/* Load More */}
-          {hasMore && (
-            <div>
-              <button
-                className="w-full h-full min-h-[330px] flex flex-col items-center justify-center gap-2 text-surface-300 border border-surface-600 bg-surface-700/80 rounded-xl hover:bg-surface-700 hover:border-surface-500 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
-                onClick={handlePageChange}
-                disabled={loadingMore}
-                aria-busy={loadingMore}
-              >
-                {loadingMore ? (
-                  <>
-                    <LoadingSpinner size="md" className="border-t-white shrink-0" />
-                    <span className="text-sm">Loading more…</span>
-                  </>
-                ) : (
-                  <span className="text-sm font-medium">Load more</span>
-                )}
-              </button>
-            </div>
-          )}
         </div>
       ) : null}
+      {hasMore && (
+        <button
+          type="button"
+          onClick={handlePageChange}
+          disabled={loadingMore}
+          aria-busy={loadingMore}
+          className="inline-flex h-10 w-full items-center justify-center rounded-full text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0 disabled:opacity-60"
+        >
+          {loadingMore ? "Loading…" : "Show more"}
+        </button>
+      )}
     </div>
   );
 }

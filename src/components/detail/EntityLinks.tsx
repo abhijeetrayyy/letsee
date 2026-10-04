@@ -47,7 +47,7 @@ export default function EntityLinks({
     <span className={className}>
       {shown.map((item, i) => (
         <span key={item.id}>
-          <Link href={href(item)} className="transition-colors hover:text-brand-400">
+          <Link href={href(item)} className="transition-colors hover:text-accent">
             {item.name}
           </Link>
           {i < shown.length - 1 && ", "}
@@ -59,7 +59,7 @@ export default function EntityLinks({
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          className="ml-1 text-surface-500 underline decoration-dotted underline-offset-2 transition-colors hover:text-brand-400"
+          className="ml-1 text-ink-500 underline decoration-dotted underline-offset-2 transition-colors hover:text-accent"
         >
           {expanded ? "less" : `+${hidden} more`}
         </button>

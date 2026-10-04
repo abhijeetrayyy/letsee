@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Calendar } from "lucide-react";
 import { releaseInfo } from "@/utils/releaseInfo";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
@@ -13,6 +13,8 @@ import TitleTalk from "@components/takes/TitleTalk";
 import TheRoom from "@components/detail/TheRoom";
 import WeWatched from "@components/detail/WeWatched";
 import FranchiseStrip from "@components/detail/FranchiseStrip";
+import { FilmGlance } from "@components/detail/AtAGlance";
+import Trailer from "@components/detail/Trailer";
 import ReleaseTimeline, { buildRows } from "@components/detail/ReleaseTimeline";
 import CastRow from "@components/detail/CastRow";
 import CrewBlock, { groupCrew, keyCrew } from "@components/detail/CrewBlock";
@@ -21,6 +23,8 @@ import MediaGallery from "@components/detail/MediaGallery";
 import TmdbReviews, { prepareReviews } from "@components/detail/TmdbReviews";
 import { movieFacts } from "@components/detail/TitleFacts";
 import TitleVitals from "@components/detail/TitleVitals";
+import Fold from "@components/ds/Fold";
+import LazyFold from "@components/ds/LazyFold";
 import ShareModal from "@components/social/ShareModal";
 import { useMounted } from "@/hooks/useMounted";
 import { titlePath } from "@/utils/urls";
@@ -61,7 +65,6 @@ export default function MovieDetailClient({
   const { isAuthenticated } = useMediaInteraction();
   const { country } = useCountry();
 
-  const [showTrailer, setShowTrailer] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
   /**
@@ -83,7 +86,7 @@ export default function MovieDetailClient({
     : null;
   const posterUrl = movie.poster_path
     ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-    : "/no-photo.webp";
+    : "/no-photo.svg";
 
   const crewGroups = groupCrew(credits?.crew);
   const crewKey = keyCrew(credits?.crew);
@@ -161,25 +164,7 @@ export default function MovieDetailClient({
   const hasReviews = useMemo(() => prepareReviews(reviews, REVIEW_MAX).length > 0, [reviews]);
 
   return (
-    <div className="bg-surface-950">
-      {showTrailer && trailer && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
-          onClick={() => setShowTrailer(false)}
-        >
-          <div className="relative w-full max-w-4xl mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="aspect-video rounded-xl overflow-hidden">
-              <iframe
-                className="w-full h-full"
-                src={`https://www.youtube.com/embed/${trailer.key}?autoplay=1`}
-                allow="autoplay; encrypted-media"
-                allowFullScreen
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
+    <div className="bg-page">
       <ShareModal
         title={movie.title}
         mediaType="movie"
@@ -189,21 +174,25 @@ export default function MovieDetailClient({
         onClose={() => setShareModalOpen(false)}
       />
 
-      <TitleHero backdropUrl={backdropUrl} posterUrl={posterUrl} title={movie.title}>
+      <TitleHero
+        compactOnPhone
+        backdropUrl={backdropUrl}
+        posterUrl={posterUrl}
+        title={movie.title}
+        aside={trailer ? <Trailer videoKey={trailer.key} title={movie.title} /> : null}
+      >
         <TitleIdentity
           kind="movie"
           view={movieIdentity(movie, releaseDates)}
-          hasTrailer={!!trailer}
-          onPlayTrailer={() => setShowTrailer(true)}
           onShare={() => setShareModalOpen(true)}
           creditLines={creditLines}
           notice={
             showsNotice ? (
-              <div className="mt-3 flex max-w-fit items-start gap-2 rounded-lg border border-brand-500/20 bg-brand-500/10 px-3 py-2 text-sm text-brand-300">
+              <div className="mt-3 flex max-w-fit items-start gap-2 rounded-lg border border-accent-strong/20 bg-action/10 px-3 py-2 text-sm text-accent-soft">
                 <Calendar className="mt-0.5 size-3.5 shrink-0" />
                 <span>
                   {release.full ? `In cinemas ${release.full}` : "Release date to be announced"}
-                  {inProduction && <span className="text-brand-300/60"> · {movie.status}</span>}
+                  {inProduction && <span className="text-accent-soft/60"> · {movie.status}</span>}
                 </span>
               </div>
             ) : null
@@ -211,95 +200,77 @@ export default function MovieDetailClient({
         />
       </TitleHero>
 
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
-        {/* Movement one: what this is.
-            First, because this is when a reader is forming their assumption —
-            what kind of film it is, who directed it, what it cost and what it
-            made. The band replaces a Details card that printed one column of
-            short values across the full page width, and it carries the genres
-            and keywords that were scattered elsewhere. */}
-        <TitleVitals
-          genres={movie.genres ?? []}
-          facts={facts}
-          keywords={keywords}
-          mediaType="movie"
-          room={<TheRoom itemId={movie.id} itemType="movie" />}
-        />
+      <>
+        {/*
+          The order (docs/design/PAGES.md §5, a film): the short version
+          first — is it good, how long, where it comes from — then your
+          people, where to watch and your entry, then the cast; the reference
+          material folds in place with its counts.
+        */}
+        <div className="max-w-app mx-auto px-4 pt-8 sm:px-6 sm:pt-10 lg:px-8 pb-16 space-y-10">
+          <FilmGlance movie={movie} keywords={keywords} collection={collection} countryNames={countryNames} />
 
-        <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
-          <Section title="Where to watch">
-            <Availability mediaId={movie.id} mediaType="movie" />
-          </Section>
-          <Section title="Your entry">
-            <TitleTalk
-              itemId={String(movie.id)}
-              itemType="movie"
-              itemName={movie.title}
-              imageUrl={movie.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : null}
-              genres={(movie.genres ?? []).map((g: { name: string }) => g.name)}
-              isAuthenticated={isAuthenticated}
-            />
-          </Section>
-        </div>
+          <TheRoom itemId={movie.id} itemType="movie" />
 
-        {/* Movement two: the film itself. Both of these render their own
-            Section and return null when they have nothing, so a standalone
-            film with no dates on file adds no empty headings. */}
-        <FranchiseStrip collection={collection} currentId={movie.id} />
-
-        <ReleaseTimeline releaseDates={releaseDates} />
-
-        {cast.length > 0 && (
-          <Section title="Cast" subtitle={`${cast.length} actors`}>
-            <CastRow cast={cast} fullCreditsHref={`${titlePath("movie", movie.id, movie.title)}/cast`} />
-          </Section>
-        )}
-
-        {/* Grouped and capped: the full crew is ninety names, and that wall
-            already exists on /cast for anyone who wants it. */}
-        {(crewGroups.length > 0 || crewKey.length > 0) && (
-          <Section title="Crew">
-            <CrewBlock groups={crewGroups} keyPeople={crewKey} />
-          </Section>
-        )}
-
-        {(videos.length > 0 || backdrops.length > 0 || posters.length > 0) && (
-          <Section title="Media" subtitle="Trailers, clips and stills">
-            <div className="space-y-8">
-              {/* Video first: a trailer answers "what is this" faster than a
-                  still does, and TMDB sends dozens the page used to discard. */}
-              <VideoShelf videos={videos} />
-              <MediaGallery backdrops={backdrops} posters={posters} title={movie.title} />
-            </div>
-          </Section>
-        )}
-
-        {/* Movement three: what it is to you, and to everyone else.
-            Watching, writing and reading what others wrote are one act of
-            attention, so they sit together rather than being split across the
-            page — your entry and the room beside the strangers on TMDB who
-            reviewed the same film. */}
-        {/* No longer a grid. Its right column held only "Who's here", which has
-            moved up beside the details where it can actually be seen; leaving
-            the two-thirds cap behind would strand the composer in 880px with a
-            column of air next to it. */}
-        <div className="space-y-10">
-          <div className="space-y-10">
-            {/* One composer on this page and only one. It used to be two —
-                "Your take" here and "Discussion" below — which made the reader
-                choose which box a thought belonged in before they had finished
-                having it. */}
-            {/* The card for the group chat: two names, two scores, one poster.
-                Exists only when somebody the viewer watched with (or follows)
-                also scored this. */}
-            <WeWatched itemId={String(movie.id)} itemType="movie" itemName={movie.title} posterPath={movie.poster_path ?? null} />
-
-            {hasReviews && <TmdbReviews reviews={reviews} max={REVIEW_MAX} />}
+          <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
+            <Section title="Where to watch">
+              <Availability mediaId={movie.id} mediaType="movie" compact />
+            </Section>
+            <Section title="Your entry">
+              <TitleTalk
+                itemId={String(movie.id)}
+                itemType="movie"
+                itemName={movie.title}
+                imageUrl={movie.poster_path ? `https://image.tmdb.org/t/p/w342${movie.poster_path}` : null}
+                genres={(movie.genres ?? []).map((g: { name: string }) => g.name)}
+                isAuthenticated={isAuthenticated}
+              />
+            </Section>
           </div>
 
-        </div>
+          {cast.length > 0 && (
+            <Section title="Cast" subtitle={`${cast.length} actors`}>
+              <CastRow cast={cast} fullCreditsHref={`${titlePath("movie", movie.id, movie.title)}/cast`} />
+            </Section>
+          )}
 
-      </div>
+          <WeWatched itemId={String(movie.id)} itemType="movie" itemName={movie.title} posterPath={movie.poster_path ?? null} />
+
+          <div className="space-y-3">
+            {/* Its own fold, and an address: the "Watch order" tile above
+                links here. */}
+            {collection?.id && (
+              <LazyFold id="collection" title={collection.name ?? "The collection"} hint="Every film, in order">
+                <FranchiseStrip collection={collection} currentId={movie.id} bare />
+              </LazyFold>
+            )}
+            <Fold title="Details and release dates" hint="Studios, languages, money, keywords, every release">
+              <div className="space-y-8">
+                <TitleVitals genres={movie.genres ?? []} facts={facts} keywords={keywords} mediaType="movie" />
+                <ReleaseTimeline releaseDates={releaseDates} />
+              </div>
+            </Fold>
+            {(crewGroups.length > 0 || crewKey.length > 0) && (
+              <Fold title="Crew" count={crewGroups.reduce((n, g) => n + g.people.length, 0) || undefined}>
+                <CrewBlock groups={crewGroups} keyPeople={crewKey} />
+              </Fold>
+            )}
+            {(videos.length > 0 || backdrops.length > 0 || posters.length > 0) && (
+              <Fold title="Trailers, clips and stills" count={videos.length + backdrops.length + posters.length}>
+                <div className="space-y-8">
+                  <VideoShelf videos={videos} />
+                  <MediaGallery backdrops={backdrops} posters={posters} title={movie.title} />
+                </div>
+              </Fold>
+            )}
+            {hasReviews && (
+              <Fold title="Reviews from TMDB" count={reviews.length}>
+                <TmdbReviews reviews={reviews} max={REVIEW_MAX} />
+              </Fold>
+            )}
+          </div>
+        </div>
+      </>
     </div>
   );
 }

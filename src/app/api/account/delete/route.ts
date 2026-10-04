@@ -51,9 +51,12 @@ export async function POST(req: NextRequest) {
   // Sign out the user
   await supabase.auth.signOut();
 
-  return jsonSuccess({
+  const res = jsonSuccess({
     ok: true,
     message: `Account scheduled for deletion on ${scheduledAt.toISOString().slice(0, 10)}. You have 30 days to reactivate by signing back in.`,
     deletionDate: scheduledAt.toISOString(),
   });
+  // The middleware's "has a handle, not deleted" cookie must not outlive this.
+  res.cookies.delete("ls-profile-ok");
+  return res;
 }

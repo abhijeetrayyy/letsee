@@ -69,7 +69,7 @@ export default function TitleVitals({
       </h2>
 
       {hasFacts && (
-        <div className="divide-y divide-surface-800/50 overflow-hidden rounded-xl border border-surface-800/50 bg-surface-900/30 lg:col-span-2">
+        <div className="divide-y divide-line/50 overflow-hidden rounded-xl border border-line/50 bg-raised/30 lg:col-span-2">
           {genres.length > 0 && (
             /**
              * Every genre, where the line under the title shows three. That cap
@@ -78,7 +78,7 @@ export default function TitleVitals({
              * fourth and fifth on the floor. Here each one is a door.
              */
             <section className="px-5 py-4">
-              <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
+              <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
                 <Shapes className="size-3.5" /> Genres
               </h3>
               <div className="flex flex-wrap gap-1.5">
@@ -89,7 +89,7 @@ export default function TitleVitals({
                     /* Tinted, where keywords below are neutral: genre is the
                        coarse taxonomy people actually navigate by, so it takes
                        the accent and the finer one stays quiet. */
-                    className="rounded-lg border border-brand-500/20 bg-brand-500/10 px-2.5 py-1 text-xs text-brand-300 transition-colors hover:bg-brand-500/20 hover:text-brand-200"
+                    className="rounded-lg border border-accent-strong/20 bg-action/10 px-2.5 py-1 text-xs text-accent-soft transition-colors hover:bg-action/20 hover:text-accent-softer"
                   >
                     {g.name}
                   </Link>
@@ -100,7 +100,7 @@ export default function TitleVitals({
 
           {facts.length > 0 && (
             <section className="px-5 py-4">
-              <h3 className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
+              <h3 className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
                 <Info className="size-3.5" /> Details
               </h3>
               {/* Three columns at this width rather than four: the band is now

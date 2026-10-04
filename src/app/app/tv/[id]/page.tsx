@@ -15,6 +15,7 @@ import { titlePath } from "@/utils/urls";
 import JsonLd from "@components/seo/JsonLd";
 import { tvSeriesLd, breadcrumbLd } from "@/utils/structuredData";
 import { shareImage } from "@/utils/shareImage";
+import { seriesRuntime } from "@/utils/title/seriesRuntime";
 
 /** Impersonal HTML; see the movie page for why this is cached. */
 /**
@@ -139,7 +140,7 @@ export default async function TvPage({ params }: PageProps) {
   const show = result.data;
   if (!show) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-surface-950 text-surface-300 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-page text-ink-300 p-4">
         <p>TV show data unavailable. Try refreshing.</p>
       </div>
     );
@@ -173,6 +174,13 @@ export default async function TvPage({ params }: PageProps) {
 
   const trailer = videos.find((v: any) => v.type === "Trailer" && v.site === "YouTube")
     ?? videos.find((v: any) => v.site === "YouTube");
+
+  // "49 hours to watch it all": every aired episode's own runtime, from the
+  // season payloads the season browser already caches. See seriesRuntime.
+  const lastAired = show.last_episode_to_air
+    ? { s: show.last_episode_to_air.season_number, e: show.last_episode_to_air.episode_number }
+    : null;
+  const runtimes = await seriesRuntime(String(numericId), seasons, lastAired);
 
   /**
    * Every appended blob is already extracted into a prop of its own above, so
@@ -218,12 +226,12 @@ export default async function TvPage({ params }: PageProps) {
         data={[
           tvSeriesLd(show),
           breadcrumbLd([
-            { name: "TV", path: "/app/browse?type=tv" },
+            { name: "Series", path: "/app/search?browse=1&type=tv" },
             { name: show.name, path: titlePath("tv", show.id, show.name) },
           ]),
         ]}
       />
-    <div className="bg-surface-950 min-h-screen">
+    <div className="bg-page min-h-screen">
       <TvDetailClient
         show={showForClient}
         credits={{ crew }}
@@ -238,15 +246,15 @@ export default async function TvPage({ params }: PageProps) {
         createdBy={createdBy}
         countryNames={countryNames}
         reviews={reviews}
+        runtimes={runtimes}
       />
 
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
-        {/* Streamed: getRelated is 2.1–5.4s cold and sits at the bottom
-            of the page. Nothing above it should wait. */}
-        <Suspense fallback={null}>
-          <RelatedStream {...relatedArgs} />
-        </Suspense>
-      </div>
+      {/* Streamed: getRelated is 2.1–5.4s cold and sits at the bottom
+          of the page. Nothing above it should wait. RelatedSection sets its
+          own width and gutter; wrapping it in another doubled both. */}
+      <Suspense fallback={null}>
+        <RelatedStream {...relatedArgs} />
+      </Suspense>
     </div>
     </>
   );

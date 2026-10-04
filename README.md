@@ -154,7 +154,8 @@ being written.
 
 ## Docs
 
-- `docs/WHY_PEOPLE_COME_BACK.md` — **Start here.** Why people keep a record of what they watch, what Letterboxd's users love and miss, the market's open gaps, and twelve bets in three phases. Raw research with sources in `docs/research/`
+- `docs/design/` — **The redesign (October 2026).** The design philosophy, the design system, a plan for every page, and how it rolls out. Wins over any older doc on looks, layout and flow
+- `docs/WHY_PEOPLE_COME_BACK.md` — **Start here** for product strategy. Why people keep a record of what they watch, what Letterboxd's users love and miss, the market's open gaps, and twelve bets in three phases. Raw research with sources in `docs/research/`
 - `docs/SURPASSING_LETTERBOXD.md` — Product strategy, the decisions behind Tonight, and what shipped (W1–W7, all done)
 - `docs/EXPRESSION_AND_DISCOVERY.md` — The next plan: one place to record an opinion, and one path to find anything
 - `docs/AGENT_DB_AND_MIGRATIONS.md` — Which migrations exist, what each does, and which are applied

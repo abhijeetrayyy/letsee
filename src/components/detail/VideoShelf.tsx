@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Play, X } from "lucide-react";
 
+import Rail from "@components/ds/Rail";
 export type TmdbVideo = {
   key: string;
   name: string;
@@ -103,11 +104,11 @@ export default function VideoShelf({ videos = [] }: { videos?: TmdbVideo[] }) {
             type="button"
             onClick={() => setPlaying(null)}
             aria-label="Close video"
-            className="absolute right-4 top-4 rounded-full bg-surface-800/80 p-2 text-white transition-colors hover:bg-surface-700"
+            className="absolute right-4 top-4 rounded-full bg-overlay/80 p-2 text-ink-0 transition-colors hover:bg-hover"
           >
             <X className="size-5" />
           </button>
-          <div className="w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-app" onClick={(e) => e.stopPropagation()}>
             <div className="aspect-video overflow-hidden rounded-xl bg-black">
               <iframe
                 className="h-full w-full"
@@ -117,45 +118,47 @@ export default function VideoShelf({ videos = [] }: { videos?: TmdbVideo[] }) {
                 title={playing.name}
               />
             </div>
-            <p className="mt-3 text-sm text-surface-300">{playing.name}</p>
+            <p className="mt-3 text-sm text-ink-300">{playing.name}</p>
           </div>
         </div>
       )}
 
       {grouped.map((group) => (
         <div key={group.kind}>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
             {group.label}
           </h3>
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
-            {group.items.map((v) => (
-              <button
-                key={v.key}
-                type="button"
-                onClick={() => setPlaying(v)}
-                aria-label={`Play ${v.name}`}
-                className="group w-52 shrink-0 text-left"
-              >
-                <span className="relative block aspect-video overflow-hidden rounded-lg bg-surface-800">
-                  {/* YouTube's own thumbnail host — no API call, no key. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`https://img.youtube.com/vi/${v.key}/mqdefault.jpg`}
-                    alt=""
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Play className="size-8 fill-white text-white" />
+          <Rail>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+              {group.items.map((v) => (
+                <button
+                  key={v.key}
+                  type="button"
+                  onClick={() => setPlaying(v)}
+                  aria-label={`Play ${v.name}`}
+                  className="group w-52 shrink-0 text-left"
+                >
+                  <span className="relative block aspect-video overflow-hidden rounded-lg bg-overlay">
+                    {/* YouTube's own thumbnail host — no API call, no key. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`https://img.youtube.com/vi/${v.key}/mqdefault.jpg`}
+                      alt=""
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
+                      <Play className="size-8 fill-white text-white" />
+                    </span>
                   </span>
-                </span>
-                <span className="mt-1.5 block line-clamp-2 text-xs leading-snug text-surface-300 transition-colors group-hover:text-white">
-                  {v.name}
-                </span>
-              </button>
-            ))}
-          </div>
+                  <span className="mt-1.5 block line-clamp-2 text-xs leading-snug text-ink-300 transition-colors group-hover:text-ink-0">
+                    {v.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </Rail>
         </div>
       ))}
     </div>

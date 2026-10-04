@@ -143,17 +143,17 @@ export default function SaveContext({
   };
 
   return (
-    <div className="mt-3 rounded-xl border border-surface-800 bg-surface-900/40 px-4 py-3">
+    <div className="mt-3 rounded-xl border border-line bg-raised/40 px-4 py-3">
       {!open ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Bookmark className="size-4 shrink-0 text-surface-500" />
-          <span className="text-sm text-surface-300">
+          <Bookmark className="size-4 shrink-0 text-ink-500" />
+          <span className="text-sm text-ink-300">
             {!loaded ? "…" : summary || "Saved. Why, and when?"}
           </span>
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="ml-auto rounded-full border border-surface-700 px-3 py-1.5 text-xs text-surface-300 transition hover:border-surface-600 hover:text-white"
+            className="ml-auto rounded-full border border-line-strong px-3 py-1.5 text-xs text-ink-300 transition hover:border-line-input hover:text-ink-0"
           >
             {summary ? "Edit" : "Add a plan"}
           </button>
@@ -165,10 +165,10 @@ export default function SaveContext({
             onChange={(e) => setNote(e.target.value)}
             maxLength={280}
             placeholder="Why this one? (“Priya said it’s like Columbo”)"
-            className="w-full rounded-lg border border-surface-700 bg-surface-950 px-3 py-2 text-sm text-white placeholder-surface-500 focus:border-brand-500 focus:outline-none"
+            className="w-full rounded-lg border border-line-strong bg-page px-3 py-2 text-sm text-ink-0 placeholder-ink-500 focus:border-accent-strong focus:outline-none"
           />
           <div className="flex flex-wrap items-center gap-2">
-            <CalendarClock className="size-3.5 text-surface-500" />
+            <CalendarClock className="size-3.5 text-ink-500" />
             {FOR_OPTIONS.map((o) => (
               <button
                 key={o.value}
@@ -176,8 +176,8 @@ export default function SaveContext({
                 onClick={() => setSaveFor(saveFor === o.value ? null : o.value)}
                 className={`rounded-full border px-3 py-1.5 text-xs transition ${
                   saveFor === o.value
-                    ? "border-brand-500/60 bg-brand-500/10 text-brand-300"
-                    : "border-surface-700 text-surface-400 hover:border-surface-600 hover:text-white"
+                    ? "border-accent-strong/60 bg-action/10 text-accent-soft"
+                    : "border-line-strong text-ink-400 hover:border-line-input hover:text-ink-0"
                 }`}
               >
                 {o.label}
@@ -188,12 +188,12 @@ export default function SaveContext({
                 type="date"
                 value={forDate}
                 onChange={(e) => setForDate(e.target.value)}
-                className="rounded-lg border border-surface-700 bg-surface-950 px-2 py-1.5 text-sm text-white focus:border-brand-500 focus:outline-none"
+                className="rounded-lg border border-line-strong bg-page px-2 py-1.5 text-sm text-ink-0 focus:border-accent-strong focus:outline-none"
               />
             )}
           </div>
           <div>
-            <p className="mb-1.5 text-xs text-surface-400">With, or on the word of</p>
+            <p className="mb-1.5 text-xs text-ink-400">With, or on the word of</p>
             <PersonPicker value={who} onChange={setWho} multiple={false} placeholder="Who told you, or who you’ll watch it with" />
           </div>
           <div className="flex items-center justify-end gap-2">
@@ -201,7 +201,7 @@ export default function SaveContext({
               type="button"
               onClick={() => setOpen(false)}
               disabled={busy}
-              className="rounded-full px-3 py-1.5 text-xs text-surface-400 transition hover:text-white disabled:opacity-50"
+              className="rounded-full px-3 py-1.5 text-xs text-ink-400 transition hover:text-ink-0 disabled:opacity-50"
             >
               Cancel
             </button>

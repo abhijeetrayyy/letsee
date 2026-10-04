@@ -1,16 +1,19 @@
 import React from "react";
 import Link from "@components/ui/AppLink";
-import { notFound } from "next/navigation";
-import { FaChevronRight, FaChevronLeft, FaStar } from "react-icons/fa";
+import { notFound, unstable_rethrow } from "next/navigation";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import MediaGallery from "@components/detail/MediaGallery";
 import VideoShelf from "@components/detail/VideoShelf";
 import MarkEpisodeWatched from "@components/tv/MarkEpisodeWatched";
 import EpisodeSpoilerGate from "@components/tv/EpisodeSpoilerGate";
+import EpisodePeople from "@components/tv/EpisodePeople";
+import Fold from "@components/ds/Fold";
+import Avatar from "@components/ui/Avatar";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { fetchTmdb, tmdbConfigured } from "@/utils/tmdbClient";
 import TitleTalk from "@components/takes/TitleTalk";
-import { ArrowLeft, Clock, Calendar, Users, Clapperboard, Star } from "lucide-react";
 import { episodePath, parseRouteId, personPath, seasonPath, titlePath } from "@/utils/urls";
+import { formatLongDate, parseTmdbDate } from "@/utils/person/dates";
 import type { Metadata } from "next";
 import JsonLd from "@components/seo/JsonLd";
 import { tvEpisodeLd, breadcrumbLd } from "@/utils/structuredData";
@@ -61,7 +64,7 @@ interface PageProps {
  * calls into for the series name and season length, and which is therefore the
  * real ceiling regardless of what is written here.
  */
-const EPISODE_REVALIDATE_SEC = 21600;
+const EPISODE_REVALIDATE_SEC = 86400;
 
 /**
  * ── Cached, now that nothing here reads a session ─────────────────────────
@@ -119,11 +122,22 @@ const fetchEpisodeData = async (
     (s) => s.season_number === parseInt(seasonNumber, 10),
   );
   const episodeCount = currentSeasonData?.episode_count || 0;
+  const n = parseInt(seasonNumber, 10);
+  // The season after this one with episodes in it, so the last episode of a
+  // season can point at the first of the next.
+  const nextSeason = seasons
+    .filter((s) => s.season_number > n && (s.episode_count ?? 0) > 0)
+    .sort((a, b) => a.season_number - b.season_number)[0]?.season_number ?? null;
+  const prevSeason = seasons
+    .filter((s) => s.season_number > 0 && s.season_number < n && (s.episode_count ?? 0) > 0)
+    .sort((a, b) => b.season_number - a.season_number)[0] ?? null;
 
   return {
     seriesName,
-    seasonNumber: parseInt(seasonNumber, 10),
+    seasonNumber: n,
     episodeCount,
+    nextSeason: n > 0 ? nextSeason : null,
+    prevSeason: n > 0 && prevSeason ? { s: prevSeason.season_number as number, last: prevSeason.episode_count as number } : null,
     episode: {
       id: data.id,
       episode_number: data.episode_number,
@@ -134,8 +148,8 @@ const fetchEpisodeData = async (
       runtime: data.runtime,
       vote_average: data.vote_average,
       vote_count: data.vote_count,
-      guest_stars: data.guest_stars || [],
-      crew: data.crew || [],
+      guest_stars: (data.guest_stars || []) as EpisodeDetails["guest_stars"],
+      crew: (data.crew || []) as EpisodeDetails["crew"],
       images: data.images || { stills: [] },
       videos: data.videos?.results || [],
     },
@@ -220,28 +234,37 @@ const EpisodePage = async ({ params }: PageProps) => {
    * them anyway. The most numerous page on the site was uncacheable in order
    * to compute a dead variable.
    */
-  const episodeRes = await fetchEpisodeData(id, seasonNumber, episodeId).catch(
-    (e) => ({ error: e }),
-  );
+  const episodeRes = await fetchEpisodeData(id, seasonNumber, episodeId).catch((e) => {
+    // `notFound()` inside the fetch throws; let Next turn it into a 404.
+    unstable_rethrow(e);
+    return { error: e };
+  });
 
   if ((episodeRes as any).error) {
-    const error = (episodeRes as any).error;
     return (
-      <div className="min-h-screen bg-surface-950 text-white flex items-center justify-center p-4">
-        <div className="glass-card rounded-2xl p-8 max-w-md text-center">
-          <p className="text-red-400 text-lg font-semibold">Error loading episode</p>
-          <p className="text-surface-400 text-sm mt-2">{(error as Error).message}</p>
-          <Link href={seasonPath(id, seasonNumber)} className="btn-primary mt-4 inline-block">
-            Back to Season
-          </Link>
-        </div>
+      <div className="mx-auto flex w-full max-w-read flex-col items-start gap-4 px-4 py-16">
+        <h1 className="text-2xl text-ink-0">This episode didn&apos;t load.</h1>
+        <p className="text-sm text-ink-400">TMDB didn&apos;t answer. Try again in a moment.</p>
+        <Link href={seasonPath(id, seasonNumber)} className="text-sm font-medium text-ink-0 underline decoration-line-input underline-offset-4">
+          Back to the season
+        </Link>
       </div>
     );
   }
 
   const data = episodeRes as Awaited<ReturnType<typeof fetchEpisodeData>>;
-  const { seriesName, seasonNumber: seasonNum, episode } = data;
-  const epNum = episode.episode_number.toString().padStart(2, "0");
+  const { seriesName, seasonNumber: seasonNum, episode, episodeCount, nextSeason, prevSeason } = data;
+  const n = episode.episode_number;
+  const code = `S${String(seasonNum).padStart(2, "0")} · E${String(n).padStart(2, "0")}`;
+  const aired = parseTmdbDate(episode.air_date);
+  const stamp = [code, episode.runtime ? `${episode.runtime} min` : null, aired ? formatLongDate(aired) : null].filter(Boolean).join(" · ");
+  const prev = n > 1 ? { s: seasonNum, e: n - 1 } : prevSeason?.last ? { s: prevSeason.s, e: prevSeason.last } : null;
+  const next = episodeCount && n < episodeCount ? { s: seasonNum, e: n + 1 } : nextSeason != null ? { s: nextSeason, e: 1 } : null;
+  const short = (ep: { s: number; e: number }) => (ep.s === seasonNum ? `E${String(ep.e).padStart(2, "0")}` : `S${String(ep.s).padStart(2, "0")} E${String(ep.e).padStart(2, "0")}`);
+  const gate = { showId: id, seasonNumber: seasonNum, episodeNumber: n };
+  // Who made it: director and writer up top, everyone else in the fold.
+  const credit = (job: string) => [...new Set(episode.crew.filter((c) => c.job === job).map((c) => c.name))];
+  const byline = [credit("Director").length ? `Directed by ${credit("Director").join(", ")}` : null, credit("Writer").length ? `Written by ${credit("Writer").join(", ")}` : null].filter(Boolean);
 
   return (
     <>
@@ -251,7 +274,7 @@ const EpisodePage = async ({ params }: PageProps) => {
             showId: id,
             showName: seriesName,
             seasonNumber: seasonNum,
-            episodeNumber: episode.episode_number,
+            episodeNumber: n,
             name: episode.name,
             overview: episode.overview,
             stillPath: episode.still_path,
@@ -259,247 +282,121 @@ const EpisodePage = async ({ params }: PageProps) => {
             runtime: episode.runtime,
           }),
           breadcrumbLd([
-            { name: "TV", path: "/app/browse?type=tv" },
+            { name: "Series", path: "/app/search?browse=1&type=tv" },
             { name: seriesName, path: titlePath("tv", id, seriesName) },
             { name: `Season ${seasonNum}`, path: seasonPath(id, seasonNum, seriesName) },
-            {
-              name: episode.name,
-              path: episodePath(id, seasonNum, episode.episode_number, seriesName),
-            },
+            { name: episode.name, path: episodePath(id, seasonNum, n, seriesName) },
           ]),
         ]}
       />
-    <div className="min-h-screen bg-surface-950 text-white">
-      {/* Hero */}
-      <div className="relative overflow-hidden">
-        {episode.still_path ? (
-          <>
-            <img loading="lazy" decoding="async" src={`https://image.tmdb.org/t/p/w1280${episode.still_path}`} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20" />
-            <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/80 to-surface-950/30" />
-          </>
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-b from-brand-500/5 to-surface-950" />
-        )}
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-          {/* Breadcrumb */}
-          <nav className="flex flex-wrap items-center gap-2 text-sm text-surface-500 mb-6">
-            <Link href={titlePath("tv", id, seriesName)} className="hover:text-brand-400 transition-colors">
+      <div className="mx-auto flex w-full max-w-read flex-col gap-8 px-4 pt-6 sm:pt-10">
+        <header className="flex flex-col gap-4">
+          <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 text-sm text-ink-400">
+            <Link href={titlePath("tv", id, seriesName)} className="hover:text-ink-0">
               {seriesName}
             </Link>
-            <FaChevronRight className="w-3 h-3" />
-            <Link href={seasonPath(id, seasonNum, seriesName)} className="hover:text-brand-400 transition-colors">
-              Season {seasonNumber}
+            <span aria-hidden className="text-ink-600">/</span>
+            <Link href={seasonPath(id, seasonNum, seriesName)} className="hover:text-ink-0">
+              {seasonNum === 0 ? "Specials" : `Season ${seasonNum}`}
             </Link>
-            <FaChevronRight className="w-3 h-3" />
-            <span className="text-surface-300">Episode {epNum}</span>
           </nav>
-
-          {/* Episode Title + Meta */}
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <span className="badge-brand">S{seasonNum} E{epNum}</span>
-            {episode.air_date && (
-              <span className="pill-glass text-sm flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5" />
-                {new Date(episode.air_date).toLocaleDateString()}
-              </span>
-            )}
-            {episode.runtime && (
-              <span className="pill-glass text-sm flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" />
-                {episode.runtime}m
-              </span>
-            )}
-            {episode.vote_average > 0 && (
-              <span className="pill-glass text-sm flex items-center gap-1">
-                <Star className="w-3.5 h-3.5 text-accent-gold fill-accent-gold" />
-                {episode.vote_average.toFixed(1)}
-                <span className="text-surface-600 text-xs">({episode.vote_count})</span>
-              </span>
-            )}
+          <div>
+            <p className="font-mono text-xs uppercase tracking-wide text-ink-500">{stamp}</p>
+            <h1 className="mt-2 text-3xl text-ink-0 sm:text-4xl">{episode.name}</h1>
+            {byline.length > 0 && <p className="mt-2 text-sm text-ink-400">{byline.join(" · ")}</p>}
           </div>
+          <MarkEpisodeWatched {...gate} />
+        </header>
 
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white max-w-3xl">
-            {episode.name}
-          </h1>
-
-          {/* The overview spoils. Behind the viewer's own progress (client
-              side, so this page keeps its day-long cache), with "Show anyway"
-              for the person who wants it. */}
-          <div className="mt-4 max-w-3xl">
-            <EpisodeSpoilerGate showId={id} seasonNumber={seasonNum} episodeNumber={episode.episode_number} label="the overview">
-              <p className="text-base text-surface-400 leading-relaxed">
-                {episode.overview || "No overview available."}
-              </p>
-            </EpisodeSpoilerGate>
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-wrap items-center gap-3 mt-6">
-            <MarkEpisodeWatched
-              showId={id}
-              seasonNumber={seasonNum}
-              episodeNumber={episode.episode_number}
-            />
-          </div>
-
-          {/* Episode Navigation */}
-          <div className="flex items-center gap-3 mt-6">
-            {episode.episode_number > 1 ? (
-              <Link
-                href={episodePath(id, seasonNum, episode.episode_number - 1, seriesName)}
-                className="btn-secondary text-sm"
-              >
-                <ArrowLeft className="w-4 h-4" /> Previous
-              </Link>
-            ) : <div />}
-            {data?.episodeCount && episode.episode_number < data.episodeCount && (
-              <Link
-                href={episodePath(id, seasonNum, episode.episode_number + 1, seriesName)}
-                className="btn-primary text-sm"
-              >
-                Next <ArrowLeft className="w-4 h-4 rotate-180" />
-              </Link>
+        {/* One gate for the page. It names what it holds; the rest of the
+            gated blocks stay out of the way until the episode is watched or
+            revealed, and are not in the DOM until then. */}
+        <EpisodeSpoilerGate {...gate} label="the overview" primary holds={["the overview", "the stills", "the guest stars", "the thread"]}>
+          <div className="flex flex-col gap-4">
+            {episode.still_path && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`https://image.tmdb.org/t/p/w780${episode.still_path}`} alt="" className="aspect-video w-full rounded-card object-cover ring-1 ring-inset ring-line" />
             )}
+            <p className="text-base leading-relaxed text-ink-300">{episode.overview || "TMDB has no overview for this episode."}</p>
           </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        {/* The rating used to sit beside the watched button and the note far
-            below it — the same split D1 exists to remove. */}
-        {/* One composer and one thread, as on the film and series pages.
-            This page used to put the rating and note here and "Episode
-            Discussion" a hundred lines further down, which is the same fork:
-            you had to decide which box a thought belonged in before you had
-            finished having it. */}
-        {/* TV Time's ritual: the thread opens once you have marked it
-            watched. Reading what everyone said is the reward for the tick. */}
-        <EpisodeSpoilerGate showId={id} seasonNumber={seasonNum} episodeNumber={episode.episode_number} label="the thread">
-          <TitleTalk
-            itemId={id}
-            itemType="tv"
-            scope="episode"
-            seasonNumber={seasonNum}
-            episodeNumber={episode.episode_number}
-            itemName={episode.name}
-          />
         </EpisodeSpoilerGate>
 
-        {/* Images */}
-        {episode.images.stills.length > 0 && (
-          <div className="mt-10">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
-              <div>
-                <h2 className="text-xl font-bold text-white">Screenshots</h2>
-                <p className="text-sm text-surface-500 mt-0.5">{episode.images.stills.length} images</p>
-              </div>
-            </div>
-            <EpisodeSpoilerGate showId={id} seasonNumber={seasonNum} episodeNumber={episode.episode_number} label="the stills">
-              <MediaGallery backdrops={episode.images.stills} title={`${seriesName}: ${episode.name}`} />
+        <EpisodePeople {...gate} />
+
+        {/* The moment: your rating and words for the episode, then everyone
+            else's. TV Time's ritual — the thread opens once you've marked it. */}
+        <EpisodeSpoilerGate {...gate} label="the thread">
+          <TitleTalk itemId={id} itemType="tv" scope="episode" seasonNumber={seasonNum} episodeNumber={n} itemName={episode.name} />
+        </EpisodeSpoilerGate>
+
+        <div className="flex flex-col gap-3">
+          {episode.guest_stars.length > 0 && (
+            <EpisodeSpoilerGate {...gate} label="the guest stars">
+              <Fold title="Guest stars" count={episode.guest_stars.length}>
+                <ul className="flex flex-col">
+                  {episode.guest_stars.map((p) => (
+                    <li key={`${p.id}-${p.character}`}>
+                      <Link href={personPath(p.id, p.name)} className="flex min-h-14 items-center gap-3 border-b border-line py-2 last:border-b-0 hover:bg-hover">
+                        <Avatar src={p.profile_path ? `https://image.tmdb.org/t/p/w185${p.profile_path}` : null} name={p.name} size={40} />
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-ink-0">{p.name}</span>
+                          {p.character && <span className="block truncate text-sm text-ink-500">{p.character}</span>}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </Fold>
             </EpisodeSpoilerGate>
-          </div>
-        )}
-
-        {/* Videos */}
-        {episode.videos.length > 0 && (
-          <div className="mt-10">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
-              <div>
-                <h2 className="text-xl font-bold text-white">Clips & Behind the Scenes</h2>
-                <p className="text-sm text-surface-500 mt-0.5">{episode.videos.length} videos</p>
-              </div>
-            </div>
-            <VideoShelf videos={episode.videos} />
-          </div>
-        )}
-
-        {/* Guest Stars */}
-        {episode.guest_stars.length > 0 && (
-          <div className="mt-10">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
-              <div>
-                <h2 className="text-xl font-bold text-white">Guest Stars</h2>
-                <p className="text-sm text-surface-500 mt-0.5">{episode.guest_stars.length} guests</p>
-              </div>
-            </div>
-            <EpisodeSpoilerGate showId={id} seasonNumber={seasonNum} episodeNumber={episode.episode_number} label="who appears">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {episode.guest_stars.map((star: any) => (
-                <Link
-                  key={star.id}
-                  href={personPath(star.id, star.name)}
-                  className="group glass-card rounded-xl overflow-hidden hover:border-surface-600/50 transition-all hover:-translate-y-1"
-                >
-                  <div className="aspect-[2/3] overflow-hidden">
-                    {star.profile_path ? (
-                      <img loading="lazy" decoding="async"
-                        src={`https://image.tmdb.org/t/p/w185${star.profile_path}`}
-                        alt={star.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-surface-800 flex items-center justify-center">
-                        <Users className="w-8 h-8 text-surface-600" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-3">
-                    <p className="text-sm font-semibold text-white truncate">{star.name}</p>
-                    <p className="text-xs text-surface-500 mt-0.5 truncate">{star.character}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
+          )}
+          {episode.crew.length > 0 && (
+            <Fold title="Crew" count={episode.crew.length}>
+              <ul className="flex flex-col">
+                {episode.crew.map((c) => (
+                  <li key={`${c.id}-${c.job}`}>
+                    <Link href={personPath(c.id, c.name)} className="flex min-h-11 items-baseline justify-between gap-3 border-b border-line py-2 last:border-b-0 hover:bg-hover">
+                      <span className="truncate text-sm font-medium text-ink-0">{c.name}</span>
+                      <span className="shrink-0 text-sm text-ink-500">{c.job}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Fold>
+          )}
+          {episode.images.stills.length > 1 && (
+            <EpisodeSpoilerGate {...gate} label="the stills">
+              <Fold title="Stills" count={episode.images.stills.length}>
+                <MediaGallery backdrops={episode.images.stills} title={`${seriesName}: ${episode.name}`} />
+              </Fold>
             </EpisodeSpoilerGate>
-          </div>
-        )}
+          )}
+          {episode.videos.length > 0 && (
+            <Fold title="Clips" count={episode.videos.length}>
+              <VideoShelf videos={episode.videos} />
+            </Fold>
+          )}
+        </div>
 
-        {/* Crew */}
-        {episode.crew.length > 0 && (
-          <div className="mt-10">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
-              <div>
-                <h2 className="text-xl font-bold text-white">Crew</h2>
-                <p className="text-sm text-surface-500 mt-0.5">{episode.crew.length} crew members</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {episode.crew.map((member: any) => (
-                <Link
-                  key={member.id}
-                  href={personPath(member.id, member.name)}
-                  className="group glass-card rounded-xl overflow-hidden hover:border-surface-600/50 transition-all hover:-translate-y-1"
-                >
-                  <div className="aspect-[2/3] overflow-hidden">
-                    {member.profile_path ? (
-                      <img loading="lazy" decoding="async"
-                        src={`https://image.tmdb.org/t/p/w185${member.profile_path}`}
-                        alt={member.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-surface-800 flex items-center justify-center">
-                        <Clapperboard className="w-8 h-8 text-surface-600" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-3">
-                    <p className="text-sm font-semibold text-white truncate">{member.name}</p>
-                    <p className="text-xs text-surface-500 mt-0.5 truncate">{member.job}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
+        {/* Previous and next, pinned above the tab bar while you read. */}
+        {(prev || next) && (
+          <nav aria-label="Episodes" className="pin-above-tabs -mx-4 mt-4 flex items-center justify-between gap-3 border-t border-line bg-page/95 px-4 py-3 backdrop-blur">
+            {prev ? (
+              <Link href={episodePath(id, prev.s, prev.e, seriesName)} className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-ink-300 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0">
+                <ArrowLeft className="size-4" aria-hidden />
+                {short(prev)}
+              </Link>
+            ) : (
+              <span />
+            )}
+            {next && (
+              <Link href={episodePath(id, next.s, next.e, seriesName)} className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-ink-0 ring-1 ring-inset ring-line-input hover:bg-hover">
+                {short(next)}
+                <ArrowRight className="size-4" aria-hidden />
+              </Link>
+            )}
+          </nav>
         )}
-
       </div>
-    </div>
     </>
   );
 };

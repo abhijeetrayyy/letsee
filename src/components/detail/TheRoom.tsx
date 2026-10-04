@@ -97,7 +97,7 @@ function personLine(p: Person): string {
 function Score({ value }: { value: number | null }) {
   if (value === null) return null;
   return (
-    <span className="shrink-0 text-xs font-medium text-accent-gold tabular-nums">
+    <span className="shrink-0 text-xs font-medium text-ink-0 tabular-nums">
       ★ {formatStars(value)}
     </span>
   );
@@ -105,7 +105,7 @@ function Score({ value }: { value: number | null }) {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-2.5 text-[10px] font-medium uppercase tracking-wider text-surface-500">
+    <p className="mb-2.5 text-xs font-medium uppercase tracking-wider text-ink-500">
       {children}
     </p>
   );
@@ -154,13 +154,13 @@ export default function TheRoom({
   if (!inView || isLoading || !data) {
     return (
       <div ref={ref} className="card-accent animate-pulse rounded-2xl p-5">
-        <div className="mb-5 h-3 w-24 rounded bg-surface-800" />
-        <div className="mb-5 h-3 w-44 rounded bg-surface-800" />
+        <div className="mb-5 h-3 w-24 rounded bg-overlay" />
+        <div className="mb-5 h-3 w-44 rounded bg-overlay" />
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="flex items-center gap-3">
-              <div className="size-9 shrink-0 rounded-full bg-surface-800" />
-              <div className="h-3 w-28 rounded bg-surface-800" />
+              <div className="size-9 shrink-0 rounded-full bg-overlay" />
+              <div className="h-3 w-28 rounded bg-overlay" />
             </div>
           ))}
         </div>
@@ -194,16 +194,15 @@ export default function TheRoom({
   return (
     <section className="card-accent animate-fade-up rounded-2xl p-5">
       <div className="mb-4 flex items-center gap-3">
-        <div className="h-6 w-1 shrink-0 rounded-full bg-brand-500" />
-        <h3 className="text-sm font-semibold text-surface-100">Who&apos;s here</h3>
+        <h2 className="font-sans text-sm font-semibold text-ink-100">Who&apos;s here</h2>
       </div>
 
       {bare ? (
         <div className="flex items-center gap-3 py-1">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-800/60">
-            <Users className="size-4 text-surface-500" />
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-overlay/60">
+            <Users className="size-4 text-ink-500" />
           </span>
-          <p className="text-sm text-surface-400">{line}</p>
+          <p className="text-sm text-ink-400">{line}</p>
         </div>
       ) : (
         <>
@@ -220,13 +219,13 @@ export default function TheRoom({
                       src={m.avatarUrl}
                       name={m.username}
                       size="sm"
-                      className="ring-2 ring-surface-900 transition-transform hover:scale-110"
+                      className="ring-2 ring-raised transition-transform hover:scale-110"
                     />
                   </Link>
                 ))}
               </div>
             )}
-            <p className="text-sm text-surface-300">{line}</p>
+            <p className="text-sm text-ink-300">{line}</p>
           </div>
 
           {following.length > 0 && (
@@ -241,18 +240,18 @@ export default function TheRoom({
                     <div className="min-w-0 flex-1">
                       <Link
                         href={`/app/profile/${p.username}`}
-                        className="block truncate text-sm font-medium text-surface-200 transition-colors hover:text-white"
+                        className="block truncate text-sm font-medium text-ink-200 transition-colors hover:text-ink-0"
                       >
                         {p.username}
                       </Link>
-                      <p className="truncate text-[11px] text-surface-500">{personLine(p)}</p>
+                      <p className="truncate text-xs text-ink-500">{personLine(p)}</p>
                     </div>
                     <Score value={p.score} />
                   </li>
                 ))}
               </ul>
               {followingTotal > following.length && (
-                <p className="mt-2.5 text-[11px] text-surface-500">
+                <p className="mt-2.5 text-xs text-ink-500">
                   +{followingTotal - following.length} more
                 </p>
               )}
@@ -276,13 +275,13 @@ export default function TheRoom({
                     <div className="min-w-0 flex-1">
                       <Link
                         href={`/app/profile/${p.username}`}
-                        className="block truncate text-sm font-medium text-surface-200 transition-colors hover:text-white"
+                        className="block truncate text-sm font-medium text-ink-200 transition-colors hover:text-ink-0"
                       >
                         {p.username}
                       </Link>
-                      <p className="truncate text-[11px] text-surface-500">
+                      <p className="truncate text-xs text-ink-500">
                         {p.score !== null && (
-                          <span className="text-accent-gold">★ {formatStars(p.score)}</span>
+                          <span className="text-ink-0">★ {formatStars(p.score)}</span>
                         )}
                         {p.hasNote && <span>{p.score !== null ? " · " : ""}wrote about it</span>}
                       </p>
@@ -302,24 +301,24 @@ export default function TheRoom({
           )}
 
           {ratings.total > 0 && (
-            <div className="mt-6 border-t border-surface-800/60 pt-5">
+            <div className="mt-6 border-t border-line/60 pt-5">
               <div className="mb-2.5 flex items-baseline justify-between">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-surface-500">
+                <p className="text-xs font-medium uppercase tracking-wider text-ink-500">
                   How it rates here
                 </p>
-                <p className="text-xs text-surface-500">
+                <p className="text-xs text-ink-500">
                   {/* Halved, not re-rounded: 7.4/10 is 3.7 stars. Snapping a
                       mean to the nearest half-star throws away precision that
                       an average legitimately has even though no single rating
                       does. */}
-                  <span className="text-base font-bold text-accent-gold">
+                  <span className="text-base font-bold text-ink-0">
                     {(ratings.average / 2).toFixed(1)}
                   </span>{" "}
                   of 5
                 </p>
               </div>
 
-              <div className="flex h-14 items-end gap-[3px]">
+              <div className="flex h-14 items-end gap-0.75">
                 {ratings.distribution.map((d) => {
                   const mine = viewerScore === d.score;
                   return (
@@ -331,7 +330,7 @@ export default function TheRoom({
                           // The reader's own bar is gold, the room's are green.
                           // Where you sit in the distribution is the one thing
                           // in this chart that is about you.
-                          mine ? "bg-accent-gold" : "bg-brand-500/40 hover:bg-brand-500/70"
+                          mine ? "bg-ink-0" : "bg-action/40 hover:bg-action/70"
                         }`}
                       />
                     </div>
@@ -342,23 +341,23 @@ export default function TheRoom({
               {/* Ten bars, five labels. The buckets are half-stars because that
                   is what is stored; labelling all ten is unreadable at a
                   sidebar's width, so only the whole stars are marked. */}
-              <div className="mt-1 flex gap-[3px]">
+              <div className="mt-1 flex gap-0.75">
                 {ratings.distribution.map((d) => (
                   <div
                     key={d.score}
-                    className="flex-1 text-center text-[10px] font-medium text-surface-600"
+                    className="flex-1 text-center text-xs font-medium text-ink-600"
                   >
                     {d.score % 2 === 0 ? d.score / 2 : ""}
                   </div>
                 ))}
               </div>
 
-              <p className="mt-2 text-[11px] text-surface-500">
+              <p className="mt-2 text-xs text-ink-500">
                 {ratings.total} rating{ratings.total !== 1 ? "s" : ""}
                 {viewerScore !== null && (
                   <>
                     {" · "}
-                    <span className="text-accent-gold">yours ★ {formatStars(viewerScore)}</span>
+                    <span className="text-ink-0">yours ★ {formatStars(viewerScore)}</span>
                   </>
                 )}
               </p>

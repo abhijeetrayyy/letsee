@@ -137,3 +137,13 @@ export async function fetchClubs(viewerId: string | null): Promise<Club[]> {
 
   return (clubs ?? []).map((c) => ({ ...c, isMember: joined.has(c.id) })) as Club[];
 }
+
+/** The groups you're in, newest membership first — not limited to the most popular fifty. */
+export async function fetchMyClubs(me: string): Promise<Club[]> {
+  const { data: rows } = await supabase.from("club_members").select("club_id, joined_at").eq("user_id", me).eq("status", "active").order("joined_at", { ascending: false }).limit(100);
+  const ids = (rows ?? []).map((r) => r.club_id);
+  if (!ids.length) return [];
+  const { data: clubs } = await supabase.from("clubs").select("id, slug, name, description, image_url, member_count, created_at").in("id", ids);
+  const byId = new Map((clubs ?? []).map((c) => [c.id, c]));
+  return ids.map((id) => byId.get(id)).filter((c): c is NonNullable<typeof c> => !!c).map((c) => ({ ...c, isMember: true })) as Club[];
+}

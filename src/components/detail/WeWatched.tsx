@@ -1,4 +1,5 @@
 "use client";
+import { LIGHT, TOKENS_DARK, alpha } from "@/design/tokens";
 
 import { useRef, useState } from "react";
 import useSWR from "swr";
@@ -112,7 +113,7 @@ export default function WeWatched({
     if (!cardRef.current) return;
     setCapturing(true);
     try {
-      await exportNodeAsPng(cardRef.current, `letsee-we-watched-${itemId}.png`, { backgroundColor: "#0d1117" });
+      await exportNodeAsPng(cardRef.current, `letsee-we-watched-${itemId}.png`, { backgroundColor: TOKENS_DARK.page });
     } catch {
       toast.error("Couldn't save the image. Screenshot the card instead.");
     } finally {
@@ -139,15 +140,15 @@ export default function WeWatched({
   };
 
   return (
-    <div ref={ref} className="rounded-2xl border border-surface-800 bg-surface-900/40 p-4">
+    <div ref={ref} className="rounded-2xl border border-line bg-raised/40 p-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Users className="size-4 shrink-0 text-brand-400" />
-        <p className="text-sm text-surface-200">{line}</p>
+        <Users className="size-4 shrink-0 text-accent" />
+        <p className="text-sm text-ink-200">{line}</p>
         {data.others.length > 1 && (
           <button
             type="button"
             onClick={() => setPick((p) => (p + 1) % data.others.length)}
-            className="text-xs text-surface-500 hover:text-white"
+            className="text-xs text-ink-500 hover:text-ink-0"
           >
             someone else
           </button>
@@ -156,7 +157,7 @@ export default function WeWatched({
           <button
             type="button"
             onClick={share}
-            className="inline-flex items-center gap-1.5 rounded-full border border-surface-700 px-3 py-1.5 text-xs text-surface-300 transition hover:border-surface-600 hover:text-white"
+            className="inline-flex items-center gap-1.5 rounded-full border border-line-strong px-3 py-1.5 text-xs text-ink-300 transition hover:border-line-input hover:text-ink-0"
           >
             <Share2 className="size-3.5" /> Send
           </button>
@@ -164,7 +165,7 @@ export default function WeWatched({
             type="button"
             onClick={exportImage}
             disabled={capturing}
-            className="inline-flex items-center gap-1.5 rounded-full border border-surface-700 px-3 py-1.5 text-xs text-surface-300 transition hover:border-surface-600 hover:text-white disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-full border border-line-strong px-3 py-1.5 text-xs text-ink-300 transition hover:border-line-input hover:text-ink-0 disabled:opacity-50"
           >
             <Download className="size-3.5" /> Card
           </button>
@@ -174,30 +175,30 @@ export default function WeWatched({
       {/* The image, rendered off-screen. */}
       <div
         ref={cardRef}
-        style={{ width: 800, height: 420, background: "#0d1117" }}
-        className="fixed -left-[9999px] top-0 flex items-center gap-8 p-10"
+        style={{ width: 800, height: 420, background: TOKENS_DARK.page }}
+        className="fixed -left-2500 top-0 flex items-center gap-8 p-10"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={getPosterUrl(posterPath, "w342")}
           alt=""
           crossOrigin="anonymous"
-          style={{ width: 220, height: 330, borderRadius: 12, objectFit: "cover", border: "1px solid rgba(255,255,255,0.12)" }}
+          style={{ width: 220, height: 330, borderRadius: 12, objectFit: "cover", border: `1px solid ${alpha(LIGHT, 0.12)}` }}
         />
-        <div style={{ flex: 1, color: "#fff" }}>
-          <p style={{ fontSize: 14, letterSpacing: 4, textTransform: "uppercase", color: "rgba(74,222,128,0.95)", margin: 0 }}>We watched</p>
+        <div style={{ flex: 1, color: TOKENS_DARK.ink0 }}>
+          <p style={{ fontSize: 14, letterSpacing: 4, textTransform: "uppercase", color: alpha(TOKENS_DARK.ink0, 0.95), margin: 0 }}>We watched</p>
           <p style={{ fontSize: 40, fontWeight: 700, lineHeight: 1.1, margin: "12px 0 28px" }}>{itemName}</p>
           <div style={{ display: "flex", gap: 40 }}>
             <div>
               <p style={{ fontSize: 46, fontWeight: 700, margin: 0, lineHeight: 1 }}>{formatStars(data.mine)}</p>
-              <p style={{ fontSize: 16, color: "rgba(255,255,255,0.6)", margin: "8px 0 0" }}>@{me}</p>
+              <p style={{ fontSize: 16, color: alpha(LIGHT, 0.6), margin: "8px 0 0" }}>@{me}</p>
             </div>
             <div>
               <p style={{ fontSize: 46, fontWeight: 700, margin: 0, lineHeight: 1 }}>{formatStars(other.score)}</p>
-              <p style={{ fontSize: 16, color: "rgba(255,255,255,0.6)", margin: "8px 0 0" }}>@{other.username}</p>
+              <p style={{ fontSize: 16, color: alpha(LIGHT, 0.6), margin: "8px 0 0" }}>@{other.username}</p>
             </div>
           </div>
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", margin: "36px 0 0" }}>LetSee</p>
+          <p style={{ fontSize: 13, color: alpha(LIGHT, 0.4), margin: "36px 0 0" }}>LetSee</p>
         </div>
       </div>
     </div>

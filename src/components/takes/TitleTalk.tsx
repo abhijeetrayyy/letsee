@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import Link from "@components/ui/AppLink";
-import { Loader2, Lock, Send, Trash2, X } from "lucide-react";
+import { Loader2, Lock, PenLine, Send, Trash2, X } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
 import StarRating from "@components/ui/StarRating";
 import { formatStars } from "@/utils/ratingScale";
@@ -45,13 +45,14 @@ import LogViewing from "./LogViewing";
  * what D1 set out to do and stopped one step short of.
  */
 
-type Mine = { score: number | null; body: string | null; isPublic: boolean } | null;
+type Mine = { score: number | null; body: string | null; isPublic: boolean; forUs?: boolean } | null;
 type Other = {
   username: string;
   avatarUrl: string | null;
   score: number | null;
   body: string;
   updatedAt: string;
+  forUs?: boolean;
 };
 /**
  * The prompt is the single highest-leverage thing on this component.
@@ -132,6 +133,9 @@ export default function TitleTalk({
 
   const { user } = useAuth();
   const viewerId = user?.id ?? null;
+  // The words stay folded behind one button until someone wants to write;
+  // an empty box on every page asks a question nobody came to answer.
+  const [writing, setWriting] = useState(false);
 
   /**
    * The identity of the thing being talked about, in the shape `takes` stores.
@@ -309,7 +313,13 @@ export default function TitleTalk({
     return PROMPTS[seed % PROMPTS.length];
   }, [itemId, seasonNumber, episodeNumber, viewingState.lastIsRewatch]);
 
-  const save = async (isPublic: boolean) => {
+  /**
+   * `forUs` is passed when the button says who it's for: *Keep private* means
+   * only you, so it must not leave words readable by the people who were
+   * there just because the take was "us" before. Left undefined (the shelf
+   * toggle), the stored audience is kept.
+   */
+  const save = async (isPublic: boolean, forUs?: boolean) => {
     if (!text.trim() && rating == null) return;
     if (!viewerId) return;
     setBusy(true);
@@ -330,6 +340,7 @@ export default function TitleTalk({
         score: rating,
         body: text,
         isPublic,
+        forUs,
         itemName,
         imageUrl,
         genres,
@@ -469,6 +480,7 @@ export default function TitleTalk({
       score: o.score,
       at: o.updatedAt,
       commentId: null as number | null,
+      forUs: o.forUs === true,
     }));
     const commentRows = (comments ?? []).map((c) => ({
       key: `comment:${c.id}`,
@@ -480,6 +492,7 @@ export default function TitleTalk({
       // Only a reply can be removed from here — a public take is removed from
       // its own card above, which also clears the mirror rows.
       commentId: c.user_id === viewerId ? c.id : null,
+      forUs: false,
     }));
     return [...takeRows, ...commentRows].sort((a, b) => b.at.localeCompare(a.at));
   }, [takes, comments, viewerId]);
@@ -488,14 +501,14 @@ export default function TitleTalk({
     <section ref={ref} className="space-y-5">
       {/* ── The one box ─────────────────────────────────────────────────── */}
       {!isAuthenticated ? (
-        <p className="rounded-2xl border border-surface-800/60 bg-surface-900/40 p-5 text-sm text-surface-400">
-          <Link href="/login" className="text-brand-400 hover:text-brand-300">
+        <p className="rounded-2xl border border-line/60 bg-raised/40 p-5 text-sm text-ink-400">
+          <Link href="/login" className="font-medium text-accent underline decoration-line-input underline-offset-4 hover:text-accent-soft">
             Sign in
           </Link>{" "}
           to write about this.
         </p>
       ) : isLoading ? (
-        <div className="flex items-center gap-2 py-4 text-sm text-surface-500">
+        <div className="flex items-center gap-2 py-4 text-sm text-ink-500">
           <Loader2 className="size-4 animate-spin" /> Loading…
         </div>
       ) : (
@@ -513,6 +526,7 @@ export default function TitleTalk({
             viewerId={viewerId}
             onChange={setViewingState}
             onLogged={refreshRoom}
+            withLogButton={false}
           />
         )}
         {/* Its own strip, outside the card below.
@@ -522,7 +536,8 @@ export default function TitleTalk({
             the "which box does this go in" fork this component exists to
             remove — you would not be able to tell by looking whether a filled
             star was saved or still a draft. */}
-        <div className="mb-3 flex items-center gap-3 rounded-2xl border border-surface-800 bg-surface-900/40 px-4 py-3.5">
+        <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-line-strong px-4 py-3.5">
+          <span className="text-sm text-ink-400">Your rating</span>
           <StarRating
             value={rating}
             onChange={saveScore}
@@ -540,15 +555,26 @@ export default function TitleTalk({
               disabled={busy}
               onClick={() => saveScore(null)}
               aria-label="Clear rating"
-              className="rounded-full p-1.5 text-surface-500 transition hover:text-red-400 disabled:opacity-50"
+              className="rounded-full p-1.5 text-ink-500 transition hover:text-danger disabled:opacity-50"
             >
               <X className="size-4" />
             </button>
           )}
         </div>
 
-        <div className="card-accent rounded-2xl p-5">
+        {!writing && !text.trim() && !mine?.body ? (
+          <button
+            type="button"
+            onClick={() => setWriting(true)}
+            className="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0"
+          >
+            <PenLine className="size-4" aria-hidden />
+            Write about it
+          </button>
+        ) : (
+        <div className="rounded-card border border-line-strong p-4 sm:p-5">
           <textarea
+            autoFocus={writing && !mine?.body}
             value={text}
             onChange={(e) => setDraft(e.target.value)}
             rows={3}
@@ -557,7 +583,7 @@ export default function TitleTalk({
             // telling you what kind of writing belongs in it, because that is
             // the question that stops people.
             placeholder={prompt}
-            className="w-full resize-y rounded-xl border border-surface-700 bg-surface-950 px-3.5 py-3 text-[15px] leading-relaxed text-white placeholder-surface-500 focus:border-brand-500 focus:outline-none"
+            className="w-full resize-y rounded-control bg-raised px-3.5 py-3 font-display text-lg leading-relaxed text-ink-0 ring-1 ring-inset ring-line-input placeholder:font-sans placeholder:text-base placeholder:text-ink-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           />
 
           {/* Said out loud, once.
@@ -567,7 +593,7 @@ export default function TitleTalk({
               moment they touch the keyboard, because from then on it is not a
               recovered draft, it is what they are writing. */}
           {draftRestored && (
-            <p className="mt-2 text-xs text-surface-500">
+            <p className="mt-2 text-xs text-ink-500">
               Picked up where you left off. Still only visible to you.
             </p>
           )}
@@ -583,14 +609,14 @@ export default function TitleTalk({
             <div className="mt-3 flex flex-wrap items-center justify-end gap-x-3 gap-y-3">
               {mine?.body && !dirty ? (
                 <>
-                  <span className="text-xs text-surface-500">
-                    {mine.isPublic ? "Posted" : "Only you can see this"}
+                  <span className="text-xs text-ink-500">
+                    {mine.isPublic ? "Posted" : mine.forUs ? "You and the people who were there" : "Only you can see this"}
                   </span>
                   <button
                     type="button"
                     disabled={busy}
                     onClick={() => save(!mine.isPublic)}
-                    className="rounded-full border border-surface-700 px-3 py-1.5 text-xs text-surface-300 transition hover:border-surface-600 hover:text-white disabled:opacity-50"
+                    className="rounded-full border border-line-strong px-3 py-1.5 text-xs text-ink-300 transition hover:border-line-input hover:text-ink-0 disabled:opacity-50"
                   >
                     {mine.isPublic ? "Make private" : "Post it"}
                   </button>
@@ -604,11 +630,23 @@ export default function TitleTalk({
                   <button
                     type="button"
                     disabled={busy || !text.trim()}
-                    onClick={() => save(false)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-surface-700 px-3 py-1.5 text-xs text-surface-300 transition hover:border-surface-600 hover:text-white disabled:opacity-40"
+                    onClick={() => save(false, false)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-line-strong px-3 py-1.5 text-xs text-ink-300 transition hover:border-line-input hover:text-ink-0 disabled:opacity-40"
                   >
                     <Lock className="size-3" /> Keep private
                   </button>
+                  {/* Only where the take is already for the people who were
+                      there: keeping it that way is then an explicit choice. */}
+                  {mine?.forUs && (
+                    <button
+                      type="button"
+                      disabled={busy || !text.trim()}
+                      onClick={() => save(false, true)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-line-strong px-3 py-1.5 text-xs text-ink-300 transition hover:border-line-input hover:text-ink-0 disabled:opacity-40"
+                    >
+                      Keep for us
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={busy || !text.trim()}
@@ -629,7 +667,7 @@ export default function TitleTalk({
                   disabled={busy}
                   onClick={remove}
                   aria-label="Delete"
-                  className="rounded-full p-1.5 text-surface-500 transition hover:text-red-400 disabled:opacity-50"
+                  className="rounded-full p-1.5 text-ink-500 transition hover:text-danger disabled:opacity-50"
                 >
                   <Trash2 className="size-3.5" />
                 </button>
@@ -637,12 +675,22 @@ export default function TitleTalk({
             </div>
           )}
 
-          {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+          {error && <p className="mt-2 text-xs text-danger">{error}</p>}
         </div>
+        )}
         </>
       )}
 
       {/* ── The one thread ──────────────────────────────────────────────── */}
+      {/* Its own heading and a rule above it: sitting straight under your
+          rating, the reply box read as part of your entry — a third place to
+          write — when it is the conversation everyone on this page shares. */}
+      {(thread.length > 0 || isAuthenticated) && (
+        <div className="border-t border-line pt-5">
+          <h3 className="text-sm font-semibold text-ink-0">{thread.length > 0 ? "What people are saying" : "Talk about it"}</h3>
+          {thread.length === 0 && <p className="mt-1 text-xs text-ink-500">Anyone who opens this page can read what you say here.</p>}
+        </div>
+      )}
       {thread.length > 0 && (
         <div className="space-y-3">
           {thread.map((row) => (
@@ -651,19 +699,20 @@ export default function TitleTalk({
                 <Avatar src={row.avatarUrl} name={row.username} size={28} />
               </Link>
               <div className="min-w-0 flex-1">
-                <p className="text-xs text-surface-500">
+                <p className="text-xs text-ink-500">
                   <Link
                     href={`/app/profile/${row.username}`}
-                    className="font-medium text-surface-300 transition-colors hover:text-white"
+                    className="font-medium text-ink-300 transition-colors hover:text-ink-0"
                   >
                     {row.username}
                   </Link>
-                  <span className="text-surface-600"> · {when(row.at)}</span>
+                  <span className="text-ink-600"> · {when(row.at)}</span>
                   {typeof row.score === "number" && row.score > 0 && (
-                    <span className="text-amber-400/90"> · ★ {formatStars(row.score)}</span>
+                    <span className="text-ink-300/90"> · ★ {formatStars(row.score)}</span>
                   )}
+                  {row.forUs && <span className="text-ink-500"> · to the people who were there</span>}
                 </p>
-                <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-surface-100">
+                <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-ink-100">
                   {row.body}
                 </p>
               </div>
@@ -676,7 +725,7 @@ export default function TitleTalk({
                   disabled={busy}
                   onClick={() => removeReply(row.commentId!)}
                   aria-label="Delete reply"
-                  className="shrink-0 self-start rounded-full p-1.5 text-surface-600 transition hover:text-red-400 disabled:opacity-50"
+                  className="shrink-0 self-start rounded-full p-1.5 text-ink-600 transition hover:text-danger disabled:opacity-50"
                 >
                   <Trash2 className="size-3.5" />
                 </button>
@@ -694,21 +743,21 @@ export default function TitleTalk({
             onKeyDown={(e) => e.key === "Enter" && postReply()}
             maxLength={2000}
             placeholder={thread.length > 0 ? "Say something back…" : "Start the conversation…"}
-            className="flex-1 rounded-xl border border-surface-700/50 bg-surface-800/60 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+            className="h-10 flex-1 rounded-full bg-raised px-4 text-sm text-ink-0 ring-1 ring-inset ring-line-input placeholder:text-ink-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           />
           <button
             type="button"
             onClick={postReply}
             disabled={busy || !reply.trim()}
             aria-label="Send"
-            className="btn-primary rounded-xl px-3 disabled:opacity-40"
+            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-action text-on-action hover:bg-action-hover disabled:opacity-40"
           >
             <Send className="size-4" />
           </button>
         </div>
       )}
 
-      {replyError && <p className="text-xs text-red-400">{replyError}</p>}
+      {replyError && <p className="text-xs text-danger">{replyError}</p>}
     </section>
   );
 }

@@ -1,8 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
-import { useWatchedEpisode } from "./useWatchedEpisode";
+import { useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
+import toast from "react-hot-toast";
+import { Check, Eye, EyeOff, LoaderCircle } from "lucide-react";
+import Link from "@components/ui/AppLink";
+import { useMarkEpisode } from "./useWatchedEpisode";
+
+/**
+ * "Show anyway" is one decision per episode, not one per box. Shared across
+ * every gate on the page through a tiny store, so revealing once reveals the
+ * overview, the stills, the guest stars and the thread together.
+ */
+const revealedEpisodes = new Set<string>();
+const listeners = new Set<() => void>();
+function reveal(key: string) {
+  revealedEpisodes.add(key);
+  listeners.forEach((l) => l());
+}
+function subscribe(l: () => void) {
+  listeners.add(l);
+  return () => listeners.delete(l);
+}
+
+/** Whether "Show anyway" has been chosen for this episode, on this page. */
+export function useEpisodeRevealed(showId: string, seasonNumber: number, episodeNumber: number): boolean {
+  const key = `${showId}:${seasonNumber}:${episodeNumber}`;
+  return useSyncExternalStore(subscribe, () => revealedEpisodes.has(key), () => false);
+}
 
 /**
  * Progress-gated spoilers.
@@ -30,6 +55,8 @@ export default function EpisodeSpoilerGate({
   seasonNumber,
   episodeNumber,
   label = "what happens",
+  primary = false,
+  holds,
   children,
 }: {
   showId: string;
@@ -37,30 +64,63 @@ export default function EpisodeSpoilerGate({
   episodeNumber: number;
   /** What is being hidden, for the notice: "what happens", "the thread". */
   label?: string;
+  /**
+   * One gate per page (docs/design/SYSTEM.md §8, `SpoilerGate`). The primary gate names everything the page is holding
+   * back; the others stay out of the way until the episode is watched or
+   * revealed.
+   */
+  primary?: boolean;
+  /** For the primary gate: everything folded on this page, in reading order. */
+  holds?: string[];
   children: React.ReactNode;
 }) {
-  const { watched } = useWatchedEpisode(showId, seasonNumber, episodeNumber);
-  const [revealed, setRevealed] = useState(false);
+  const { watched, signedIn, toggle, busy } = useMarkEpisode(showId, seasonNumber, episodeNumber);
+  const pathname = usePathname();
+  const key = `${showId}:${seasonNumber}:${episodeNumber}`;
+  const revealed = useEpisodeRevealed(showId, seasonNumber, episodeNumber);
+  const setRevealed = () => reveal(key);
 
   if (watched === null) {
-    return <div aria-hidden className="h-10 animate-pulse rounded-xl bg-surface-900/40" />;
+    return primary ? <div aria-hidden className="h-24 rounded-card bg-raised/40" /> : null;
   }
   if (watched || revealed) return <>{children}</>;
 
+  if (!primary) return null;
+  const list = holds?.length ? holds : [label];
+  const listed = list.length > 1 ? `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}` : list[0];
   return (
-    <div className="rounded-xl border border-dashed border-surface-700 bg-surface-900/40 px-4 py-4">
-      <p className="flex items-center gap-2 text-sm text-surface-300">
-        <EyeOff className="size-4 text-surface-500" />
-        Hidden until you&apos;ve watched it — {label}.
+    <div className="rounded-card border border-line-strong bg-raised px-4 py-4 sm:px-5">
+      <p className="flex items-start gap-2.5 text-base font-medium text-ink-0">
+        <EyeOff className="mt-0.5 size-4 shrink-0 text-ink-500" aria-hidden />
+        {signedIn ? "You haven\u2019t marked this episode watched." : "Spoilers are folded on this page."}
       </p>
-      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-        <span className="text-surface-500">Mark the episode watched to reveal it.</span>
+      <p className="mt-1.5 pl-6.5 text-sm text-ink-400">
+        {listed.charAt(0).toUpperCase() + listed.slice(1)} {signedIn ? "are folded until you do." : "stay folded unless you ask."}
+      </p>
+      <div className="mt-4 flex flex-wrap items-center gap-3 pl-6.5">
+        {signedIn ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              if (!(await toggle())) toast.error("That didn't save. Check your connection.");
+            }}
+            className="inline-flex h-10 items-center gap-2 rounded-full bg-action px-4 text-sm font-semibold text-on-action transition-colors hover:bg-action-hover disabled:opacity-60"
+          >
+            {busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
+            I&apos;ve watched it
+          </button>
+        ) : (
+          <Link href={`/login?next=${encodeURIComponent(pathname)}`} className="inline-flex h-10 items-center rounded-full bg-action px-4 text-sm font-semibold text-on-action hover:bg-action-hover">
+            Sign in to mark it
+          </Link>
+        )}
         <button
           type="button"
-          onClick={() => setRevealed(true)}
-          className="inline-flex items-center gap-1 text-surface-400 underline-offset-2 hover:text-white hover:underline"
+          onClick={setRevealed}
+          className="inline-flex h-10 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium text-ink-0 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover"
         >
-          <Eye className="size-3.5" /> Show anyway
+          <Eye className="size-4" aria-hidden /> Show anyway
         </button>
       </div>
     </div>

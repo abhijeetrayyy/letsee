@@ -3,7 +3,7 @@
 > Full capability documentation for the LetSee social film/TV journal.
 > Covers every feature, its logic, data flow, and file locations.
 >
-> **Profile Upgrade Plan**: See `docs/PROFILE_UPGRADE_PLAN.md` for the complete analysis and roadmap for the world-class profile page upgrade.
+> **Profile and every other page's design**: see `docs/design/`, which replaced the old profile upgrade plan on 2026-10-03.
 
 ---
 

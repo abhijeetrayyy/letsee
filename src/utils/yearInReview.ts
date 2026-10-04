@@ -66,6 +66,8 @@ export type YearInReview = {
   comfortWatch: YearFilm | null;
   /** Highest rated, for the poster grid. */
   topRated: YearFilm[];
+  /** Up to twelve, best-rated first: what Edit before you share chooses from. */
+  posterPool: YearFilm[];
   topGenres: { genre: string; count: number }[];
   busiestMonth: { month: string; count: number } | null;
   /** Who they watched with most, from the viewings themselves. */
@@ -200,11 +202,14 @@ export async function buildYearInReview(
   };
   const comfortWatch = comfortKey && titles.get(comfortKey)?.name ? toFilm(comfortKey) : null;
 
-  const topRated: YearFilm[] = titleKeys
+  // Twelve to choose from when editing the card before sharing; the card
+  // starts with the first four.
+  const posterPool: YearFilm[] = titleKeys
     .map(toFilm)
     .filter((f) => f.score !== null && f.itemName)
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-    .slice(0, 4);
+    .slice(0, 12);
+  const topRated = posterPool.slice(0, 4);
 
   const genreCounts = new Map<string, number>();
   for (const k of titleKeys) {
@@ -259,6 +264,7 @@ export async function buildYearInReview(
     rewatches,
     comfortWatch,
     topRated,
+    posterPool,
     topGenres,
     busiestMonth,
     watchedWith,

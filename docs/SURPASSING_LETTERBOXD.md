@@ -3,7 +3,7 @@
 > **Status:** All seven workstreams built (§15). Migrations **056–063 applied and verified** on 2026-08-16.
 > **Audited in §16:** 28 criteria re-checked against the code — 21 held, 7 did not, **all 7 now fixed**. The 500-film resolution run found a real correctness bug; see §16 item 5. Open: one production timing measurement.
 > **Written:** 2026-08-16, against `main` @ `faeb123`. Decisions resolved and W1 built the same day.
-> **Supersedes the benchmark table in** `COMPLETE_AUDIT_AND_ROADMAP.md` §2, which measures the wrong thing (see §1).
+> **Superseded the benchmark table in** the old `COMPLETE_AUDIT_AND_ROADMAP.md` §2 (deleted 2026-10-03 with the other pre-redesign design docs; it is in git history), which measured the wrong thing (see §1).
 
 ---
 
@@ -30,7 +30,7 @@
 
 ## 1. The honest gap
 
-`COMPLETE_AUDIT_AND_ROADMAP.md` §2 compares LetSee to Letterboxd feature by feature and marks nearly every gap "Minor." That table is accurate and useless. The four things Letterboxd actually beats us on are not features:
+The old `COMPLETE_AUDIT_AND_ROADMAP.md` §2 (now deleted) compared LetSee to Letterboxd feature by feature and marks nearly every gap "Minor." That table is accurate and useless. The four things Letterboxd actually beats us on are not features:
 
 | # | Their advantage | Why features don't close it |
 |---|---|---|

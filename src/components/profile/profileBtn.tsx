@@ -68,7 +68,7 @@ export function ShowFollowing({ followingCount, userId }: any) {
     <>
       <button
         type="button"
-        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-surface-600 bg-surface-800/80 px-3.5 py-2 text-sm font-medium text-white/90 hover:bg-surface-700 hover:border-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-surface-900 tabular-nums"
+        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-line-input bg-overlay/80 px-3.5 py-2 text-sm font-medium text-ink-0/90 hover:bg-hover hover:border-line-bold focus:outline-none focus:ring-2 focus:ring-focus/50 focus:ring-offset-2 focus:ring-offset-raised tabular-nums"
         onClick={() => setModal(true)}
       >
         <span>{countStr}</span>
@@ -77,30 +77,30 @@ export function ShowFollowing({ followingCount, userId }: any) {
 
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setModal(false)}>
-          <div className="w-full max-w-sm rounded-2xl border border-surface-700 bg-surface-800 p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sheet rounded-2xl border border-line-strong bg-overlay p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Following</h2>
-              <button type="button" className="rounded-lg p-1.5 text-surface-400 hover:bg-surface-700 hover:text-white" onClick={() => setModal(false)} aria-label="Close">×</button>
+              <h2 className="text-lg font-medium text-ink-0">Following</h2>
+              <button type="button" className="rounded-lg p-1.5 text-ink-400 hover:bg-hover hover:text-ink-0" onClick={() => setModal(false)} aria-label="Close">×</button>
             </div>
             {loading ? (
               <div className="py-6 flex flex-col items-center justify-center gap-3">
                 <LoadingSpinner size="sm" className="border-t-white shrink-0" />
-                <p className="text-surface-400 text-sm animate-pulse">Loading…</p>
+                <p className="text-ink-400 text-sm animate-pulse">Loading…</p>
               </div>
             ) : error ? (
-              <p className="text-red-400 text-sm">{error}</p>
+              <p className="text-danger text-sm">{error}</p>
             ) : following.length !== 0 ? (
               <ul className="space-y-2 max-h-64 overflow-y-auto">
                 {following.map((person) => (
                   <li key={person.id}>
-                    <Link href={`/app/profile/${person.username ?? ""}`} className="block rounded-lg py-2 px-2 text-white/90 hover:bg-surface-700 hover:text-white">
+                    <Link href={`/app/profile/${person.username ?? ""}`} className="block rounded-lg py-2 px-2 text-ink-0/90 hover:bg-hover hover:text-ink-0">
                       @{person.username ?? "—"}
                     </Link>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-surface-500 text-sm py-4">No one yet.</p>
+              <p className="text-ink-500 text-sm py-4">No one yet.</p>
             )}
           </div>
         </div>
@@ -151,7 +151,7 @@ export function ShowFollower({ followerCount, userId }: any) {
     <>
       <button
         type="button"
-        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-surface-600 bg-surface-800/80 px-3.5 py-2 text-sm font-medium text-white/90 hover:bg-surface-700 hover:border-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-surface-900 tabular-nums"
+        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-line-input bg-overlay/80 px-3.5 py-2 text-sm font-medium text-ink-0/90 hover:bg-hover hover:border-line-bold focus:outline-none focus:ring-2 focus:ring-focus/50 focus:ring-offset-2 focus:ring-offset-raised tabular-nums"
         onClick={() => setModal(true)}
       >
         <span>{countStr}</span>
@@ -160,30 +160,30 @@ export function ShowFollower({ followerCount, userId }: any) {
 
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setModal(false)}>
-          <div className="w-full max-w-sm rounded-2xl border border-surface-700 bg-surface-800 p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sheet rounded-2xl border border-line-strong bg-overlay p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Followers</h2>
-              <button type="button" className="rounded-lg p-1.5 text-surface-400 hover:bg-surface-700 hover:text-white" onClick={() => setModal(false)} aria-label="Close">×</button>
+              <h2 className="text-lg font-medium text-ink-0">Followers</h2>
+              <button type="button" className="rounded-lg p-1.5 text-ink-400 hover:bg-hover hover:text-ink-0" onClick={() => setModal(false)} aria-label="Close">×</button>
             </div>
             {loading ? (
               <div className="py-6 flex flex-col items-center justify-center gap-3">
                 <LoadingSpinner size="sm" className="border-t-white shrink-0" />
-                <p className="text-surface-400 text-sm animate-pulse">Loading…</p>
+                <p className="text-ink-400 text-sm animate-pulse">Loading…</p>
               </div>
             ) : error ? (
-              <p className="text-red-400 text-sm">{error}</p>
+              <p className="text-danger text-sm">{error}</p>
             ) : following.length > 0 ? (
               <ul className="space-y-2 max-h-64 overflow-y-auto">
                 {following.map((person) => (
                   <li key={person.id}>
-                    <Link href={`/app/profile/${person.username ?? ""}`} className="block rounded-lg py-2 px-2 text-white/90 hover:bg-surface-700 hover:text-white">
+                    <Link href={`/app/profile/${person.username ?? ""}`} className="block rounded-lg py-2 px-2 text-ink-0/90 hover:bg-hover hover:text-ink-0">
                       @{person.username ?? "—"}
                     </Link>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-surface-500 text-sm py-4">No followers yet.</p>
+              <p className="text-ink-500 text-sm py-4">No followers yet.</p>
             )}
           </div>
         </div>

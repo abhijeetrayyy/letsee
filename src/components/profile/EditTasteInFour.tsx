@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { getPosterUrl } from "@/utils/imageUrl";
@@ -21,15 +21,41 @@ type PickableItem = {
   image_url?: string | null;
 };
 
+/** Lets the profile's empty slots open the editor at that slot. */
+export type FourEditorHandle = { open: (slot?: number) => void };
+
 export default function EditTasteInFour({
   currentItems,
   profileId,
+  handle,
 }: {
   currentItems: DisplayItem[];
   profileId: string;
+  handle?: React.Ref<FourEditorHandle>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+
+  // A dialog: Escape closes it, focus goes in when it opens and back to the
+  // button when it shuts, and the page behind doesn't scroll.
+  useEffect(() => {
+    if (!open) return;
+    const back = trigger.current;
+    const before = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialog.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = before;
+      window.removeEventListener("keydown", onKey);
+      back?.focus();
+    };
+  }, [open]);
   const [slots, setSlots] = useState<(PickableItem | null)[]>(() => {
     const arr: (PickableItem | null)[] = [null, null, null, null];
     currentItems.forEach((it, i) => {
@@ -38,11 +64,14 @@ export default function EditTasteInFour({
     return arr;
   });
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
-  const [pickerTab, setPickerTab] = useState<"watched" | "favorites">("watched");
+  // Favourites first: the four are usually chosen from what you've hearted.
+  const [pickerTab, setPickerTab] = useState<"watched" | "favorites">("favorites");
   const [saving, setSaving] = useState(false);
   const [watched, setWatched] = useState<PickableItem[]>([]);
   const [favorites, setFavorites] = useState<PickableItem[]>([]);
   const [loaded, setLoaded] = useState(false);
+  /** `loaded` flips when the read starts (so it runs once); this is whether it has come back. */
+  const [fetching, setFetching] = useState(false);
   const [query, setQuery] = useState("");
   const [remote, setRemote] = useState<PickableItem[]>([]);
   const [searching, setSearching] = useState(false);
@@ -81,6 +110,7 @@ export default function EditTasteInFour({
   const loadPickable = useCallback(async () => {
     if (loaded) return;
     setLoaded(true);
+    setFetching(true);
     try {
       // This picker only ever opens on your own profile, so the viewer and the
       // owner are the same person — but it is passed explicitly rather than
@@ -104,6 +134,8 @@ export default function EditTasteInFour({
       })));
     } catch {
       setLoaded(false);
+    } finally {
+      setFetching(false);
     }
   }, [profileId, loaded]);
 
@@ -114,10 +146,17 @@ export default function EditTasteInFour({
     });
     setSlots(arr);
     setSelectedSlot(null);
-    setPickerTab("watched");
+    setPickerTab("favorites");
     setOpen(true);
     loadPickable();
   };
+
+  useImperativeHandle(handle, () => ({
+    open: (slot?: number) => {
+      openModal();
+      if (typeof slot === "number") setSelectedSlot(slot);
+    },
+  }));
 
   const assignToSlot = useCallback((item: PickableItem, slotIndex: number) => {
     setSlots((prev) => prev.map((it, i) =>
@@ -250,25 +289,31 @@ export default function EditTasteInFour({
   return (
     <>
       <button
+        ref={trigger}
         type="button"
         onClick={openModal}
-        className="text-sm font-medium text-amber-400 hover:text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500/50 rounded px-1"
+        className="inline-flex h-9 shrink-0 items-center rounded-full px-3.5 text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
       >
-        Edit Taste in 4
+        {currentItems.length ? "Edit your four" : "Choose your four"}
       </button>
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-page/80 p-4 backdrop-blur-sm"
           onClick={() => setOpen(false)}
         >
           <div
-            className="bg-surface-900 rounded-2xl border border-surface-700 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+            ref={dialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-four-title"
+            tabIndex={-1}
+            className="bg-raised rounded-2xl border border-line-strong shadow-2xl w-full max-w-read max-h-[90vh] overflow-hidden flex flex-col focus:outline-none"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header — fixed, never shrinks */}
-            <div className="shrink-0 p-5 border-b border-surface-700">
-              <h2 className="text-xl font-bold text-white">Edit Taste in 4</h2>
-              <p className="text-surface-400 text-sm mt-1">
+            <div className="shrink-0 p-5 border-b border-line-strong">
+              <h2 id="edit-four-title" className="text-xl font-medium text-ink-0">Your four</h2>
+              <p className="text-ink-400 text-sm mt-1">
                 Tap a slot to select it, then pick a title below. Or tap a title to add to the next empty slot.
               </p>
             </div>
@@ -276,8 +321,8 @@ export default function EditTasteInFour({
             {/* Single scrollable area: Your 4 + Choose from — Cancel/Save stay fixed below */}
             <div className="flex-1 min-h-0 overflow-y-auto">
               {/* Your 4 */}
-              <div className="p-5 border-b border-surface-700">
-                <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Your 4</p>
+              <div className="p-5 border-b border-line-strong">
+                <p className="text-xs font-semibold text-ink-500 uppercase tracking-wider mb-3">Your 4</p>
                 <div className="grid grid-cols-4 gap-3">
                   {[0, 1, 2, 3].map((idx) => {
                     const it = slots[idx];
@@ -292,10 +337,10 @@ export default function EditTasteInFour({
                           onClick={() => setSelectedSlot(isSelected ? null : idx)}
                           className={`relative w-full aspect-2/3 rounded-xl overflow-hidden border-2 transition-all ${
                             isSelected
-                              ? "border-amber-500 ring-2 ring-amber-500/50"
+                              ? "border-line-input ring-2 ring-focus/50"
                               : it
-                                ? "border-surface-600 hover:border-surface-500"
-                                : "border-dashed border-surface-600 bg-surface-800/50 hover:border-surface-500"
+                                ? "border-line-input hover:border-line-bold"
+                                : "border-dashed border-line-input bg-overlay/50 hover:border-line-bold"
                           }`}
                         >
                           {it ? (
@@ -308,25 +353,30 @@ export default function EditTasteInFour({
                               <span className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 active:opacity-100 transition-opacity touch-manipulation" aria-hidden />
                             </>
                           ) : (
-                            <span className="flex items-center justify-center h-full text-surface-500 text-3xl font-light">+</span>
+                            <span className="flex items-center justify-center h-full text-ink-500 text-3xl font-light">+</span>
                           )}
                         </button>
-                        <p className="text-xs font-medium text-surface-400 mt-1.5 w-full truncate text-center">
+                        <p className="text-xs font-medium text-ink-400 mt-1.5 w-full truncate text-center">
                           {it ? it.item_name : `Slot ${idx + 1}`}
                         </p>
+                        {/* Stacked, not side by side: four slots across a phone are
+                            about 70px each, and "Poster" and "Remove" in one row ran
+                            into each other (and into the next slot). */}
                         {it && (
-                          <div className="mt-0.5 flex items-center gap-2">
+                          <div className="mt-1 flex w-full flex-col items-stretch gap-1">
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); void loadPosters(idx); }}
-                              className="text-xs text-surface-400 hover:text-white"
+                              aria-label={`Choose a poster for ${it.item_name}`}
+                              className="h-7 rounded-full text-xs font-medium text-ink-300 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"
                             >
                               Poster
                             </button>
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); clearSlot(idx); }}
-                              className="text-xs text-red-400 hover:text-red-300"
+                              aria-label={`Take ${it.item_name} out of your four`}
+                              className="h-7 rounded-full text-xs font-medium text-danger hover:bg-danger/10"
                             >
                               Remove
                             </button>
@@ -339,12 +389,12 @@ export default function EditTasteInFour({
               </div>
 
               {postersFor !== null && (
-                <div className="p-5 border-b border-surface-700">
+                <div className="p-5 border-b border-line-strong">
                   <div className="mb-3 flex items-center justify-between">
-                    <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider">
+                    <p className="text-xs font-semibold text-ink-500 uppercase tracking-wider">
                       Posters for {slots[postersFor]?.item_name}
                     </p>
-                    <button type="button" onClick={() => { setPosters(null); setPostersFor(null); }} className="text-xs text-surface-500 hover:text-white">
+                    <button type="button" onClick={() => { setPosters(null); setPostersFor(null); }} className="text-xs text-ink-500 hover:text-ink-0">
                       Close
                     </button>
                   </div>
@@ -357,7 +407,7 @@ export default function EditTasteInFour({
                           key={p.path}
                           type="button"
                           onClick={() => choosePoster(postersFor, p.path)}
-                          className="relative aspect-2/3 overflow-hidden rounded-lg border-2 border-surface-700 hover:border-amber-500"
+                          className="relative aspect-2/3 overflow-hidden rounded-lg border-2 border-line-strong hover:border-line-input"
                           title={p.language ? `Poster (${p.language})` : "Textless poster"}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -366,36 +416,36 @@ export default function EditTasteInFour({
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-surface-500">Only the one poster for this title.</p>
+                    <p className="text-sm text-ink-500">Only the one poster for this title.</p>
                   )}
                 </div>
               )}
 
               {/* Choose from — tabs + cards (all scroll together with Your 4) */}
               <div className="p-5">
-                <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Choose from</p>
+                <p className="text-xs font-semibold text-ink-500 uppercase tracking-wider mb-3">Choose from</p>
                 <div className="flex gap-2 mb-4">
-                  <button
-                    type="button"
-                    onClick={() => setPickerTab("watched")}
-                    className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      pickerTab === "watched"
-                        ? "bg-amber-500 text-surface-900"
-                        : "bg-surface-800 text-surface-400 hover:text-white"
-                    }`}
-                  >
-                    Watched ({watched.length})
-                  </button>
                   <button
                     type="button"
                     onClick={() => setPickerTab("favorites")}
                     className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                       pickerTab === "favorites"
-                        ? "bg-amber-500 text-surface-900"
-                        : "bg-surface-800 text-surface-400 hover:text-white"
+                        ? "bg-action text-on-action"
+                        : "bg-overlay text-ink-400 hover:text-ink-0"
                     }`}
                   >
-                    Favorites ({favorites.length})
+                    Favourites
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPickerTab("watched")}
+                    className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      pickerTab === "watched"
+                        ? "bg-action text-on-action"
+                        : "bg-overlay text-ink-400 hover:text-ink-0"
+                    }`}
+                  >
+                    Watched
                   </button>
                 </div>
                 {/* The search that was missing entirely. Without it you could
@@ -408,19 +458,19 @@ export default function EditTasteInFour({
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search your list, or anything on TMDB"
                     aria-label="Search titles"
-                    className="w-full rounded-xl border border-surface-700 bg-surface-950 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-amber-500 focus:outline-none"
+                    className="w-full rounded-xl border border-line-strong bg-page px-4 py-2.5 text-sm text-ink-0 placeholder-ink-500 focus:border-line-input focus:outline-none"
                   />
                 </div>
 
-                <div className="rounded-xl border border-surface-700 bg-surface-800/50 p-4">
-                  {!loaded ? (
+                <div className="rounded-xl border border-line-strong bg-overlay/50 p-4">
+                  {!loaded || fetching ? (
                     <div className="py-12 flex flex-col items-center justify-center gap-3">
                       <LoadingSpinner size="md" className="border-t-white shrink-0" />
-                      <p className="text-surface-500 text-sm animate-pulse">Loading…</p>
+                      <p className="text-ink-500 text-sm animate-pulse">Loading…</p>
                     </div>
                   ) : pickerList.length === 0 ? (
-                    <p className="text-surface-500 text-sm py-12 text-center">
-                      {pickerTab === "watched" ? "No watched titles yet." : "No favorites yet."}
+                    <p className="text-ink-500 text-sm py-12 text-center">
+                      {pickerTab === "watched" ? "No watched titles yet." : "No favourites yet. Heart a title on its page."}
                     </p>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -429,16 +479,16 @@ export default function EditTasteInFour({
                           key={`${it.item_type}-${it.item_id}`}
                           type="button"
                           onClick={() => handlePickItem(it)}
-                          className="text-left rounded-xl overflow-hidden border-2 border-surface-600 bg-surface-800 hover:border-amber-500/60 hover:bg-surface-700 transition-all group"
+                          className="text-left rounded-xl overflow-hidden border-2 border-line-input bg-overlay hover:border-ink-0/60 hover:bg-hover transition-all group"
                         >
-                          <div className="aspect-2/3 bg-surface-700 overflow-hidden">
+                          <div className="aspect-2/3 bg-hover overflow-hidden">
                             <img loading="lazy" decoding="async"
                               src={getPosterUrl(it.image_url)}
                               alt={it.item_name}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                             />
                           </div>
-                          <p className="p-3 text-sm font-medium text-white truncate" title={it.item_name}>
+                          <p className="p-3 text-sm font-medium text-ink-0 truncate" title={it.item_name}>
                             {it.item_name}
                           </p>
                         </button>
@@ -450,8 +500,8 @@ export default function EditTasteInFour({
                       which marks it watched — so it is legal to display before
                       it ever appears above. */}
                   {q.length >= 2 && remote.length > 0 && (
-                    <div className="mt-5 border-t border-surface-700/70 pt-4">
-                      <p className="mb-3 text-[11px] font-medium uppercase tracking-wider text-surface-500">
+                    <div className="mt-5 border-t border-line-strong/70 pt-4">
+                      <p className="mb-3 text-xs font-medium uppercase tracking-wider text-ink-500">
                         {searching ? "Searching…" : "Not in your list yet"}
                       </p>
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -460,16 +510,16 @@ export default function EditTasteInFour({
                             key={`r-${it.item_type}-${it.item_id}`}
                             type="button"
                             onClick={() => void pickRemote(it)}
-                            className="text-left rounded-xl overflow-hidden border-2 border-surface-600 bg-surface-800 hover:border-amber-500/60 hover:bg-surface-700 transition-all group"
+                            className="text-left rounded-xl overflow-hidden border-2 border-line-input bg-overlay hover:border-ink-0/60 hover:bg-hover transition-all group"
                           >
-                            <div className="aspect-2/3 bg-surface-700 overflow-hidden">
+                            <div className="aspect-2/3 bg-hover overflow-hidden">
                               <img loading="lazy" decoding="async"
                                 src={getPosterUrl(it.image_url)}
                                 alt={it.item_name}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                               />
                             </div>
-                            <p className="p-3 text-sm font-medium text-white truncate" title={it.item_name}>
+                            <p className="p-3 text-sm font-medium text-ink-0 truncate" title={it.item_name}>
                               {it.item_name}
                             </p>
                           </button>
@@ -482,11 +532,11 @@ export default function EditTasteInFour({
             </div>
 
             {/* Footer — fixed at bottom, always visible */}
-            <div className="shrink-0 p-5 border-t border-surface-700 bg-surface-900 flex justify-end gap-3">
+            <div className="shrink-0 p-5 border-t border-line-strong bg-raised flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="px-4 py-2.5 rounded-xl text-sm font-medium text-surface-300 hover:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-surface-500"
+                className="px-4 py-2.5 rounded-xl text-sm font-medium text-ink-300 hover:bg-overlay focus:outline-none focus:ring-2 focus:ring-line-bold"
               >
                 Cancel
               </button>
@@ -495,7 +545,7 @@ export default function EditTasteInFour({
                 onClick={save}
                 disabled={saving}
                 aria-busy={saving}
-                className="px-5 py-2.5 rounded-xl text-sm font-medium bg-amber-500 text-surface-900 hover:bg-amber-400 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-amber-400 flex items-center justify-center gap-2 min-w-[88px] transition-all duration-200 active:scale-[0.98]"
+                className="px-5 py-2.5 rounded-xl text-sm font-medium bg-action text-on-action hover:bg-action-hover disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-focus flex items-center justify-center gap-2 min-w-22 transition-all duration-200 active:scale-[0.98]"
               >
                 {saving ? (
                   <>

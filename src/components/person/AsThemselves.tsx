@@ -20,19 +20,19 @@ export default function AsThemselves({ credits }: { credits: Credit[] }) {
   if (rows.length === 0) return null;
 
   return (
-    <details className="rounded-2xl border border-surface-800 bg-surface-900/40 px-4 py-3">
-      <summary className="cursor-pointer list-none text-sm text-surface-300 transition hover:text-white">
+    <details className="rounded-2xl border border-line bg-raised/40 px-4 py-3">
+      <summary className="cursor-pointer list-none text-sm text-ink-300 transition hover:text-ink-0">
         As themselves
-        <span className="text-surface-500"> — {rows.length} appearance{rows.length === 1 ? "" : "s"} · talk shows, awards nights and archive footage</span>
+        <span className="text-ink-500"> — {rows.length} appearance{rows.length === 1 ? "" : "s"} · talk shows, awards nights and archive footage</span>
       </summary>
       <ul className="mt-3 grid gap-x-8 gap-y-1 sm:grid-cols-2">
         {rows.map((c) => (
           <li key={c.key} className="flex gap-2 py-1 text-xs">
-            <span className="w-9 shrink-0 font-mono tabular-nums text-surface-600">{c.year ?? "—"}</span>
-            <Link href={titlePath(c.mediaType, c.id, c.title)} className="min-w-0 flex-1 truncate text-surface-400 transition hover:text-white">
+            <span className="w-9 shrink-0 font-mono tabular-nums text-ink-600">{c.year ?? "—"}</span>
+            <Link href={titlePath(c.mediaType, c.id, c.title)} className="min-w-0 flex-1 truncate text-ink-400 transition hover:text-ink-0">
               {c.title}
-              {c.episodeCount > 1 && <span className="text-surface-600"> · {c.episodeCount} eps</span>}
-              {c.bucket === "archive" && <span className="text-surface-600"> · archive</span>}
+              {c.episodeCount > 1 && <span className="text-ink-600"> · {c.episodeCount} eps</span>}
+              {c.bucket === "archive" && <span className="text-ink-600"> · archive</span>}
             </Link>
           </li>
         ))}

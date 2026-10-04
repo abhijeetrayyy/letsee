@@ -31,7 +31,7 @@ export default function CountBars({
   const [hovered, setHovered] = useState<string | number | null>(null);
 
   if (bars.length === 0) {
-    return <p className="py-8 text-center text-sm text-surface-500">{emptyLabel}</p>;
+    return <p className="py-8 text-center text-sm text-ink-500">{emptyLabel}</p>;
   }
 
   const max = Math.max(1, ...bars.map((bar) => bar.count));
@@ -53,15 +53,15 @@ export default function CountBars({
             >
               {isHovered && (
                 <Tooltip x={50}>
-                  <p className="font-medium text-surface-100">{bar.label}</p>
-                  <p className="mt-0.5 tabular-nums text-surface-300">
+                  <p className="font-medium text-ink-100">{bar.label}</p>
+                  <p className="mt-0.5 tabular-nums text-ink-300">
                     {bar.count} title{bar.count === 1 ? "" : "s"}
                   </p>
                   {bar.detail?.map((line) => (
-                    <p key={line} className="mt-0.5 text-surface-400">{line}</p>
+                    <p key={line} className="mt-0.5 text-ink-400">{line}</p>
                   ))}
                   {interactive && (
-                    <p className="mt-1.5 border-t border-surface-800 pt-1.5 text-[10px] text-surface-500">
+                    <p className="mt-1.5 border-t border-line pt-1.5 text-xs text-ink-500">
                       Click to see the titles
                     </p>
                   )}
@@ -72,7 +72,7 @@ export default function CountBars({
                 disabled={!interactive}
                 onClick={interactive ? () => onSelect?.(bar) : undefined}
                 aria-label={`${bar.label}: ${bar.count} titles`}
-                className={`w-full rounded-t-[4px] transition-all duration-300 ${
+                className={`w-full rounded-t transition-all duration-300 ${
                   interactive ? "cursor-pointer" : "cursor-default"
                 } ${hovered !== null && !isHovered ? "opacity-45" : "opacity-100"}`}
                 style={{
@@ -91,8 +91,8 @@ export default function CountBars({
         {bars.map((bar, index) => (
           <div
             key={bar.key}
-            className={`flex-1 truncate text-center text-[11px] tabular-nums transition-colors ${
-              hovered === bar.key ? "text-surface-200" : "text-surface-500"
+            className={`flex-1 truncate text-center text-xs tabular-nums transition-colors ${
+              hovered === bar.key ? "text-ink-200" : "text-ink-500"
             }`}
           >
             {index % labelStride === 0 || hovered === bar.key ? bar.label : " "}

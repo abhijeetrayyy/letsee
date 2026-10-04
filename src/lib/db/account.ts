@@ -26,6 +26,8 @@ export type AuthUser = {
   id: string;
   username?: string | null;
   avatar_url?: string | null;
+  /** Where the account watches (056); Where to Watch defaults to it. */
+  watch_region?: string | null;
 };
 
 export type AuthSnapshot = {
@@ -50,7 +52,7 @@ export async function fetchAuthSnapshot(): Promise<AuthSnapshot> {
    */
   const { data, error } = await supabase
     .from("users")
-    .select("id, username, avatar_url")
+    .select("id, username, avatar_url, watch_region")
     .eq("id", userId)
     .maybeSingle();
 

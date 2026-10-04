@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { tmdbConfigured } from "@/utils/tmdbClient";
@@ -91,10 +92,11 @@ export async function GET(req: NextRequest) {
         .select("item_id, status, updated_at")
         .eq("user_id", userId)
         .eq("item_type", "tv"),
-      supabase
-        .from("watched_episodes")
-        .select("show_id")
-        .eq("user_id", userId),
+      // Every show id, past the 1,000-row default (an account can have
+      // thousands of watched episodes).
+      fetchAllRows<{ show_id: string }>((from, to) =>
+        supabase.from("watched_episodes").select("show_id").eq("user_id", userId).order("id", { ascending: true }).range(from, to),
+      ).then(({ rows, error }) => ({ data: rows, error })),
     ]);
 
     const taggedData = statusRes.data ?? [];
@@ -115,10 +117,9 @@ export async function GET(req: NextRequest) {
       // Only items that have no user_media_status row (tracked via episodes only)
       filteredIds = Array.from(allIds).filter((id) => !statusMap.has(id));
     } else if (statusFilter) {
-      // Filter by specific status
-      filteredIds = Array.from(allIds).filter(
-        (id) => statusMap.get(id) === statusFilter,
-      );
+      // One status, or several comma-separated: "Stopped" is on_hold and dropped.
+      const wanted = new Set(statusFilter.split(",").map((s) => s.trim()));
+      filteredIds = Array.from(allIds).filter((id) => wanted.has(statusMap.get(id) ?? ""));
     } else {
       // All items
       filteredIds = Array.from(allIds);
@@ -151,11 +152,16 @@ export async function GET(req: NextRequest) {
       const batchResults = await Promise.all(
         batch.map(async (showId) => {
           const [watchedRes, showData] = await Promise.all([
-            supabase
-              .from("watched_episodes")
-              .select("season_number, episode_number")
-              .eq("user_id", userId)
-              .eq("show_id", showId),
+            fetchAllRows<{ season_number: number; episode_number: number }>((from, to) =>
+              supabase
+                .from("watched_episodes")
+                .select("season_number, episode_number")
+                .eq("user_id", userId)
+                .eq("show_id", showId)
+                .order("season_number", { ascending: true })
+                .order("episode_number", { ascending: true })
+                .range(from, to),
+            ).then(({ rows, error }) => ({ data: rows, error })),
             getTvShowWithSeasons(showId),
           ]);
 
@@ -173,7 +179,6 @@ export async function GET(req: NextRequest) {
               (r) => `${r.season_number},${r.episode_number}`,
             ),
           );
-          const episodesWatched = watchedSet.size;
           const name = (showData?.name as string) ?? "Unknown Show";
           const poster = (showData?.poster_path as string) ?? null;
 
@@ -195,6 +200,11 @@ export async function GET(req: NextRequest) {
 
           allEpisodes.sort((a, b) => a.s - b.s || a.e - b.e);
 
+          // Only episodes TMDB lists in a regular season count toward "N of M":
+          // specials, and numbering an import brought in that TMDB doesn't
+          // have, used to push Game of Thrones to "368 of 73".
+          const episodesWatched = allEpisodes.filter(({ s, e }) => watchedSet.has(`${s},${e}`)).length;
+
           let seasonsCompleted = 0;
           for (const [sn, totalEp] of seasonCounts.entries()) {
             let w = 0;
@@ -204,20 +214,13 @@ export async function GET(req: NextRequest) {
             if (totalEp > 0 && w >= totalEp) seasonsCompleted++;
           }
 
-          const nextEp = allEpisodes.find(
-            ({ s, e }) => !watchedSet.has(`${s},${e}`),
-          );
-
           /**
-           * "Caught up" is not the same as "finished", and conflating them is
-           * why an ongoing show you're current on looked identical to one you
-           * abandoned two episodes from the end.
-           *
-           * all_complete asks whether every episode TMDB lists is watched —
-           * but season summaries include episodes that haven't aired, so a
-           * show you're perfectly current on can never satisfy it.
-           * last_episode_to_air is the real waterline, and it comes back on
-           * the show detail we already fetched, so this costs nothing extra.
+           * "Caught up" is not the same as "finished": every episode TMDB
+           * lists may include announced ones, so the waterline is
+           * last_episode_to_air. The next episode offered is the first
+           * unwatched one that has aired — never an announcement — and a
+           * special named as the last to air says nothing about the regular
+           * seasons, so it is ignored.
            */
           const lastAired = (showData as any)?.last_episode_to_air as
             | { season_number?: number; episode_number?: number }
@@ -225,16 +228,13 @@ export async function GET(req: NextRequest) {
           const nextToAir = (showData as any)?.next_episode_to_air as
             | { air_date?: string }
             | null;
-
-          let caughtUp = false;
-          if (lastAired?.season_number != null && lastAired?.episode_number != null) {
-            const ls = Number(lastAired.season_number);
-            const le = Number(lastAired.episode_number);
-            // Unwatched episode that has already aired = not caught up.
-            caughtUp = !allEpisodes.some(
-              ({ s, e }) => (s < ls || (s === ls && e <= le)) && !watchedSet.has(`${s},${e}`),
-            );
-          }
+          const ls = Number(lastAired?.season_number ?? 0);
+          const le = Number(lastAired?.episode_number ?? 0);
+          const aired = ls > 0 ? allEpisodes.filter(({ s, e }) => s < ls || (s === ls && e <= le)) : allEpisodes;
+          const allComplete = allEpisodes.every(({ s, e }) => watchedSet.has(`${s},${e}`));
+          const nextEp = aired.find(({ s, e }) => !watchedSet.has(`${s},${e}`));
+          // Everything out is watched, and more is listed or coming.
+          const caughtUp = !allComplete && !nextEp && (ls > 0 || !!nextToAir);
 
           return {
             show_id: showId,
@@ -245,8 +245,8 @@ export async function GET(req: NextRequest) {
             total_episodes: allEpisodes.length,
             next_season: nextEp?.s ?? null,
             next_episode: nextEp?.e ?? null,
-            all_complete: !nextEp,
-            caught_up: caughtUp && !!nextToAir,
+            all_complete: allComplete,
+            caught_up: caughtUp,
             next_air_date: nextToAir?.air_date ?? null,
             tv_status: statusMap.get(showId) ?? null,
           } as ProfileTvProgressItem;

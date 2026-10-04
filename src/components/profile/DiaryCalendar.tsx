@@ -1,4 +1,6 @@
 "use client";
+import { TOKENS, TOKENS_DARK, alpha } from "@/design/tokens";
+import { isDarkTheme } from "@/lib/theme";
 
 import { useMemo } from "react";
 import useSWR from "swr";
@@ -72,9 +74,11 @@ export default function DiaryCalendar({ userId, isOwner }: { userId: string; isO
   const daysWith = byDay.size;
   const max = Math.max(1, ...[...byDay.values()].map((e) => e.count));
   const shade = (n: number) => {
-    if (n === 0) return "rgba(255,255,255,0.05)";
+    // The day's square in the ink of whichever theme is showing.
+    const ink = isDarkTheme() ? TOKENS_DARK.ink0 : TOKENS.ink0;
+    if (n === 0) return alpha(ink, 0.06);
     const t = Math.min(1, 0.35 + (n / max) * 0.65);
-    return `rgba(34,197,94,${t.toFixed(2)})`;
+    return alpha(ink, Number(t.toFixed(2)));
   };
 
   // Month labels, one per first-of-month that falls inside the window.
@@ -85,22 +89,21 @@ export default function DiaryCalendar({ userId, isOwner }: { userId: string; isO
 
   return (
     <section ref={ref}>
-      <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
-        <span className="w-1 h-5 rounded-full bg-emerald-500" />
-        <CalendarDays className="size-4 text-emerald-400" />
+      <h2 className="text-lg font-medium text-ink-0 mb-1 flex items-center gap-2">
+        <CalendarDays className="size-4 text-ink-300" />
         The last year
       </h2>
-      <p className="mb-4 text-xs text-surface-500">
+      <p className="mb-4 text-xs text-ink-500">
         {total} {total === 1 ? "viewing" : "viewings"} on {daysWith} {daysWith === 1 ? "day" : "days"}.
         {isOwner ? " Days you watched something, shaded by how much." : ""}
       </p>
       <div className="overflow-x-auto pb-2">
-        <div className="relative min-w-[720px]">
+        <div className="relative min-w-180">
           <div className="mb-1 grid" style={{ gridTemplateColumns: `repeat(${WEEKS}, minmax(0, 1fr))`, gap: 3 }}>
             {Array.from({ length: WEEKS }).map((_, col) => {
               const label = monthLabels.find((m) => m.col === col)?.label;
               return (
-                <span key={col} className="h-4 text-[10px] leading-4 text-surface-500">
+                <span key={col} className="h-4 text-xs leading-4 text-ink-500">
                   {label ?? ""}
                 </span>
               );
@@ -123,7 +126,7 @@ export default function DiaryCalendar({ userId, isOwner }: { userId: string; isO
                 : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
               const cell = (
                 <span
-                  className="block h-[11px] w-full rounded-[2px]"
+                  className="block h-2.75 w-full rounded-xs"
                   style={{ background: shade(n) }}
                   title={title}
                   aria-label={title}

@@ -1,14 +1,21 @@
 "use client";
 
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import Link from "@components/ui/AppLink";
-import { Check, ChevronRight, Star } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import EpisodeRow from "@components/ds/EpisodeRow";
 import { swrFetcher } from "@/utils/swrFetcher";
-import { formatLongDate, parseTmdbDate, toIso, type ParsedDate } from "@/utils/person/dates";
-import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
-import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
+import { parseTmdbDate } from "@/utils/person/dates";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
+import { useToday } from "@/hooks/useToday";
+import { fetchRoomList, type RoomPerson } from "@/lib/db/rooms";
+import { peopleOnEpisodes } from "@/lib/db/episodes";
+import { epKey, isOut, type Ep } from "@/lib/logging/episodes";
+import { useEpisodeMarks } from "@components/tv/useEpisodeMarks";
+import { seasonPath } from "@/utils/urls";
 
+import Rail from "@components/ds/Rail";
 /**
  * A season as a place you go, not a filter you apply.
  *
@@ -44,11 +51,10 @@ import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
  * a window with the full season one link away. A 1-episode season hits neither
  * path and simply renders its one row.
  *
- * Episode artwork splits the same way. Across nine ordinary seasons every
- * episode had a still, an overview and a rating — 90 of 90. Carson's 258-episode
- * season had 0 stills, 0 ratings and 1 overview. Runtime alone was 100% across
- * all 348. So the still is never load-bearing: its fallback carries the episode
- * number at size, which is the one thing every episode has.
+ * Episodes are `EpisodeRow`s (docs/design/SYSTEM.md §8) and marking them goes
+ * through `useEpisodeMarks`, the same as on the season page: no stills or
+ * overviews for what you haven't watched, one check per row, faces of your
+ * people who've seen each one, and "Mark E01–E04 too?" when you tick past a gap.
  */
 
 type SeasonSummary = {
@@ -67,94 +73,68 @@ type Episode = {
   name?: string | null;
   air_date?: string | null;
   overview?: string | null;
-  still_path?: string | null;
   runtime?: number | null;
-  vote_average?: number | null;
+  episode_type?: string | null;
 };
 
-type WatchedRow = { season_number: number; episode_number: number };
+/**
+ * First render shows this many; the rest arrive a page at a time. Five, from
+ * where you are: at eight a finished season alone was over a phone screen and
+ * the series page ran to six (PAGES.md budgets four). The season page lists
+ * every episode.
+ */
+const INITIAL_EPISODES = 5;
 
-/** First render shows this many; the rest arrive a page at a time. */
-const INITIAL_EPISODES = 12;
+const code = (n: number) => `E${String(n).padStart(2, "0")}`;
 const MORE_STEP = 24;
 
-const key = (s: number, e: number) => `${s},${e}`;
-
-/** Calendar day as an integer — see the same helper in NextEpisode.tsx. */
-function dayIndex(p: ParsedDate): number {
-  return Math.floor(Date.UTC(p.y, p.m - 1, p.d) / 86_400_000);
-}
-
-import { seasonPath } from "@/utils/urls";
 export default function SeasonBrowser({
   showId,
   showName,
   seasons,
   isAuthenticated,
+  lastAired = null,
 }: {
   showId: string | number;
   /** Only so the links it emits can carry a name. */
   showName?: string;
   seasons: SeasonSummary[];
   isAuthenticated: boolean;
+  lastAired?: Ep | null;
 }) {
+  const id = String(showId);
+  // Specials last: they are rarely where anyone starts.
   const ordered = useMemo(
     () =>
       [...(seasons ?? [])]
-        .filter((s) => typeof s?.season_number === "number")
-        .sort((a, b) => a.season_number - b.season_number),
+        .filter((s) => typeof s?.season_number === "number" && (s.episode_count ?? 0) > 0)
+        .sort((a, b) => (a.season_number === 0 ? 1e6 : a.season_number) - (b.season_number === 0 ? 1e6 : b.season_number)),
     [seasons],
   );
+  const infos = useMemo(() => ordered.map((s) => ({ season_number: s.season_number, episode_count: s.episode_count ?? 0 })), [ordered]);
+  const marks = useEpisodeMarks(id, { seasons: infos, lastAired, enabled: isAuthenticated });
 
-  /**
-   * Watched state on the same SWR key ProgressRibbon uses, deliberately.
-   *
-   * Identical key means one cache entry and one request between the two
-   * components, and it means marking an episode here fills the matching square
-   * in the ribbon above without either component knowing the other exists.
-   */
-  const { data: watchedData, mutate } = useSWR<{ episodes?: WatchedRow[] }>(
-    isAuthenticated ? `/api/watched-episodes?showId=${showId}` : null,
-    swrFetcher,
-  );
-
-  const { refreshPreferences } = useContext(UserPrefrenceContext);
-  const { refresh: refreshInteractions } = useMediaInteraction();
+  const { user, status: authStatus } = useAuth();
+  const me = user?.id ?? null;
+  const { data: rooms } = useSWR(me ? ["rooms", me] : null, () => fetchRoomList(me!), { revalidateOnFocus: false });
+  const yourPeople = useMemo<RoomPerson[]>(() => (rooms?.people ?? []).slice(0, 24).map((p) => p.person), [rooms]);
+  const { data: theirs } = useSWR(yourPeople.length ? ["episode-people", id, "all", yourPeople.map((p) => p.id).join(",")] : null, () => peopleOnEpisodes(yourPeople, id), {
+    revalidateOnFocus: false,
+  });
 
   const [picked, setPicked] = useState<number | null>(null);
-  const [pending, setPending] = useState<Record<string, boolean>>({});
-  const [visible, setVisible] = useState(INITIAL_EPISODES);
-  const [today, setToday] = useState<ParsedDate | null>(null);
-
-  // Read the clock after mount, never during render: the server is on UTC and
-  // the reader is not, and a date comparison that disagrees across the two is
-  // the hydration failure this repo has already been bitten by once.
-  useEffect(() => {
-    const n = new Date();
-    setToday({ y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate() });
-  }, []);
-
-  const watchedSet = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of watchedData?.episodes ?? []) set.add(key(r.season_number, r.episode_number));
-    return set;
-  }, [watchedData]);
-
-  const isWatched = useCallback(
-    (s: number, e: number) => {
-      const k = key(s, e);
-      return k in pending ? pending[k] : watchedSet.has(k);
-    },
-    [pending, watchedSet],
-  );
+  // How many rows are open, per season: switching season starts it over.
+  const [more, setMore] = useState<{ season: number | null; n: number }>({ season: null, n: INITIAL_EPISODES });
+  const today = useToday();
 
   const watchedPerSeason = useMemo(() => {
     const counts = new Map<number, number>();
-    for (const r of watchedData?.episodes ?? []) {
-      counts.set(r.season_number, (counts.get(r.season_number) ?? 0) + 1);
+    for (const k of marks.watched) {
+      const s = Number(k.split(":")[0]);
+      counts.set(s, (counts.get(s) ?? 0) + 1);
     }
     return counts;
-  }, [watchedData]);
+  }, [marks.watched]);
 
   /**
    * Open on the season you are actually in.
@@ -164,44 +144,58 @@ export default function SeasonBrowser({
    * the first one part-finished; failing that, the one after the last you
    * completed.
    *
-   * Frozen after the first read on purpose. Recomputing it would mean marking
-   * the last episode of a season slides the whole panel to the next one while
-   * your finger is still on the button.
+   * Decided once, when your progress first arrives, on purpose. Recomputing
+   * it would mean marking the last episode of a season slides the whole panel
+   * to the next one while your finger is still on the button.
    */
-  const resumeOnce = useRef<number | null>(null);
-  if (resumeOnce.current === null && watchedPerSeason.size > 0) {
+  const [resume, setResume] = useState<number | null | undefined>(undefined);
+  if (resume === undefined && marks.ready) {
     let inProgress: number | null = null;
     let lastTouched = -1;
     for (const s of ordered) {
+      if (s.season_number === 0) continue;
       const seen = watchedPerSeason.get(s.season_number) ?? 0;
       if (seen > 0) lastTouched = s.season_number;
-      if (inProgress === null && seen > 0 && seen < (s.episode_count ?? 0)) {
-        inProgress = s.season_number;
-      }
+      if (inProgress === null && seen > 0 && seen < (s.episode_count ?? 0)) inProgress = s.season_number;
     }
     if (inProgress !== null) {
-      resumeOnce.current = inProgress;
+      setResume(inProgress);
     } else if (lastTouched >= 0) {
       const i = ordered.findIndex((s) => s.season_number === lastTouched);
-      resumeOnce.current = ordered[i + 1]?.season_number ?? lastTouched;
+      const after = ordered[i + 1];
+      setResume(after && after.season_number !== 0 ? after.season_number : lastTouched);
+    } else {
+      setResume(null);
     }
   }
 
-  const active = picked ?? resumeOnce.current ?? ordered[0]?.season_number ?? 1;
+  const active = picked ?? resume ?? ordered[0]?.season_number ?? 1;
   const activeSeason = ordered.find((s) => s.season_number === active) ?? ordered[0];
 
   const { data: seasonData, isLoading } = useSWR<{ episodes?: Episode[] }>(
-    ordered.length > 0
-      ? `/api/tv-season-episodes?showId=${encodeURIComponent(String(showId))}&season=${active}`
-      : null,
+    ordered.length > 0 ? `/api/tv-season-episodes?showId=${encodeURIComponent(id)}&season=${active}` : null,
     swrFetcher,
     { revalidateOnFocus: false },
   );
   const episodes = seasonData?.episodes ?? [];
 
-  useEffect(() => {
-    setVisible(INITIAL_EPISODES);
-  }, [active]);
+  const visible = more.season === active ? more.n : INITIAL_EPISODES;
+
+  /**
+   * Open the list where you are, not at E01. Halfway through a season the
+   * first rows are episodes you've seen; the list starts one before the first
+   * you haven't, with the ones above folded into a line. Decided once per
+   * season, like `resume`, so ticking an episode doesn't slide the rows out
+   * from under your finger.
+   */
+  const [from, setFrom] = useState<{ season: number; start: number } | null>(null);
+  // Only once your progress is in — or once we know you're signed out. Before
+  // the session has been read, "not signed in" just means "not yet".
+  if (episodes.length > 0 && (marks.ready || authStatus === "anon") && from?.season !== active) {
+    const firstUnseen = isAuthenticated ? episodes.findIndex((e) => !marks.isWatched(active, e.episode_number)) : -1;
+    setFrom({ season: active, start: firstUnseen > 1 ? firstUnseen - 1 : 0 });
+  }
+  const start = from?.season === active ? from.start : 0;
 
   // Keep the open season in view in the rail without touching page scroll.
   // `scrollIntoView` would drag the whole document when the rail sits below the
@@ -216,52 +210,10 @@ export default function SeasonBrowser({
     rail.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
   }, [active]);
 
-  const toggle = useCallback(
-    async (season: number, episode: number) => {
-      if (!isAuthenticated) return;
-      const k = key(season, episode);
-      const next = !isWatched(season, episode);
-      setPending((p) => ({ ...p, [k]: next }));
-      try {
-        // Same contract ProgressRibbon uses: POST toggles, the route deletes an
-        // existing row and re-derives the show's status either way.
-        const res = await fetch("/api/watched-episode", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            showId: String(showId),
-            seasonNumber: season,
-            episodeNumber: episode,
-          }),
-        });
-        // ProgressRibbon carries a comment explaining exactly why this line has
-        // to exist — `fetch` only rejects on a network failure, so a 400 or 500
-        // counted as success and the cell reverted on the next revalidate,
-        // which reads as a tap that never registered. Its twin never got it.
-        if (!res.ok) throw new Error(String(res.status));
-        // And the status the route just re-derived lives in the providers, not
-        // in this SWR key — see ProgressRibbon for the same pairing.
-        await Promise.all([
-          mutate(),
-          refreshPreferences(),
-          refreshInteractions(),
-        ]).catch(() => {});
-      } catch {
-        setPending((p) => ({ ...p, [k]: !next }));
-      } finally {
-        setPending((p) => {
-          const { [k]: _drop, ...rest } = p;
-          return rest;
-        });
-      }
-    },
-    [isAuthenticated, isWatched, mutate, showId, refreshPreferences, refreshInteractions],
-  );
-
   if (ordered.length === 0) return null;
 
-  const shown = episodes.slice(0, visible);
-  const remaining = episodes.length - shown.length;
+  const shown = episodes.slice(start, start + visible);
+  const remaining = episodes.length - start - shown.length;
   const activeYear = parseTmdbDate(activeSeason?.air_date)?.y ?? null;
 
   /**
@@ -271,264 +223,161 @@ export default function SeasonBrowser({
    * the accurate count, and counting through `isWatched` picks up an optimistic
    * tap that the cached per-season tally has not seen yet.
    */
-  const activeCount =
-    episodes.length > 0 ? episodes.length : (activeSeason?.episode_count ?? 0);
+  const activeCount = episodes.length > 0 ? episodes.length : (activeSeason?.episode_count ?? 0);
   const seenHere =
     episodes.length > 0
-      ? episodes.filter((e) => isWatched(active, e.episode_number)).length
+      ? episodes.filter((e) => marks.isWatched(active, e.episode_number)).length
       : (watchedPerSeason.get(active) ?? 0);
+  const seasonName = (s: SeasonSummary) => s.name?.trim() || (s.season_number === 0 ? "Specials" : `Season ${s.season_number}`);
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       {/* Season rail. Horizontal scroll with snap is the whole mobile story:
           one card sits comfortably at 375px, the next peeks in to advertise
           that there is more, and 81 of them cost nothing the browser has to
-          lay out at once. `no-scrollbar` because the row of posters is its own
-          affordance. */}
-      <div
-        ref={railRef}
-        className="no-scrollbar relative flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1"
-      >
-        {ordered.map((s) => {
-          const total = s.episode_count ?? 0;
-          const seen = Math.min(watchedPerSeason.get(s.season_number) ?? 0, total);
-          const pct = total > 0 ? Math.round((seen / total) * 100) : 0;
-          const year = parseTmdbDate(s.air_date)?.y ?? null;
-          const isOpen = s.season_number === active;
-          return (
-            <button
-              key={s.season_number}
-              type="button"
-              ref={(el) => {
-                cardRefs.current[s.season_number] = el;
-              }}
-              onClick={() => setPicked(s.season_number)}
-              aria-pressed={isOpen}
-              className={`w-[104px] shrink-0 snap-start overflow-hidden rounded-xl border text-left transition-colors sm:w-[124px] ${
-                isOpen
-                  ? "border-brand-500 bg-brand-500/10"
-                  : "border-surface-800 bg-surface-900/40 hover:border-surface-600"
-              }`}
-            >
-              <div className="relative aspect-[2/3] bg-surface-800">
-                {s.poster_path ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={`https://image.tmdb.org/t/p/w185${s.poster_path}`}
-                    alt=""
-                    loading="lazy"
-                    className={`h-full w-full object-cover transition-opacity ${
-                      isOpen ? "" : "opacity-70"
-                    }`}
-                  />
-                ) : (
-                  /* 42% of seasons have no poster. A numbered tile is a
-                     recognisable object; an empty grey box is not. */
-                  <div className="flex h-full w-full items-center justify-center">
-                    <span className="font-mono text-2xl tabular-nums text-surface-600">
-                      {String(s.season_number).padStart(2, "0")}
-                    </span>
-                  </div>
-                )}
-                {total > 0 && seen > 0 && (
-                  <div className="absolute inset-x-0 bottom-0 h-1 bg-surface-950/70">
-                    <div className="h-full bg-brand-500" style={{ width: `${pct}%` }} />
-                  </div>
-                )}
-              </div>
-              <div className="px-2 py-1.5">
-                <p
-                  className={`truncate text-xs font-semibold ${
-                    isOpen ? "text-brand-300" : "text-surface-300"
-                  }`}
-                >
-                  {s.name?.trim() || `Season ${s.season_number}`}
-                </p>
-                <p className="truncate font-mono text-[10px] tabular-nums text-surface-500">
-                  {year ? `${year} · ` : ""}
-                  {total} ep{total === 1 ? "" : "s"}
-                </p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* The season itself */}
-      {activeSeason && (
-        <div className="rounded-2xl border border-surface-800 bg-surface-900/40 p-4 sm:p-5">
-          {/* Poster beside the heading on mobile too, at thumbnail size — it is
-              what tells you which place you are standing in. */}
-          <div className="flex gap-4">
-            {activeSeason.poster_path && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img loading="lazy" decoding="async"
-                src={`https://image.tmdb.org/t/p/w185${activeSeason.poster_path}`}
-                alt=""
-                className="hidden w-24 shrink-0 self-start rounded-lg sm:block"
-              />
-            )}
-            <div className="min-w-0 flex-1">
-              <h3 className="text-lg font-bold text-white">
-                {activeSeason.name?.trim() || `Season ${activeSeason.season_number}`}
-              </h3>
-              <p className="mt-0.5 font-mono text-xs tabular-nums text-surface-500">
-                {activeYear ? `${activeYear} · ` : ""}
-                {activeCount} episode{activeCount === 1 ? "" : "s"}
-                {seenHere > 0 && (
-                  <span className="text-brand-400">
-                    {" · "}
-                    {seenHere} watched
-                  </span>
-                )}
-              </p>
-              {/* Only a quarter of seasons carry one. The block below simply
-                  is not there for the other three quarters.
-
-                  `hlimit` bare, at its own 5-line default: overriding
-                  `--max-line` would put an arbitrary-property utility and
-                  `.hlimit` in the same cascade layer, and which one wins
-                  depends on emission order rather than on anything written
-                  here. Five lines is the house clamp; this is not the place to
-                  find out whether it can be beaten. */}
-              {activeSeason.overview?.trim() && (
-                <p className="hlimit mt-3 text-sm leading-relaxed text-surface-400">
-                  {activeSeason.overview}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Episodes */}
-          <div className="mt-5 space-y-2">
-            {isLoading &&
-              Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex animate-pulse gap-3 rounded-xl border border-surface-800/60 p-2.5"
-                >
-                  <div className="aspect-video w-24 shrink-0 rounded-lg bg-surface-800 sm:w-36" />
-                  <div className="flex-1 space-y-2 py-1">
-                    <div className="h-3.5 w-2/3 rounded bg-surface-800" />
-                    <div className="h-3 w-1/3 rounded bg-surface-800" />
-                  </div>
-                </div>
-              ))}
-
-            {!isLoading && episodes.length === 0 && (
-              <p className="py-6 text-center text-sm text-surface-500">
-                TMDB lists no episodes for this season.
-              </p>
-            )}
-
-            {shown.map((ep) => {
-              const on = isWatched(active, ep.episode_number);
-              const date = parseTmdbDate(ep.air_date);
-              const unaired = date != null && today != null && dayIndex(date) > dayIndex(today);
-              const rating =
-                typeof ep.vote_average === "number" && ep.vote_average > 0
-                  ? ep.vote_average.toFixed(1)
-                  : null;
+          lay out at once. */}
+      {ordered.length > 1 && (
+        <Rail>
+          <div ref={railRef} className="no-scrollbar relative flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
+            {ordered.map((s) => {
+              const total = s.episode_count ?? 0;
+              const seen = Math.min(watchedPerSeason.get(s.season_number) ?? 0, total);
+              const pct = total > 0 ? Math.round((seen / total) * 100) : 0;
+              const year = parseTmdbDate(s.air_date)?.y ?? null;
+              const isOpen = s.season_number === active;
               return (
-                <div
-                  key={ep.id}
-                  className={`flex gap-3 rounded-xl border p-2.5 transition-colors ${
-                    on
-                      ? "border-brand-500/30 bg-brand-500/5"
-                      : "border-surface-800/60 hover:border-surface-700"
-                  }`}
+                <button
+                  key={s.season_number}
+                  type="button"
+                  ref={(el) => {
+                    cardRefs.current[s.season_number] = el;
+                  }}
+                  onClick={() => setPicked(s.season_number)}
+                  aria-pressed={isOpen}
+                  className="group w-22 shrink-0 snap-start text-left sm:w-26"
                 >
-                  <div className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-lg bg-surface-800 sm:w-36">
-                    {ep.still_path ? (
+                  <div
+                    className={`relative aspect-2/3 overflow-hidden rounded-media bg-raised transition-opacity ${
+                      isOpen ? "ring-2 ring-ink-0" : "opacity-60 ring-1 ring-inset ring-line group-hover:opacity-100"
+                    }`}
+                  >
+                    {s.poster_path ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={`https://image.tmdb.org/t/p/w300${ep.still_path}`}
-                        alt=""
-                        loading="lazy"
-                        className={`h-full w-full object-cover ${on ? "" : "opacity-90"}`}
-                      />
+                      <img src={`https://image.tmdb.org/t/p/w185${s.poster_path}`} alt="" loading="lazy" className="h-full w-full object-cover" />
                     ) : (
-                      /* Whole seasons come with no stills at all. The number is
-                         the one field every episode has, so it becomes the
-                         image rather than sitting under a "no image" label. */
+                      /* 42% of seasons have no poster. A numbered tile is a
+                         recognisable object; an empty grey box is not. */
                       <div className="flex h-full w-full items-center justify-center">
-                        <span className="font-mono text-lg tabular-nums text-surface-600">
-                          {String(ep.episode_number).padStart(2, "0")}
+                        <span className="font-mono text-2xl tabular-nums text-ink-500">
+                          {s.season_number === 0 ? "SP" : String(s.season_number).padStart(2, "0")}
                         </span>
                       </div>
                     )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-white">
-                      <span className="font-mono text-xs tabular-nums text-surface-500">
-                        E{String(ep.episode_number).padStart(2, "0")}
-                      </span>{" "}
-                      {ep.name?.trim() || "Untitled"}
-                    </p>
-                    <p className="mt-0.5 truncate font-mono text-[11px] tabular-nums text-surface-500">
-                      {date ? (
-                        <time dateTime={toIso(date)}>{formatLongDate(date)}</time>
-                      ) : (
-                        "Air date TBA"
-                      )}
-                      {typeof ep.runtime === "number" && ep.runtime > 0 && ` · ${ep.runtime}m`}
-                    </p>
-                    {rating && (
-                      <span className="mt-1 inline-flex items-center gap-1 text-[11px] text-accent-gold">
-                        <Star className="size-3 fill-current" />
-                        {rating}
-                      </span>
+                    {total > 0 && seen > 0 && (
+                      <div className="absolute inset-x-0 bottom-0 h-1 bg-page/70">
+                        <div className="h-full bg-action" style={{ width: `${pct}%` }} />
+                      </div>
                     )}
                   </div>
-
-                  {/* One tap, same as the ribbon. Unaired episodes get a label
-                      instead of a control, because there is nothing truthful to
-                      record yet. */}
-                  {unaired ? (
-                    <span className="h-fit shrink-0 self-center rounded-lg bg-surface-800/70 px-2 py-1 text-[11px] font-medium text-surface-400">
-                      Unaired
-                    </span>
-                  ) : (
-                    isAuthenticated && (
-                      <button
-                        type="button"
-                        onClick={() => toggle(active, ep.episode_number)}
-                        aria-pressed={on}
-                        aria-label={`Episode ${ep.episode_number}${on ? ", watched" : ", mark watched"}`}
-                        className={`flex size-10 shrink-0 items-center justify-center self-center rounded-lg border transition-colors ${
-                          on
-                            ? "border-brand-500/40 bg-brand-500/20 text-brand-400 hover:bg-brand-500/30"
-                            : "border-surface-700 bg-surface-800/60 text-surface-500 hover:text-surface-200"
-                        }`}
-                      >
-                        <Check className="size-4" />
-                      </button>
-                    )
-                  )}
-                </div>
+                  <p className={`mt-1.5 truncate text-xs font-medium ${isOpen ? "text-ink-0" : "text-ink-400"}`}>{seasonName(s)}</p>
+                  <p className="truncate font-mono text-xs tabular-nums text-ink-500">
+                    {seen > 0 ? `${seen} of ${total}` : (year ?? `${total} eps`)}
+                  </p>
+                </button>
               );
             })}
           </div>
+        </Rail>
+      )}
 
-          {remaining > 0 && (
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+      {/* The season itself */}
+      {activeSeason && (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <h3 className="text-lg font-semibold text-ink-0">{seasonName(activeSeason)}</h3>
+            <p className="font-mono text-xs tabular-nums text-ink-500">
+              {activeYear ? `${activeYear} · ` : ""}
+              {activeCount} episode{activeCount === 1 ? "" : "s"}
+              {isAuthenticated && seenHere > 0 && <span className="text-ink-200">{` · ${seenHere} watched`}</span>}
+            </p>
+          </div>
+          {/* Only a quarter of seasons carry an overview; for the rest this
+              block simply is not there. */}
+          {activeSeason.overview?.trim() && <p className="line-clamp-3 text-sm leading-relaxed text-ink-400">{activeSeason.overview}</p>}
+
+          {isLoading ? (
+            <div className="flex flex-col" aria-hidden>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex min-h-11 items-center gap-3 border-b border-line py-2">
+                  <div className="h-3 w-8 rounded bg-raised" />
+                  <div className="h-4 flex-1 rounded bg-raised" />
+                  <div className="size-11 rounded-full bg-raised" />
+                </div>
+              ))}
+            </div>
+          ) : episodes.length === 0 ? (
+            <p className="py-4 text-sm text-ink-500">TMDB lists no episodes for this season yet.</p>
+          ) : (
+            <ol className="flex flex-col">
+              {start > 0 && (
+                <li className="border-b border-line">
+                  {/* Opens the earlier rows above the ones on screen — the window
+                      grows to cover both, so the next episode stays in view — and
+                      keeps focus in the list, on the first row it brought back. */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const list = e.currentTarget.closest("ol");
+                      setFrom({ season: active, start: 0 });
+                      setMore({ season: active, n: start + visible });
+                      requestAnimationFrame(() => list?.querySelector<HTMLElement>("li button, li a")?.focus());
+                    }}
+                    className="flex min-h-11 w-full items-center gap-2 py-2 text-left text-sm text-ink-400 transition-colors hover:text-ink-0"
+                  >
+                    <span className="font-mono text-xs tabular-nums text-ink-500">
+                      {code(episodes[0].episode_number)}
+                      {start > 1 ? `–${code(episodes[start - 1].episode_number)}` : ""}
+                    </span>
+                    {isAuthenticated ? "Watched" : "Earlier"} · show
+                  </button>
+                </li>
+              )}
+              {shown.map((ep) => (
+                <EpisodeRow
+                  key={ep.id}
+                  showId={id}
+                  showName={showName}
+                  season={active}
+                  ep={ep}
+                  signedIn={isAuthenticated}
+                  watched={marks.isWatched(active, ep.episode_number)}
+                  busy={epKey(active, ep.episode_number) in marks.pending}
+                  notOut={today ? !isOut({ s: active, e: ep.episode_number }, ep.air_date, lastAired, today) : false}
+                  people={(theirs?.get(epKey(active, ep.episode_number)) ?? []).map((p) => ({ username: p.username, avatarUrl: p.avatarUrl }))}
+                  onToggle={() => void marks.toggle({ s: active, e: ep.episode_number })}
+                />
+              ))}
+            </ol>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3">
+            {remaining > 0 && (
               <button
                 type="button"
-                onClick={() => setVisible((n) => n + MORE_STEP)}
-                className="rounded-xl border border-surface-700 bg-surface-800/60 px-4 py-2 text-sm font-medium text-surface-200 transition-colors hover:bg-surface-700"
+                onClick={() => setMore({ season: active, n: visible + MORE_STEP })}
+                className="inline-flex h-10 items-center rounded-full px-4 text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0"
               >
                 Show {Math.min(remaining, MORE_STEP)} more
               </button>
-              <Link
-                href={seasonPath(showId, activeSeason.season_number, showName)}
-                className="inline-flex items-center gap-1 text-sm font-medium text-brand-400 transition-colors hover:text-brand-300"
-              >
-                All {episodes.length} episodes
-                <ChevronRight className="size-4" />
-              </Link>
-            </div>
-          )}
+            )}
+            <Link
+              href={seasonPath(showId, activeSeason.season_number, showName)}
+              className="inline-flex items-center gap-1 text-sm font-medium text-ink-300 transition-colors hover:text-ink-0"
+            >
+              Open {seasonName(activeSeason)}
+              <ArrowRight className="size-4" aria-hidden />
+            </Link>
+          </div>
         </div>
       )}
     </div>

@@ -80,29 +80,29 @@ export default function UpdatePasswordComponent() {
 
   if (status === "checking") {
     return (
-      <div className="min-h-screen flex flex-col justify-center items-center bg-surface-950 px-4">
+      <div className="min-h-screen flex flex-col justify-center items-center bg-page px-4">
         <LoadingSpinner size="lg" className="border-t-white" />
-        <p className="mt-4 text-sm text-surface-400">Verifying link…</p>
+        <p className="mt-4 text-sm text-ink-400">Verifying link…</p>
       </div>
     );
   }
 
   if (status === "invalid") {
     return (
-      <div className="min-h-screen flex flex-col justify-center items-center bg-surface-950 px-4">
-        <div className="rounded-2xl border border-surface-700/60 bg-surface-900/80 p-6 sm:p-8 max-w-md w-full text-center">
-          <h1 className="text-xl font-bold text-white mb-2">Invalid or expired link</h1>
-          <p className="text-surface-400 text-sm mb-6">
+      <div className="min-h-screen flex flex-col justify-center items-center bg-page px-4">
+        <div className="rounded-2xl border border-line-strong/60 bg-raised/80 p-6 sm:p-8 max-w-sheet w-full text-center">
+          <h1 className="text-xl font-medium text-ink-0 mb-2">Invalid or expired link</h1>
+          <p className="text-ink-400 text-sm mb-6">
             This reset link is invalid or has expired. Request a new one from the forgot password page.
           </p>
           <Link
             href="/forgot-password"
-            className="inline-block rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-500"
+            className="inline-block rounded-lg bg-active px-4 py-2 font-medium text-ink-0 hover:bg-hover"
           >
             Request new link
           </Link>
-          <p className="mt-6 text-sm text-surface-500">
-            <Link href="/login" className="text-indigo-400 hover:text-indigo-300">
+          <p className="mt-6 text-sm text-ink-500">
+            <Link href="/login" className="text-ink-300 hover:text-ink-200">
               Back to log in
             </Link>
           </p>
@@ -117,29 +117,29 @@ export default function UpdatePasswordComponent() {
     !submitting;
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-surface-950 px-4 py-10">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex flex-col justify-center items-center bg-page px-4 py-10">
+      <div className="w-full max-w-sheet">
         <div className="text-center mb-8">
           <Link
             href="/app"
-            className="text-2xl font-bold text-white hover:text-surface-300 transition-colors"
+            className="text-2xl font-bold text-ink-0 hover:text-ink-300 transition-colors"
           >
             Let&apos;s See
           </Link>
-          <p className="text-surface-400 mt-1 text-sm">Social media for cinema.</p>
+          <p className="text-ink-400 mt-1 text-sm">Social media for cinema.</p>
         </div>
 
-        <div className="rounded-2xl border border-surface-700/60 bg-surface-900/80 p-6 sm:p-8 shadow-xl">
-          <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">
+        <div className="rounded-2xl border border-line-strong/60 bg-raised/80 p-6 sm:p-8 shadow-xl">
+          <h1 className="text-xl sm:text-2xl font-medium text-ink-0 mb-1">
             Set new password
           </h1>
-          <p className="text-surface-400 text-sm mb-6">
+          <p className="text-ink-400 text-sm mb-6">
             Enter your new password below.
           </p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
-              <label htmlFor="new-password" className="block text-sm font-medium text-surface-300 mb-1.5">
+              <label htmlFor="new-password" className="block text-sm font-medium text-ink-300 mb-1.5">
                 New password
               </label>
               <input
@@ -152,15 +152,15 @@ export default function UpdatePasswordComponent() {
                 minLength={MIN_PASSWORD_LENGTH}
                 placeholder="••••••••"
                 disabled={submitting}
-                className="w-full rounded-lg bg-surface-800 border border-surface-600 px-4 py-3 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-60"
+                className="w-full rounded-lg bg-overlay border border-line-input px-4 py-3 text-ink-0 placeholder-ink-500 focus:outline-none focus:ring-2 focus:ring-focus focus:border-transparent disabled:opacity-60"
               />
-              <p className="mt-1 text-xs text-surface-500">
+              <p className="mt-1 text-xs text-ink-500">
                 At least {MIN_PASSWORD_LENGTH} characters.
               </p>
             </div>
 
             <div>
-              <label htmlFor="confirm-password" className="block text-sm font-medium text-surface-300 mb-1.5">
+              <label htmlFor="confirm-password" className="block text-sm font-medium text-ink-300 mb-1.5">
                 Confirm password
               </label>
               <input
@@ -172,19 +172,19 @@ export default function UpdatePasswordComponent() {
                 required
                 placeholder="••••••••"
                 disabled={submitting}
-                className="w-full rounded-lg bg-surface-800 border border-surface-600 px-4 py-3 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-60"
+                className="w-full rounded-lg bg-overlay border border-line-input px-4 py-3 text-ink-0 placeholder-ink-500 focus:outline-none focus:ring-2 focus:ring-focus focus:border-transparent disabled:opacity-60"
               />
               {confirmPassword && password !== confirmPassword && (
-                <p className="mt-1 text-xs text-amber-400">Passwords do not match.</p>
+                <p className="mt-1 text-xs text-ink-300">Passwords do not match.</p>
               )}
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-surface-400 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-ink-400 cursor-pointer">
               <input
                 type="checkbox"
                 checked={showPassword}
                 onChange={(e) => setShowPassword(e.target.checked)}
-                className="rounded border-surface-600 bg-surface-800 text-indigo-600 focus:ring-indigo-500"
+                className="rounded border-line-input bg-overlay text-ink-500 focus:ring-focus"
               />
               Show passwords
             </label>
@@ -192,7 +192,7 @@ export default function UpdatePasswordComponent() {
             <button
               type="submit"
               disabled={!canSubmit}
-              className="w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-surface-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              className="w-full rounded-lg bg-active py-3 font-semibold text-ink-0 hover:bg-hover focus:outline-none focus:ring-2 focus:ring-focus focus:ring-offset-2 focus:ring-offset-raised disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
               {submitting ? (
                 <>
@@ -205,8 +205,8 @@ export default function UpdatePasswordComponent() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-surface-400">
-            <Link href="/login" className="font-medium text-indigo-400 hover:text-indigo-300">
+          <p className="mt-6 text-center text-sm text-ink-400">
+            <Link href="/login" className="font-medium text-ink-300 hover:text-ink-200">
               Back to log in
             </Link>
           </p>

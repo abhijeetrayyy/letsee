@@ -16,9 +16,9 @@ export const metadata = {
 
 function SignupLoading() {
   return (
-    <div className="w-full min-h-screen flex flex-col items-center justify-center gap-4 bg-surface-900 text-white">
+    <div className="w-full min-h-screen flex flex-col items-center justify-center gap-4 bg-raised text-ink-0">
       <LoadingSpinner size="lg" className="border-t-white" />
-      <p className="text-sm text-surface-400">Loading…</p>
+      <p className="text-sm text-ink-400">Loading…</p>
     </div>
   );
 }

@@ -33,8 +33,8 @@ export default function SeenOf({
   if (seen === 0) return null;
 
   return (
-    <p className={`text-sm text-surface-400 ${className}`}>
-      Seen <span className="font-mono tabular-nums text-white">{seen}</span> of {items.length} {noun}
+    <p className={`text-sm text-ink-400 ${className}`}>
+      Seen <span className="font-mono tabular-nums text-ink-0">{seen}</span> of {items.length} {noun}
       {seen === items.length ? " — all of them." : "."}
     </p>
   );

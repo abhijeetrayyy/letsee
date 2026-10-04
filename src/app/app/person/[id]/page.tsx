@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import MediaCard from "@components/cards/MediaCard";
+import TitleCard from "@components/ds/TitleCard";
 import PersonHero from "@components/person/PersonHero";
 import PersonWork from "@components/person/PersonWork";
 import RecurringRoles from "@components/person/RecurringRoles";
@@ -17,6 +17,7 @@ import JsonLd from "@components/seo/JsonLd";
 import { personLd, breadcrumbLd } from "@/utils/structuredData";
 import { personPath } from "@/utils/urls";
 
+import Rail from "@components/ds/Rail";
 /** Impersonal HTML; see the movie page for why this is cached. */
 /**
  * A day, not an hour.
@@ -94,7 +95,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="mb-4 text-xl font-bold text-white">{title}</h2>
+      <h2 className="mb-4 text-xl font-medium text-ink-0">{title}</h2>
       {children}
     </section>
   );
@@ -136,13 +137,13 @@ export default async function PersonPage({ params }: PageProps) {
         data={[
           personLd(person),
           breadcrumbLd([
-            { name: "People", path: "/app/person" },
+            { name: "People", path: "/app/search?scope=people" },
             { name: person.name, path: personPath(person.id, person.name) },
           ]),
         ]}
       />
-    <div className="min-h-screen bg-surface-950">
-      <div className="mx-auto max-w-[1400px] space-y-12 px-4 py-8 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-page">
+      <div className="mx-auto max-w-app space-y-12 px-4 py-8 sm:px-6 lg:px-8">
         <PersonHero
           name={person.name}
           profilePath={person.profile_path ?? null}
@@ -153,27 +154,33 @@ export default async function PersonPage({ params }: PageProps) {
           posterWall={posterWall}
         />
 
-        {/* The only cards on the page with actions in a grid — eight, not the
-            346 context subscribers a full filmography of MediaCards would be. */}
+        {/* The eight that define them, ranked. Cards carry no actions now (a card
+            is a door to the title), only the mark for where you stand. A row
+            you swipe on a phone — as a two-across grid the eight were a screen
+            and a half before the work began — and a full row from `lg`. */}
         {defining.length >= 4 && (
           <Section title="Known for">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
-              {defining.map((c, i) => (
-                <MediaCard
-                  key={c.key}
-                  id={c.id}
-                  title={c.title}
-                  mediaType={c.mediaType}
-                  posterPath={c.posterPath}
-                  genres={[]}
-                  showActions
-                  rank={i + 1}
-                  releaseDate={c.date || null}
-                  rating={c.voteAverage || null}
-                  voteCount={c.voteCount || null}
-                />
-              ))}
-            </div>
+            <Rail>
+              <div className="no-scrollbar -mx-4 flex snap-x scroll-px-4 sm:scroll-px-6 gap-3 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-6 lg:gap-4 lg:overflow-visible lg:px-0 xl:grid-cols-8">
+                {defining.map((c, i) => (
+                  <div key={c.key} className="w-32 shrink-0 snap-start sm:w-36 lg:w-auto">
+                  <TitleCard
+                    eager={i < 2}
+                    id={c.id}
+                    title={c.title}
+                    mediaType={c.mediaType}
+                    posterPath={c.posterPath}
+                    genres={[]}
+                    showActions
+                    rank={i + 1}
+                    releaseDate={c.date || null}
+                    rating={c.voteAverage || null}
+                    voteCount={c.voteCount || null}
+                  />
+                  </div>
+                ))}
+              </div>
+            </Rail>
           </Section>
         )}
 

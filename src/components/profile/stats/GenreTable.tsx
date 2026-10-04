@@ -21,7 +21,7 @@ export default function GenreTable({
   onSelect: (genre: string) => void;
 }) {
   if (genres.length === 0) {
-    return <p className="py-8 text-center text-sm text-surface-500">No genres yet.</p>;
+    return <p className="py-8 text-center text-sm text-ink-500">No genres yet.</p>;
   }
 
   const max = Math.max(1, ...genres.map((genre) => genre.count));
@@ -38,18 +38,18 @@ export default function GenreTable({
               key={genre.genre}
               type="button"
               onClick={() => onSelect(genre.genre)}
-              className="group flex w-full items-center gap-3 rounded-md px-1.5 py-1.5 text-left transition-colors hover:bg-surface-800/50"
+              className="group flex w-full items-center gap-3 rounded-md px-1.5 py-1.5 text-left transition-colors hover:bg-overlay/50"
             >
-              <span className="w-24 shrink-0 truncate text-sm text-surface-300 sm:w-28">
+              <span className="w-24 shrink-0 truncate text-sm text-ink-300 sm:w-28">
                 {genre.genre}
               </span>
 
               <span
-                className="relative h-5 flex-1 overflow-hidden rounded-[4px]"
+                className="relative h-5 flex-1 overflow-hidden rounded"
                 style={{ backgroundColor: NEUTRAL.track }}
               >
                 <span
-                  className="block h-full rounded-[4px] transition-all duration-500"
+                  className="block h-full rounded transition-all duration-500"
                   style={{
                     width: `${(genre.count / max) * 100}%`,
                     backgroundColor: NEUTRAL.mark,
@@ -57,7 +57,7 @@ export default function GenreTable({
                 />
               </span>
 
-              <span className="w-9 shrink-0 text-right text-sm tabular-nums text-surface-400">
+              <span className="w-9 shrink-0 text-right text-sm tabular-nums text-ink-400">
                 {genre.count}
               </span>
 
@@ -65,7 +65,7 @@ export default function GenreTable({
                 <span className="hidden w-32 shrink-0 items-center justify-end gap-1.5 text-xs tabular-nums sm:flex">
                   {hasDelta ? (
                     <>
-                      <span className="text-surface-500">
+                      <span className="text-ink-500">
                         {genre.your_avg?.toFixed(1)} vs {genre.crowd_avg?.toFixed(1)}
                       </span>
                       <span
@@ -81,7 +81,7 @@ export default function GenreTable({
                       </span>
                     </>
                   ) : (
-                    <span className="text-surface-600">
+                    <span className="text-ink-600">
                       {genre.rated_count === 0 ? "unrated" : "too few rated"}
                     </span>
                   )}
@@ -93,12 +93,12 @@ export default function GenreTable({
       </div>
 
       {showYou && (
-        <p className="mt-4 text-[11px] leading-relaxed text-surface-500">
+        <p className="mt-4 text-xs leading-relaxed text-ink-500">
           The last column is your average against TMDB&rsquo;s, then the gap between
           them — averaged title by title over the ones that carry both scores,
           not one average minus the other.{" "}
-          <span style={{ color: SERIES.you }}>Green</span> means you rate the genre
-          above everyone else, <span style={{ color: SERIES.crowd }}>blue</span> below.
+          A <span className="font-medium text-ink-0">strong</span> gap means you rate the genre
+          above everyone else, a <span style={{ color: SERIES.crowd }}>grey</span> one below.
           Genres with fewer than three shared scores are left blank rather than
           given a number nobody should trust.
         </p>

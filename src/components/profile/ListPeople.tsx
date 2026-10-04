@@ -25,11 +25,14 @@ export default function ListPeople({
   listName,
   isOwner,
   visibility,
+  showShare = true,
 }: {
   listId: number;
   listName: string;
   isOwner: boolean;
   visibility: string;
+  /** Off where the page already has its own Share. */
+  showShare?: boolean;
 }) {
   const [people, setPeople] = useState<Collaborator[]>([]);
   const [adding, setAdding] = useState(false);
@@ -119,47 +122,49 @@ export default function ListPeople({
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2">
       {people.map((p) => (
-        <span key={p.userId} className="inline-flex items-center gap-1.5 rounded-full border border-surface-800 bg-surface-900/60 py-1 pl-1 pr-2 text-xs text-surface-200">
+        <span key={p.userId} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-raised/60 py-1 pl-1 pr-2 text-xs text-ink-200">
           <Avatar src={p.avatarUrl} name={p.username} size="xs" />
-          <Link href={`/app/profile/${p.username}`} className="hover:text-white">
+          <Link href={`/app/profile/${p.username}`} className="hover:text-ink-0">
             {p.username}
           </Link>
           {isOwner && (
-            <button type="button" onClick={() => remove(p.userId)} disabled={busy} aria-label={`Remove ${p.username}`} className="text-surface-500 hover:text-white">
+            <button type="button" onClick={() => remove(p.userId)} disabled={busy} aria-label={`Remove ${p.username}`} className="text-ink-500 hover:text-ink-0">
               <X className="size-3" />
             </button>
           )}
         </span>
       ))}
-      <button
-        type="button"
-        onClick={copyLink}
-        className="inline-flex items-center gap-1.5 rounded-full border border-surface-700 px-3 py-1.5 text-xs text-surface-300 transition hover:border-surface-600 hover:text-white"
-      >
-        {typeof navigator !== "undefined" && "share" in navigator ? <Share2 className="size-3.5" /> : <Link2 className="size-3.5" />}
-        Share the list
-      </button>
+      {showShare && (
+        <button
+          type="button"
+          onClick={copyLink}
+          className="inline-flex items-center gap-1.5 rounded-full border border-line-strong px-3 py-1.5 text-xs text-ink-300 transition hover:border-line-input hover:text-ink-0"
+        >
+          {typeof navigator !== "undefined" && "share" in navigator ? <Share2 className="size-3.5" /> : <Link2 className="size-3.5" />}
+          Share the list
+        </button>
+      )}
       {isOwner && !adding && (
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="inline-flex items-center gap-1.5 rounded-full border border-surface-700 px-3 py-1.5 text-xs text-surface-300 transition hover:border-surface-600 hover:text-white"
+          className="inline-flex items-center gap-1.5 rounded-full border border-line-strong px-3 py-1.5 text-xs text-ink-300 transition hover:border-line-input hover:text-ink-0"
         >
           <UserPlus className="size-3.5" /> Add someone
         </button>
       )}
       {isOwner && adding && (
-        <div className="mt-2 w-full max-w-sm space-y-2">
+        <div className="mt-2 w-full max-w-sheet space-y-2">
           <PersonPicker value={picked} onChange={setPicked} multiple={false} placeholder="Their username" />
           <div className="flex items-center gap-2">
             <button type="button" onClick={add} disabled={busy || picked[0]?.kind !== "user"} className="btn-primary rounded-full px-4 py-1.5 text-xs disabled:opacity-50">
               Add to this list
             </button>
-            <button type="button" onClick={() => { setAdding(false); setPicked([]); }} className="text-xs text-surface-500 hover:text-white">
+            <button type="button" onClick={() => { setAdding(false); setPicked([]); }} className="text-xs text-ink-500 hover:text-ink-0">
               Cancel
             </button>
           </div>
-          <p className="text-[11px] text-surface-600">They can add and remove titles. Only you can change the list itself.</p>
+          <p className="text-xs text-ink-600">They can add and remove titles. Only you can change the list itself.</p>
         </div>
       )}
     </div>

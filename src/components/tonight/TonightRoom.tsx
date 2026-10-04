@@ -1,29 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "@components/ui/AppLink";
 import useSWR from "swr";
-import {
-  AlertCircle,
-  ArrowRight,
-  Check,
-  Clock,
-  Loader2,
-  MonitorPlay,
-  RotateCcw,
-  Settings2,
-  Users,
-} from "lucide-react";
+import toast from "react-hot-toast";
+import { AlertCircle, Check, Loader2, RotateCcw, Settings2 } from "lucide-react";
+import Avatar from "@components/ui/Avatar";
 import { swrFetcher } from "@/utils/swrFetcher";
-import { getAvatarUrl, getPosterUrl } from "@/utils/imageUrl";
+import { getPosterUrl } from "@/utils/imageUrl";
+import { prefillIds } from "@/lib/people/tonight";
 import ServicePicker from "./ServicePicker";
 
 type Person = { userId: string; username: string; avatarUrl: string | null; mutual: boolean };
 
 type Provider = { id: number; name: string; logoPath: string | null; heldBy: string[] };
 
-import { seasonPath } from "@/utils/urls";
-import { titlePath } from "@/utils/urls";
+import { episodePath, titlePath } from "@/utils/urls";
 type Episode = {
   seasonNumber: number;
   episodeNumber: number;
@@ -71,9 +63,14 @@ const RUNTIME_CHOICES = [
 
 const TYPE_CHOICES = [
   { label: "Either", value: "any" as const },
-  { label: "Film", value: "movie" as const },
-  { label: "TV", value: "tv" as const },
+  { label: "A film", value: "movie" as const },
+  { label: "A series", value: "tv" as const },
 ];
+
+const primary =
+  "inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-6 text-base font-semibold text-on-action transition-colors hover:bg-action-hover disabled:opacity-60";
+const quiet =
+  "inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0 disabled:opacity-60";
 
 /**
  * The room.
@@ -83,11 +80,43 @@ const TYPE_CHOICES = [
  * screen exists not to be. The alternates are held in memory purely so "Next"
  * is instant; they are never all on screen at once.
  */
-export default function TonightRoom({ hasProviders }: { hasProviders: boolean }) {
-  const { data: peopleData } = useSWR<{ people: Person[] }>("/api/tonight/people", swrFetcher);
+export type TonightClub = { slug: string; name: string; admitted: boolean; members: { userId: string; username: string; avatarUrl: string | null }[] };
+
+/** The server's limit: you and seven others. */
+const MAX_OTHERS = 7;
+
+export default function TonightRoom({ hasProviders, prefill = [], club = null, me = null }: { hasProviders: boolean; prefill?: string[]; club?: TonightClub | null; me?: string | null }) {
+  // Keyed on who is asking: a sign-out and sign-in in the same tab mustn't show the last account's people.
+  const { data: connections } = useSWR<{ people: Person[] }>(["/api/tonight/people", me], ([url]: [string, string | null]) => swrFetcher(url));
+  // A group room's members can decide together whether or not they follow
+  // one another (migration 107; the API checks membership).
+  // A group's members are offered whether or not you follow them only when
+  // the group admits its members (the API's rule); in an open group, only
+  // the members you're connected to.
+  const connected = new Set((connections?.people ?? []).map((p) => p.userId));
+  const groupPeople = (club?.members ?? []).filter((m) => m.userId !== me && (club?.admitted || connected.has(m.userId)));
+  const peopleData = connections
+    ? {
+        people: [
+          ...groupPeople.map((m) => ({ ...m, mutual: connected.has(m.userId) })),
+          ...connections.people.filter((p) => !groupPeople.some((m) => m.userId === p.userId)),
+        ],
+      }
+    : undefined;
+  if (club) prefill = [...prefill, ...groupPeople.map((m) => m.username.toLowerCase())].slice(0, MAX_OTHERS);
 
   const [showPicker, setShowPicker] = useState(!hasProviders);
-  const [withIds, setWithIds] = useState<Set<string>>(new Set());
+  // Who the link said, once your people have loaded; your own taps after that.
+  const [picked, setPicked] = useState<Set<string> | null>(null);
+  const withIds = picked ?? prefillIds(peopleData?.people ?? [], prefill);
+  const setWithIds = (update: (prev: Set<string>) => Set<string>) => {
+    const next = update(withIds);
+    if (next.size > MAX_OTHERS) {
+      toast.error("Up to eight of you at once.");
+      return;
+    }
+    setPicked(next);
+  };
   const [maxRuntime, setMaxRuntime] = useState<number | null>(null);
   const [mediaType, setMediaType] = useState<"any" | "movie" | "tv">("any");
 
@@ -136,6 +165,7 @@ export default function TonightRoom({ hasProviders }: { hasProviders: boolean })
           participantIds: [...withIds],
           maxRuntime,
           mediaType,
+          ...(club ? { clubSlug: club.slug } : {}),
         }),
       });
       const data = await res.json();
@@ -266,114 +296,90 @@ export default function TonightRoom({ hasProviders }: { hasProviders: boolean })
   }
 
   return (
-    <div className="space-y-8">
-      <section>
-        <SectionLabel icon={<Users className="size-4" />} text="Who's watching" />
-        <div className="mt-3 flex flex-wrap gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-500 bg-brand-500/15 px-3.5 py-2 text-sm text-brand-300">
-            <Check className="size-3.5" />
-            You
-          </span>
+    <div className="flex flex-col gap-8">
+      <section aria-labelledby="who">
+        <h2 id="who" className="mb-3 text-xl text-ink-0">
+          {club ? <>Who&apos;s watching from {club.name}</> : <>Who&apos;s watching</>}
+        </h2>
+        <ul className="flex flex-wrap gap-2">
+          <li>
+            <span className="inline-flex h-10 items-center gap-1.5 rounded-full bg-action px-4 text-sm font-medium text-on-action">
+              <Check className="size-4" aria-hidden />
+              You
+            </span>
+          </li>
           {people.map((person) => {
             const on = withIds.has(person.userId);
             return (
-              <button
-                key={person.userId}
-                type="button"
-                onClick={() =>
-                  setWithIds((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(person.userId)) next.delete(person.userId);
-                    else next.add(person.userId);
-                    return next;
-                  })
-                }
-                aria-pressed={on}
-                className={`inline-flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3.5 text-sm transition ${
-                  on
-                    ? "border-brand-500 bg-brand-500/15 text-brand-300"
-                    : "border-surface-700 bg-surface-950/60 text-surface-300 hover:border-surface-600 hover:text-white"
-                }`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img loading="lazy" decoding="async"
-                  src={getAvatarUrl(person.avatarUrl)}
-                  alt=""
-                  className="size-6 rounded-full object-cover"
-                />
-                {person.username}
-              </button>
+              <li key={person.userId}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setWithIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(person.userId)) next.delete(person.userId);
+                      else next.add(person.userId);
+                      return next;
+                    })
+                  }
+                  aria-pressed={on}
+                  className={`inline-flex h-10 items-center gap-2 rounded-full pl-1.5 pr-4 text-sm font-medium transition-colors ${
+                    on ? "bg-action text-on-action" : "text-ink-200 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"
+                  }`}
+                >
+                  <Avatar src={person.avatarUrl} name={person.username} size={28} />
+                  {person.username}
+                </button>
+              </li>
             );
           })}
-          {people.length === 0 && (
-            <p className="text-surface-500 text-sm py-1">
-              Follow someone to decide together.{" "}
-              <Link href="/app/search" className="text-brand-400 hover:text-brand-300">
-                Find people
-              </Link>
-            </p>
-          )}
-        </div>
+        </ul>
+        {peopleData && people.length === 0 && (
+          <p className="mt-3 text-sm text-ink-400">
+            Tonight can decide for you alone. To decide with someone, follow them or start a room with them.{" "}
+            <Link href="/app/search?scope=people" className="font-medium text-ink-0 underline decoration-line-input underline-offset-4">
+              Find people
+            </Link>
+          </p>
+        )}
       </section>
 
-      <section>
-        <SectionLabel icon={<Clock className="size-4" />} text="How long have you got" />
-        <div className="mt-3 flex flex-wrap gap-2">
+      <section aria-labelledby="how-long">
+        <h2 id="how-long" className="mb-3 text-xl text-ink-0">
+          How long have you got
+        </h2>
+        <div className="flex flex-wrap gap-2">
           {RUNTIME_CHOICES.map((choice) => (
-            <Chip
-              key={choice.label}
-              active={maxRuntime === choice.value}
-              onClick={() => setMaxRuntime(choice.value)}
-            >
+            <Chip key={choice.label} active={maxRuntime === choice.value} onClick={() => setMaxRuntime(choice.value)}>
               {choice.label}
             </Chip>
           ))}
         </div>
       </section>
 
-      <section>
-        <SectionLabel icon={<MonitorPlay className="size-4" />} text="Film or TV" />
-        <div className="mt-3 flex flex-wrap gap-2">
+      <section aria-labelledby="what-kind">
+        <h2 id="what-kind" className="mb-3 text-xl text-ink-0">
+          A film or a series
+        </h2>
+        <div className="flex flex-wrap gap-2">
           {TYPE_CHOICES.map((choice) => (
-            <Chip
-              key={choice.value}
-              active={mediaType === choice.value}
-              onClick={() => setMediaType(choice.value)}
-            >
+            <Chip key={choice.value} active={mediaType === choice.value} onClick={() => setMediaType(choice.value)}>
               {choice.label}
             </Chip>
           ))}
         </div>
       </section>
 
-      {error && <p className="text-rose-400 text-sm">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
-      <div className="flex flex-wrap items-center gap-4 pt-2">
-        <button
-          type="button"
-          onClick={start}
-          disabled={loading}
-          className="btn-primary text-base px-7 py-3 disabled:opacity-60"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              Deciding…
-            </>
-          ) : (
-            <>
-              Decide for us
-              <ArrowRight className="size-4" />
-            </>
-          )}
+      <div className="flex flex-wrap items-center gap-4">
+        <button type="button" onClick={start} disabled={loading} className={`${primary} w-full sm:w-auto`}>
+          {loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+          {loading ? "Deciding…" : withIds.size ? `Decide for the ${withIds.size + 1} of us` : "Decide for me"}
         </button>
-        <button
-          type="button"
-          onClick={() => setShowPicker(true)}
-          className="inline-flex items-center gap-1.5 text-sm text-surface-400 hover:text-white transition"
-        >
-          <Settings2 className="size-4" />
-          My services
+        <button type="button" onClick={() => setShowPicker(true)} className="inline-flex items-center gap-1.5 text-sm text-ink-400 transition-colors hover:text-ink-0">
+          <Settings2 className="size-4" aria-hidden />
+          Your services
         </button>
       </div>
     </div>
@@ -381,15 +387,6 @@ export default function TonightRoom({ hasProviders }: { hasProviders: boolean })
 }
 
 // ── Pieces ──────────────────────────────────────────────────────────────────
-
-function SectionLabel({ icon, text }: { icon: React.ReactNode; text: string }) {
-  return (
-    <div className="flex items-center gap-2 text-surface-500">
-      {icon}
-      <h2 className="text-xs font-semibold uppercase tracking-[0.2em]">{text}</h2>
-    </div>
-  );
-}
 
 function Chip({
   active,
@@ -405,10 +402,8 @@ function Chip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-full border px-3.5 py-2 text-sm transition ${
-        active
-          ? "border-brand-500 bg-brand-500/15 text-brand-300"
-          : "border-surface-700 bg-surface-950/60 text-surface-300 hover:border-surface-600 hover:text-white"
+      className={`inline-flex h-10 items-center rounded-full px-4 text-sm font-medium transition-colors ${
+        active ? "bg-action text-on-action" : "text-ink-300 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"
       }`}
     >
       {children}
@@ -445,86 +440,57 @@ function Answer({
   ].filter(Boolean);
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-6 sm:grid-cols-[200px_1fr] sm:gap-8">
-        <Link
-          href={titlePath(candidate.itemType, candidate.itemId, candidate.itemName)}
-          className="block shrink-0 mx-auto sm:mx-0 w-[180px] sm:w-[200px]"
-        >
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5 sm:flex-row sm:gap-8">
+        <Link href={titlePath(candidate.itemType, candidate.itemId, candidate.itemName)} className="block w-40 shrink-0 self-center sm:w-48 sm:self-start">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img loading="lazy" decoding="async"
-            src={getPosterUrl(candidate.imageUrl, "w342")}
-            alt={candidate.itemName}
-            className="w-full rounded-2xl border border-surface-800 object-cover shadow-2xl shadow-black/50"
-          />
+          <img src={getPosterUrl(candidate.imageUrl, "w342")} alt="" className="aspect-2/3 w-full rounded-media object-cover ring-1 ring-inset ring-line" />
         </Link>
 
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-400">
-            {ep ? "Pick up where you left off" : "Watch this"}
-          </p>
+          <p className="font-mono text-xs uppercase tracking-wide text-ink-500">{ep ? "Pick up where you left off" : "Watch this"}</p>
           {/* For an episode the show is the identity and the episode is the
-              answer, so the show name leads and the episode title sits under
-              it rather than replacing it. */}
-          <h1 className="mt-2 text-2xl sm:text-3xl font-bold text-white leading-tight">
-            <Link href={titlePath(candidate.itemType, candidate.itemId, candidate.itemName)} className="hover:text-brand-300 transition">
+              answer, so the show name leads and the episode title sits under it. */}
+          <h2 className="mt-2 text-3xl leading-tight text-ink-0">
+            <Link href={titlePath(candidate.itemType, candidate.itemId, candidate.itemName)} className="hover:underline hover:decoration-line-input hover:underline-offset-4">
               {candidate.itemName}
             </Link>
-          </h1>
+          </h2>
           {ep && (
-            <p className="mt-1 text-lg text-surface-200">
-              <Link
-                href={seasonPath(candidate.itemId, ep.seasonNumber, candidate.itemName)}
-                className="hover:text-brand-300 transition"
-              >
+            <p className="mt-1 text-lg text-ink-200">
+              <Link href={episodePath(candidate.itemId, ep.seasonNumber, ep.episodeNumber, candidate.itemName)} className="hover:underline hover:underline-offset-4">
                 {ep.name}
               </Link>
             </p>
           )}
-          {meta.length > 0 && (
-            <p className="mt-1.5 text-sm text-surface-400">{meta.join(" · ")}</p>
-          )}
+          {meta.length > 0 && <p className="mt-1.5 text-sm text-ink-400">{meta.join(" · ")}</p>}
 
-          {/* The reason is the product. Everything else on this screen is
-              context for it. */}
-          <p className="mt-4 text-base text-surface-200">{candidate.reason}</p>
+          {/* The reason is the product. Everything else on this screen is context for it. */}
+          <p className="mt-4 font-display text-xl leading-snug text-ink-0">{candidate.reason}</p>
 
           {candidate.providers.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
+            <ul className="mt-4 flex flex-wrap gap-2">
               {candidate.providers.slice(0, 4).map((provider) => {
-                const holders = provider.heldBy
-                  .map(usernameFor)
-                  .filter((n): n is string => !!n);
-                const attribution =
-                  participantCount > 1 && holders.length === 1 ? ` · ${holders[0]}` : "";
+                const holders = provider.heldBy.map(usernameFor).filter((n): n is string => !!n);
+                const attribution = participantCount > 1 && holders.length === 1 ? ` · ${holders[0]}` : "";
                 return (
-                  <span
-                    key={provider.id}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-surface-800 bg-surface-900/60 px-2.5 py-1.5 text-xs text-surface-300"
-                  >
+                  <li key={provider.id} className="inline-flex h-8 items-center gap-1.5 rounded-full bg-raised pl-1.5 pr-3 text-xs text-ink-200 ring-1 ring-inset ring-line-strong">
                     {provider.logoPath && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img loading="lazy" decoding="async"
-                        src={getPosterUrl(provider.logoPath, "w92")}
-                        alt=""
-                        className="size-4 rounded"
-                      />
+                      <img src={getPosterUrl(provider.logoPath, "w92")} alt="" className="size-5 rounded-full" />
                     )}
                     {provider.name}
                     {attribution}
-                  </span>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           )}
 
-          {/* The availability caveat, stated rather than swallowed. Without
-              their services we can't know whether this is on anything they
-              have, and quietly presenting it as "streamable by the room" would
-              be the tool overstating what it knows. */}
+          {/* The availability caveat, stated rather than swallowed. */}
           {unaccounted.length > 0 && (
-            <p className="mt-3 flex items-start gap-1.5 text-xs text-amber-300/90">
-              <AlertCircle className="size-3.5 shrink-0 translate-y-px" />
+            <p className="mt-3 flex items-start gap-1.5 text-xs text-ink-300">
+              <AlertCircle className="size-3.5 shrink-0 translate-y-px" aria-hidden />
               <span>
                 {unaccounted.length === 1
                   ? unaccounted[0].isYou
@@ -535,38 +501,22 @@ function Answer({
             </p>
           )}
 
-          {candidate.overview && (
-            <p className="mt-4 text-sm text-surface-400 line-clamp-3">{candidate.overview}</p>
-          )}
+          {candidate.overview && <p className="mt-4 line-clamp-3 text-sm text-ink-400">{candidate.overview}</p>}
         </div>
       </div>
 
-      {error && <p className="text-rose-400 text-sm">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={onWatch}
-          disabled={busy}
-          className="btn-primary text-base px-7 py-3 disabled:opacity-60"
-        >
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-          {ep ? "Play this episode" : "We're watching this"}
+        <button type="button" onClick={onWatch} disabled={busy} className={`${primary} w-full sm:w-auto`}>
+          {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
+          {ep ? "We're watching this episode" : "We're watching this"}
         </button>
-        <button
-          type="button"
-          onClick={onNext}
-          disabled={busy}
-          className="rounded-xl border border-surface-700 px-5 py-3 text-sm text-surface-300 hover:border-surface-600 hover:text-white transition disabled:opacity-60"
-        >
+        <button type="button" onClick={onNext} disabled={busy} className={quiet}>
           Not this
         </button>
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-sm text-surface-500 hover:text-surface-300 transition"
-        >
-          Change the room
+        <button type="button" onClick={onBack} className="text-sm text-ink-500 transition-colors hover:text-ink-0">
+          Change who&apos;s watching
         </button>
       </div>
     </div>
@@ -575,29 +525,22 @@ function Answer({
 
 function Decided({ candidate, onAgain }: { candidate: Candidate; onAgain: () => void }) {
   return (
-    <div className="rounded-2xl border border-brand-500/20 bg-brand-500/5 p-6 sm:p-8 text-center">
-      <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-brand-500/15">
-        <Check className="size-6 text-brand-400" />
-      </div>
-      <h1 className="mt-4 text-xl font-bold text-white">Enjoy {candidate.itemName}.</h1>
-      <p className="mt-2 text-sm text-surface-400">
+    <div className="flex flex-col items-center gap-4 rounded-card border border-line-strong bg-raised/40 p-6 text-center sm:p-8">
+      <span className="flex size-12 items-center justify-center rounded-full bg-action text-on-action">
+        <Check className="size-6" aria-hidden />
+      </span>
+      <h2 className="text-2xl text-ink-0">Enjoy {candidate.itemName}.</h2>
+      <p className="text-sm text-ink-400">
         {candidate.episode
-          ? `S${candidate.episode.seasonNumber}E${candidate.episode.episodeNumber} is marked watched. Next one's ready when you are.`
-          : "It's on your list as currently watching. Rate it when you're done."}
+          ? `S${String(candidate.episode.seasonNumber).padStart(2, "0")} · E${String(candidate.episode.episodeNumber).padStart(2, "0")} is marked watched. The next one's ready when you are.`
+          : "It's in Up next as watching. Log it when you're done, and say who was there."}
       </p>
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-        <Link
-          href={titlePath(candidate.itemType, candidate.itemId, candidate.itemName)}
-          className="btn-primary text-sm px-5 py-2.5"
-        >
-          Open {candidate.itemType === "tv" ? "show" : "film"}
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <Link href={titlePath(candidate.itemType, candidate.itemId, candidate.itemName)} className={primary}>
+          Open the {candidate.itemType === "tv" ? "series" : "film"}
         </Link>
-        <button
-          type="button"
-          onClick={onAgain}
-          className="inline-flex items-center gap-1.5 text-sm text-surface-400 hover:text-white transition"
-        >
-          <RotateCcw className="size-4" />
+        <button type="button" onClick={onAgain} className="inline-flex items-center gap-1.5 text-sm text-ink-400 transition-colors hover:text-ink-0">
+          <RotateCcw className="size-4" aria-hidden />
           Decide something else
         </button>
       </div>

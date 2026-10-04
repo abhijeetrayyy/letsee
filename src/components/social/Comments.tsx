@@ -124,7 +124,7 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
   if (!inView || (loading && !comments.length))
     return (
       <div ref={ref} className="animate-pulse space-y-2">
-        {[1, 2].map((i) => <div key={i} className="h-16 bg-surface-800 rounded-xl" />)}
+        {[1, 2].map((i) => <div key={i} className="h-16 bg-overlay rounded-xl" />)}
       </div>
     );
 
@@ -132,16 +132,16 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
     <div ref={ref} className="space-y-3">
       {showHeading && (
         <div className="flex items-center gap-2 mb-3">
-          <MessageCircle className="size-4 text-brand-400" /><h3 className="text-sm font-semibold text-white">Discussion</h3>
-          <span className="text-xs text-surface-500">{comments.length}</span>
+          <MessageCircle className="size-4 text-accent" /><h2 className="font-sans text-sm font-semibold text-ink-0">Discussion</h2>
+          <span className="text-xs text-ink-500">{comments.length}</span>
         </div>
       )}
 
       {isAuthenticated && (
         <form onSubmit={submit} className="flex gap-2 mb-4">
-          <input value={body} onChange={e=>setBody(e.target.value)} placeholder={replyTo ? "Write a reply..." : "Share your thoughts..."} className="flex-1 bg-surface-800/60 border border-surface-700/50 rounded-xl px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" maxLength={2000} />
-          <button type="submit" disabled={submitting||!body.trim()} className="shrink-0 px-4 py-2.5 rounded-xl bg-brand-500/10 text-brand-400 hover:bg-brand-500/20 border border-brand-500/20 text-sm font-medium disabled:opacity-50"><Send className="size-4" /></button>
-          {replyTo && <button type="button" onClick={()=>{setReplyTo(null);setBody("");}} className="shrink-0 px-3 py-2.5 rounded-xl text-xs text-surface-500 hover:text-surface-300">Cancel</button>}
+          <input value={body} onChange={e=>setBody(e.target.value)} placeholder={replyTo ? "Write a reply..." : "Share your thoughts..."} className="flex-1 bg-overlay/60 border border-line-strong/50 rounded-xl px-4 py-2.5 text-sm text-ink-0 placeholder-ink-500 focus:outline-none focus:ring-2 focus:ring-focus/30" maxLength={2000} />
+          <button type="submit" disabled={submitting||!body.trim()} className="shrink-0 px-4 py-2.5 rounded-xl bg-action/10 text-accent hover:bg-action/20 border border-accent-strong/20 text-sm font-medium disabled:opacity-50"><Send className="size-4" /></button>
+          {replyTo && <button type="button" onClick={()=>{setReplyTo(null);setBody("");}} className="shrink-0 px-3 py-2.5 rounded-xl text-xs text-ink-500 hover:text-ink-300">Cancel</button>}
         </form>
       )}
 
@@ -153,13 +153,13 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
             </Link>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <Link href={`/app/profile/${c.users?.username||""}`} className="text-xs font-semibold text-white hover:text-brand-400">@{c.users?.username||"anon"}</Link>
-                <span className="text-[10px] text-surface-500">{timeAgo(c.created_at)}</span>
+                <Link href={`/app/profile/${c.users?.username||""}`} className="text-xs font-semibold text-ink-0 hover:text-accent">@{c.users?.username||"anon"}</Link>
+                <span className="text-xs text-ink-500">{timeAgo(c.created_at)}</span>
               </div>
-              <p className="text-sm text-surface-300 mt-0.5 leading-relaxed">{c.body}</p>
+              <p className="text-sm text-ink-300 mt-0.5 leading-relaxed">{c.body}</p>
               <div className="flex items-center gap-1 mt-1">
                 <LikeButton targetType="comment" targetId={c.id} initialCount={c.reaction_count} initialLiked={c.viewer_liked} size="sm" />
-                {isAuthenticated && <button onClick={()=>{setReplyTo(c.id);setBody("");}} className="text-[10px] text-surface-500 hover:text-brand-400 px-2 py-1.5">Reply</button>}
+                {isAuthenticated && <button onClick={()=>{setReplyTo(c.id);setBody("");}} className="text-xs text-ink-500 hover:text-accent px-2 py-1.5">Reply</button>}
                 {/* Only your own comments — the API rejects anything else, and
                     offering an action that will fail is worse than hiding it.
                     Not hover-gated: that made it unreachable on touch. */}
@@ -167,20 +167,20 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
                   <button
                     onClick={()=>remove(c.id)}
                     aria-label="Delete comment"
-                    className="inline-flex items-center justify-center min-h-[32px] min-w-[32px] text-surface-600 hover:text-red-400 transition-colors"
+                    className="inline-flex items-center justify-center min-h-8 min-w-8 text-ink-600 hover:text-danger transition-colors"
                   >
                     <Trash2 className="size-3.5"/>
                   </button>
                 )}
               </div>
               {replies(c.id).map(r => (
-                <div key={r.id} className="flex gap-2 mt-2 ml-4 pl-3 border-l-2 border-surface-800">
+                <div key={r.id} className="flex gap-2 mt-2 ml-4 pl-3 border-l-2 border-line">
                   <Link href={`/app/profile/${r.users?.username||""}`} className="shrink-0 mt-0.5">
                     <Avatar src={r.users?.avatar_url} name={r.users?.username || "?"} size={20} />
                   </Link>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5"><Link href={`/app/profile/${r.users?.username||""}`} className="text-[10px] font-semibold text-white">@{r.users?.username}</Link><span className="text-[9px] text-surface-500">{timeAgo(r.created_at)}</span></div>
-                    <p className="text-xs text-surface-400 mt-0.5">{r.body}</p>
+                    <div className="flex items-center gap-1.5"><Link href={`/app/profile/${r.users?.username||""}`} className="text-xs font-semibold text-ink-0">@{r.users?.username}</Link><span className="text-xs text-ink-500">{timeAgo(r.created_at)}</span></div>
+                    <p className="text-xs text-ink-400 mt-0.5">{r.body}</p>
                     <LikeButton targetType="comment" targetId={r.id} initialCount={r.reaction_count} initialLiked={r.viewer_liked} size="sm" />
                   </div>
                 </div>
@@ -191,11 +191,11 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
       ))}
 
       {top.length > 3 && (
-        <button onClick={()=>setShowAll(!showAll)} className="flex items-center gap-1 text-xs text-surface-500 hover:text-brand-400">
+        <button onClick={()=>setShowAll(!showAll)} className="flex items-center gap-1 text-xs text-ink-500 hover:text-accent">
           {showAll ? <><ChevronUp className="size-3"/>Show less</> : <><ChevronDown className="size-3"/>Show all {top.length} comments</>}
         </button>
       )}
-      {!isAuthenticated && <p className="text-xs text-surface-500 text-center py-2"><Link href="/login" className="text-brand-400">Sign in</Link> to join.</p>}
+      {!isAuthenticated && <p className="text-xs text-ink-500 text-center py-2"><Link href="/login" className="font-medium text-accent underline decoration-line-input underline-offset-4">Sign in</Link> to join.</p>}
     </div>
   );
 }

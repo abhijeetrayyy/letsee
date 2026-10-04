@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { getAuthUserId } from "@/utils/apiAuth";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -15,13 +16,18 @@ export async function GET(req: NextRequest) {
     return jsonError("showId query parameter is required", 400);
   }
 
-  const { data: rows, error } = await supabase
-    .from("watched_episodes")
-    .select("season_number, episode_number, watched_at")
-    .eq("user_id", userId)
-    .eq("show_id", showId)
-    .order("season_number", { ascending: true })
-    .order("episode_number", { ascending: true });
+  // Every row, past PostgREST's 1,000-row default: a long-running show can
+  // have more, and a missing row turns a check into an unmark.
+  const { rows, error } = await fetchAllRows<{ season_number: number; episode_number: number; watched_at: string }>((from, to) =>
+    supabase
+      .from("watched_episodes")
+      .select("season_number, episode_number, watched_at")
+      .eq("user_id", userId)
+      .eq("show_id", showId)
+      .order("season_number", { ascending: true })
+      .order("episode_number", { ascending: true })
+      .range(from, to),
+  );
 
   if (error) {
     console.error("watched-episodes get:", error);

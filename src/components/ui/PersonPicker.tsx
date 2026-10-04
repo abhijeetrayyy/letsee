@@ -3,15 +3,17 @@
 import { useEffect, useState } from "react";
 import { Loader2, Plus, X } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
+import { fetchRecipients } from "@/lib/db/recipients";
 
 /**
  * Pick people: those you follow first, anyone by username after, and a plain
  * name for someone who is not here. Used wherever a viewing or a save needs
  * a "who".
  *
- * `/api/share/recipients` already ranks mutuals, then follows, then the rest,
- * and refuses blocked pairs — so the same list that decides who you can send
- * a title to decides who you can name on one.
+ * `fetchRecipients` ranks mutuals, then follows, then the rest, and leaves
+ * out people you've blocked — so the same list that decides who you can send
+ * a title to decides who you can name on one. Read in the browser.
  */
 
 export type PickedPerson =
@@ -45,18 +47,19 @@ export default function PersonPicker({
   const [results, setResults] = useState<Result[]>([]);
   const [searching, setSearching] = useState(false);
   const [focused, setFocused] = useState(false);
+  const { user } = useAuth();
+  const me = user?.id ?? null;
 
   useEffect(() => {
-    if (!focused) return;
+    if (!focused || !me) return;
     const q = query.trim();
     let cancelled = false;
     setSearching(true);
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/share/recipients?q=${encodeURIComponent(q)}`);
-        const body = (await res.json()) as { connections?: Result[]; others?: Result[] };
+        const body = await fetchRecipients(me, q);
         if (cancelled) return;
-        setResults([...(body.connections ?? []), ...(q ? body.others ?? [] : [])].slice(0, 8));
+        setResults([...body.connections, ...(q ? body.others : [])].slice(0, 8));
       } catch {
         if (!cancelled) setResults([]);
       } finally {
@@ -67,7 +70,7 @@ export default function PersonPicker({
       cancelled = true;
       clearTimeout(t);
     };
-  }, [focused, query]);
+  }, [focused, query, me]);
 
   const add = (p: PickedPerson) => {
     const k = pickedKey(p);
@@ -87,7 +90,7 @@ export default function PersonPicker({
           {chosen.map((p) => (
             <span
               key={pickedKey(p)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-surface-700 bg-surface-800/60 py-1 pl-1 pr-2 text-xs text-surface-200"
+              className="inline-flex items-center gap-1.5 rounded-full border border-line-strong bg-overlay/60 py-1 pl-1 pr-2 text-xs text-ink-200"
             >
               <Avatar src={p.kind === "user" ? p.avatarUrl : null} name={pickedLabel(p)} size="xs" />
               {pickedLabel(p)}
@@ -95,7 +98,7 @@ export default function PersonPicker({
                 type="button"
                 onClick={() => remove(pickedKey(p))}
                 aria-label={`Remove ${pickedLabel(p)}`}
-                className="text-surface-500 hover:text-white"
+                className="text-ink-500 hover:text-ink-0"
               >
                 <X className="size-3" />
               </button>
@@ -122,17 +125,17 @@ export default function PersonPicker({
             }}
             placeholder={placeholder}
             maxLength={60}
-            className="w-full rounded-lg border border-surface-700 bg-surface-950 px-3 py-2 text-sm text-white placeholder-surface-500 focus:border-brand-500 focus:outline-none"
+            className="w-full rounded-lg border border-line-strong bg-page px-3 py-2 text-sm text-ink-0 placeholder-ink-500 focus:border-accent-strong focus:outline-none"
           />
           {focused && (results.length > 0 || query.trim()) && (
-            <ul className="absolute left-0 right-0 z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-surface-800 bg-surface-900 shadow-xl">
+            <ul className="absolute left-0 right-0 z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-line bg-raised shadow-xl">
               {results.map((r) => (
                 <li key={r.id}>
                   <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => add({ kind: "user", userId: r.id, username: r.username, avatarUrl: r.avatarUrl })}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-surface-200 hover:bg-surface-800"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink-200 hover:bg-overlay"
                   >
                     <Avatar src={r.avatarUrl} name={r.username} size="xs" />
                     {r.username}
@@ -145,14 +148,14 @@ export default function PersonPicker({
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => add({ kind: "name", name: query.trim().slice(0, 60) })}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-surface-400 hover:bg-surface-800"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink-400 hover:bg-overlay"
                   >
                     <Plus className="size-3.5" /> Add “{query.trim()}” as a name
                   </button>
                 </li>
               )}
               {searching && (
-                <li className="px-3 py-1 text-xs text-surface-600">
+                <li className="px-3 py-1 text-xs text-ink-600">
                   <Loader2 className="inline size-3 animate-spin" />
                 </li>
               )}

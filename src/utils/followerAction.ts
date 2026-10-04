@@ -4,6 +4,11 @@ import { supabase } from "@/utils/supabase/client";
  * Follows `receiverId`. Public profiles connect instantly (straight into
  * user_connections); private profiles still go through the pending-request
  * queue via sendFollowRequest.
+ *
+ * The database has the last word (migration 115: an instant follow needs a
+ * public profile). A caller that passed "public" for a profile that isn't —
+ * no visibility to hand, or a profile that changed since the page loaded — is
+ * refused by RLS (42501), and the follow becomes a request instead.
  */
 export const followUser = async (
   senderId: string,
@@ -16,7 +21,7 @@ export const followUser = async (
       .insert({ follower_id: senderId, followed_id: receiverId })
       .select()
       .single();
-    return { data, error, instant: true as const };
+    if (error?.code !== "42501") return { data, error, instant: true as const };
   }
   const result = await sendFollowRequest(senderId, receiverId);
   return { ...result, instant: false as const };

@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import SendMessageModal from "@components/message/sendCard";
-import MediaCard from "@components/cards/MediaCard";
-import { GenreList } from "@/staticData/genreList";
+import TitleCard from "@components/ds/TitleCard";
 import type { RelatedItem } from "@/utils/related";
 
+import Rail from "@components/ds/Rail";
 /**
  * One related section, replacing two.
  *
@@ -26,56 +24,38 @@ export default function RelatedSection({
   items: RelatedItem[];
   heading?: string;
 }) {
-  const [shareTarget, setShareTarget] = useState<RelatedItem | null>(null);
-
   if (items.length === 0) return null;
+  // A shelf on phones (at most 12, native scroll), the grid from md up. SYSTEM.md §3, shelves.
+  const shown = items.slice(0, 12);
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-6">
-      {/* Carried over from the rail this replaces — it was the only way to
-          share a related title into a DM, and deleting the rail silently would
-          have taken the feature with it. */}
-      <SendMessageModal
-        media_type={shareTarget?.mediaType ?? null}
-        data={shareTarget}
-        isOpen={shareTarget !== null}
-        onClose={() => setShareTarget(null)}
-      />
+    <section className="mx-auto w-full max-w-app px-4 pb-16 sm:px-6 lg:px-8">
 
-      <h2 className="mb-4 text-2xl font-bold text-white">{heading}</h2>
+      <h2 className="mb-4 text-xl text-ink-0">{heading}</h2>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-        {items.map((item) => (
-          <div key={`${item.mediaType}:${item.id}`} className="min-w-0">
-            <MediaCard
-              id={item.id}
-              title={item.title}
-              mediaType={item.mediaType}
-              posterPath={item.posterPath}
-              adult={item.adult}
-              genres={item.genreIds
-                .map((id) => GenreList.genres.find((g) => g.id === id)?.name)
-                .filter((n): n is string => Boolean(n))}
-              showActions
-              onShare={(e) => {
-                e.preventDefault();
-                setShareTarget(item);
-              }}
-              typeLabel={item.mediaType}
-              rating={item.voteAverage}
-              voteCount={item.voteCount}
-              overview={item.overview}
-              releaseDate={item.releaseDate}
-            />
-            {/* Rendered outside the card rather than through its `role` slot,
-                which is deliberately unclamped for crew jobs and would let a
-                long sentence stretch one cell taller than its neighbours. */}
-            <p className="mt-1.5 line-clamp-2 text-[11px] leading-snug text-surface-500">
-              {item.reason}
-            </p>
-          </div>
-        ))}
-      </div>
+      <Rail>
+        <div
+          className="no-scrollbar -mx-4 flex snap-x snap-proximity scroll-px-4 gap-3 overflow-x-auto px-4 md:mx-0 md:scroll-px-0 md:grid md:grid-cols-4 md:gap-4 md:overflow-visible md:px-0 lg:grid-cols-6"
+        >
+          {shown.map((item) => (
+            <div key={`${item.mediaType}:${item.id}`} className="w-32 shrink-0 snap-start md:w-auto md:min-w-0">
+              <TitleCard
+                id={item.id}
+                title={item.title}
+                mediaType={item.mediaType}
+                posterPath={item.posterPath}
+                adult={item.adult}
+                releaseDate={item.releaseDate}
+              />
+              {/* Why it's here, under the card: one more line, clamped. Passing a
+                  film to someone now lives on its page (Pass to…), not on every card. */}
+              <p className="mt-1.5 line-clamp-2 text-xs leading-snug text-ink-500">
+                {item.reason}
+              </p>
+            </div>
+          ))}
+        </div>
+      </Rail>
     </section>
   );
 }

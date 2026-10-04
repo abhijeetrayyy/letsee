@@ -394,6 +394,8 @@ export type DiaryEntry = {
   watchedOn: string;
   rewatch: boolean;
   place: ViewingPlace;
+  /** When it was logged, as opposed to the day it was watched. */
+  createdAt: string;
   companions: Companion[];
 };
 
@@ -405,12 +407,12 @@ export type DiaryEntry = {
 export async function fetchDiary(
   supabase: SupabaseClient,
   userId: string,
-  opts: { from?: string; to?: string; limit?: number } = {},
+  opts: { from?: string; to?: string; limit?: number; before?: { day: string; id: number } } = {},
 ): Promise<(DiaryEntry & { itemName: string; imageUrl: string | null })[]> {
   let q = supabase
     .from("viewings")
     .select(
-      "id, item_id, item_type, watched_on, rewatch, place, viewing_companions!viewing_id(id, companion_user_id, name, linked_viewing_id, users(username, avatar_url))",
+      "id, item_id, item_type, watched_on, rewatch, place, provider_id, created_at, viewing_companions!viewing_id(id, companion_user_id, name, linked_viewing_id, users(username, avatar_url))",
     )
     .eq("user_id", userId)
     .order("watched_on", { ascending: false })
@@ -418,6 +420,11 @@ export async function fetchDiary(
     .limit(opts.limit ?? 400);
   if (opts.from) q = q.gte("watched_on", opts.from);
   if (opts.to) q = q.lte("watched_on", opts.to);
+  // Keyset paging in the same order as the sort: never skips a viewing on a
+  // day that straddles two pages, and never repeats one.
+  if (opts.before) {
+    q = q.or(`watched_on.lt.${opts.before.day},and(watched_on.eq.${opts.before.day},id.lt.${opts.before.id})`);
+  }
   const { data, error } = await q;
   if (error) {
     console.error("fetchDiary:", error);

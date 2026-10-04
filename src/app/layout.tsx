@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 
-import { SearchProvider } from "./contextAPI/searchContext";
 import { CountryProvider } from "./contextAPI/countryContext";
 import AuthProvider from "./contextAPI/AuthProvider";
-import { LogedNavbar } from "@components/header/navbar";
+import { ShellBars } from "@components/ds/Shell";
 import { ScrollToTop } from "@components/ui/ScrollToTop";
 import RegisterServiceWorker from "@/components/pwa/RegisterServiceWorker";
 import { siteUrl } from "@/utils/siteUrl";
@@ -13,10 +12,29 @@ import JsonLd from "@components/seo/JsonLd";
 import { organisationLd } from "@/utils/structuredData";
 import NavigationProgress from "@components/ui/NavigationProgress";
 import { Suspense } from "react";
+import { TOKENS } from "@/design/tokens";
+import { THEME_SCRIPT } from "@/lib/theme";
+import { Toaster } from "react-hot-toast";
+import SwrProvider from "@/components/providers/SwrProvider";
+import MediaInteractionProvider from "./contextAPI/MediaInteractionProvider";
+import UserPrefrenceProvider from "./contextAPI/userPrefrenceProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
+});
+
+/**
+ * The voice: titles of films and series, page titles, and (in italic) the
+ * words people write. docs/design/SYSTEM.md §2. Only the `opsz` axis is added,
+ * so 20 px section heads and 56 px heroes come from one file.
+ */
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
+  subsets: ["latin"],
+  axes: ["opsz"],
+  style: ["normal", "italic"],
   display: "swap",
 });
 
@@ -109,10 +127,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#09090b",
+  themeColor: TOKENS.page,
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // No maximumScale: pinch-zoom is how people with low vision read a page
+  // (WCAG 1.4.4). iOS's zoom on focusing a small field is stopped instead by
+  // keeping phone inputs at 16 px (globals.css).
 };
 
 export default function RootLayout({
@@ -126,10 +146,19 @@ export default function RootLayout({
   // transition, so navigating between pages animates a long glide down the old
   // document instead of arriving at the top. This confines smooth scrolling to
   // in-page anchors, where it was meant to apply.
+  //
+  // The font variables sit on <html>, not <body>: Tailwind's font tokens
+  // (--font-sans, --font-mono, --font-display) are declared on :root and
+  // resolve var() there. With the variables one level down they resolved to
+  // nothing, and every page fell back to the system font.
   return (
-    <html lang="en" className="dark" data-scroll-behavior="smooth">
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable}`} data-scroll-behavior="smooth" suppressHydrationWarning>
+      <head>
+        {/* Light by default; a saved dark choice is applied before first paint. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-surface-950 text-surface-200 min-h-screen`}
+        className="font-sans antialiased bg-page text-ink-200 min-h-screen"
       >
         {/*
           Site-level graph, emitted once for every page. The SearchAction is
@@ -142,13 +171,37 @@ export default function RootLayout({
           <NavigationProgress />
         </Suspense>
         <AuthProvider>
-          <SearchProvider>
-            <CountryProvider>
-              <ScrollToTop />
-              <LogedNavbar />
-              {children}
-            </CountryProvider>
-          </SearchProvider>
+          <CountryProvider>
+            {/*
+              Here rather than in the /app layout: the bars are in this layout,
+              and Log it from the bars logs through the same preferences (its
+              Undo puts a title's status back) and toasts as every page does.
+              Below /app they were out of reach, so the sheet's rows saw empty
+              defaults — and pages outside /app had no toasts at all. None of
+              these fetch anything without a session.
+            */}
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                success: { iconTheme: { primary: TOKENS.action, secondary: TOKENS.onAction }, duration: 3500 },
+                error: { iconTheme: { primary: TOKENS.danger, secondary: TOKENS.ink0 }, duration: 5000 },
+                loading: { duration: Infinity },
+              }}
+            />
+            <SwrProvider>
+              <MediaInteractionProvider>
+                <UserPrefrenceProvider>
+                  <ScrollToTop />
+                  <ShellBars />
+                  {/* The one <main> on every page, and where the skip link lands. */}
+                  <main id="content" tabIndex={-1} className="scroll-mt-14 focus:outline-none md:scroll-mt-16">
+                    {children}
+                  </main>
+                </UserPrefrenceProvider>
+              </MediaInteractionProvider>
+            </SwrProvider>
+          </CountryProvider>
         </AuthProvider>
       </body>
     </html>

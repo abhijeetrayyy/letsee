@@ -5,7 +5,8 @@ import useSWR from "swr";
 import { swrFetcher } from "@/utils/swrFetcher";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
-import Link from "@components/ui/AppLink";
+import { Section } from "@components/detail/TitleChrome";
+import { epKey, progressOf, type Ep } from "@/lib/logging/episodes";
 
 /**
  * Where you are in a series, as one object.
@@ -26,7 +27,15 @@ import Link from "@components/ui/AppLink";
  * "very easy, make it very convenient" — and a grid of episodes you can see is
  * the most direct place to put it: tap a cell, it fills. No modal, no list to
  * scroll, no season picker first.
+ *
+ * Shown once you've started, and until you've finished. To someone deciding whether to
+ * begin, a wall of empty squares answered nothing — and on a long show it was
+ * the tallest thing on the page: One Piece's 1,180 episodes drew about 70 rows
+ * of them. Past `DENSE` episodes each season becomes one bar instead (marking
+ * moves to the season browser below, where the rows are).
  */
+
+const DENSE = 160;
 
 type Season = { season_number: number; episode_count: number; name?: string };
 type WatchedRow = { season_number: number; episode_number: number };
@@ -37,10 +46,13 @@ export default function ProgressRibbon({
   showId,
   seasons,
   isAuthenticated,
+  lastAired = null,
 }: {
   showId: string | number;
   seasons: Season[];
   isAuthenticated: boolean;
+  /** The last episode out, so "caught up" means what the title bar means by it: every aired one. */
+  lastAired?: Ep | null;
 }) {
   const { data, mutate } = useSWR<{ episodes?: WatchedRow[] }>(
     isAuthenticated ? `/api/watched-episodes?showId=${showId}` : null,
@@ -51,7 +63,7 @@ export default function ProgressRibbon({
    * /api/watched-episode does not only write an episode: it calls
    * ensureShowInMediaStatus and autoTransitionStatus, so a tick can move the
    * whole show from `watchlist` to `watching`, or to `watched` on the last one.
-   * Revalidating only the episode list left the StatusControl in the hero —
+   * Revalidating only the episode list left the status in the action bar —
    * fed by these two providers — still showing the previous status until a
    * reload. EpisodeManagementModal already refreshes both; this matches it.
    */
@@ -136,7 +148,14 @@ export default function ProgressRibbon({
     [isAuthenticated, isWatched, mutate, showId, refreshPreferences, refreshInteractions],
   );
 
-  if (rows.length === 0) return null;
+  // Nothing until the list is in and has something on it: an empty grid would
+  // flash and vanish, and an unstarted show has nothing to say here. Nor once
+  // every aired episode is ticked — "Caught up · 62 of 62" under the title and
+  // "All 62 episodes, watched" in the glance panel already say so, in a line
+  // each; announced episodes that haven't aired don't count against that.
+  const out = progressOf(seasons, new Set([...real].map((k) => epKey(...(k.split(",").map(Number) as [number, number])))), lastAired);
+  if (!isAuthenticated || !data || rows.length === 0 || totals.seen === 0 || (out.aired > 0 && out.seen >= out.aired)) return null;
+  const dense = totals.total > DENSE;
 
   /**
    * Never round a real episode down to nothing. One of Grey's Anatomy's 466 is
@@ -147,83 +166,74 @@ export default function ProgressRibbon({
   const pct = raw > 0 ? Math.max(1, Math.round(raw)) : 0;
 
   return (
-    <div className="rounded-2xl border border-surface-800 bg-surface-900/40 p-4 sm:p-5">
-      <div className="mb-4 flex items-baseline justify-between gap-3">
-        <p className="text-sm text-surface-300">
-          {totals.seen > 0 ? (
-            <>
-              <span className="font-mono tabular-nums text-white">{totals.seen}</span>
-              <span className="text-surface-500"> of {totals.total} episodes</span>
-            </>
-          ) : (
-            <span className="text-surface-500">{totals.total} episodes</span>
-          )}
-        </p>
-        {totals.seen > 0 && (
-          <span className="font-mono text-xs tabular-nums text-brand-400">{pct}%</span>
-        )}
-      </div>
+    <Section title="Your progress">
+      <div className="rounded-2xl border border-line bg-raised/40 p-4 sm:p-5">
+        <div className="mb-4 flex items-baseline justify-between gap-3">
+          <p className="text-sm text-ink-300">
+            <span className="font-mono tabular-nums text-ink-0">{totals.seen}</span>
+            <span className="text-ink-500"> of {totals.total} episodes</span>
+          </p>
+          <span className="font-mono text-xs tabular-nums text-accent">{pct}%</span>
+        </div>
 
-      <div className="space-y-2">
-        {rows.map((s) => {
-          const seen = Array.from({ length: s.episode_count }, (_, i) =>
-            isWatched(s.season_number, i + 1),
-          );
-          const count = seen.filter(Boolean).length;
-          return (
-            <div key={s.season_number} className="flex items-center gap-3">
-              <span className="w-8 shrink-0 font-mono text-[11px] tabular-nums text-surface-500">
-                S{String(s.season_number).padStart(2, "0")}
-              </span>
-              <div className="flex flex-wrap gap-[3px]">
-                {seen.map((on, i) => {
-                  const ep = i + 1;
-                  const label = `Season ${s.season_number}, episode ${ep}${on ? " — watched" : ""}`;
-                  return isAuthenticated ? (
-                    <button
-                      key={ep}
-                      type="button"
-                      onClick={() => toggle(s.season_number, ep)}
-                      title={label}
-                      aria-label={label}
-                      aria-pressed={on}
-                      className={`h-3.5 w-3.5 rounded-[3px] transition-colors ${
-                        on
-                          ? "bg-brand-500 hover:bg-brand-400"
-                          : "bg-surface-700/70 hover:bg-surface-600"
-                      }`}
-                    />
-                  ) : (
-                    <span
-                      key={ep}
-                      title={label}
-                      className={`h-3.5 w-3.5 rounded-[3px] ${on ? "bg-brand-500" : "bg-surface-700/70"}`}
-                    />
-                  );
-                })}
+        <div className="space-y-2">
+          {rows.map((s) => {
+            const seen = Array.from({ length: s.episode_count }, (_, i) =>
+              isWatched(s.season_number, i + 1),
+            );
+            const count = seen.filter(Boolean).length;
+            return (
+              <div key={s.season_number} className="flex items-center gap-3">
+                <span className="w-8 shrink-0 font-mono text-xs tabular-nums text-ink-500">
+                  S{String(s.season_number).padStart(2, "0")}
+                </span>
+                {dense ? (
+                  <div
+                    role="img"
+                    aria-label={`Season ${s.season_number}: ${count} of ${s.episode_count} watched`}
+                    className="h-2 flex-1 overflow-hidden rounded-full bg-hover/70"
+                  >
+                    <div className="h-full rounded-full bg-action" style={{ width: `${(count / s.episode_count) * 100}%` }} />
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-0.75">
+                    {seen.map((on, i) => {
+                      const ep = i + 1;
+                      const label = `Season ${s.season_number}, episode ${ep}${on ? " — watched" : ""}`;
+                      return (
+                        <button
+                          key={ep}
+                          type="button"
+                          onClick={() => toggle(s.season_number, ep)}
+                          title={label}
+                          aria-label={label}
+                          aria-pressed={on}
+                          className={`h-3.5 w-3.5 rounded-xs transition-colors ${
+                            on
+                              ? "bg-action hover:bg-action-hover"
+                              : "bg-hover/70 hover:bg-active"
+                          }`}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+                <span className="ml-auto shrink-0 font-mono text-xs tabular-nums text-ink-600">
+                  {count}/{s.episode_count}
+                </span>
               </div>
-              <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-surface-600">
-                {count}/{s.episode_count}
-              </span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+
+        {failed && (
+          <p className="mt-3 text-xs text-danger">Couldn&apos;t save that one. Tap it again.</p>
+        )}
+
+        {/* No instruction line. A grid of squares that fill when you tap them
+            teaches itself in one tap, and a sentence explaining it would be the
+            only text on the page apologising for its own interface. */}
       </div>
-
-      {failed && (
-        <p className="mt-3 text-xs text-red-400">Couldn&apos;t save that one. Tap it again.</p>
-      )}
-
-      {!isAuthenticated && (
-        <p className="mt-4 border-t border-surface-800 pt-3 text-xs text-surface-500">
-          <Link href="/login" className="font-medium text-brand-400 hover:text-brand-300">Sign in</Link>
-          {" "}to mark episodes and keep your place.
-        </p>
-      )}
-
-      {/* No instruction line. A grid of squares that fill when you tap them
-          teaches itself in one tap, and a sentence explaining it would be the
-          only text on the page apologising for its own interface. */}
-    </div>
+    </Section>
   );
 }

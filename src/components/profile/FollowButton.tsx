@@ -172,8 +172,8 @@ export default function FollowButton({
         href="/login"
         className={`${base} ${
           emphasis === "quiet"
-            ? "border border-brand-500/40 text-brand-300 hover:bg-brand-500/10 hover:border-brand-500/60"
-            : "bg-brand-500 text-surface-950 hover:bg-brand-400"
+            ? "border border-accent-strong/40 text-accent-soft hover:bg-action/10 hover:border-accent-strong/60"
+            : "bg-action text-on-action hover:bg-action-hover"
         } ${className}`}
       >
         Follow
@@ -184,11 +184,11 @@ export default function FollowButton({
   const tone =
     status === "following"
       ? hovering
-        ? "bg-red-500/10 text-red-300 border border-red-500/30"
-        : "bg-surface-800 text-surface-300 border border-surface-700"
+        ? "bg-danger/10 text-danger border border-danger/30"
+        : "bg-overlay text-ink-300 border border-line-strong"
       : status === "pending"
-        ? "bg-amber-500/10 text-amber-300 border border-amber-500/30"
-        : "bg-brand-500 text-surface-950 hover:bg-brand-400";
+        ? "bg-ink-0/10 text-ink-200 border border-ink-0/30"
+        : "bg-action text-on-action hover:bg-action-hover";
 
   return (
     <button

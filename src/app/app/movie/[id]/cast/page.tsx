@@ -160,17 +160,17 @@ export default async function Page({ params }: PageProps) {
   if (!movieResult.data || !movieResult.data.credits) {
     const errors = [movieResult.error].filter(Boolean) as string[];
     return (
-      <div className="min-h-screen flex items-center justify-center bg-surface-900 text-surface-200 p-4">
-        <div className="max-w-xl text-center">
+      <div className="min-h-screen flex items-center justify-center bg-raised text-ink-200 p-4">
+        <div className="max-w-sheet text-center">
           <p className="text-lg font-semibold">Cast data unavailable.</p>
           {errors.length > 0 && (
-            <ul className="mt-3 text-sm text-amber-200 list-disc list-inside">
+            <ul className="mt-3 text-sm text-ink-100 list-disc list-inside">
               {errors.map((message) => (
                 <li key={message}>{message}</li>
               ))}
             </ul>
           )}
-          <p className="mt-3 text-sm text-surface-400">
+          <p className="mt-3 text-sm text-ink-400">
             Try refreshing in a moment.
           </p>
         </div>
@@ -182,7 +182,7 @@ export default async function Page({ params }: PageProps) {
   const { cast, crew } = movieResult.data.credits!;
 
   return (
-    <div className="min-h-screen bg-surface-950">
+    <div className="min-h-screen bg-page">
       <CreditsHero
         mediaType="movie"
         id={movie.id}

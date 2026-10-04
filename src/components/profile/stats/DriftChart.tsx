@@ -1,4 +1,5 @@
 "use client";
+import { TOKENS } from "@/design/tokens";
 
 import { useState } from "react";
 import { SERIES, NEUTRAL } from "./palette";
@@ -32,7 +33,7 @@ export default function DriftChart({
   const usable = points.filter((p) => p.your_avg != null || p.crowd_avg != null);
   if (usable.length < 2) {
     return (
-      <p className="py-8 text-center text-sm text-surface-500">
+      <p className="py-8 text-center text-sm text-ink-500">
         Two years of ratings are needed before a trend means anything.
       </p>
     );
@@ -74,7 +75,7 @@ export default function DriftChart({
       <div className="relative mt-5">
         <div className="flex gap-2">
           {/* Axis labels outside the plot, so the plot area is only data. */}
-          <div className="flex h-40 w-7 shrink-0 flex-col justify-between py-[1px] text-right text-[10px] tabular-nums text-surface-500">
+          <div className="flex h-40 w-7 shrink-0 flex-col justify-between py-0.25 text-right text-xs tabular-nums text-ink-500">
             <span>{yMax.toFixed(1)}</span>
             <span>{((yMax + yMin) / 2).toFixed(1)}</span>
             <span>{yMin.toFixed(1)}</span>
@@ -123,14 +124,14 @@ export default function DriftChart({
                   {point.crowd_avg != null && (
                     <circle
                       cx={x(index)} cy={y(point.crowd_avg)} r={hovered === index ? 4 : 3}
-                      fill={SERIES.crowd} stroke="#18181b" strokeWidth={2}
+                      fill={SERIES.crowd} stroke={TOKENS.raised} strokeWidth={2}
                       vectorEffect="non-scaling-stroke"
                     />
                   )}
                   {showYou && point.your_avg != null && (
                     <circle
                       cx={x(index)} cy={y(point.your_avg)} r={hovered === index ? 4 : 3}
-                      fill={SERIES.you} stroke="#18181b" strokeWidth={2}
+                      fill={SERIES.you} stroke={TOKENS.raised} strokeWidth={2}
                       vectorEffect="non-scaling-stroke"
                     />
                   )}
@@ -153,7 +154,7 @@ export default function DriftChart({
 
             {active && (
               <div
-                className="pointer-events-none absolute top-0 z-20 w-max rounded-lg border border-surface-700 bg-surface-950/95 px-2.5 py-2 text-xs shadow-xl"
+                className="pointer-events-none absolute top-0 z-20 w-max rounded-lg border border-line-strong bg-page/95 px-2.5 py-2 text-xs shadow-xl"
                 style={{
                   left: `${x(hovered!)}%`,
                   transform:
@@ -161,20 +162,20 @@ export default function DriftChart({
                 }}
                 role="tooltip"
               >
-                <p className="font-medium text-surface-100">{active.year}</p>
+                <p className="font-medium text-ink-100">{active.year}</p>
                 {showYou && active.your_avg != null && (
-                  <p className="mt-1 flex items-center gap-1.5 text-surface-300">
-                    <span className="size-2 rounded-[2px]" style={{ backgroundColor: SERIES.you }} />
+                  <p className="mt-1 flex items-center gap-1.5 text-ink-300">
+                    <span className="size-2 rounded-xs" style={{ backgroundColor: SERIES.you }} />
                     You: <span className="font-medium tabular-nums">{active.your_avg.toFixed(2)}</span>
                   </p>
                 )}
                 {active.crowd_avg != null && (
-                  <p className="mt-0.5 flex items-center gap-1.5 text-surface-300">
-                    <span className="size-2 rounded-[2px]" style={{ backgroundColor: SERIES.crowd }} />
+                  <p className="mt-0.5 flex items-center gap-1.5 text-ink-300">
+                    <span className="size-2 rounded-xs" style={{ backgroundColor: SERIES.crowd }} />
                     TMDB: <span className="font-medium tabular-nums">{active.crowd_avg.toFixed(2)}</span>
                   </p>
                 )}
-                <p className="mt-1 text-[10px] text-surface-500">
+                <p className="mt-1 text-xs text-ink-500">
                   {active.count} rating{active.count === 1 ? "" : "s"}
                 </p>
               </div>
@@ -186,8 +187,8 @@ export default function DriftChart({
           {usable.map((point, index) => (
             <span
               key={point.year}
-              className={`flex-1 text-center text-[11px] tabular-nums transition-colors ${
-                hovered === index ? "text-surface-200" : "text-surface-500"
+              className={`flex-1 text-center text-xs tabular-nums transition-colors ${
+                hovered === index ? "text-ink-200" : "text-ink-500"
               }`}
             >
               {point.year}
@@ -196,7 +197,7 @@ export default function DriftChart({
         </div>
       </div>
 
-      <p className="mt-3 text-[11px] text-surface-500">
+      <p className="mt-3 text-xs text-ink-500">
         Scaled to {yMin.toFixed(1)}–{yMax.toFixed(1)}, not the full 1–10, so small
         movements are visible. The crowd line is the control: if both fall
         together, the films changed, not you.

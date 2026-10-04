@@ -1,9 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "@components/ui/AppLink";
-import { Play, Share2, Star } from "lucide-react";
-import ThreePrefrenceBtn from "@components/buttons/threePrefrencebtn";
+import TitleActions from "@components/ds/TitleActions";
+import { rememberOpened } from "@/lib/people/lastNight";
 import { useCountry } from "@/app/contextAPI/countryContext";
 import { movieCertification, tvCertification } from "@/utils/title/certification";
 import { pickLogo, formatRuntime, type LogoSource } from "@/utils/title/logo";
@@ -38,7 +38,7 @@ export type TitleIdentityView = {
   title: string;
   tagline: string | null;
   overview: string | null;
-  /** Raw TMDB path; ThreePrefrenceBtn resolves it. */
+  /** Raw TMDB path. */
   posterPath: string | null;
   adult: boolean;
   genres: { id: number; name: string }[];
@@ -66,11 +66,11 @@ export type TitleIdentityView = {
 type TitleIdentityProps = {
   kind: "movie" | "tv";
   view: TitleIdentityView;
-  hasTrailer?: boolean;
-  onPlayTrailer?: () => void;
   onShare: () => void;
   /** TV only: marking a series watched opens the episode modal instead. */
   onAddWatchedTv?: (intended: MediaStatus | null) => void;
+  /** A series: its seasons and last aired episode, so the action bar can offer the next episode. */
+  series?: { seasons: { season_number: number; episode_count: number }[]; lastAired: { s: number; e: number } | null };
   /**
    * The people line: "Directed by … · Written by …", or a series' creators.
    *
@@ -108,10 +108,9 @@ type Segment = {
 export default function TitleIdentity({
   kind,
   view,
-  hasTrailer = false,
-  onPlayTrailer,
   onShare,
   onAddWatchedTv,
+  series,
   creditLines = [],
   notice,
   children,
@@ -126,6 +125,15 @@ export default function TitleIdentity({
 
   const logo = pickLogo(view.logos);
   const genres = view.genres ?? [];
+  // An evening visit is an intent; tomorrow morning Home asks how it went.
+  useEffect(() => {
+    rememberOpened({
+      itemId: String(view.id),
+      itemType: kind === "tv" ? "tv" : "movie",
+      itemName: view.title,
+      imageUrl: view.posterPath ?? null,
+    });
+  }, [view.id, view.title, view.posterPath, kind]);
   const overview = view.overview?.trim() ?? "";
   const tagline = view.tagline?.trim() ?? "";
 
@@ -166,7 +174,7 @@ export default function TitleIdentity({
       node: (
         <>
           {cert.value}
-          {!cert.isLocal && <span className="text-surface-500"> ({cert.country})</span>}
+          {!cert.isLocal && <span className="text-ink-500"> ({cert.country})</span>}
         </>
       ),
       title: cert.isLocal ? undefined : `Certificate issued in ${cert.country}`,
@@ -184,7 +192,7 @@ export default function TitleIdentity({
           {i > 0 && ", "}
           <Link
             href={buildBrowseUrl({ type: kind, genre: String(g.id) })}
-            className="hover:text-white transition-colors"
+            className="hover:text-ink-0 transition-colors"
           >
             {g.name}
           </Link>
@@ -193,26 +201,10 @@ export default function TitleIdentity({
     });
   }
 
-  // TMDB's score, last and dimmed and first to go. It is reference material on
-  // a page whose subject is what YOU did with this title — the site's own
-  // numbers live in the sidebar, where they can be attributed to people.
-  const voteAverage = view.voteAverage ?? 0;
-  const voteCount = view.voteCount ?? 0;
-  if (voteAverage > 0 && voteCount > 0) {
-    segments.push({
-      key: "score",
-      minor: true,
-      node: (
-        <span className="inline-flex items-center gap-1 text-accent-gold">
-          <Star className="size-3.5 fill-current" aria-hidden />
-          {voteAverage.toFixed(1)}
-          {/* A 10.0 from three people is not a 10.0. */}
-          <span className="text-surface-500 text-xs">({voteCount.toLocaleString()})</span>
-        </span>
-      ),
-      title: `TMDB score from ${voteCount.toLocaleString()} votes`,
-    });
-  }
+  // No TMDB score here any more: it is the first tile of the glance panel
+  // directly below, with a word saying what the number means
+  // (utils/title/glance.ts), where it used to be a bare "8.5 (34212)" that
+  // phones didn't show at all.
 
   const expandable = overview.length > EXPAND_ON_PHONE;
   const phoneOnlyExpand = overview.length <= EXPAND_ALWAYS;
@@ -230,15 +222,15 @@ export default function TitleIdentity({
           <img
             src={logo.url}
             alt=""
-            className="h-auto w-auto max-h-[112px] max-w-full object-contain drop-shadow-[0_2px_12px_rgba(0,0,0,0.55)]"
+            className="h-auto w-auto max-h-28 max-w-full object-contain drop-shadow-[0_2px_12px_color-mix(in_oklab,var(--color-page)_60%,transparent)]"
             decoding="async"
           />
         </>
       ) : (
-        <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">{view.title}</h1>
+        <h1 className="text-3xl sm:text-4xl font-medium text-ink-0 tracking-tight">{view.title}</h1>
       )}
 
-      <div className="meta-row mt-3.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-surface-300">
+      <div className="meta-row mt-3.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-ink-300">
         {segments.map((s, i) => (
           <span
             key={s.key}
@@ -261,23 +253,23 @@ export default function TitleIdentity({
         /cast, which is what that page is for.
       */}
       {creditLines.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-surface-400">
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-ink-400">
           {creditLines.map((line) => (
             <span key={line.label}>
-              <span className="text-surface-500">{line.label} </span>
+              <span className="text-ink-500">{line.label} </span>
               {line.people.slice(0, 2).map((person, i) => (
                 <React.Fragment key={person.id}>
                   {i > 0 && ", "}
                   <Link
                     href={personPath(person.id, person.name)}
-                    className="text-surface-300 transition-colors hover:text-brand-400"
+                    className="text-ink-300 transition-colors hover:text-accent"
                   >
                     {person.name}
                   </Link>
                 </React.Fragment>
               ))}
               {line.people.length > 2 && (
-                <span className="text-surface-500"> +{line.people.length - 2}</span>
+                <span className="text-ink-500"> +{line.people.length - 2}</span>
               )}
             </span>
           ))}
@@ -286,65 +278,50 @@ export default function TitleIdentity({
 
       {notice}
 
-      {tagline && <p className="mt-4 text-lg text-surface-400 italic">&ldquo;{tagline}&rdquo;</p>}
+      {tagline && <p className="mt-4 text-lg text-ink-400 italic">&ldquo;{tagline}&rdquo;</p>}
 
       {/* A <details> rather than a useState, because this is the hero of a
           server-rendered page and an expander is exactly what the element is
           for. No hydration, no layout read, works before the JS lands. */}
       {overview &&
         (expandable ? (
-          <details className="group mt-4 max-w-2xl">
+          <details className="group mt-4 max-w-read">
             <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              <span className="line-clamp-3 whitespace-pre-line text-sm leading-relaxed text-surface-300 group-open:hidden">
+              <span className="line-clamp-3 whitespace-pre-line text-sm leading-relaxed text-ink-300 group-open:hidden">
                 {overview}
               </span>
               <span
-                className={`mt-1.5 inline-block text-xs font-medium text-brand-400 group-open:hidden ${
+                className={`mt-1.5 inline-block text-xs font-medium text-accent group-open:hidden ${
                   phoneOnlyExpand ? "sm:hidden" : ""
                 }`}
               >
                 Read more
               </span>
-              <span className="mt-1.5 hidden text-xs font-medium text-brand-400 group-open:inline-block">
+              <span className="mt-1.5 hidden text-xs font-medium text-accent group-open:inline-block">
                 Show less
               </span>
             </summary>
-            <p className="whitespace-pre-line text-sm leading-relaxed text-surface-300">
+            <p className="whitespace-pre-line text-sm leading-relaxed text-ink-300">
               {overview}
             </p>
           </details>
         ) : (
-          <p className="mt-4 max-w-2xl whitespace-pre-line text-sm leading-relaxed text-surface-300">
+          <p className="mt-4 max-w-read whitespace-pre-line text-sm leading-relaxed text-ink-300">
             {overview}
           </p>
         ))}
 
-      <div className="flex flex-wrap items-center gap-2 mt-5">
-        <ThreePrefrenceBtn
-          variant="detail"
-          cardId={view.id}
-          cardType={kind}
-          cardName={view.title}
-          cardAdult={view.adult}
-          cardImg={view.posterPath}
-          genres={genres.map((g) => g.name)}
-          onAddWatchedTv={kind === "tv" ? onAddWatchedTv : undefined}
-        />
-        {hasTrailer && onPlayTrailer && (
-          <button
-            onClick={onPlayTrailer}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-brand-500/10 text-brand-400 hover:bg-brand-500/20 border border-brand-500/20 text-sm font-medium transition-colors"
-          >
-            <Play className="size-4 fill-current" /> Trailer
-          </button>
-        )}
-        <button
-          onClick={onShare}
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-800/60 text-surface-300 hover:text-white border border-surface-700/50 text-sm font-medium transition-colors"
-        >
-          <Share2 className="size-4" /> Share
-        </button>
-      </div>
+      <TitleActions
+        itemId={String(view.id)}
+        itemType={kind === "tv" ? "tv" : "movie"}
+        itemName={view.title}
+        posterPath={view.posterPath ?? null}
+        genres={genres.map((g) => g.name)}
+        adult={view.adult}
+        onShare={onShare}
+        onEpisodes={kind === "tv" && onAddWatchedTv ? () => onAddWatchedTv(null) : undefined}
+        series={series}
+      />
 
       {children}
     </>
