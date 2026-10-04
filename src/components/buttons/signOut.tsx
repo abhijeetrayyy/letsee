@@ -2,7 +2,7 @@
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
-import { FaRightFromBracket } from "react-icons/fa6";
+import { LogOutIcon } from "lucide-react";
 
 const SignOut: React.FC = () => {
   const router = useRouter();
@@ -35,10 +35,11 @@ const SignOut: React.FC = () => {
       <button
         onClick={handleSignOut}
         disabled={isLoading}
-        className={`w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
-          isLoading
-            ? "bg-surface-700 text-surface-400 cursor-not-allowed"
-            : "bg-red-500/10 border border-red-500/20 text-red-300 hover:bg-red-500/20 hover:border-red-500/30"
+        type="button"
+        // A row like the menu's others, in the danger colour — not a pink slab
+        // the full width of the menu (it overflowed it).
+        className={`flex h-10 w-full items-center gap-3 rounded-control px-3 text-left text-sm font-medium transition-colors ${
+          isLoading ? "cursor-not-allowed text-ink-400" : "text-danger hover:bg-danger/10"
         }`}
       >
         {isLoading ? (
@@ -67,7 +68,7 @@ const SignOut: React.FC = () => {
           </>
         ) : (
           <>
-            <FaRightFromBracket className="size-4" />
+            <LogOutIcon className="size-4" aria-hidden />
             Sign out
           </>
         )}

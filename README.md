@@ -61,7 +61,11 @@ A **social app for deciding what to watch**: who's in the room, how long you've 
    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
    # TMDB (required for discovery and watch providers)
-   TMDB_API_KEY=your-tmdb-api-key
+   # The "API Read Access Token" from themoviedb.org → Settings → API: the long
+   # token, not the short "API Key". It is sent as an Authorization header. The
+   # old TMDB_API_KEY went in the query string, and Next prints the full URL
+   # when a response is too big for its data cache, so the key reached the logs.
+   TMDB_READ_TOKEN=your-tmdb-read-access-token
 
    # OMDb (optional – for IMDb ratings on movie/TV pages)
    OMDB_API_KEY=your-omdb-api-key
@@ -150,7 +154,8 @@ being written.
 
 ## Docs
 
-- `docs/WHY_PEOPLE_COME_BACK.md` — **Start here.** Why people keep a record of what they watch, what Letterboxd's users love and miss, the market's open gaps, and twelve bets in three phases. Raw research with sources in `docs/research/`
+- `docs/design/` — **The redesign (October 2026).** The design philosophy, the design system, a plan for every page, and how it rolls out. Wins over any older doc on looks, layout and flow
+- `docs/WHY_PEOPLE_COME_BACK.md` — **Start here** for product strategy. Why people keep a record of what they watch, what Letterboxd's users love and miss, the market's open gaps, and twelve bets in three phases. Raw research with sources in `docs/research/`
 - `docs/SURPASSING_LETTERBOXD.md` — Product strategy, the decisions behind Tonight, and what shipped (W1–W7, all done)
 - `docs/EXPRESSION_AND_DISCOVERY.md` — The next plan: one place to record an opinion, and one path to find anything
 - `docs/AGENT_DB_AND_MIGRATIONS.md` — Which migrations exist, what each does, and which are applied

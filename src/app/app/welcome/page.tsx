@@ -1,6 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import useSWR from "swr";
+import { findPerson } from "@/lib/db/rooms";
+import { forgetInviter, readInviter } from "@/lib/people/invite";
+import { FollowerBtnClient } from "@components/profile/profileBtn";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Search, Loader2, ArrowRight, Users } from "lucide-react";
@@ -12,6 +16,11 @@ import Avatar from "@components/ui/Avatar";
 import FollowButton from "@components/profile/FollowButton";
 import SendMessageModal from "@components/message/sendCard";
 import { fetchMyNeighbours } from "@/lib/db/taste";
+import ImportFlow from "@components/import/ImportFlow";
+import { useSearchIndex } from "@components/header/useSearchIndex";
+import { inviteSomeone } from "@components/home/v2/parts";
+import { fetchRecipients, type Recipients } from "@/lib/db/recipients";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 
 const USERNAME_MIN = 2;
 const USERNAME_MAX = 15;
@@ -61,6 +70,8 @@ type TmdbResult = {
 export default function WelcomePage() {
   const router = useRouter();
   const { user, status, refresh } = useAuth();
+  // After an import, so the next step's suggestions know what's now watched.
+  const { refreshPreferences } = useContext(UserPrefrenceContext);
   const [step, setStep] = useState(1);
 
   useEffect(() => {
@@ -85,8 +96,8 @@ export default function WelcomePage() {
   }, [step]);
 
   return (
-    <div className="min-h-screen w-full bg-surface-950 text-white">
-      <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
+    <div className="min-h-screen w-full bg-page text-ink-0">
+      <div className="mx-auto max-w-read px-4 py-8 sm:py-12">
         <Stepper step={step} />
 
         {step === 1 && (
@@ -97,43 +108,69 @@ export default function WelcomePage() {
             }}
           />
         )}
-        {step === 2 && <StepPicks onDone={() => setStep(3)} />}
-        {step === 3 && <StepPeople username={user?.username ?? null} onNeedsHandle={() => setStep(1)} />}
+        {step === 2 && <StepHistory onDone={() => void refreshPreferences().finally(() => setStep(3))} />}
+        {step === 3 && <StepPicks onDone={() => setStep(4)} />}
+        {step === 4 && <StepPeople username={user?.username ?? null} onNeedsHandle={() => setStep(1)} />}
       </div>
     </div>
   );
 }
 
 function Stepper({ step }: { step: number }) {
-  const labels = ["Your handle", "Films you love", "Your people"];
+  const labels = ["Your handle", "Your history", "Films you love", "Your people"];
+  // Four labels don't fit a phone side by side, so there only the current
+  // step is named; the others are their numbers.
   return (
-    <div className="flex items-center gap-2 mb-8">
+    <ol aria-label={`Step ${step} of ${labels.length}`} className="mb-8 flex items-center gap-3">
       {labels.map((label, i) => {
         const n = i + 1;
         const done = step > n;
         const active = step === n;
         return (
-          <div key={label} className="flex items-center gap-2 flex-1 min-w-0">
+          <li key={label} aria-current={active ? "step" : undefined} className={`flex min-w-0 items-center gap-2 ${active ? "flex-1" : "sm:flex-1"}`}>
             <span
-              className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+              className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                 done
-                  ? "bg-brand-500 text-surface-950"
+                  ? "bg-action text-on-action"
                   : active
-                    ? "bg-brand-500/20 text-brand-300 border border-brand-500/40"
-                    : "bg-surface-800 text-surface-500"
+                    ? "bg-action/20 text-accent-soft border border-accent-strong/40"
+                    : "bg-overlay text-ink-500"
               }`}
             >
-              {done ? <Check className="size-3.5" /> : n}
+              {done ? <Check className="size-3.5" aria-label="Done" /> : n}
             </span>
-            <span
-              className={`text-xs truncate ${active ? "text-white font-medium" : "text-surface-500"}`}
-            >
-              {label}
-            </span>
-          </div>
+            <span className={`truncate text-xs ${active ? "font-medium text-ink-0" : "hidden text-ink-500 sm:inline"}`}>{label}</span>
+          </li>
         );
       })}
-    </div>
+    </ol>
+  );
+}
+
+/* ── Step 2: bring your history (optional) ─────────────────────────────── */
+
+/**
+ * PAGES.md §8: the first thing after a name is the chance to arrive with
+ * everything already logged elsewhere — someone with four hundred films in
+ * Letterboxd shouldn't meet an empty diary. The import runs right here, so
+ * nobody leaves onboarding to do it; skipping is one tap.
+ */
+function StepHistory({ onDone }: { onDone: () => void }) {
+  return (
+    <section>
+      <h1 className="text-2xl sm:text-3xl font-medium tracking-tight">Bring your history</h1>
+      <p className="mt-2 text-sm text-ink-400">
+        Already keep a diary somewhere? Bring it — every film, rating and episode, in one go. Or start fresh.
+      </p>
+      <div className="mt-6">
+        <ImportFlow onDone={onDone} />
+      </div>
+      <div className="mt-6 flex justify-end">
+        <button type="button" onClick={onDone} className="px-2 text-sm text-ink-500 hover:text-ink-300">
+          Skip — start fresh
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -233,33 +270,33 @@ function StepUsername({ onDone }: { onDone: () => void }) {
 
   return (
     <section>
-      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Pick your handle</h1>
-      <p className="mt-2 text-sm text-surface-400">
+      <h1 className="text-2xl sm:text-3xl font-medium tracking-tight">Pick your handle</h1>
+      <p className="mt-2 text-sm text-ink-400">
         This is how people will find you. You can change it later.
       </p>
 
       <div className="mt-6">
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500">@</span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-500">@</span>
           <input
             autoFocus
             value={clean}
             onChange={(e) => setUsername(e.target.value)}
             placeholder="moviefan"
             maxLength={USERNAME_MAX}
-            className="w-full rounded-xl bg-surface-800 border border-surface-700 pl-9 pr-4 py-3 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="w-full rounded-xl bg-overlay border border-line-strong pl-9 pr-4 py-3 text-ink-0 placeholder-ink-500 focus:outline-none focus:ring-2 focus:ring-focus"
           />
         </div>
         <div className="mt-2 h-5 text-xs">
-          {clean && validationError && <span className="text-red-400">{validationError}</span>}
-          {!validationError && checking && <span className="text-surface-500">Checking…</span>}
+          {clean && validationError && <span className="text-danger">{validationError}</span>}
+          {!validationError && checking && <span className="text-ink-500">Checking…</span>}
           {!validationError && !checking && available === true && (
-            <span className="text-brand-400">@{clean} is available</span>
+            <span className="text-accent">@{clean} is available</span>
           )}
           {!validationError && !checking && available === false && (
-            <span className="text-red-400">@{clean} is taken</span>
+            <span className="text-danger">@{clean} is taken</span>
           )}
-          {error && <span className="text-red-400">{error}</span>}
+          {error && <span className="text-danger">{error}</span>}
         </div>
       </div>
 
@@ -267,7 +304,7 @@ function StepUsername({ onDone }: { onDone: () => void }) {
         type="button"
         onClick={save}
         disabled={!!validationError || available !== true || saving}
-        className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-full bg-brand-500 px-6 py-3 font-semibold text-surface-950 hover:bg-brand-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-full bg-action px-6 py-3 font-semibold text-on-action hover:bg-action-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
         {saving ? <Loader2 className="size-4 animate-spin" /> : null}
         Continue
@@ -284,6 +321,23 @@ function StepPicks({ onDone }: { onDone: () => void }) {
   const [searching, setSearching] = useState(false);
   const [picks, setPicks] = useState<Pick[]>([]);
   const [saving, setSaving] = useState(false);
+
+  /**
+   * Something to tap before anything is typed. Four films you love is easy to
+   * answer and hard to start — a blank box asks you to remember. Your own
+   * titles come first (what you just brought in from Letterboxd, say), then
+   * what's popular; both come from the search index this page already loads
+   * for nothing, so this costs no request.
+   */
+  const index = useSearchIndex(true);
+  const { getStatus } = useContext(UserPrefrenceContext);
+  const suggestions = useMemo(() => {
+    const rows = (index?.rows ?? []).filter((r) => (r.t === "movie" || r.t === "tv") && r.p);
+    // Your library holds what you've saved too; a favourite has to be seen.
+    const seen = rows.filter((r) => r.lib && getStatus(r.k.split(":")[1], r.t) === "watched");
+    return [...seen, ...rows.filter((r) => !r.lib)].slice(0, 12);
+  }, [index, getStatus]);
+  const fromLibrary = suggestions.some((r) => r.lib);
 
   useEffect(() => {
     const q = query.trim();
@@ -381,10 +435,10 @@ function StepPicks({ onDone }: { onDone: () => void }) {
 
   return (
     <section>
-      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+      <h1 className="text-2xl sm:text-3xl font-medium tracking-tight">
         Pick {PICKS_REQUIRED} films you love
       </h1>
-      <p className="mt-2 text-sm text-surface-400">
+      <p className="mt-2 text-sm text-ink-400">
         The more unusual your picks, the better we can find your people. Obscure is good.
       </p>
 
@@ -397,7 +451,7 @@ function StepPicks({ onDone }: { onDone: () => void }) {
               key={p.itemId}
               type="button"
               onClick={() => setPicks((prev) => prev.filter((x) => x.itemId !== p.itemId))}
-              className="group relative aspect-[2/3] rounded-xl overflow-hidden border border-surface-700"
+              className="group relative aspect-2/3 rounded-xl overflow-hidden border border-line-strong"
               title={`Remove ${p.name}`}
             >
               <img loading="lazy" decoding="async"
@@ -412,7 +466,7 @@ function StepPicks({ onDone }: { onDone: () => void }) {
           ) : (
             <div
               key={`empty-${i}`}
-              className="aspect-[2/3] rounded-xl border border-dashed border-surface-700/70 bg-surface-900/40"
+              className="aspect-2/3 rounded-xl border border-dashed border-line-strong/70 bg-raised/40"
             />
           );
         })}
@@ -420,38 +474,72 @@ function StepPicks({ onDone }: { onDone: () => void }) {
 
       {/* Search */}
       <div className="mt-6 relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-surface-500" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-500" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search any film or show…"
-          className="w-full rounded-xl bg-surface-800 border border-surface-700 pl-10 pr-4 py-3 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="w-full rounded-xl bg-overlay border border-line-strong pl-10 pr-4 py-3 text-ink-0 placeholder-ink-500 focus:outline-none focus:ring-2 focus:ring-focus"
         />
         {searching && (
-          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 animate-spin text-surface-500" />
+          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 animate-spin text-ink-500" />
         )}
       </div>
 
       {results.length > 0 && (
-        <ul className="mt-2 rounded-xl border border-surface-700 bg-surface-900 overflow-hidden divide-y divide-surface-800">
+        <ul className="mt-2 rounded-xl border border-line-strong bg-raised overflow-hidden divide-y divide-line">
           {results.map((r) => (
             <li key={`${r.media_type}-${r.id}`}>
               <button
                 type="button"
                 onClick={() => toggle(r)}
                 disabled={picks.length >= PICKS_REQUIRED}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-surface-800 disabled:opacity-40 transition-colors"
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-overlay disabled:opacity-40 transition-colors"
               >
                 <img loading="lazy" decoding="async"
                   src={getPosterUrl(r.poster_path, "w92")}
                   alt=""
-                  className="w-8 aspect-[2/3] object-cover rounded"
+                  className="w-8 aspect-2/3 object-cover rounded"
                 />
-                <span className="text-sm text-surface-200 truncate">{r.title || r.name}</span>
+                <span className="text-sm text-ink-200 truncate">{r.title || r.name}</span>
               </button>
             </li>
           ))}
         </ul>
+      )}
+
+      {!query.trim() && suggestions.length > 0 && (
+        <div className="mt-6">
+          <p className="mb-3 text-sm text-ink-400">{fromLibrary ? "From what you've logged — tap to pick" : "Or tap a few you love"}</p>
+          <ul className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+            {suggestions.map((r) => {
+              const id = r.k.split(":")[1];
+              const on = picks.some((p) => p.itemId === id);
+              return (
+                <li key={r.k}>
+                  <button
+                    type="button"
+                    onClick={() => toggle({ id: Number(id), media_type: r.t, title: r.n, poster_path: r.p ?? null })}
+                    disabled={!on && picks.length >= PICKS_REQUIRED}
+                    aria-pressed={on}
+                    aria-label={r.n}
+                    className="relative block w-full overflow-hidden rounded-media ring-1 ring-inset ring-line-strong transition-opacity disabled:opacity-40"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={getPosterUrl(r.p ?? null, "w185")} alt="" loading="lazy" decoding="async" className="aspect-2/3 w-full bg-hover object-cover" />
+                    {on && (
+                      <span className="absolute inset-0 flex items-center justify-center bg-page/50">
+                        <span className="flex size-8 items-center justify-center rounded-full bg-action text-on-action">
+                          <Check className="size-4" aria-hidden />
+                        </span>
+                      </span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
 
       <div className="mt-6 flex items-center gap-3">
@@ -459,7 +547,7 @@ function StepPicks({ onDone }: { onDone: () => void }) {
           type="button"
           onClick={save}
           disabled={picks.length < PICKS_REQUIRED || saving}
-          className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-brand-500 px-6 py-3 font-semibold text-surface-950 hover:bg-brand-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-action px-6 py-3 font-semibold text-on-action hover:bg-action-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {saving ? <Loader2 className="size-4 animate-spin" /> : null}
           {picks.length < PICKS_REQUIRED
@@ -469,7 +557,7 @@ function StepPicks({ onDone }: { onDone: () => void }) {
         <button
           type="button"
           onClick={onDone}
-          className="text-sm text-surface-500 hover:text-surface-300 px-2"
+          className="text-sm text-ink-500 hover:text-ink-300 px-2"
         >
           Skip
         </button>
@@ -480,13 +568,46 @@ function StepPicks({ onDone }: { onDone: () => void }) {
 
 /* ── Step 3: meet people, and follow at least one ───────────────────────── */
 
+/** The person whose invitation brought you here, first, with Follow. */
+function InvitedBy() {
+  const { user } = useAuth();
+  const [name] = useState(() => readInviter());
+  // A private profile takes a follow request rather than a follow, so the button needs to know.
+  const { data: person } = useSWR(name ? ["invite-person-visibility", name.toLowerCase()] : null, async () => {
+    const found = await findPerson(name!);
+    if (!found) return null;
+    const { data } = await supabase.from("users").select("visibility").eq("id", found.id).maybeSingle();
+    return { ...found, visibility: String(data?.visibility ?? "public").toLowerCase() };
+  }, { revalidateOnFocus: false });
+  if (!person || !user || person.id === user.id) return null;
+  return (
+    <div className="mt-6 flex flex-wrap items-center gap-3 rounded-card bg-raised p-4 ring-1 ring-inset ring-line-strong">
+      <Avatar src={person.avatarUrl} name={person.username} size="lg" />
+      <p className="min-w-0 flex-1 text-sm text-ink-300">
+        <span className="font-semibold text-ink-0">{person.username}</span> invited you. When you finish, your room with them opens.
+      </p>
+      <FollowerBtnClient profileId={person.id} currentUserId={user.id} initialStatus="follow" profileVisibility={person.visibility} />
+    </div>
+  );
+}
+
 function StepPeople({ username, onNeedsHandle }: { username: string | null; onNeedsHandle: () => void }) {
   const [entering, setEntering] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
-  const [followed, setFollowed] = useState(0);
+  // Who was followed here, not a running count: unfollowing someone you
+  // followed before onboarding, or a request left pending, can't push it off.
+  const [followedIds, setFollowedIds] = useState<Set<string>>(new Set());
+  const followed = followedIds.size;
+  const markFollowed = (id: string, on: boolean) =>
+    setFollowedIds((cur) => {
+      const next = new Set(cur);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   const [dmTarget, setDmTarget] = useState<Match | null>(null);
 
   const load = useCallback(async () => {
@@ -524,6 +645,7 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
      * someone fire a second one.
      */
     setEntering(true);
+    let profileName = username ?? "";
     const { data: auth } = await supabase.auth.getUser();
     if (auth?.user) {
       const { data: profile } = await supabase
@@ -537,6 +659,7 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
         onNeedsHandle();
         return;
       }
+      profileName = profile.username;
     }
     /**
      * A full navigation, not router.push.
@@ -554,33 +677,42 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
      * and fresh providers on the way in, right after the profile changed
      * underneath them.
      */
+    // Invited by someone: you land inside your room with them, not on an empty Home.
+    const inviter = readInviter();
+    if (inviter && inviter.toLowerCase() !== profileName.toLowerCase()) {
+      forgetInviter();
+      window.location.assign(`/app/people/${encodeURIComponent(inviter)}`);
+      return;
+    }
     window.location.assign("/app");
   };
 
   return (
     <section>
-      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Your people</h1>
-      <p className="mt-2 text-sm text-surface-400">
+      <h1 className="text-2xl sm:text-3xl font-medium tracking-tight">Your people</h1>
+      <p className="mt-2 text-sm text-ink-400">
         Follow at least one person so your feed has something in it.
       </p>
+
+      <InvitedBy />
 
       {loading ? (
         <div className="mt-6 space-y-3">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-24 rounded-xl bg-surface-900/50 animate-pulse" />
+            <div key={i} className="h-24 rounded-xl bg-raised/50 animate-pulse" />
           ))}
         </div>
       ) : matches.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-surface-700/60 bg-surface-900/40 p-6 text-center">
-          <Users className="size-8 text-surface-600 mx-auto mb-3" />
-          <p className="text-sm text-surface-400">
+        <div className="mt-6 rounded-xl border border-line-strong/60 bg-raised/40 p-6 text-center">
+          <Users className="size-8 text-ink-600 mx-auto mb-3" />
+          <p className="text-sm text-ink-400">
             No taste matches yet — you may be one of the first here.
           </p>
           <Link
-            href="/app/profile"
-            className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-400 hover:text-brand-300"
+            href="/app/search?scope=people"
+            className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-accent hover:text-accent-soft"
           >
-            Browse everyone <ArrowRight className="size-3.5" />
+            Find people <ArrowRight className="size-3.5" />
           </Link>
         </div>
       ) : (
@@ -588,7 +720,7 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
           {matches.map((m) => (
             <li
               key={m.userId}
-              className="rounded-xl border border-surface-700/60 bg-surface-900/40 p-4"
+              className="rounded-xl border border-line-strong/60 bg-raised/40 p-4"
             >
               <div className="flex items-start gap-3">
                 <Link href={`/app/profile/${m.username}`} className="shrink-0">
@@ -597,14 +729,14 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
                 <div className="min-w-0 flex-1">
                   <Link
                     href={`/app/profile/${m.username}`}
-                    className="font-semibold text-white hover:text-brand-400 transition-colors"
+                    className="font-semibold text-ink-0 hover:text-accent transition-colors"
                   >
                     @{m.username}
                   </Link>
                   {/* The evidence is the point — not a match percentage. */}
-                  <p className="mt-1 text-sm text-brand-300">{m.icebreaker}</p>
+                  <p className="mt-1 text-sm text-accent-soft">{m.icebreaker}</p>
                   {m.sharedCount > 1 && (
-                    <p className="mt-0.5 text-xs text-surface-500">
+                    <p className="mt-0.5 text-xs text-ink-500">
                       {m.sharedCount} titles in common
                     </p>
                   )}
@@ -615,13 +747,13 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
                       initialStatus="follow"
                       size="sm"
                       onStatusChange={(s) =>
-                        setFollowed((c) => (s === "following" ? c + 1 : Math.max(0, c - 1)))
+                        markFollowed(m.userId, s === "following")
                       }
                     />
                     <button
                       type="button"
                       onClick={() => setDmTarget(m)}
-                      className="inline-flex items-center gap-1 rounded-full border border-brand-500/20 bg-brand-500/10 px-3 py-1.5 text-xs font-medium text-brand-400 hover:bg-brand-500/20 transition-colors"
+                      className="inline-flex items-center gap-1 rounded-full border border-accent-strong/20 bg-action/10 px-3 py-1.5 text-xs font-medium text-accent hover:bg-action/20 transition-colors"
                     >
                       Say hi
                     </button>
@@ -633,14 +765,16 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
         </ul>
       )}
 
+      <BringSomeone me={user?.id ?? null} username={username} onFollowed={markFollowed} />
+
       <button
         type="button"
         onClick={finish}
         disabled={entering}
         className={`mt-8 w-full inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 font-semibold transition-colors ${
           followed > 0 || matches.length === 0
-            ? "bg-brand-500 text-surface-950 hover:bg-brand-400"
-            : "bg-surface-800 text-surface-400 hover:bg-surface-700"
+            ? "bg-action text-on-action hover:bg-action-hover"
+            : "bg-overlay text-ink-400 hover:bg-hover"
         }`}
       >
         {entering ? (
@@ -671,13 +805,13 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
             onNeedsHandle();
           }
         }}
-        className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 font-medium bg-surface-800/70 text-surface-200 border border-surface-700/60 hover:bg-surface-700 transition-colors"
+        className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 font-medium bg-overlay/70 text-ink-200 border border-line-strong/60 hover:bg-hover transition-colors"
       >
         First, log what I&apos;ve already seen
       </a>
 
       {username && (
-        <p className="mt-3 text-center text-xs text-surface-600">
+        <p className="mt-3 text-center text-xs text-ink-600">
           You&apos;re @{username}
         </p>
       )}
@@ -693,5 +827,83 @@ function StepPeople({ username, onNeedsHandle }: { username: string | null; onNe
         }
       />
     </section>
+  );
+}
+
+/**
+ * The people you actually watch with are rarely the ones a taste match turns
+ * up (PAGES.md §8: invite by link, find by name, or the person who invited
+ * you). Your link opens the invited door with your name on it; the search is
+ * the same browser-side people search the share sheet uses.
+ */
+function BringSomeone({ me, username, onFollowed }: { me: string | null; username: string | null; onFollowed: (id: string, on: boolean) => void }) {
+  const [query, setQuery] = useState("");
+  const [found, setFound] = useState<Recipients | null>(null);
+  const q = query.trim();
+
+  useEffect(() => {
+    if (!me || q.length < 2) return;
+    let stale = false;
+    const t = setTimeout(async () => {
+      const r = await fetchRecipients(me, q).catch(() => null);
+      if (!stale) setFound(r);
+    }, 300);
+    return () => {
+      stale = true;
+      clearTimeout(t);
+    };
+  }, [me, q]);
+
+  const people = q.length >= 2 && found ? [...found.connections, ...found.others].slice(0, 6) : [];
+
+  return (
+    <div className="mt-8 rounded-card border border-line-strong bg-raised p-4 sm:p-5">
+      <p className="font-display text-lg text-ink-0">Watching with someone who isn&apos;t here?</p>
+      <p className="mt-1 text-sm text-ink-500">Send them your link. When they join, you&apos;ll share a room.</p>
+      <button
+        type="button"
+        onClick={() => void inviteSomeone(username)}
+        className="mt-3 inline-flex h-10 items-center rounded-full px-4 text-sm font-semibold text-ink-0 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover"
+      >
+        Send your link
+      </button>
+
+      <label htmlFor="welcome-find" className="mt-5 block text-sm font-medium text-ink-200">
+        Or find someone by name
+      </label>
+      <div className="relative mt-1.5">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500" aria-hidden />
+        <input
+          id="welcome-find"
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Their username"
+          autoComplete="off"
+          className="h-11 w-full rounded-control bg-page pl-9 pr-3 text-base text-ink-0 ring-1 ring-inset ring-line-input placeholder:text-ink-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        />
+      </div>
+      {q.length >= 2 && found && (
+        people.length === 0 ? (
+          <p className="mt-3 text-sm text-ink-500">Nobody by that name yet. Send them your link instead.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-line">
+            {people.map((p) => (
+              <li key={p.id} className="flex items-center gap-3 py-2">
+                <Avatar src={p.avatarUrl} name={p.username} size={32} />
+                <span className="min-w-0 flex-1 truncate text-base text-ink-0">{p.username}</span>
+                <FollowButton
+                  targetUserId={p.id}
+                  currentUserId={me}
+                  initialStatus={"following" in p && p.following ? "following" : "follow"}
+                  size="sm"
+                  onStatusChange={(s) => onFollowed(p.id, s === "following")}
+                />
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+    </div>
   );
 }

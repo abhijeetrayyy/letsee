@@ -6,7 +6,8 @@ import toast from "react-hot-toast";
 import { Check, Link as LinkIcon, MessageCircle, Search, Send, Share2, Twitter, X } from "lucide-react";
 import Avatar from "@components/ui/Avatar";
 import { supabase } from "@/utils/supabase/client";
-import { swrFetcher } from "@/utils/swrFetcher";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
+import { fetchRecipients } from "@/lib/db/recipients";
 import { titlePath } from "@/utils/urls";
 
 /**
@@ -67,9 +68,11 @@ export default function ShareModal({
     }
   }, [isOpen]);
 
+  const { user: viewer } = useAuth();
+  const viewerId = viewer?.id ?? null;
   const { data, isLoading } = useSWR<Recipients>(
-    isOpen ? `/api/share/recipients${debounced ? `?q=${encodeURIComponent(debounced)}` : ""}` : null,
-    swrFetcher,
+    isOpen && viewerId ? ["recipients", viewerId, debounced] : null,
+    () => fetchRecipients(viewerId!, debounced),
     { keepPreviousData: true },
   );
 
@@ -154,13 +157,13 @@ export default function ShareModal({
         onClick={() => toggle(p)}
         aria-pressed={on}
         className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors ${
-          on ? "bg-brand-500/10" : "hover:bg-surface-800/70"
+          on ? "bg-action/10" : "hover:bg-overlay/70"
         }`}
       >
         <Avatar name={p.username} src={p.avatarUrl} size={36} />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm text-surface-100">{p.username}</span>
-          {p.mutual && <span className="block text-[11px] text-surface-500">Follows you back</span>}
+          <span className="block truncate text-sm text-ink-100">{p.username}</span>
+          {p.mutual && <span className="block text-xs text-ink-500">Follows you back</span>}
         </span>
         {/* A checkbox, not a "Send" button per row. The old flow sent to one
             person at a time; picking three people and sending once is the
@@ -168,7 +171,7 @@ export default function ShareModal({
         <span
           aria-hidden
           className={`flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
-            on ? "border-brand-500 bg-brand-500 text-surface-950" : "border-surface-600"
+            on ? "border-accent-strong bg-action text-on-action" : "border-line-input"
           }`}
         >
           {on && <Check className="size-3" strokeWidth={3} />}
@@ -188,21 +191,21 @@ export default function ShareModal({
       {/* Bottom sheet on a phone, centred card on a desktop — a share is a
           thumb action far more often than a mouse one. */}
       <div
-        className="flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl border border-surface-700 bg-surface-900 shadow-2xl sm:rounded-2xl"
+        className="flex max-h-[92dvh] w-full max-w-sheet flex-col rounded-t-2xl border border-line-strong bg-raised shadow-2xl sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-surface-800 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-line px-4 py-3">
           <div className="min-w-0">
-            <h3 className="flex items-center gap-2 text-base font-semibold text-white">
-              <Share2 className="size-4 text-brand-400" /> Share
+            <h3 className="flex items-center gap-2 text-base font-semibold text-ink-0">
+              <Share2 className="size-4 text-accent" /> Share
             </h3>
-            <p className="mt-0.5 truncate text-xs text-surface-500">{title}</p>
+            <p className="mt-0.5 truncate text-xs text-ink-500">{title}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-1.5 text-surface-400 transition-colors hover:text-white"
+            className="rounded-lg p-1.5 text-ink-400 transition-colors hover:text-ink-0"
           >
             <X className="size-4" />
           </button>
@@ -210,20 +213,20 @@ export default function ShareModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           <div className="relative mb-3">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-surface-500" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search people"
               aria-label="Search people"
-              className="w-full rounded-xl border border-surface-700 bg-surface-950 py-2.5 pl-9 pr-3 text-sm text-white placeholder-surface-500 focus:border-brand-500 focus:outline-none"
+              className="w-full rounded-xl border border-line-strong bg-page py-2.5 pl-9 pr-3 text-sm text-ink-0 placeholder-ink-500 focus:border-accent-strong focus:outline-none"
             />
           </div>
 
           {isLoading && connections.length === 0 ? (
             <div className="space-y-2">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="h-12 animate-pulse rounded-xl bg-surface-800/60" />
+                <div key={i} className="h-12 animate-pulse rounded-xl bg-overlay/60" />
               ))}
             </div>
           ) : (
@@ -238,7 +241,7 @@ export default function ShareModal({
 
               {others.length > 0 && (
                 <div className="mt-4 space-y-0.5">
-                  <p className="mb-1 px-2.5 text-[10px] font-medium uppercase tracking-wider text-surface-500">
+                  <p className="mb-1 px-2.5 text-xs font-medium uppercase tracking-wider text-ink-500">
                     Not connected
                   </p>
                   {others.map((p) => (
@@ -248,7 +251,7 @@ export default function ShareModal({
               )}
 
               {connections.length === 0 && others.length === 0 && (
-                <p className="px-2.5 py-6 text-center text-sm text-surface-500">
+                <p className="px-2.5 py-6 text-center text-sm text-ink-500">
                   {debounced ? `Nobody matching “${debounced}”.` : "Follow someone to send them a title."}
                 </p>
               )}
@@ -257,14 +260,14 @@ export default function ShareModal({
         </div>
 
         {picked.length > 0 && (
-          <div className="border-t border-surface-800 px-4 py-3">
+          <div className="border-t border-line px-4 py-3">
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
               maxLength={280}
               placeholder="Say something (optional)"
               aria-label="Add a note"
-              className="mb-2.5 w-full rounded-xl border border-surface-700 bg-surface-950 px-3 py-2.5 text-sm text-white placeholder-surface-500 focus:border-brand-500 focus:outline-none"
+              className="mb-2.5 w-full rounded-xl border border-line-strong bg-page px-3 py-2.5 text-sm text-ink-0 placeholder-ink-500 focus:border-accent-strong focus:outline-none"
             />
             <button
               type="button"
@@ -282,9 +285,9 @@ export default function ShareModal({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2 border-t border-surface-800 px-4 py-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 border-t border-line px-4 py-3 sm:grid-cols-4">
           <ExternalButton onClick={copy} label={copied ? "Copied" : "Copy link"}>
-            {copied ? <Check className="size-4 text-emerald-400" /> : <LinkIcon className="size-4" />}
+            {copied ? <Check className="size-4 text-ink-300" /> : <LinkIcon className="size-4" />}
           </ExternalButton>
           {hasNativeShare && (
             <ExternalButton
@@ -344,7 +347,7 @@ function ExternalButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center gap-1 rounded-xl border border-surface-700/60 py-2.5 text-[11px] text-surface-300 transition-colors hover:border-surface-600 hover:text-white"
+      className="flex flex-col items-center gap-1 rounded-xl border border-line-strong/60 py-2.5 text-xs text-ink-300 transition-colors hover:border-line-input hover:text-ink-0"
     >
       {children}
       {label}

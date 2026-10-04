@@ -16,9 +16,9 @@ export const metadata = {
 
 function LoginLoading() {
   return (
-    <div className="w-full min-h-screen flex flex-col items-center justify-center gap-4 bg-surface-950 text-white">
+    <div className="w-full min-h-screen flex flex-col items-center justify-center gap-4 bg-page text-ink-0">
       <LoadingSpinner size="lg" className="border-t-white" />
-      <p className="text-sm text-surface-400">Loading…</p>
+      <p className="text-sm text-ink-400">Loading…</p>
     </div>
   );
 }

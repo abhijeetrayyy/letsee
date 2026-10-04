@@ -29,6 +29,32 @@ export const tableColumns: Map<string, Set<string>> = (() => {
     }
     out.set(m[1], cols);
   }
+
+  /*
+   * Migrations applied after the last dump (103 on): their new tables and
+   * added columns, read from the files themselves until the baseline is next
+   * regenerated (`npm run db:dump`, which needs Docker). Without this a column
+   * a later migration added reads as missing.
+   */
+  const MIGRATIONS = join(ROOT, "migrations");
+  for (const file of readdirSync(MIGRATIONS).filter((f) => /^\d{3}_.*\.sql$/.test(f) && Number(f.slice(0, 3)) >= 103).sort()) {
+    const later = readFileSync(join(MIGRATIONS, file), "utf8");
+    for (const m of later.matchAll(/^CREATE TABLE IF NOT EXISTS public\.(\w+) \(\n([\s\S]*?)^\);/gm)) {
+      const cols = out.get(m[1]) ?? new Set<string>();
+      for (const raw of m[2].split("\n")) {
+        const line = raw.trim();
+        if (!line || /^(CONSTRAINT|PRIMARY KEY|UNIQUE|CHECK|FOREIGN KEY)\b/i.test(line)) continue;
+        const name = /^"?(\w+)"?\s+/.exec(line);
+        if (name) cols.add(name[1]);
+      }
+      out.set(m[1], cols);
+    }
+    for (const m of later.matchAll(/ALTER TABLE public\.(\w+) ADD COLUMN IF NOT EXISTS "?(\w+)"?/g)) {
+      const cols = out.get(m[1]) ?? new Set<string>();
+      cols.add(m[2]);
+      out.set(m[1], cols);
+    }
+  }
   return out;
 })();
 

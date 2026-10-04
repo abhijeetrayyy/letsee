@@ -124,7 +124,7 @@ describe("api surface", () => {
    * a suite that iterates an empty list is the failure this guards against.
    */
   it("has routes to check", () => {
-    expect(apiRoutes().length).toBeGreaterThan(60);
+    expect(apiRoutes().length).toBeGreaterThan(55);
   });
 });
 

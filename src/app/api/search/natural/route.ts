@@ -2,6 +2,7 @@ import { serverFetchJson } from "@/utils/serverFetch";
 import { GenreList } from "@/staticData/genreList";
 import { NextResponse } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { tmdbConfigured } from "@/utils/tmdbClient";
 
 export const dynamic = "force-dynamic";
 
@@ -97,9 +98,8 @@ function findActorOrDirector(
 }
 
 async function searchPerson(name: string, dept?: string): Promise<number | null> {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return null;
-  const url = `${TMDB_BASE}/search/person?api_key=${apiKey}&query=${encodeURIComponent(name)}&language=en-US&page=1`;
+  if (!tmdbConfigured()) return null;
+  const url = `${TMDB_BASE}/search/person?query=${encodeURIComponent(name)}&language=en-US&page=1`;
   try {
     const data = await serverFetchJson<{ results?: { id: number; name: string; known_for_department?: string }[] }>(url);
     return findActorOrDirector(data.results ?? [], name, dept);
@@ -109,9 +109,8 @@ async function searchPerson(name: string, dept?: string): Promise<number | null>
 }
 
 async function findSimilarMovie(title: string): Promise<number | null> {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return null;
-  const url = `${TMDB_BASE}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=en-US&page=1`;
+  if (!tmdbConfigured()) return null;
+  const url = `${TMDB_BASE}/search/movie?query=${encodeURIComponent(title)}&language=en-US&page=1`;
   try {
     const data = await serverFetchJson<{ results?: { id: number }[] }>(url);
     return data.results?.[0]?.id ?? null;
@@ -259,17 +258,16 @@ function parseQuery(query: string): Promise<ParsedQuery> {
 }
 
 function buildTmdbUrl(parsed: ParsedQuery): string {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return "";
+  if (!tmdbConfigured()) return "";
 
   if (parsed.similarToId !== null) {
     const ep = parsed.mediaType === "movie" ? "movie" : "tv";
-    return `${TMDB_BASE}/${ep}/${parsed.similarToId}/recommendations?api_key=${apiKey}&language=en-US&page=1`;
+    return `${TMDB_BASE}/${ep}/${parsed.similarToId}/recommendations?language=en-US&page=1`;
   }
 
   const endpoint = parsed.mediaType === "movie" ? "discover/movie" : "discover/tv";
   const params = new URLSearchParams({
-    api_key: apiKey, language: "en-US",
+    language: "en-US",
     sort_by: parsed.sortBy, "vote_count.gte": "50",
   });
 
@@ -322,9 +320,8 @@ export async function GET(request: Request) {
     return jsonError("Query is required", 400);
   }
 
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) {
-    return jsonError("TMDB_API_KEY missing", 500);
+  if (!tmdbConfigured()) {
+    return jsonError("TMDB_READ_TOKEN is missing", 500);
   }
 
   try {
@@ -345,7 +342,7 @@ export async function GET(request: Request) {
 
     if (items.length === 0 && parsed.genres.length === 0 && parsed.actorId === null && parsed.directorId === null) {
       const endpoint = parsed.mediaType === "movie" ? "search/movie" : "search/tv";
-      const url = `${TMDB_BASE}/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=en-US&page=1`;
+      const url = `${TMDB_BASE}/${endpoint}?query=${encodeURIComponent(query)}&language=en-US&page=1`;
       try {
         const data = await serverFetchJson<{ results?: any[]; total_results?: number }>(url);
         items = (data.results ?? []).slice(0, 20);

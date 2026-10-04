@@ -7,6 +7,7 @@ import React, {
   useCallback,
   useEffect,
 } from "react";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
 
 const STORAGE_KEY = "letsee_watch_country";
 
@@ -39,8 +40,17 @@ export function CountryProvider({ children }: { children: React.ReactNode }) {
    * localStorage still wins: it is set only by an explicit choice in the
    * selector, and an explicit choice outranks a stored preference.
    */
+  const { user } = useAuth();
+  const accountRegion = user?.watch_region ?? null;
+
+  /**
+   * The region arrives with the auth snapshot, which already reads the
+   * account's own row on every load. This used to be a separate fetch of
+   * `/api/user/providers` from every page — including for signed-out
+   * visitors, who could only get a 401: one function invocation per
+   * anonymous page view, to learn nothing.
+   */
   useEffect(() => {
-    let alive = true;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored && stored.length === 2) {
@@ -51,25 +61,8 @@ export function CountryProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
-
-    // No local choice — ask the account. A signed-out visitor 401s and keeps
-    // the default, which is the correct outcome rather than an error.
-    fetch("/api/user/providers", { headers: { accept: "application/json" } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body) => {
-        const region = body?.data?.region ?? body?.region;
-        if (alive && typeof region === "string" && /^[A-Za-z]{2}$/.test(region)) {
-          setCountryState(region.toUpperCase());
-        }
-      })
-      .catch(() => {
-        // Keep the default; a failed lookup is not worth surfacing here.
-      });
-
-    return () => {
-      alive = false;
-    };
-  }, []);
+    if (accountRegion && /^[A-Za-z]{2}$/.test(accountRegion)) setCountryState(accountRegion.toUpperCase());
+  }, [accountRegion]);
 
   const setCountry = useCallback((code: string) => {
     const normalized = code.slice(0, 2).toUpperCase();

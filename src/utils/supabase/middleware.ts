@@ -3,6 +3,22 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_AUTH_ROUTES = ["/login", "/signup", "/forgot-password"];
 
+/**
+ * "This signed-in person has a handle and isn't deleted", remembered for a few
+ * hours so app pages stop reading their `users` row on every navigation — the
+ * one database round trip left in this function (300–700 ms measured from
+ * India to the Seoul database, on every signed-in page). Its value is the
+ * user id *and the session* it vouches for: every sign-in is a new session,
+ * so a deleted account that signs back in to reactivate — or another account
+ * on the same browser — is always checked afresh. (Keyed on the user alone,
+ * someone who deleted their account and signed straight back in was let into
+ * the app for up to six hours with the deletion still scheduled.) The account
+ * deletion route also clears it, and finding a deleted account clears it.
+ * Nothing here is a security boundary: it only routes; RLS decides reads.
+ */
+const PROFILE_OK = "ls-profile-ok";
+const PROFILE_OK_MAX_AGE = 60 * 60 * 6;
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
@@ -67,11 +83,25 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  // Refresh session if expired; this may call set()/remove() and update response
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  /**
+   * Who is this, without asking the auth server.
+   *
+   * `getUser()` sent every signed-in request to Supabase Auth to be told what
+   * the token already says — a round trip per page view, and a per-address
+   * rate limit that one busy afternoon of testing from a single machine was
+   * enough to reach, after which every API route answered 401 until it reset.
+   * The project signs tokens with an ES256 key, so `getClaims()` checks the
+   * signature here against the published key (fetched once and cached) and
+   * only talks to Auth when the token has expired and needs refreshing —
+   * which it still does, writing the new cookies through `setAll` above.
+   *
+   * What it gives up: a token revoked elsewhere stays usable here until it
+   * expires (an hour at most). Nothing below is a security boundary — it
+   * routes people to the right page; RLS decides what anyone may read.
+   */
+  const { data: claimsData, error: authError } = await supabase.auth.getClaims();
+  const userId = (claimsData?.claims?.sub as string | undefined) ?? null;
+  const sessionKey = userId ? `${userId}:${(claimsData?.claims?.session_id as string | undefined) ?? ""}` : null;
 
   if (authError && authError.message !== "Auth session missing!") {
     if (process.env.NODE_ENV === "development") {
@@ -91,7 +121,7 @@ export async function updateSession(request: NextRequest) {
     return redirectResponse;
   }
 
-  if (user) {
+  if (userId) {
     /**
      * Root → /app, for signed-in users only.
      *
@@ -106,10 +136,10 @@ export async function updateSession(request: NextRequest) {
       return response;
     }
 
-    // /app/welcome and /app/profile/setup are the two places a user without a
+    // /app/welcome and /app/settings are the two places a user without a
     // handle is allowed to be — everything else bounces them to onboarding.
     const isOnboarding =
-      pathname.startsWith("/app/welcome") || pathname.startsWith("/app/profile/setup");
+      pathname.startsWith("/app/welcome") || pathname.startsWith("/app/settings");
     const isAuthRoute = PUBLIC_AUTH_ROUTES.includes(pathname);
 
     /**
@@ -117,14 +147,26 @@ export async function updateSession(request: NextRequest) {
      * before the auth-route redirect rather than after it.
      */
     let profile: { username: string | null; deleted_at: string | null } | null = null;
-    if (pathname === "/" || isAuthRoute || pathname.startsWith("/app")) {
+    const vouched = pathname.startsWith("/app") && !!sessionKey && request.cookies.get(PROFILE_OK)?.value === sessionKey;
+    if (!vouched && (pathname === "/" || isAuthRoute || pathname.startsWith("/app"))) {
       const { data, error: profileError } = await supabase
         .from("users")
         .select("username, deleted_at")
-        .eq("id", user.id)
+        .eq("id", userId)
         .limit(1)
         .maybeSingle();
       if (!profileError) profile = data;
+      if (profile?.username && !profile.deleted_at) {
+        response.cookies.set(PROFILE_OK, sessionKey!, {
+          path: "/",
+          httpOnly: true,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          maxAge: PROFILE_OK_MAX_AGE,
+        });
+      } else if (profile) {
+        response.cookies.delete(PROFILE_OK);
+      }
     }
 
     /**

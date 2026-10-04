@@ -10,7 +10,11 @@
     "db:dump": "npx supabase db dump -f migrations/000_baseline.sql -s public",
     "build:check": "NEXT_DIST_DIR=.next-build next build",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "design:screens": "node scripts/design-screens.mjs",
+    "design:diff": "node scripts/design-diff.mjs",
+    "design:baseline": "UPDATE_DESIGN_BASELINE=1 vitest run tests/invariants/design-ratchet.test.ts",
+    "design:audit": "node scripts/design-audit.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
@@ -28,7 +32,6 @@
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.2.4",
     "react-hot-toast": "^2.6.0",
-    "react-icons": "^5.5.0",
     "swr": "^2.4.2"
   },
   "devDependencies": {
@@ -39,8 +42,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/youtube": "^0.1.2",
+    "axe-core": "^4.10.2",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "pixelmatch": "^6.0.0",
+    "playwright-core": "^1.63.0",
+    "pngjs": "^7.0.0",
     "postcss": "^8",
     "tailwindcss": "^4.1.18",
     "typescript": "^5",

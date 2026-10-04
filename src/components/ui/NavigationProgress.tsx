@@ -86,11 +86,11 @@ export default function NavigationProgress() {
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none fixed inset-x-0 top-0 z-[200] h-[3px] overflow-hidden transition-opacity duration-150 ${
+      className={`pointer-events-none fixed inset-x-0 top-0 z-[200] h-0.75 overflow-hidden transition-opacity duration-150 ${
         pending ? "opacity-100" : "opacity-0"
       }`}
     >
-      <div className="navigation-progress h-full w-2/5 rounded-r-full bg-brand-400 shadow-[0_0_12px_rgba(74,222,128,0.8)]" />
+      <div className="navigation-progress h-full w-2/5 rounded-r-full bg-action-hover shadow-[0_0_12px_color-mix(in_oklab,var(--color-action)_80%,transparent)]" />
     </div>
   );
 }

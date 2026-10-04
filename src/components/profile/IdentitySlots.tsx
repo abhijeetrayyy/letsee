@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import { getPosterUrl } from "@/utils/imageUrl";
 import { personPath, titlePath } from "@/utils/urls";
 import { fetchIdentitySlots, saveIdentitySlots, type IdentitySlot, type SlotKind } from "@/lib/db/identitySlots";
+import ProfileSection from "@components/profile/v2/ProfileSection";
 
 /**
  * Four people, a comfort watch, a hill to die on.
@@ -28,7 +29,7 @@ type Pick = { itemId: string; itemType: "movie" | "tv" | "person"; itemName: str
  * older row — with the person placeholder swapped in.
  */
 function imageFor(it: { itemType: string; imageUrl: string | null }): string {
-  if (!it.imageUrl) return it.itemType === "person" ? "/no-photo.webp" : getPosterUrl(null);
+  if (!it.imageUrl) return it.itemType === "person" ? "/no-photo.svg" : getPosterUrl(null);
   return getPosterUrl(it.imageUrl, "w185");
 }
 
@@ -36,7 +37,12 @@ function hrefFor(it: IdentitySlot | Pick): string {
   return it.itemType === "person" ? personPath(it.itemId, it.itemName) : titlePath(it.itemType, it.itemId, it.itemName);
 }
 
-export default function IdentitySlots({ userId, isOwner }: { userId: string; isOwner: boolean }) {
+/**
+ * Its own section, "Picks", under its own head (ProfileSection) — it used to
+ * sit inside Favourites with no heading of its own, three more boxes nobody
+ * could place. A visitor sees only the picks that were made.
+ */
+export default function IdentitySlots({ userId, isOwner, username }: { userId: string; isOwner: boolean; username: string }) {
   const { data, mutate } = useSWR(["identity-slots", userId], () => fetchIdentitySlots(userId));
   const [editing, setEditing] = useState<SlotKind | null>(null);
 
@@ -45,7 +51,16 @@ export default function IdentitySlots({ userId, isOwner }: { userId: string; isO
   if (empty && !isOwner) return null;
 
   return (
-    <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <ProfileSection
+      id="picks"
+      title={isOwner ? "Your picks" : `${username}'s picks`}
+      description={
+        isOwner
+          ? "Four people you'd follow anywhere, the one you put on when you can't decide, and a hill you'll die on."
+          : `Who ${username} would follow anywhere, what they put on when they can't decide, and a hill they'll die on.`
+      }
+    >
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       {/* People */}
       <Block
         icon={<Users className="size-3.5" />}
@@ -60,7 +75,7 @@ export default function IdentitySlots({ userId, isOwner }: { userId: string; isO
             <Link key={p.itemId} href={hrefFor(p)} className="w-1/4 min-w-0" title={p.itemName}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={imageFor(p)} alt={p.itemName} className="aspect-square w-full rounded-lg object-cover" />
-              <p className="mt-1 truncate text-[11px] text-surface-300">{p.itemName}</p>
+              <p className="mt-1 truncate text-xs text-ink-300">{p.itemName}</p>
             </Link>
           ))}
         </div>
@@ -79,7 +94,7 @@ export default function IdentitySlots({ userId, isOwner }: { userId: string; isO
           <Link href={hrefFor(data.comfort)} className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={imageFor(data.comfort)} alt="" className="h-20 w-14 rounded-md object-cover" />
-            <span className="text-sm font-medium text-white">{data.comfort.itemName}</span>
+            <span className="text-sm font-medium text-ink-0">{data.comfort.itemName}</span>
           </Link>
         )}
       </Block>
@@ -95,15 +110,15 @@ export default function IdentitySlots({ userId, isOwner }: { userId: string; isO
       >
         {data.hill && (
           <div className="flex items-start gap-3">
-            <Link href={hrefFor(data.hill)} className="shrink-0">
+            <Link href={hrefFor(data.hill)} aria-label="Open their hill to die on" className="shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={imageFor(data.hill)} alt="" className="h-20 w-14 rounded-md object-cover" />
             </Link>
             <div className="min-w-0">
-              <Link href={hrefFor(data.hill)} className="text-sm font-medium text-white hover:text-brand-300">
+              <Link href={hrefFor(data.hill)} className="text-sm font-medium text-ink-0 hover:text-accent-soft">
                 {data.hill.itemName}
               </Link>
-              {data.hill.line && <p className="mt-1 text-sm italic text-surface-300">“{data.hill.line}”</p>}
+              {data.hill.line && <p className="mt-1 text-sm italic text-ink-300">“{data.hill.line}”</p>}
             </div>
           </div>
         )}
@@ -123,6 +138,7 @@ export default function IdentitySlots({ userId, isOwner }: { userId: string; isO
         />
       )}
     </div>
+    </ProfileSection>
   );
 }
 
@@ -145,18 +161,23 @@ function Block({
 }) {
   if (empty && !isOwner) return null;
   return (
-    <div className="rounded-xl border border-surface-800/50 bg-surface-900/30 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-surface-400">
-          {icon} {title}
+    <div className="flex flex-col rounded-card border border-line-strong bg-raised p-4 sm:p-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-ink-0">
+          <span className="text-ink-500">{icon}</span> {title}
         </h3>
         {isOwner && (
-          <button type="button" onClick={onEdit} className="text-xs text-surface-500 hover:text-white">
+          <button
+            type="button"
+            onClick={onEdit}
+            aria-label={`${empty ? "Add" : "Edit"} ${title.toLowerCase()}`}
+            className="inline-flex h-8 shrink-0 items-center rounded-full px-3 text-xs font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0"
+          >
             {empty ? "Add" : "Edit"}
           </button>
         )}
       </div>
-      {empty ? <p className="text-sm text-surface-600">{emptyText}</p> : children}
+      {empty ? <p className="text-sm leading-relaxed text-ink-500">{emptyText}</p> : children}
     </div>
   );
 }
@@ -261,10 +282,10 @@ function SlotEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="w-full max-w-lg rounded-2xl border border-surface-800 bg-surface-950 p-5">
+      <div className="w-full max-w-sheet rounded-2xl border border-line bg-page p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-white">{title}</h3>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-surface-500 hover:text-white">
+          <h3 className="text-base font-semibold text-ink-0">{title}</h3>
+          <button type="button" onClick={onClose} aria-label="Close" className="text-ink-500 hover:text-ink-0">
             <X className="size-4" />
           </button>
         </div>
@@ -272,11 +293,11 @@ function SlotEditor({
         {picked.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2">
             {picked.map((p) => (
-              <span key={`${p.itemType}:${p.itemId}`} className="inline-flex items-center gap-2 rounded-full border border-surface-700 bg-surface-900 py-1 pl-1 pr-2 text-xs text-surface-200">
+              <span key={`${p.itemType}:${p.itemId}`} className="inline-flex items-center gap-2 rounded-full border border-line-strong bg-raised py-1 pl-1 pr-2 text-xs text-ink-200">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={imageFor(p)} alt="" className="size-6 rounded-full object-cover" />
                 {p.itemName}
-                <button type="button" onClick={() => setPicked((prev) => prev.filter((x) => x !== p))} aria-label={`Remove ${p.itemName}`} className="text-surface-500 hover:text-white">
+                <button type="button" onClick={() => setPicked((prev) => prev.filter((x) => x !== p))} aria-label={`Remove ${p.itemName}`} className="text-ink-500 hover:text-ink-0">
                   <X className="size-3" />
                 </button>
               </span>
@@ -290,14 +311,14 @@ function SlotEditor({
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
             placeholder={kind === "person" ? "An actor or a director" : "A film or a series"}
-            className="w-full rounded-lg border border-surface-700 bg-surface-900 px-3 py-2 text-sm text-white placeholder-surface-500 focus:border-brand-500 focus:outline-none"
+            className="w-full rounded-lg border border-line-strong bg-raised px-3 py-2 text-sm text-ink-0 placeholder-ink-500 focus:border-accent-strong focus:outline-none"
           />
         )}
         {(results.length > 0 || searching) && picked.length < max && (
-          <ul className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-surface-800 bg-surface-900">
+          <ul className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-line bg-raised">
             {results.map((r) => (
               <li key={`${r.itemType}:${r.itemId}`}>
-                <button type="button" onClick={() => add(r)} className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-surface-200 hover:bg-surface-800">
+                <button type="button" onClick={() => add(r)} className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-ink-200 hover:bg-overlay">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={imageFor(r)} alt="" className="h-10 w-7 rounded object-cover" />
                   {r.itemName}
@@ -305,7 +326,7 @@ function SlotEditor({
               </li>
             ))}
             {searching && (
-              <li className="px-3 py-2 text-xs text-surface-600">
+              <li className="px-3 py-2 text-xs text-ink-600">
                 <Loader2 className="inline size-3 animate-spin" />
               </li>
             )}
@@ -318,12 +339,12 @@ function SlotEditor({
             onChange={(e) => setLine(e.target.value)}
             maxLength={140}
             placeholder="The sentence you will defend"
-            className="mt-3 w-full rounded-lg border border-surface-700 bg-surface-900 px-3 py-2 text-sm text-white placeholder-surface-500 focus:border-brand-500 focus:outline-none"
+            className="mt-3 w-full rounded-lg border border-line-strong bg-raised px-3 py-2 text-sm text-ink-0 placeholder-ink-500 focus:border-accent-strong focus:outline-none"
           />
         )}
 
         <div className="mt-4 flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-full px-3 py-1.5 text-xs text-surface-400 hover:text-white">
+          <button type="button" onClick={onClose} className="rounded-full px-3 py-1.5 text-xs text-ink-400 hover:text-ink-0">
             Cancel
           </button>
           <button type="button" onClick={save} disabled={saving} className="btn-primary rounded-full px-4 py-1.5 text-xs disabled:opacity-50">

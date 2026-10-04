@@ -47,6 +47,8 @@ export type Take = {
   score: number | null;
   body: string;
   isPublic: boolean;
+  /** A non-public take the people who were there can read (112's 'us'). */
+  forUs: boolean;
   updatedAt: string | null;
 };
 
@@ -97,17 +99,21 @@ export async function getMyTake(
   userId: string,
   id: TakeIdentity,
 ): Promise<{ take: Take | null; privateNote: Take | null }> {
-  const { data } = await match(
-    supabase.from("takes").select("score, body, is_public, updated_at"),
+  const { data, error } = await match(
+    supabase.from("takes").select("score, body, is_public, visibility, updated_at"),
     id,
     userId,
   );
+  // A failed read is not "no take": callers decide whether a save would
+  // overwrite something on the strength of this answer.
+  if (error) throw new Error(error.message);
 
-  type Row = { score: number | null; body: string | null; is_public: boolean; updated_at: string | null };
+  type Row = { score: number | null; body: string | null; is_public: boolean; visibility: string | null; updated_at: string | null };
   const rows: Take[] = ((data ?? []) as Row[]).map((r) => ({
     score: r.score ?? null,
     body: r.body ?? "",
     isPublic: r.is_public === true,
+    forUs: r.visibility === "us",
     updatedAt: r.updated_at ?? null,
   }));
 
@@ -121,6 +127,18 @@ export type SaveTakeInput = {
   score?: number | null;
   body?: string | null;
   isPublic?: boolean;
+  /**
+   * For a non-public take: readable by the people who were there (112). Left
+   * undefined, the stored audience is kept — so a caller that doesn't know
+   * about "us" (the importer, the title page's composer) never resets it.
+   */
+  forUs?: boolean;
+  /**
+   * Add this visibility's row beside the other one instead of moving the take
+   * there. For a line written somewhere else entirely (Log one together) that
+   * must not take a public review with it.
+   */
+  alongside?: boolean;
   watchedAt?: string | null;
   /** Only used to keep the legacy mirror's metadata columns populated. */
   itemName?: string;
@@ -192,7 +210,7 @@ export async function saveTake(
   }
 
   const rows = existing ?? [];
-  if (rows.length === 1 && rows[0].is_public !== isPublic) {
+  if (rows.length === 1 && rows[0].is_public !== isPublic && !input.alongside) {
     await supabase
       .from("takes")
       .delete()
@@ -203,6 +221,17 @@ export async function saveTake(
       .eq("season_number", id.seasonNumber)
       .eq("episode_number", id.episodeNumber)
       .eq("is_public", rows[0].is_public);
+    // And its legacy copy, as `deleteTake` does: made private, a review kept
+    // showing in the profile's Reviews and at /app/review/[id], which read
+    // `watched_items.public_review_text`.
+    if (id.scope === "title") {
+      await supabase
+        .from("watched_items")
+        .update({ [rows[0].is_public ? "public_review_text" : "review_text"]: null })
+        .eq("user_id", userId)
+        .eq("item_id", id.itemId)
+        .eq("item_type", id.itemType);
+    }
   }
 
   const { error } = await supabase.from("takes").upsert(
@@ -216,6 +245,7 @@ export async function saveTake(
       score,
       body: body || null,
       is_public: isPublic,
+      ...(input.forUs !== undefined && !isPublic ? { visibility: input.forUs ? "us" : "me" } : {}),
       ...(input.watchedAt ? { watched_at: input.watchedAt } : {}),
       updated_at: new Date().toISOString(),
     },

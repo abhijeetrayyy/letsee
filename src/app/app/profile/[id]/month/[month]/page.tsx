@@ -1,3 +1,4 @@
+import RecapHeader from "@components/profile/v2/RecapHeader";
 import Link from "@components/ui/AppLink";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -5,6 +6,8 @@ import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { buildMonthInReview, monthBounds } from "@/utils/monthInReview";
 import MonthInReviewCard from "@components/profile/MonthInReviewCard";
+import TitleCard from "@components/ds/TitleCard";
+import { getPosterUrl } from "@/utils/imageUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -42,9 +45,9 @@ export default async function MonthPage(ctx: Ctx) {
   if (!isOwner) {
     return (
       <Shell>
-        <h1 className="text-2xl font-bold text-white">Just theirs</h1>
-        <p className="mt-2 text-surface-400">A month in review is only for the person it belongs to.</p>
-        <Link href={`/app/profile/${username}`} className="mt-6 inline-flex text-sm text-brand-400 hover:text-brand-300">
+        <h1 className="text-2xl font-medium text-ink-0">Just theirs</h1>
+        <p className="mt-2 text-ink-400">A month in review is only for the person it belongs to.</p>
+        <Link href={`/app/profile/${username}`} className="mt-6 inline-flex text-sm text-accent hover:text-accent-soft">
           View their profile instead
         </Link>
       </Shell>
@@ -60,14 +63,34 @@ export default async function MonthPage(ctx: Ctx) {
   );
   if (!data) notFound();
 
+  const prev = { href: `/app/profile/${username}/month/${shiftMonth(month, -1)}`, label: monthBounds(shiftMonth(month, -1))?.label.split(" ")[0] ?? "Earlier" };
+  const next = shiftMonth(month, 1) <= currentMonth() ? { href: `/app/profile/${username}/month/${shiftMonth(month, 1)}`, label: monthBounds(shiftMonth(month, 1))?.label.split(" ")[0] ?? "Later" } : null;
+
+  // A quiet month still shows what was watched, and still leads to the
+  // months either side — it used to be one sentence and a dead end.
   if (data.sparse) {
     return (
       <Shell>
-        <h1 className="text-2xl font-bold text-white">A quiet {bounds.label}</h1>
-        <p className="mt-2 text-surface-400">
-          {data.viewings === 0 ? "Nothing logged that month." : `${data.viewings} logged. A few more and this becomes a card.`}
-        </p>
-        <Link href="/app/profile" className="mt-6 inline-flex text-sm text-brand-400 hover:text-brand-300">
+        <RecapHeader
+          owner="Your"
+          label={bounds.label}
+          films={data.movies}
+          series={data.shows}
+          people={[]}
+          prev={prev}
+          next={next}
+          note={data.viewings === 0 ? "Nothing logged that month." : "A quiet month. A few more and it becomes a card you can share."}
+        />
+        {data.posters.length > 0 && (
+          <ul className="mt-8 grid grid-cols-3 gap-4 sm:grid-cols-4">
+            {data.posters.map((f) => (
+              <li key={`${f.itemType}:${f.itemId}:${f.watchedOn}`} className="min-w-0">
+                <TitleCard id={f.itemId} title={f.itemName} mediaType={f.itemType} imageUrl={getPosterUrl(f.imageUrl, "w342")} role={f.watchedOn ? new Date(`${f.watchedOn}T00:00:00Z`).toLocaleDateString("en-GB", { timeZone: "UTC", day: "numeric", month: "short" }) : null} hideState />
+              </li>
+            ))}
+          </ul>
+        )}
+        <Link href={`/app/profile/${username}`} className="mt-8 inline-flex text-sm font-medium text-accent underline decoration-line-input underline-offset-4">
           Back to your profile
         </Link>
       </Shell>
@@ -76,19 +99,37 @@ export default async function MonthPage(ctx: Ctx) {
 
   return (
     <Shell>
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-white">Your {bounds.label}</h1>
-        <p className="mt-2 text-surface-400">Save it, send it to the people in it, or just look.</p>
-      </header>
+      <RecapHeader
+        owner="Your"
+        label={bounds.label}
+        films={data.movies}
+        series={data.shows}
+        people={data.watchedWith ? [{ name: data.watchedWith.username ?? data.watchedWith.label, avatarUrl: data.watchedWith.avatarUrl, count: data.watchedWith.count }] : []}
+        prev={prev}
+        next={next}
+        note="Save it, send it to the people in it, or just look."
+      />
       <MonthInReviewCard data={data} />
     </Shell>
   );
 }
 
+/** yyyy-mm, moved by whole months. */
+function shiftMonth(month: string, by: number): string {
+  const [y, m] = month.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + by, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function currentMonth(): string {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="w-full bg-surface-950 min-h-screen">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-14">{children}</div>
+    <div className="w-full bg-page min-h-screen">
+      <div className="max-w-read mx-auto px-4 sm:px-6 py-10 sm:py-14">{children}</div>
     </div>
   );
 }

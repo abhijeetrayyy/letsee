@@ -98,7 +98,7 @@ export default function StarRating({
                     ? "Clear rating"
                     : `${formatStars(score)} out of 5${label ? ` for ${label}` : ""}`
                 }
-                className={`absolute inset-y-0 w-1/2 cursor-pointer rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed ${
+                className={`absolute inset-y-0 w-1/2 cursor-pointer rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed ${
                   half === 0 ? "left-0" : "right-0"
                 }`}
               />
@@ -129,7 +129,7 @@ function StarGlyph({
 
   return (
     <span className={`relative inline-block ${className}`}>
-      <Star className={`${className} absolute inset-0 text-surface-600`} strokeWidth={1.5} />
+      <Star className={`${className} absolute inset-0 text-ink-600`} strokeWidth={1.5} />
       {fill > 0 && (
         <span
           className="absolute inset-0 overflow-hidden"
@@ -137,7 +137,7 @@ function StarGlyph({
           aria-hidden
         >
           <Star
-            className={`${className} text-accent-gold`}
+            className={`${className} text-ink-0`}
             fill="currentColor"
             strokeWidth={1.5}
           />

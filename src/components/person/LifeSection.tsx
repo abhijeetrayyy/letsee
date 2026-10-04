@@ -16,7 +16,7 @@ export default function LifeSection({ biography, alsoKnownAs }: { biography?: st
   const long = bio.length > 400;
 
   const body = (
-    <div className="space-y-3 text-sm leading-relaxed text-surface-300">
+    <div className="space-y-3 text-sm leading-relaxed text-ink-300">
       {paras.map((p, i) => (
         <p key={i} className="whitespace-pre-line">{p}</p>
       ))}
@@ -28,17 +28,17 @@ export default function LifeSection({ biography, alsoKnownAs }: { biography?: st
       {bio && (long ? (
         <details className="group">
           <summary className="cursor-pointer list-none">
-            <div className="line-clamp-4 space-y-3 text-sm leading-relaxed text-surface-300 group-open:hidden">
+            <div className="line-clamp-4 space-y-3 text-sm leading-relaxed text-ink-300 group-open:hidden">
               {paras.map((p, i) => <p key={i} className="whitespace-pre-line">{p}</p>)}
             </div>
-            <span className="mt-2 inline-block text-xs text-brand-400 group-open:hidden">Read more</span>
+            <span className="mt-2 inline-block text-xs text-accent group-open:hidden">Read more</span>
           </summary>
           {body}
         </details>
       ) : body)}
 
       {aka.length > 0 && (
-        <p className="mt-4 text-xs text-surface-500">
+        <p className="mt-4 text-xs text-ink-500">
           Also known as {aka.join(" · ")}
         </p>
       )}

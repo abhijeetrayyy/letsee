@@ -1,6 +1,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { roomPeople } from "@/utils/tonightRooms";
+import { getBlockedUserIds } from "@/utils/blocks";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +39,11 @@ export async function GET() {
     else followers.add(c.follower_id as string);
   }
 
-  const ids = [...new Set([...following, ...followers])];
+  // People you share a room with (public profiles only — see tonightRooms).
+  const [rooms, blocked] = await Promise.all([roomPeople(supabase, userId), getBlockedUserIds(supabase, userId)]);
+  const roomed = new Set(rooms.filter((id) => !following.has(id) && !followers.has(id)));
+
+  const ids = [...new Set([...following, ...followers, ...roomed])].filter((id) => !blocked.has(id));
   if (ids.length === 0) return jsonSuccess({ people: [] });
 
   const { data: users } = await supabase
@@ -51,9 +57,11 @@ export async function GET() {
       username: (u.username as string) ?? "user",
       avatarUrl: (u.avatar_url as string) ?? null,
       mutual: following.has(u.id as string) && followers.has(u.id as string),
+      room: roomed.has(u.id as string),
     }))
     .sort((a, b) => {
       if (a.mutual !== b.mutual) return a.mutual ? -1 : 1;
+      if (a.room !== b.room) return a.room ? -1 : 1;
       return a.username.localeCompare(b.username);
     });
 

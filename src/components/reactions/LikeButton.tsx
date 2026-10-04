@@ -90,15 +90,17 @@ export default function LikeButton({
       type="button"
       onClick={toggle}
       disabled={loading || !initDone}
+      aria-label={count > 0 ? `Like, ${count}` : "Like"}
+      aria-pressed={liked}
       className={`inline-flex items-center ${sizeClass} ${padding} rounded-lg transition-all duration-200 ${
         liked
-          ? "text-red-400 bg-red-500/10 hover:bg-red-500/20"
-          : "text-surface-400 hover:text-surface-200 hover:bg-surface-800/50"
+          ? "text-danger bg-danger/10 hover:bg-danger/20"
+          : "text-ink-400 hover:text-ink-200 hover:bg-overlay/50"
       } disabled:opacity-50`}
     >
       <Heart
         className={`${iconSize} transition-all duration-200 ${
-          liked ? "fill-red-400 scale-110" : ""
+          liked ? "fill-danger scale-110" : ""
         }`}
       />
       {count > 0 && <span className="font-medium tabular-nums">{count}</span>}

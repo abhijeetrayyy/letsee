@@ -2,9 +2,18 @@
 
 import { useMemo, useState } from "react";
 import Link from "@components/ui/AppLink";
-import { Search, Users } from "lucide-react";
+import { Search } from "lucide-react";
+import Avatar from "@components/ui/Avatar";
 import { personPath } from "@/utils/urls";
 
+/**
+ * Everyone who made a title (docs/design/PAGES.md, credits): search, then
+ * chips by department with counts — Cast first — then one row per person.
+ *
+ * A person with several jobs in one department is one row ("Director,
+ * Writer"), not three. Series rows carry how many episodes each person was in,
+ * which is the number that tells a lead from a one-off.
+ */
 type CreditPerson = {
   id: number;
   name: string;
@@ -15,139 +24,149 @@ type CreditPerson = {
   episodeCount?: number;
 };
 
-type Tab = "cast" | "crew";
-const PAGE_SIZE = 60;
+type Row = { id: number; name: string; photo: string | null; role: string; episodes: number };
 
-function PersonRow({ person, tab }: { person: CreditPerson; tab: Tab }) {
-  const role = tab === "cast" ? person.character : person.job || person.department;
-  return (
-    <Link
-      href={personPath(person.id, person.name)}
-      className="group flex min-w-0 items-center gap-3 rounded-xl border border-surface-800/70 bg-surface-900/40 p-2.5 transition-colors hover:border-brand-500/40 hover:bg-surface-800/60"
-    >
-      <span className="flex size-14 shrink-0 overflow-hidden rounded-lg bg-surface-800">
-        {person.profile_path ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={`https://image.tmdb.org/t/p/w185${person.profile_path}`}
-            alt=""
-            loading="lazy"
-            className="size-full object-cover"
-          />
-        ) : (
-          <Users className="m-auto size-5 text-surface-600" />
-        )}
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold text-surface-100 group-hover:text-white">{person.name}</span>
-        {role && <span className="block truncate text-xs text-surface-400">{role}</span>}
-        {!!person.episodeCount && (
-          <span className="mt-0.5 block text-[11px] tabular-nums text-surface-500">
-            {person.episodeCount} episode{person.episodeCount === 1 ? "" : "s"}
-          </span>
-        )}
-      </span>
-    </Link>
-  );
+const PAGE = 60;
+
+/** Within a department, the jobs people look for come first; then by episodes, then as TMDB lists them. */
+const KEY_JOBS = ["Director", "Creator", "Showrunner", "Writer", "Screenplay", "Story", "Novel", "Executive Producer", "Producer", "Original Music Composer", "Director of Photography", "Editor"];
+const jobRank = (role: string) => {
+  const ranks = role.split(", ").map((r) => KEY_JOBS.indexOf(r)).filter((i) => i >= 0);
+  return ranks.length ? Math.min(...ranks) : KEY_JOBS.length;
+};
+
+function rowsFor(people: CreditPerson[], cast: boolean): Row[] {
+  const byId = new Map<number, Row & { roles: string[] }>();
+  for (const p of people) {
+    const role = (cast ? p.character : p.job || p.department)?.trim() || "";
+    const row = byId.get(p.id);
+    if (row) {
+      if (role && !row.roles.includes(role)) row.roles.push(role);
+      row.episodes = Math.max(row.episodes, p.episodeCount ?? 0);
+    } else {
+      byId.set(p.id, { id: p.id, name: p.name, photo: p.profile_path ?? null, role: "", roles: role ? [role] : [], episodes: p.episodeCount ?? 0 });
+    }
+  }
+  const rows = [...byId.values()].map(({ roles, ...r }) => ({ ...r, role: roles.join(", ") }));
+  if (cast) return rows;
+  return rows.map((r, i) => ({ r, i })).sort((a, b) => jobRank(a.r.role) - jobRank(b.r.role) || b.r.episodes - a.r.episodes || a.i - b.i).map(({ r }) => r);
 }
 
 export default function CreditsDirectory({ cast = [], crew = [] }: { cast?: CreditPerson[]; crew?: CreditPerson[] }) {
-  const [tab, setTab] = useState<Tab>(cast.length ? "cast" : "crew");
+  const groups = useMemo(() => {
+    const out: { key: string; label: string; rows: Row[] }[] = [];
+    if (cast.length) out.push({ key: "cast", label: "Cast", rows: rowsFor(cast, true) });
+    const departments = new Map<string, CreditPerson[]>();
+    for (const p of crew) {
+      const d = p.department || "Crew";
+      departments.set(d, [...(departments.get(d) ?? []), p]);
+    }
+    // Directing and Writing first: they're who people look for; the rest by size.
+    const order = (d: string) => (d === "Directing" ? 0 : d === "Writing" ? 1 : 2);
+    for (const [d, list] of [...departments.entries()].sort((a, b) => order(a[0]) - order(b[0]) || b[1].length - a[1].length)) {
+      out.push({ key: d, label: d, rows: rowsFor(list, false) });
+    }
+    return out;
+  }, [cast, crew]);
+
+  const [active, setActive] = useState(groups[0]?.key ?? "cast");
   const [query, setQuery] = useState("");
-  const [department, setDepartment] = useState("all");
-  const [visible, setVisible] = useState(PAGE_SIZE);
+  const [shown, setShown] = useState(PAGE);
 
-  const departments = useMemo(
-    () => Array.from(new Set(crew.map((person) => person.department).filter(Boolean) as string[])).sort(),
-    [crew],
-  );
+  const q = query.trim().toLowerCase();
+  // Searching looks across everyone, not just the open chip.
+  const rows = useMemo(() => {
+    if (!q) return groups.find((g) => g.key === active)?.rows ?? [];
+    const seen = new Set<string>();
+    return groups
+      .flatMap((g) => g.rows.map((r) => ({ ...r, role: g.key === "cast" ? r.role : r.role || g.label })))
+      .filter((r) => [r.name, r.role].some((v) => v.toLowerCase().includes(q)))
+      .filter((r) => {
+        const k = `${r.id}:${r.role}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+  }, [groups, active, q]);
+  const visible = rows.slice(0, shown);
 
-  const source = tab === "cast" ? cast : crew;
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return source.filter((person) => {
-      if (tab === "crew" && department !== "all" && person.department !== department) return false;
-      if (!needle) return true;
-      return [person.name, person.character, person.job, person.department]
-        .filter(Boolean)
-        .some((value) => value!.toLowerCase().includes(needle));
-    });
-  }, [department, query, source, tab]);
+  if (!groups.length) {
+    return <p className="mx-auto w-full max-w-app px-4 py-10 text-sm text-ink-500 sm:px-6">TMDB lists no credits for this yet.</p>;
+  }
+
+  const chip = (on: boolean) =>
+    `inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors ${
+      on ? "bg-action text-on-action" : "text-ink-300 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"
+    }`;
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
-      <div className="flex flex-col gap-4 border-b border-surface-800 pb-5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="flex gap-1 rounded-xl bg-surface-900 p-1" role="tablist" aria-label="Credit type">
-            {(["cast", "crew"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                aria-selected={tab === value}
-                onClick={() => { setTab(value); setVisible(PAGE_SIZE); }}
-                className={`min-h-10 rounded-lg px-4 text-sm font-medium transition-colors ${tab === value ? "bg-surface-700 text-white" : "text-surface-400 hover:text-white"}`}
-              >
-                {value === "cast" ? "Cast" : "Crew"} <span className="ml-1 text-surface-500">{value === "cast" ? cast.length : crew.length}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+    <section aria-label="Credits" className="mx-auto flex w-full max-w-app flex-col gap-4 px-4 pb-16 pt-6 sm:px-6">
+      <label className="relative block sm:max-w-sheet">
+        <span className="sr-only">Search the credits</span>
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500" aria-hidden />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setShown(PAGE);
+          }}
+          placeholder="Search by name or role"
+          className="h-11 w-full rounded-control bg-raised pl-9 pr-3 text-base text-ink-0 ring-1 ring-inset ring-line-input placeholder:text-ink-500 focus:outline-none focus:ring-focus"
+        />
+      </label>
 
-        <label className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-surface-700 bg-surface-900 px-3 focus-within:border-brand-500/50 sm:max-w-sm">
-          <Search className="size-4 shrink-0 text-surface-500" />
-          <span className="sr-only">Search credits</span>
-          <input
-            value={query}
-            onChange={(event) => { setQuery(event.target.value); setVisible(PAGE_SIZE); }}
-            placeholder={`Search ${tab} by name or role`}
-            className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-surface-600"
-          />
-        </label>
-      </div>
-
-      {tab === "crew" && departments.length > 1 && (
-        <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto pb-1" aria-label="Crew department">
-          {["all", ...departments].map((value) => (
+      {!q && groups.length > 1 && (
+        <nav aria-label="Departments" className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6">
+          {groups.map((g) => (
             <button
-              key={value}
+              key={g.key}
               type="button"
-              onClick={() => { setDepartment(value); setVisible(PAGE_SIZE); }}
-              className={`min-h-9 shrink-0 rounded-full border px-3 text-xs font-medium transition-colors ${department === value ? "border-brand-500/40 bg-brand-500/15 text-brand-300" : "border-surface-700 text-surface-400 hover:text-white"}`}
+              aria-pressed={active === g.key}
+              onClick={() => {
+                setActive(g.key);
+                setShown(PAGE);
+              }}
+              className={chip(active === g.key)}
             >
-              {value === "all" ? "All departments" : value}
+              {g.label}
+              <span className={`font-mono text-xs tabular-nums ${active === g.key ? "text-on-action" : "text-ink-500"}`}>{g.rows.length}</span>
             </button>
           ))}
-        </div>
+        </nav>
       )}
 
-      <div className="mt-5 flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-bold text-white">{tab === "cast" ? "Cast" : "Crew"}</h2>
-        <p className="text-xs tabular-nums text-surface-500">{filtered.length} result{filtered.length === 1 ? "" : "s"}</p>
-      </div>
+      {q && <p className="text-sm text-ink-500">{rows.length === 0 ? "Nobody in the credits matches that." : `${rows.length} ${rows.length === 1 ? "match" : "matches"}`}</p>}
 
-      {filtered.length ? (
-        <>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {filtered.slice(0, visible).map((person, index) => (
-              <PersonRow key={`${tab}-${person.id}-${person.job ?? person.character ?? index}`} person={person} tab={tab} />
-            ))}
-          </div>
-          {visible < filtered.length && (
-            <button
-              type="button"
-              onClick={() => setVisible((count) => count + PAGE_SIZE)}
-              className="mx-auto mt-7 block min-h-11 rounded-full border border-surface-700 bg-surface-900 px-5 text-sm font-medium text-surface-200 hover:border-brand-500/40 hover:text-white"
-            >
-              Show {Math.min(PAGE_SIZE, filtered.length - visible)} more
-            </button>
-          )}
-        </>
-      ) : (
-        <div className="mt-6 rounded-xl border border-dashed border-surface-700 px-5 py-12 text-center">
-          <p className="font-medium text-surface-300">No matching credits</p>
-          <p className="mt-1 text-sm text-surface-500">Try another name, role, or department.</p>
-        </div>
+      {visible.length > 0 && (
+        <ul className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
+          {visible.map((r) => (
+            <li key={`${r.id}:${r.role}`}>
+              <Link href={personPath(r.id, r.name)} className="flex min-h-14 items-center gap-3 border-b border-line py-2 transition-colors hover:bg-hover">
+                <Avatar src={r.photo ? `https://image.tmdb.org/t/p/w185${r.photo}` : null} name={r.name} size={40} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-ink-0">{r.name}</span>
+                  {r.role && <span className="block truncate text-sm text-ink-500">{r.role}</span>}
+                </span>
+                {r.episodes > 0 && (
+                  <span className="shrink-0 font-mono text-xs tabular-nums text-ink-500">
+                    {r.episodes} ep{r.episodes === 1 ? "" : "s"}
+                  </span>
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {rows.length > visible.length && (
+        <button
+          type="button"
+          onClick={() => setShown((n) => n + PAGE)}
+          className="inline-flex h-10 w-full items-center justify-center rounded-full text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0 sm:w-auto sm:self-center sm:px-6"
+        >
+          Showing {visible.length} of {rows.length} · More
+        </button>
       )}
     </section>
   );

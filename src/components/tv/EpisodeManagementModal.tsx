@@ -192,25 +192,25 @@ export default function EpisodeManagementModal({
       aria-label={`Episodes of ${showName}`}
     >
       <div
-        className="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-2xl border border-surface-700 bg-surface-900 shadow-2xl sm:rounded-2xl"
+        className="flex max-h-[92dvh] w-full max-w-sheet flex-col rounded-t-2xl border border-line-strong bg-raised shadow-2xl sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-surface-800 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-line px-4 py-3">
           <div className="min-w-0">
-            <h3 className="truncate text-base font-semibold text-white">{showName}</h3>
+            <h3 className="truncate text-base font-semibold text-ink-0">{showName}</h3>
             {/* The count is the state, so it is the subtitle rather than a
                 progress bar competing with the grid below. */}
-            <p className="mt-0.5 font-mono text-xs tabular-nums text-surface-500">
+            <p className="mt-0.5 font-mono text-xs tabular-nums text-ink-500">
               {loading ? "…" : `${totals.seen} of ${totals.total} episodes`}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {busy && <Loader2 className="size-4 animate-spin text-surface-500" aria-label="Saving" />}
+            {busy && <Loader2 className="size-4 animate-spin text-ink-500" aria-label="Saving" />}
             <button
               type="button"
               onClick={() => void close()}
               aria-label="Close"
-              className="rounded-lg p-1.5 text-surface-400 transition-colors hover:text-white"
+              className="rounded-lg p-1.5 text-ink-400 transition-colors hover:text-ink-0"
             >
               <X className="size-4" />
             </button>
@@ -221,11 +221,11 @@ export default function EpisodeManagementModal({
           {loading ? (
             <div className="space-y-3">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="h-14 animate-pulse rounded-xl bg-surface-800/60" />
+                <div key={i} className="h-14 animate-pulse rounded-xl bg-overlay/60" />
               ))}
             </div>
           ) : seasons.length === 0 ? (
-            <p className="py-8 text-center text-sm text-surface-500">No episodes listed for this show.</p>
+            <p className="py-8 text-center text-sm text-ink-500">No episodes listed for this show.</p>
           ) : (
             <div className="space-y-4">
               {seasons.map((s) => {
@@ -234,11 +234,11 @@ export default function EpisodeManagementModal({
                 return (
                   <div key={s.season_number}>
                     <div className="mb-1.5 flex items-baseline gap-2">
-                      <span className="font-mono text-[11px] tabular-nums text-surface-500">
+                      <span className="font-mono text-xs tabular-nums text-ink-500">
                         S{String(s.season_number).padStart(2, "0")}
                       </span>
-                      <span className="truncate text-sm text-surface-300">{s.name}</span>
-                      <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-surface-600">
+                      <span className="truncate text-sm text-ink-300">{s.name}</span>
+                      <span className="ml-auto shrink-0 font-mono text-xs tabular-nums text-ink-600">
                         {seen}/{s.episode_count}
                       </span>
                       {/* One button whose verb follows the state, rather than a
@@ -248,13 +248,13 @@ export default function EpisodeManagementModal({
                         type="button"
                         disabled={busy}
                         onClick={() => void apply(seasonEps(s), !full)}
-                        className="shrink-0 rounded-full border border-surface-700 px-2.5 py-1 text-[11px] text-surface-300 transition hover:border-surface-600 hover:text-white disabled:opacity-50"
+                        className="shrink-0 rounded-full border border-line-strong px-2.5 py-1 text-xs text-ink-300 transition hover:border-line-input hover:text-ink-0 disabled:opacity-50"
                       >
                         {full ? "Clear" : "Mark all"}
                       </button>
                     </div>
 
-                    <div className="flex flex-wrap gap-[3px]">
+                    <div className="flex flex-wrap gap-0.75">
                       {seasonEps(s).map((e) => {
                         const on = watched.has(key(e.season_number, e.episode_number));
                         return (
@@ -267,8 +267,8 @@ export default function EpisodeManagementModal({
                             title={`S${s.season_number}E${e.episode_number}${on ? " — watched" : ""} · double-click to catch up to here`}
                             aria-label={`Season ${s.season_number}, episode ${e.episode_number}${on ? ", watched" : ""}`}
                             aria-pressed={on}
-                            className={`size-4 rounded-[3px] transition-colors disabled:opacity-60 ${
-                              on ? "bg-brand-500 hover:bg-brand-400" : "bg-surface-700/70 hover:bg-surface-600"
+                            className={`size-4 rounded-xs transition-colors disabled:opacity-60 ${
+                              on ? "bg-action hover:bg-action-hover" : "bg-hover/70 hover:bg-active"
                             }`}
                           />
                         );
@@ -282,7 +282,7 @@ export default function EpisodeManagementModal({
         </div>
 
         {!loading && seasons.length > 0 && (
-          <div className="flex items-center gap-2 border-t border-surface-800 px-4 py-3">
+          <div className="flex items-center gap-2 border-t border-line px-4 py-3">
             <button
               type="button"
               disabled={busy}
@@ -294,7 +294,7 @@ export default function EpisodeManagementModal({
             <button
               type="button"
               onClick={() => void close()}
-              className="rounded-xl border border-surface-700 px-4 py-2.5 text-sm text-surface-300 transition hover:border-surface-600 hover:text-white"
+              className="rounded-xl border border-line-strong px-4 py-2.5 text-sm text-ink-300 transition hover:border-line-input hover:text-ink-0"
             >
               Done
             </button>

@@ -50,3 +50,9 @@ supabase/.temp/
 # this repository is public — a published audit is a published roadmap. Keep
 # them local until everything they name is closed.
 /docs/SYSTEM_AUDIT_*.md
+
+# design screenshots (scripts/design-screens.mjs)
+/.design-screens/
+
+# Claude Code session worktrees (each is its own checkout)
+/.claude/worktrees/

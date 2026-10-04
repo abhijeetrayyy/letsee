@@ -100,7 +100,7 @@ function ProviderChip({
       target="_blank"
       rel="noopener noreferrer"
       title={`${provider.provider_name} — open in ${regionPhrase}`}
-      className="group inline-flex items-center gap-2 rounded-xl border border-surface-700/50 bg-surface-900/60 py-1.5 pl-1.5 pr-3 transition-colors hover:border-brand-500/40 hover:bg-surface-800/70"
+      className="group inline-flex items-center gap-2 rounded-xl border border-line-strong/50 bg-raised/60 py-1.5 pl-1.5 pr-3 transition-colors hover:border-accent-strong/40 hover:bg-overlay/70"
     >
       {provider.logo_path ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -111,11 +111,11 @@ function ProviderChip({
           className="size-7 shrink-0 rounded-lg bg-white/5 object-contain"
         />
       ) : (
-        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-surface-800 text-[10px] font-semibold text-surface-400">
+        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-overlay text-xs font-semibold text-ink-400">
           {provider.provider_name.slice(0, 2).toUpperCase()}
         </span>
       )}
-      <span className="text-xs font-medium text-surface-300 transition-colors group-hover:text-white">
+      <span className="text-xs font-medium text-ink-300 transition-colors group-hover:text-ink-0">
         {provider.provider_name}
       </span>
     </a>
@@ -125,9 +125,16 @@ function ProviderChip({
 export default function Availability({
   mediaId,
   mediaType,
+  compact = false,
 }: {
   mediaId: number | string;
   mediaType: "movie" | "tv";
+  /**
+   * Phase 5, behind ui=v2: show what you can stream, and fold the rent and
+   * buy shops into one "more ways" line, so where-to-watch is a fact rather
+   * than a list (docs/design/PAGES.md §5).
+   */
+  compact?: boolean;
 }) {
   const { country, setCountry } = useCountry();
 
@@ -174,21 +181,21 @@ export default function Availability({
   }, [available, shownCountry]);
 
   const regionSwitcher = (
-    <label className="inline-flex items-center gap-1.5 text-[11px] text-surface-500">
+    <label className="inline-flex items-center gap-1.5 text-xs text-ink-500">
       Region
       <span className="relative inline-flex items-center">
         <select
           value={country}
           onChange={(event) => setCountry(event.target.value)}
-          className="appearance-none rounded-lg border border-surface-700/60 bg-surface-900/80 py-1 pl-2.5 pr-7 text-xs text-surface-300 transition-colors hover:border-surface-600 hover:text-surface-100"
+          className="appearance-none rounded-lg border border-line-strong/60 bg-raised/80 py-1 pl-2.5 pr-7 text-xs text-ink-300 transition-colors hover:border-line-input hover:text-ink-100"
         >
           {regionOptions.map((c) => (
-            <option key={c.code} value={c.code} className="bg-surface-900 text-surface-100">
+            <option key={c.code} value={c.code} className="bg-raised text-ink-100">
               {c.name}
             </option>
           ))}
         </select>
-        <ChevronDown className="pointer-events-none absolute right-1.5 size-3.5 text-surface-500" />
+        <ChevronDown className="pointer-events-none absolute right-1.5 size-3.5 text-ink-500" />
       </span>
     </label>
   );
@@ -196,10 +203,10 @@ export default function Availability({
   if (isLoading && !data) {
     return (
       <div className="card-accent animate-pulse rounded-2xl p-4 sm:p-5">
-        <div className="h-3 w-28 rounded bg-surface-800" />
+        <div className="h-3 w-28 rounded bg-overlay" />
         <div className="mt-5 flex gap-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-10 w-32 rounded-xl bg-surface-800" />
+            <div key={i} className="h-10 w-32 rounded-xl bg-overlay" />
           ))}
         </div>
       </div>
@@ -211,7 +218,7 @@ export default function Availability({
   if (error || !data) {
     return (
       <div className="card-accent rounded-2xl p-4 sm:p-5">
-        <p className="text-sm text-surface-400">
+        <p className="text-sm text-ink-400">
           The availability lookup for {inRegion(regionName(country))} did not come back. Reload to try
           again.
         </p>
@@ -231,11 +238,11 @@ export default function Availability({
 
   return (
     <div className="card-accent rounded-2xl p-4 sm:p-5">
-      <p className="inline-flex flex-wrap items-center gap-2 text-sm font-semibold text-surface-100">
-        <Globe className="size-4 text-brand-400" />
+      <p className="inline-flex flex-wrap items-center gap-2 text-sm font-semibold text-ink-100">
+        <Globe className="size-4 text-accent" />
         In {regionPhrase}
         {settling && (
-          <span className="text-xs font-normal text-surface-500">
+          <span className="text-xs font-normal text-ink-500">
             checking {inRegion(regionName(country))}…
           </span>
         )}
@@ -243,40 +250,56 @@ export default function Availability({
 
       {rows.length > 0 ? (
         <div
-          className={`mt-3 divide-y divide-surface-800/70 transition-opacity ${
+          className={`mt-3 divide-y divide-line/70 transition-opacity ${
             settling ? "opacity-50" : ""
           }`}
         >
-          {rows.map((row) => (
-            <div
-              key={row.key}
-              className="flex flex-col gap-2 py-3 first:pt-0 sm:flex-row sm:items-start sm:gap-4"
-            >
-              <span className="w-24 shrink-0 pt-2 text-[10px] uppercase tracking-wider text-surface-500">
-                {row.label}
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {row.providers.map((provider) => (
-                  <ProviderChip
-                    key={`${row.key}-${provider.provider_id}`}
-                    provider={provider}
-                    href={watchLink}
-                    regionPhrase={regionPhrase}
-                  />
-                ))}
+          {(() => {
+            const streaming = rows.filter((r) => r.key !== "rent" && r.key !== "buy");
+            const shops = rows.filter((r) => r.key === "rent" || r.key === "buy");
+            const folded = compact && streaming.length > 0 && shops.length > 0;
+            const renderRow = (row: (typeof rows)[number]) => (
+              <div
+                key={row.key}
+                className="flex flex-col gap-2 py-3 first:pt-0 sm:flex-row sm:items-start sm:gap-4"
+              >
+                <span className="w-24 shrink-0 pt-2 text-xs text-ink-500">{row.label}</span>
+                <div className="flex flex-wrap gap-2">
+                  {row.providers.map((provider) => (
+                    <ProviderChip
+                      key={`${row.key}-${provider.provider_id}`}
+                      provider={provider}
+                      href={watchLink}
+                      regionPhrase={regionPhrase}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+            if (!folded) return rows.map(renderRow);
+            const shopCount = new Set(shops.flatMap((r) => r.providers.map((p) => p.provider_id))).size;
+            return (
+              <>
+                {streaming.map(renderRow)}
+                <details className="group py-3">
+                  <summary className="cursor-pointer list-none text-sm text-ink-400 transition-colors hover:text-ink-0 [&::-webkit-details-marker]:hidden">
+                    {shopCount === 1 ? "1 more way to rent or buy" : `${shopCount} more ways to rent or buy`}
+                  </summary>
+                  <div className="mt-2 divide-y divide-line/70">{shops.map(renderRow)}</div>
+                </details>
+              </>
+            );
+          })()}
         </div>
       ) : (
         <div className={`mt-3 transition-opacity ${settling ? "opacity-50" : ""}`}>
-          <p className="text-sm text-surface-300">
+          <p className="text-sm text-ink-300">
             No service in {regionPhrase} streams, rents or sells this.
           </p>
 
           {elsewhere.all.length > 0 ? (
             <div className="mt-4">
-              <p className="text-xs text-surface-500">
+              <p className="text-xs text-ink-500">
                 {elsewhere.all.length === 1
                   ? "One region carries it:"
                   : `${elsewhere.all.length} other regions carry it:`}
@@ -287,20 +310,20 @@ export default function Availability({
                     key={c.code}
                     type="button"
                     onClick={() => setCountry(c.code)}
-                    className="rounded-lg border border-surface-700/50 bg-surface-900/60 px-3 py-1.5 text-xs text-surface-300 transition-colors hover:border-brand-500/40 hover:text-white"
+                    className="rounded-lg border border-line-strong/50 bg-raised/60 px-3 py-1.5 text-xs text-ink-300 transition-colors hover:border-accent-strong/40 hover:text-ink-0"
                   >
                     {regionName(c.code, c.name)}
                   </button>
                 ))}
               </div>
               {elsewhere.all.length > elsewhere.quick.length && (
-                <p className="mt-2 text-[11px] text-surface-600">
+                <p className="mt-2 text-xs text-ink-600">
                   The rest are in the region menu below.
                 </p>
               )}
             </div>
           ) : (
-            <p className="mt-2 text-xs text-surface-500">
+            <p className="mt-2 text-xs text-ink-500">
               TMDB has no provider listed for it in any region yet.
             </p>
           )}
@@ -310,13 +333,13 @@ export default function Availability({
       {/* The control sits under the answer rather than beside the heading: next
           to "In India" a menu reading "India" is the same word twice, and the
           region is a setting, not the headline. */}
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-surface-800/70 pt-3">
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line/70 pt-3">
         {rows.length > 0 && (
           <a
             href={watchLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-surface-400 transition-colors hover:text-brand-400"
+            className="inline-flex items-center gap-1.5 text-xs text-ink-400 transition-colors hover:text-accent"
           >
             Every option in {regionPhrase}
             <ExternalLink className="size-3" />
@@ -325,7 +348,7 @@ export default function Availability({
         <span className="ml-auto">{regionSwitcher}</span>
       </div>
 
-      <p className="mt-2 text-[10px] text-surface-600">Availability from JustWatch via TMDB</p>
+      <p className="mt-2 text-xs text-ink-600">Availability from JustWatch via TMDB</p>
     </div>
   );
 }

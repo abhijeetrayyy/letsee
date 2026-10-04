@@ -1,30 +1,20 @@
 "use client";
 
-import { formatStars } from "@/utils/ratingScale";
+import useSWRInfinite from "swr/infinite";
 import Link from "@components/ui/AppLink";
-import { useState } from "react";
-import useSWR from "swr";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { formatStars } from "@/utils/ratingScale";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { getPosterUrl } from "@/utils/imageUrl";
 import { reviewPath, titlePath } from "@/utils/urls";
 
-
-function detailHref(mediaType: string, id: string, title: string): string {
-  return titlePath(mediaType, Number(id), title);
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  } catch {
-    return "";
-  }
-}
+/**
+ * A person's reviews on their profile: what they wrote, newest first. Each is
+ * the poster, the title, the day and their stars, then the opening of their
+ * words in the voice — and the whole row opens the review's own page, where
+ * it can be replied to. Read through `/api/profile/public-reviews`, which
+ * returns only what the viewer may see.
+ */
+const LIMIT = 12;
 
 type ReviewItem = {
   id: number;
@@ -36,156 +26,94 @@ type ReviewItem = {
   score: number | null;
   public_review_text: string | null;
 };
+type Page = { data: ReviewItem[]; totalPages: number };
 
-export default function ReviewsSection({
-  userId,
-  isOwner = false,
-}: {
-  userId: string;
-  isOwner?: boolean;
-}) {
-  const [page, setPage] = useState(1);
+function day(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
 
-  const { data, error, isLoading, mutate } = useSWR<{ data: ReviewItem[]; totalPages: number }>(
-    `/api/profile/public-reviews?userId=${encodeURIComponent(userId)}&page=${page}&limit=12`,
+export default function ReviewsSection({ userId, isOwner = false }: { userId: string; isOwner?: boolean }) {
+  const { data, error, size, setSize, isLoading, isValidating, mutate } = useSWRInfinite<Page>(
+    (index, previous) => {
+      if (previous && index >= previous.totalPages) return null;
+      return `/api/profile/public-reviews?userId=${encodeURIComponent(userId)}&page=${index + 1}&limit=${LIMIT}`;
+    },
     swrFetcher,
+    { revalidateOnFocus: false },
   );
-  const items = data?.data ?? [];
-  const totalPages = data?.totalPages ?? 1;
-  const loading = isLoading;
+  const items = (data ?? []).flatMap((p) => p.data);
+  const totalPages = data?.[0]?.totalPages ?? 1;
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="rounded-xl border border-surface-700/60 bg-surface-900/40 p-6 flex flex-col items-center justify-center gap-3 min-h-[200px]">
-        <LoadingSpinner size="md" className="border-t-white shrink-0" />
-        <p className="text-sm text-surface-500 animate-pulse">Loading reviews…</p>
+      <div className="flex flex-col" aria-hidden>
+        {[0, 1].map((i) => (
+          <div key={i} className="flex gap-3 border-b border-line py-3">
+            <div className="h-18 w-12 rounded-media bg-raised" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-1/2 rounded bg-raised" />
+              <div className="h-3 w-full rounded bg-raised" />
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
-
   if (error) {
     return (
-      <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-12 text-center flex flex-col items-center gap-3">
-        <p className="text-sm text-red-300">Couldn’t load reviews.</p>
-        <button
-          onClick={() => mutate()}
-          className="text-xs px-3 py-1.5 rounded-full border border-red-500/30 text-red-300 hover:bg-red-500/10 transition-colors"
-        >
-          Retry
+      <p className="text-sm text-ink-400">
+        Reviews didn&apos;t load.{" "}
+        <button type="button" onClick={() => void mutate()} className="font-medium text-ink-0 underline decoration-line-input underline-offset-4">
+          Try again
         </button>
-      </div>
+      </p>
     );
   }
-
-  if (items.length === 0) {
-    return (
-      <div className="rounded-xl border border-surface-700/60 bg-surface-900/50 p-12 text-center">
-        <div className="text-4xl mb-4">✍️</div>
-        <p className="text-surface-400 text-sm">
-          {isOwner
-            ? "No reviews yet. Write a review on any movie or TV page to see it here."
-            : "No reviews yet."}
-        </p>
-      </div>
-    );
+  if (!items.length) {
+    return <p className="text-sm text-ink-500">{isOwner ? "Nothing written yet. Write about anything you've logged and it shows up here." : "Nothing written yet."}</p>;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Reviews Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {items.map((item) => {
-          const href = detailHref(item.item_type, item.item_id, item.item_name);
-          const posterUrl = getPosterUrl(item.image_url, "w185");
-
+    <div className="flex flex-col gap-4">
+      <ul className="flex flex-col">
+        {items.map((r) => {
+          const stars = formatStars(r.score);
           return (
-            <div
-              key={item.id}
-              className="group flex gap-4 p-4 rounded-xl border border-surface-700/60 bg-surface-900/40 hover:border-surface-500/60 transition-all duration-300"
-            >
-              {/* Poster */}
-              <Link href={href} className="shrink-0 w-24 aspect-[2/3] rounded-lg overflow-hidden">
-                <img loading="lazy" decoding="async"
-                  src={posterUrl}
-                  alt={item.item_name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-              </Link>
-
-              {/* Content */}
-              <div className="flex-1 min-w-0 flex flex-col gap-2">
-                <div>
-                  <Link
-                    href={href}
-                    className="text-base font-semibold text-surface-100 hover:text-brand-400 transition-colors line-clamp-1"
-                  >
-                    {item.item_name}
-                  </Link>
-                  <p className="text-xs text-surface-500 mt-0.5">
-                    {item.item_type === "tv" ? "TV Series" : "Movie"} · {formatDate(item.watched_at)}
-                  </p>
-                </div>
-
-                {/* Rating */}
-                {item.score != null && (
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: 10 }, (_, i) => (
-                      <span
-                        key={i}
-                        className={`text-sm ${
-                          i < item.score! ? "text-accent-gold" : "text-surface-700"
-                        }`}
-                      >
-                        ★
+            <li key={r.id} className="border-b border-line last:border-b-0">
+              <div className="flex gap-3 py-3">
+                <Link href={titlePath(r.item_type, Number(r.item_id), r.item_name)} aria-label={`Open ${r.item_name}`} className="shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={getPosterUrl(r.image_url, "w92")} alt="" loading="lazy" className="aspect-2/3 w-12 rounded-media object-cover ring-1 ring-inset ring-line" />
+                </Link>
+                <Link href={reviewPath(r.id, r.item_name)} className="group min-w-0 flex-1">
+                  <span className="flex items-baseline justify-between gap-3">
+                    <span className="truncate font-display text-lg text-ink-0 group-hover:underline group-hover:decoration-line-input group-hover:underline-offset-4">{r.item_name}</span>
+                    {stars && (
+                      <span className="shrink-0 font-mono text-sm tabular-nums text-ink-0" aria-label={`${stars} stars`}>
+                        ★ {stars}
                       </span>
-                    ))}
-                    <span className="text-xs text-surface-400 ml-1">
-                      {formatStars(item.score)}
-                    </span>
-                  </div>
-                )}
-
-                {/* Review Text */}
-                {item.public_review_text && (
-                  <p className="text-sm text-surface-300 leading-relaxed line-clamp-4">
-                    {item.public_review_text}
-                  </p>
-                )}
-
-                {/* The review's own page — where it can be replied to. */}
-                <Link
-                  href={reviewPath(item.id, item.item_name)}
-                  className="text-xs text-brand-400 hover:text-brand-300 transition-colors mt-auto"
-                >
-                  Read &amp; discuss →
+                    )}
+                  </span>
+                  <span className="block font-mono text-xs uppercase tracking-wide text-ink-500">
+                    {r.item_type === "tv" ? "Series" : "Film"} · {day(r.watched_at)}
+                  </span>
+                  {r.public_review_text && <span className="mt-2 line-clamp-4 block font-display text-base leading-snug text-ink-300">{r.public_review_text}</span>}
                 </Link>
               </div>
-            </div>
+            </li>
           );
         })}
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-surface-800 text-surface-200 hover:bg-surface-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Previous
-          </button>
-          <span className="text-sm text-surface-400">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-surface-800 text-surface-200 hover:bg-surface-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Next
-          </button>
-        </div>
+      </ul>
+      {size < totalPages && (
+        <button
+          type="button"
+          onClick={() => void setSize(size + 1)}
+          disabled={isValidating}
+          className="inline-flex h-10 w-full items-center justify-center rounded-full text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0 disabled:opacity-60"
+        >
+          {isValidating ? "Loading…" : "Earlier"}
+        </button>
       )}
     </div>
   );

@@ -3,6 +3,8 @@
 import Link from "@components/ui/AppLink";
 import { ExternalLink, Info } from "lucide-react";
 import { personPath } from "@/utils/urls";
+// Shared with the at-a-glance tiles, so a figure reads the same in both places.
+import { formatMoney, LANGUAGE_NAMES } from "@/utils/title/glance";
 import EntityLinks from "@components/detail/EntityLinks";
 import { buildBrowseUrl, type BrowseType } from "@/utils/browseUrl";
 import { formatLongDate, parseTmdbDate, toIso } from "@/utils/person/dates";
@@ -55,29 +57,6 @@ export type Fact = {
   hintHref?: string;
 };
 
-/** TMDB always sends money in USD, verified against films priced in rupees:
- *  RRR is 69,000,000, not the 5,500,000,000 its ₹550cr budget would give. */
-function formatMoney(amount?: number | null): string | null {
-  if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) return null;
-
-  // A fixed locale, not the runtime's. This renders on the server and again in
-  // the browser, and the two can disagree about digit grouping — which React
-  // reports as a hydration mismatch on a page that is otherwise static.
-  const scaled = (value: number, suffix: string) => {
-    const rounded = value >= 10 ? Math.round(value) : Math.round(value * 10) / 10;
-    return `$${rounded.toLocaleString("en-US")}${suffix}`;
-  };
-
-  // The units matter more than they look. `(revenue / 1e6).toFixed(0)` — what
-  // this page did before — prints "$0M" for anything under half a million, and
-  // measured across 95 films three of them had exactly that: a real box-office
-  // number rendered as zero.
-  if (amount >= 1_000_000_000) return scaled(amount / 1_000_000_000, "B");
-  if (amount >= 1_000_000) return scaled(amount / 1_000_000, "M");
-  if (amount >= 1_000) return scaled(amount / 1_000, "K");
-  return `$${Math.round(amount).toLocaleString("en-US")}`;
-}
-
 export function formatRuntime(minutes?: number | null): string | null {
   if (typeof minutes !== "number" || minutes <= 0) return null;
   const hours = Math.floor(minutes / 60);
@@ -85,19 +64,6 @@ export function formatRuntime(minutes?: number | null): string | null {
   if (hours === 0) return `${rest}m`;
   return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
 }
-
-/**
- * Only ever a fallback. `spoken_languages` carries `english_name` and was
- * populated on 95 of 95 films sampled, so this covers the rows where TMDB has a
- * language code and nothing else. Both detail clients keep a private nine-entry
- * copy of this map; those become dead once they render facts from here.
- */
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: "English", hi: "Hindi", ta: "Tamil", te: "Telugu", ml: "Malayalam",
-  kn: "Kannada", bn: "Bengali", mr: "Marathi", pa: "Punjabi", ur: "Urdu",
-  ja: "Japanese", ko: "Korean", zh: "Chinese", es: "Spanish", fr: "French",
-  de: "German", it: "Italian", pt: "Portuguese", ru: "Russian", ar: "Arabic",
-};
 
 /** TMDB spells these out in full, and the full spelling is nobody's answer to
  *  "where is this from". */
@@ -155,7 +121,7 @@ function dateFact(key: string, label: string, value: string | null | undefined, 
   const href = buildBrowseUrl({ type, decade: String(decade) });
   // `buildBrowseUrl` validates a decade against its own bounds and silently
   // drops one it won't accept — a future decade, or anything before 1870. What
-  // is left is bare `/app/browse`, so the check is for a link that would go
+  // is left is unfiltered browse, so the check is for a link that would go
   // somewhere other than where its label claims.
   const decadeLinked = href.includes("decade=");
 
@@ -224,7 +190,7 @@ function countryFact(names?: string[], countries?: { name?: string }[]): Fact | 
     key: "country",
     label: shown.length > 1 ? "Countries" : "Country",
     text: shown.join(", "),
-    // No `country` facet exists on /app/browse, so this one stays text. A link
+    // No `country` facet exists in browse, so this one stays text. A link
     // is only worth writing when it lands somewhere.
     hint: resolved.length > shown.length ? `+${resolved.length - shown.length} more` : undefined,
   };
@@ -444,14 +410,14 @@ function FactRow({ fact, stacked = false }: { fact: Fact; stacked?: boolean }) {
      * the same value gets the full width and takes two.
      */
     <div className={stacked ? "py-2" : "grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-4 py-2 sm:grid-cols-[8rem_minmax(0,1fr)]"}>
-      <dt className={`text-[10px] uppercase tracking-wider text-surface-500 ${stacked ? "" : "pt-0.5"}`}>{fact.label}</dt>
-      <dd className={`min-w-0 text-sm text-surface-300 ${stacked ? "mt-0.5" : ""}`}>
+      <dt className={`text-xs uppercase tracking-wider text-ink-500 ${stacked ? "" : "pt-0.5"}`}>{fact.label}</dt>
+      <dd className={`min-w-0 text-sm text-ink-300 ${stacked ? "mt-0.5" : ""}`}>
         {links.length > 0 ? (
           // Three, not four. Anime series routinely list every regional
           // broadcaster that carried them — *Frieren* returns 29 networks, and
           // seven production companies is ordinary rather than exceptional. The
           // row is a summary with a door in it, not the list.
-          <EntityLinks items={links} href={(item) => hrefs.get(item.id) || "/app/browse"} max={3} />
+          <EntityLinks items={links} href={(item) => hrefs.get(item.id) || buildBrowseUrl({})} max={3} />
         ) : fact.iso ? (
           <time dateTime={fact.iso}>{fact.text}</time>
         ) : (
@@ -465,7 +431,7 @@ function FactRow({ fact, stacked = false }: { fact: Fact; stacked?: boolean }) {
                 href={l.href}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="inline-flex items-center gap-1 transition-colors hover:text-brand-400"
+                className="inline-flex items-center gap-1 transition-colors hover:text-accent"
               >
                 {l.label}
                 <ExternalLink className="size-3 opacity-60" aria-hidden />
@@ -474,10 +440,10 @@ function FactRow({ fact, stacked = false }: { fact: Fact; stacked?: boolean }) {
           </span>
         )}
         {fact.hint && (
-          <span className="text-surface-500">
+          <span className="text-ink-500">
             {" · "}
             {fact.hintHref ? (
-              <Link href={fact.hintHref} className="transition-colors hover:text-brand-400">
+              <Link href={fact.hintHref} className="transition-colors hover:text-accent">
                 {fact.hint}
               </Link>
             ) : (
@@ -486,7 +452,7 @@ function FactRow({ fact, stacked = false }: { fact: Fact; stacked?: boolean }) {
           </span>
         )}
         {fact.badge && (
-          <span className="ml-2 inline-block rounded-md bg-surface-800/80 px-1.5 py-0.5 align-middle text-xs font-medium tabular-nums text-surface-200">
+          <span className="ml-2 inline-block rounded-md bg-overlay/80 px-1.5 py-0.5 align-middle text-xs font-medium tabular-nums text-ink-200">
             {fact.badge}
           </span>
         )}
@@ -515,7 +481,7 @@ export default function TitleFacts({
   if (facts.length === 0) return null;
 
   const list = (
-    <dl className="divide-y divide-surface-800/40">
+    <dl className="divide-y divide-line/40">
       {facts.map((fact) => (
         <FactRow key={fact.key} fact={fact} />
       ))}
@@ -541,7 +507,7 @@ export default function TitleFacts({
   if (variant === "grid") {
     return (
       <dl
-        className={`grid grid-cols-1 gap-x-8 sm:grid-cols-2 xl:grid-cols-3 [&>div]:border-b [&>div]:border-surface-800/40 ${className}`}
+        className={`grid grid-cols-1 gap-x-8 sm:grid-cols-2 xl:grid-cols-3 [&>div]:border-b [&>div]:border-line/40 ${className}`}
       >
         {facts.map((fact) => (
           <FactRow key={fact.key} fact={fact} stacked />
@@ -553,12 +519,12 @@ export default function TitleFacts({
   if (variant === "hero") {
     // Capped rather than full-bleed: a two-word value on a 1400px row leaves the
     // label marooned at the far left of the screen.
-    return <div className={`mt-6 max-w-xl ${className}`}>{list}</div>;
+    return <div className={`mt-6 max-w-sheet ${className}`}>{list}</div>;
   }
 
   return (
-    <div className={`rounded-xl border border-surface-800/50 bg-surface-900/30 p-4 ${className}`}>
-      <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
+    <div className={`rounded-xl border border-line/50 bg-raised/30 p-4 ${className}`}>
+      <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
         <Info className="size-3.5" /> {title}
       </h3>
       {list}

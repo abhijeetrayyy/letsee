@@ -9,12 +9,12 @@ export default function SkeletonCard({
   variant = "poster",
   className = "",
 }: SkeletonCardProps) {
-  const base = "animate-pulse bg-surface-800 rounded-xl";
+  const base = "animate-pulse bg-overlay rounded-xl";
 
   if (variant === "poster") {
     return (
       <div className={`flex flex-col gap-3 ${className}`}>
-        <div className={`${base} w-full aspect-[2/3] rounded-2xl`} />
+        <div className={`${base} w-full aspect-2/3 rounded-2xl`} />
         <div className="px-1 space-y-2">
           <div className={`${base} h-4 w-3/4 rounded`} />
           <div className={`${base} h-3 w-1/2 rounded`} />

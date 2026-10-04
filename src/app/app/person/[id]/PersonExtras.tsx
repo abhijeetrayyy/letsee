@@ -58,7 +58,7 @@ export default async function PersonExtras({
       <Collaborators onScreen={onScreen} behind={behind} showOnScreen={showOnScreen} />
       {videos.length >= 3 && (
         <section>
-          <h2 className="mb-4 text-xl font-bold text-white">Trailers from their work</h2>
+          <h2 className="mb-4 text-xl font-medium text-ink-0">Trailers from their work</h2>
           <VideoShelf videos={videos} />
         </section>
       )}

@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import RelatedStream from "@components/detail/RelatedStream";
 import { seriesCast } from "@/utils/title/tvCast";
 import { seriesCrew } from "@/utils/title/tvCrew";
+import { getSeriesPeople } from "@/utils/title/seriesPeople";
 import { Countrydata } from "@/staticData/countryName";
 import { parseRouteId } from "@/utils/urls";
 import { pickLogoEntry } from "@/utils/title/logo";
@@ -14,6 +15,7 @@ import { titlePath } from "@/utils/urls";
 import JsonLd from "@components/seo/JsonLd";
 import { tvSeriesLd, breadcrumbLd } from "@/utils/structuredData";
 import { shareImage } from "@/utils/shareImage";
+import { seriesRuntime } from "@/utils/title/seriesRuntime";
 
 /** Impersonal HTML; see the movie page for why this is cached. */
 /**
@@ -52,7 +54,7 @@ type PageProps = { params: Promise<{ id: string }> };
 
 
 /**
- * Ten appended keys, well inside the twenty-remote-call cap append_to_response
+ * Nine appended keys, well inside the twenty-remote-call cap append_to_response
  * enforces with a 400.
  *
  * `external_ids` is back on this list, and the round trip is worth recording.
@@ -66,13 +68,16 @@ type PageProps = { params: Promise<{ id: string }> };
  * fetches them itself, keyed on the reader's region so switching regions
  * actually changes the answer.
  *
- * `aggregate_credits` is the one key that earns its cost twice over: a series'
- * `credits.cast` is a stub, eight people for Breaking Bad against 348 here.
+ * `aggregate_credits` is not on it, though the page needs it more than any
+ * key here — a series' `credits.cast` is a stub, eight people for Breaking
+ * Bad against 348 there. It is also 2.6MB of SVU's 2.7MB, which put this
+ * response over Next's 2MB data-cache limit, so it is fetched and reduced on
+ * its own in `getPeople`. Without it the largest show measured is 125KB.
  * `images` carries the logo artwork the hero prints as its heading.
  */
 async function getShow(id: string) {
   return tmdbFetchJson<any>(
-    `https://api.themoviedb.org/3/tv/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=credits,videos,images,recommendations,similar,keywords,content_ratings,aggregate_credits,reviews,external_ids`,
+    `https://api.themoviedb.org/3/tv/${id}?append_to_response=credits,videos,images,recommendations,similar,keywords,content_ratings,reviews,external_ids`,
     "TV detail",
     {
       // Six hours, not a day: a running series carries `next_episode_to_air`,
@@ -82,6 +87,11 @@ async function getShow(id: string) {
       revalidate: 21600,
     }
   );
+}
+
+/** Twenty cast and eight crew per department, on the same six hours as `getShow`. */
+async function getPeople(id: string) {
+  return getSeriesPeople(id, { castLimit: 20, crewPerDepartment: 8, revalidate: 21600 });
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -126,11 +136,11 @@ export default async function TvPage({ params }: PageProps) {
   const numericId = parseRouteId(id);
   if (!numericId) return notFound();
 
-  const result = await getShow(numericId);
+  const [result, people] = await Promise.all([getShow(numericId), getPeople(numericId)]);
   const show = result.data;
   if (!show) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-surface-950 text-surface-300 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-page text-ink-300 p-4">
         <p>TV show data unavailable. Try refreshing.</p>
       </div>
     );
@@ -139,13 +149,13 @@ export default async function TvPage({ params }: PageProps) {
   const credits = show.credits ?? { cast: [], crew: [] };
   // Series-level `credits.cast` is a stub — 8 people for Breaking Bad against
   // 348 in aggregate_credits, with no notion of how much of the show anyone is
-  // actually in. Reduced to 20 here so the 143KB payload never reaches the
-  // browser.
-  const cast = seriesCast(show.aggregate_credits, credits.cast);
+  // actually in. `getPeople` has already reduced that to 20; the stub is only
+  // for a show TMDB holds no aggregate for, or a failed fetch.
+  const cast = people.data?.cast.length ? people.data.cast : seriesCast(undefined, credits.cast);
   // `credits.crew` is the same stub — zero rows on Grey's Anatomy against 247
   // in aggregate_credits, which is why the Crew section used to be missing
   // entirely on the longest-running show tested.
-  const crew = seriesCrew(show.aggregate_credits, credits.crew);
+  const crew = people.data?.crew.length ? people.data.crew : seriesCrew(undefined, credits.crew);
   const videos = show.videos?.results ?? [];
   // Same trim as the movie page: MediaGallery reads `file_path` and nothing
   // else, and TMDB ships seven other fields per image.
@@ -165,13 +175,19 @@ export default async function TvPage({ params }: PageProps) {
   const trailer = videos.find((v: any) => v.type === "Trailer" && v.site === "YouTube")
     ?? videos.find((v: any) => v.site === "YouTube");
 
+  // "49 hours to watch it all": every aired episode's own runtime, from the
+  // season payloads the season browser already caches. See seriesRuntime.
+  const lastAired = show.last_episode_to_air
+    ? { s: show.last_episode_to_air.season_number, e: show.last_episode_to_air.episode_number }
+    : null;
+  const runtimes = await seriesRuntime(String(numericId), seasons, lastAired);
+
   /**
    * Every appended blob is already extracted into a prop of its own above, so
-   * shipping the raw object to the browser sends each of them a second time —
-   * and `aggregate_credits` alone is 348 people the client has no use for once
-   * `seriesCast` has ranked twenty of them. Only `images.logos` survives the
-   * trim, because the hero reads it; backdrops and posters travel as their own
-   * props and would otherwise be duplicated too.
+   * shipping the raw object to the browser sends each of them a second time.
+   * Only `images.logos` survives the trim, because the hero reads it; backdrops
+   * and posters travel as their own props and would otherwise be duplicated
+   * too.
    */
   const { images, ...base } = show;
   const showForClient = {
@@ -182,7 +198,6 @@ export default async function TvPage({ params }: PageProps) {
     similar: undefined,
     keywords: undefined,
     content_ratings: undefined,
-    aggregate_credits: undefined,
     reviews: undefined,
     // One logo, chosen here. TMDB returns every language's wordmark — 61 for
     // The Matrix — and the client used to receive all of them so `pickLogo`
@@ -211,12 +226,12 @@ export default async function TvPage({ params }: PageProps) {
         data={[
           tvSeriesLd(show),
           breadcrumbLd([
-            { name: "TV", path: "/app/browse?type=tv" },
+            { name: "Series", path: "/app/search?browse=1&type=tv" },
             { name: show.name, path: titlePath("tv", show.id, show.name) },
           ]),
         ]}
       />
-    <div className="bg-surface-950 min-h-screen">
+    <div className="bg-page min-h-screen">
       <TvDetailClient
         show={showForClient}
         credits={{ crew }}
@@ -231,15 +246,15 @@ export default async function TvPage({ params }: PageProps) {
         createdBy={createdBy}
         countryNames={countryNames}
         reviews={reviews}
+        runtimes={runtimes}
       />
 
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
-        {/* Streamed: getRelated is 2.1–5.4s cold and sits at the bottom
-            of the page. Nothing above it should wait. */}
-        <Suspense fallback={null}>
-          <RelatedStream {...relatedArgs} />
-        </Suspense>
-      </div>
+      {/* Streamed: getRelated is 2.1–5.4s cold and sits at the bottom
+          of the page. Nothing above it should wait. RelatedSection sets its
+          own width and gutter; wrapping it in another doubled both. */}
+      <Suspense fallback={null}>
+        <RelatedStream {...relatedArgs} />
+      </Suspense>
     </div>
     </>
   );

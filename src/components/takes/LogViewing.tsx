@@ -63,6 +63,7 @@ function companionsLine(v: Viewing): string {
 }
 
 export default function LogViewing({
+  withLogButton = true,
   itemId,
   itemType,
   itemName,
@@ -72,6 +73,8 @@ export default function LogViewing({
   onChange,
   onLogged,
 }: {
+  /** Off where the page already has Log it (the title action bar): this then lists your viewings only. */
+  withLogButton?: boolean;
   itemId: string;
   itemType: "movie" | "tv";
   itemName?: string;
@@ -186,28 +189,31 @@ export default function LogViewing({
 
   if (!viewerId) return null;
 
+  // Without its own button this is only the list of your viewings, so with none it says nothing.
+  if (!withLogButton && !open && !isLoading && !(viewings && viewings.length)) return null;
+
   return (
-    <div className="mb-3 rounded-2xl border border-surface-800 bg-surface-900/40 px-4 py-3">
+    <div className="mb-3 rounded-2xl border border-line bg-raised/40 px-4 py-3">
       {/* ── The line ─────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <CalendarDays className="size-4 shrink-0 text-surface-500" />
+        <CalendarDays className="size-4 shrink-0 text-ink-500" />
         {isLoading ? (
-          <span className="text-sm text-surface-500">…</span>
+          <span className="text-sm text-ink-500">…</span>
         ) : latest ? (
-          <span className="text-sm text-surface-200">
+          <span className="text-sm text-ink-200">
             {summary}
             {viewings && viewings.length > 1 && (
-              <span className="text-surface-500"> · {viewings.length} viewings</span>
+              <span className="text-ink-500"> · {viewings.length} viewings</span>
             )}
           </span>
         ) : (
-          <span className="text-sm text-surface-400">Not logged yet.</span>
+          <span className="text-sm text-ink-400">Not logged yet.</span>
         )}
-        {!open && (
+        {!open && withLogButton && (
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-surface-700 px-3 py-1.5 text-xs text-surface-300 transition hover:border-surface-600 hover:text-white"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-line-strong px-3 py-1.5 text-xs text-ink-300 transition hover:border-line-input hover:text-ink-0"
           >
             <Plus className="size-3" /> {latest ? "Log again" : "Log a viewing"}
           </button>
@@ -216,16 +222,16 @@ export default function LogViewing({
 
       {/* ── Every viewing, when there is more than one ───────────────── */}
       {viewings && viewings.length > 1 && !open && (
-        <ul className="mt-2 space-y-1 border-t border-surface-800 pt-2">
+        <ul className="mt-2 space-y-1 border-t border-line pt-2">
           {viewings.map((v) => (
-            <li key={v.id} className="flex items-center gap-2 text-xs text-surface-400">
-              <span className="w-20 shrink-0 tabular-nums text-surface-300">{shortDate(v.watchedOn)}</span>
+            <li key={v.id} className="flex items-center gap-2 text-xs text-ink-400">
+              <span className="w-20 shrink-0 tabular-nums text-ink-300">{shortDate(v.watchedOn)}</span>
               <span>{v.rewatch ? "rewatch" : "first time"}</span>
-              <span className="text-surface-600">·</span>
+              <span className="text-ink-600">·</span>
               <span>{placeLabel(v.place)}</span>
               {companionsLine(v) && (
                 <>
-                  <span className="text-surface-600">·</span>
+                  <span className="text-ink-600">·</span>
                   <span>{companionsLine(v)}</span>
                 </>
               )}
@@ -233,7 +239,7 @@ export default function LogViewing({
                 type="button"
                 onClick={() => remove(v.id)}
                 aria-label="Remove this viewing"
-                className="ml-auto rounded-full p-1 text-surface-600 transition hover:text-red-400"
+                className="ml-auto rounded-full p-1 text-ink-600 transition hover:text-danger"
               >
                 <X className="size-3" />
               </button>
@@ -244,16 +250,16 @@ export default function LogViewing({
 
       {/* ── The form ─────────────────────────────────────────────────── */}
       {open && (
-        <div className="mt-3 space-y-3 border-t border-surface-800 pt-3">
+        <div className="mt-3 space-y-3 border-t border-line pt-3">
           <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 text-xs text-surface-400">
+            <label className="flex items-center gap-2 text-xs text-ink-400">
               <span>When</span>
               <input
                 type="date"
                 value={date}
                 max={todayIso()}
                 onChange={(e) => setDate(e.target.value)}
-                className="rounded-lg border border-surface-700 bg-surface-950 px-2 py-1.5 text-sm text-white focus:border-brand-500 focus:outline-none"
+                className="rounded-lg border border-line-strong bg-page px-2 py-1.5 text-sm text-ink-0 focus:border-accent-strong focus:outline-none"
               />
             </label>
             <div role="radiogroup" aria-label="Where" className="flex flex-wrap gap-1.5">
@@ -266,8 +272,8 @@ export default function LogViewing({
                   onClick={() => setPlace(p.value)}
                   className={`rounded-full border px-3 py-1.5 text-xs transition ${
                     place === p.value
-                      ? "border-brand-500/60 bg-brand-500/10 text-brand-300"
-                      : "border-surface-700 text-surface-400 hover:border-surface-600 hover:text-white"
+                      ? "border-accent-strong/60 bg-action/10 text-accent-soft"
+                      : "border-line-strong text-ink-400 hover:border-line-input hover:text-ink-0"
                   }`}
                 >
                   {p.label}
@@ -277,7 +283,7 @@ export default function LogViewing({
           </div>
 
           <div>
-            <div className="mb-1.5 flex items-center gap-2 text-xs text-surface-400">
+            <div className="mb-1.5 flex items-center gap-2 text-xs text-ink-400">
               <Users className="size-3.5" /> Who was there
             </div>
             <PersonPicker value={people} onChange={setPeople} />
@@ -288,7 +294,7 @@ export default function LogViewing({
               type="button"
               onClick={() => setOpen(false)}
               disabled={busy}
-              className="rounded-full px-3 py-1.5 text-xs text-surface-400 transition hover:text-white disabled:opacity-50"
+              className="rounded-full px-3 py-1.5 text-xs text-ink-400 transition hover:text-ink-0 disabled:opacity-50"
             >
               Cancel
             </button>

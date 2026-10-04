@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import MediaCard from "@components/cards/MediaCard";
+import TitleCard from "@components/ds/TitleCard";
 import SeenOf from "@components/ui/SeenOf";
 import type { Credit } from "@/utils/person/model";
 import { Search } from "lucide-react";
@@ -23,6 +23,12 @@ import { Search } from "lucide-react";
  * travel in straight lines, which is the whole point of scanning.
  *
  * Two lists, both always on screen — see the note on the sections below.
+ *
+ * Three across on a phone, not two. At two, each poster was 165px wide and
+ * Christopher Nolan's 28 behind-the-camera credits alone ran 5,100px — six
+ * screens of one section. At three a poster is about 105px: still a shape and
+ * a colour you recognise (Up next's Someday is the same size), at half the
+ * height.
  */
 
 /**
@@ -77,11 +83,9 @@ function CreditGrid({ credits, mode, primary }: { credits: Credit[]; mode: "scre
 
   return (
     <>
-      {/* Same column steps as "Known for", so poster size is constant down the
-          whole page rather than changing meaning section to section. */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
+      <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 sm:gap-4 lg:grid-cols-6 xl:grid-cols-8">
         {visible.map((c) => (
-          <MediaCard
+          <TitleCard
             key={c.key}
             id={c.id}
             title={c.title}
@@ -101,9 +105,9 @@ function CreditGrid({ credits, mode, primary }: { credits: Credit[]; mode: "scre
           ref={moreRef}
           type="button"
           onClick={() => setVisibleCount((count) => Math.min(count + PAGE_SIZE, credits.length))}
-          className="mx-auto mt-6 block rounded-full border border-surface-700 bg-surface-900 px-5 py-2 text-sm text-surface-300 transition-colors hover:border-brand-500/40 hover:text-white"
+          className="mx-auto mt-6 block rounded-full border border-line-strong bg-raised px-5 py-2 text-sm text-ink-300 transition-colors hover:border-accent-strong/40 hover:text-ink-0"
         >
-          Show more <span className="text-surface-500">({credits.length - visibleCount} left)</span>
+          Show more <span className="text-ink-500">({credits.length - visibleCount} left)</span>
         </button>
       )}
     </>
@@ -112,9 +116,9 @@ function CreditGrid({ credits, mode, primary }: { credits: Credit[]; mode: "scre
 
 function Heading({ title, count }: { title: string; count: number }) {
   return (
-    <h3 className="mb-4 flex items-baseline gap-2 text-lg font-semibold text-white">
+    <h3 className="mb-4 flex items-baseline gap-2 text-lg font-semibold text-ink-0">
       {title}
-      <span className="font-mono text-sm font-normal tabular-nums text-surface-500">{count}</span>
+      <span className="font-mono text-sm font-normal tabular-nums text-ink-500">{count}</span>
     </h3>
   );
 }
@@ -180,24 +184,26 @@ export default function PersonWork({
       {/* The bounded set: how much of this person's work you have seen. */}
       <SeenOf items={credits.filter((c) => c.mediaType === "movie" || c.mediaType === "tv").map((c) => ({ id: c.id, type: c.mediaType }))} noun="of their titles" className="mb-4" />
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-surface-800/70 bg-surface-900/40 p-3 sm:flex-row sm:items-center">
-        <label className="flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-surface-700 bg-surface-950/60 px-3 focus-within:border-brand-500/50">
-          <Search className="size-4 text-surface-500" />
+      <div className="flex flex-col gap-3 rounded-2xl border border-line/70 bg-raised/40 p-3 sm:flex-row sm:items-center">
+        <label className="flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-line-strong bg-page/60 px-3 focus-within:border-accent-strong/50 focus-within:ring-2 focus-within:ring-focus">
+          <Search className="size-4 text-ink-500" />
           <span className="sr-only">Search filmography</span>
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search titles or roles"
-            className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-surface-600"
+            className="min-w-0 flex-1 bg-transparent text-sm text-ink-0 focus:outline-none placeholder:text-ink-600"
           />
         </label>
-        <div className="flex gap-1 rounded-xl bg-surface-950/60 p-1" aria-label="Media type">
+        {/* Type and order share a line on a phone; the search above gets its own. */}
+        <div className="flex items-center gap-2">
+        <div className="flex gap-1 rounded-xl bg-page/60 p-1" aria-label="Media type">
           {(["all", "movie", "tv"] as const).map((value) => (
             <button
               key={value}
               type="button"
               onClick={() => setMediaType(value)}
-              className={`min-h-9 rounded-lg px-3 text-xs font-medium capitalize transition-colors ${mediaType === value ? "bg-surface-700 text-white" : "text-surface-400 hover:text-white"}`}
+              className={`min-h-9 rounded-lg px-3 text-xs font-medium capitalize transition-colors ${mediaType === value ? "bg-hover text-ink-0" : "text-ink-400 hover:text-ink-0"}`}
             >
               {value === "all" ? "All" : value === "tv" ? "TV" : "Movies"}
             </button>
@@ -207,19 +213,20 @@ export default function PersonWork({
           value={sort}
           onChange={(event) => setSort(event.target.value as "newest" | "popular")}
           aria-label="Sort filmography"
-          className="min-h-11 rounded-xl border border-surface-700 bg-surface-950/60 px-3 text-sm text-surface-200 outline-none focus:border-brand-500/50"
+          className="min-h-11 min-w-0 flex-1 rounded-xl border border-line-strong bg-page/60 px-3 text-sm text-ink-200 outline-none focus-visible:ring-2 focus-visible:ring-focus sm:flex-none"
         >
           <option value="newest">Newest first</option>
           <option value="popular">Most popular</option>
         </select>
+        </div>
       </div>
 
       {screenBlock || behindBlock ? (
         behindFirst ? [behindBlock, screenBlock] : [screenBlock, behindBlock]
       ) : (
-        <div className="rounded-xl border border-dashed border-surface-700 px-5 py-12 text-center">
-          <p className="font-medium text-surface-300">No matching credits</p>
-          <button type="button" onClick={() => { setQuery(""); setMediaType("all"); }} className="mt-2 text-sm text-brand-400 hover:text-brand-300">
+        <div className="rounded-xl border border-dashed border-line-strong px-5 py-12 text-center">
+          <p className="font-medium text-ink-300">No matching credits</p>
+          <button type="button" onClick={() => { setQuery(""); setMediaType("all"); }} className="mt-2 text-sm text-accent hover:text-accent-soft">
             Clear filters
           </button>
         </div>

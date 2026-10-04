@@ -1,10 +1,9 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
-import { fetchTmdb } from "@/utils/tmdbClient";
+import { fetchTmdb, tmdbConfigured } from "@/utils/tmdbClient";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
 
 type Candidate = {
   id: string;
@@ -25,7 +24,7 @@ type Candidate = {
  * without having to remember what you've already logged.
  */
 export async function GET(req: NextRequest) {
-  if (!TMDB_API_KEY) return jsonError("TMDB_API_KEY missing", 500);
+  if (!tmdbConfigured()) return jsonError("TMDB_READ_TOKEN is missing", 500);
 
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
@@ -41,14 +40,13 @@ export async function GET(req: NextRequest) {
 
   let url: string;
   if (query) {
-    url = `https://api.themoviedb.org/3/search/${type}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&page=${page}&include_adult=false`;
+    url = `https://api.themoviedb.org/3/search/${type}?query=${encodeURIComponent(query)}&page=${page}&include_adult=false`;
   } else if (source === "trending") {
-    url = `https://api.themoviedb.org/3/trending/${type}/week?api_key=${TMDB_API_KEY}&page=${page}`;
+    url = `https://api.themoviedb.org/3/trending/${type}/week?page=${page}`;
   } else {
     // discover gives us genre and decade filters that /popular can't.
     const sort = source === "top_rated" ? "vote_average.desc" : "popularity.desc";
     const params = new URLSearchParams({
-      api_key: TMDB_API_KEY,
       sort_by: sort,
       page: String(page),
       include_adult: "false",
@@ -135,7 +133,7 @@ async function getGenreMap(type: "movie" | "tv"): Promise<Map<number, string>> {
   try {
     // TMDB's genre list changes perhaps once a year. A day is still cautious.
     const res = await fetchTmdb(
-      `https://api.themoviedb.org/3/genre/${type}/list?api_key=${TMDB_API_KEY}`,
+      `https://api.themoviedb.org/3/genre/${type}/list`,
       { revalidate: 86400 },
     );
     if (res.ok) {

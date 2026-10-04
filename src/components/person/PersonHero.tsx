@@ -1,6 +1,4 @@
-import { User } from "lucide-react";
-import { FaInstagram, FaXTwitter, FaImdb } from "react-icons/fa6";
-import { HiOutlineGlobeAlt } from "react-icons/hi2";
+import { User, InstagramIcon, TwitterIcon, ClapperboardIcon, GlobeIcon } from "lucide-react";
 import type { PersonLife } from "@/utils/person/dates";
 
 /**
@@ -29,10 +27,10 @@ export default function PersonHero({
   posterWall: string[];
 }) {
   const links = [
-    externalIds?.instagram_id && { href: `https://instagram.com/${externalIds.instagram_id}`, Icon: FaInstagram, label: "Instagram" },
-    externalIds?.twitter_id && { href: `https://x.com/${externalIds.twitter_id}`, Icon: FaXTwitter, label: "X" },
-    externalIds?.imdb_id && { href: `https://www.imdb.com/name/${externalIds.imdb_id}`, Icon: FaImdb, label: "IMDb" },
-    externalIds?.homepage && { href: externalIds.homepage, Icon: HiOutlineGlobeAlt, label: "Website" },
+    externalIds?.instagram_id && { href: `https://instagram.com/${externalIds.instagram_id}`, Icon: InstagramIcon, label: "Instagram" },
+    externalIds?.twitter_id && { href: `https://x.com/${externalIds.twitter_id}`, Icon: TwitterIcon, label: "X" },
+    externalIds?.imdb_id && { href: `https://www.imdb.com/name/${externalIds.imdb_id}`, Icon: ClapperboardIcon, label: "IMDb" },
+    externalIds?.homepage && { href: externalIds.homepage, Icon: GlobeIcon, label: "Website" },
   ].filter(Boolean) as { href: string; Icon: React.ComponentType<{ className?: string }>; label: string }[];
 
   return (
@@ -55,8 +53,8 @@ export default function PersonHero({
       )}
 
       <div className="relative grid gap-6 sm:grid-cols-[200px_1fr]">
-        <div className="mx-auto w-32 shrink-0 sm:mx-0 sm:w-[200px]">
-          <div className="aspect-[2/3] overflow-hidden rounded-2xl bg-surface-800 ring-1 ring-surface-700/50">
+        <div className="mx-auto w-32 shrink-0 sm:mx-0 sm:w-50">
+          <div className="aspect-2/3 overflow-hidden rounded-2xl bg-overlay ring-1 ring-line-strong/50">
             {profilePath ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -68,17 +66,17 @@ export default function PersonHero({
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center">
-                <User className="size-10 text-surface-600" aria-hidden />
+                <User className="size-10 text-ink-600" aria-hidden />
               </div>
             )}
           </div>
         </div>
 
         <div className="min-w-0">
-          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-5xl">{name}</h1>
+          <h1 className="text-3xl font-medium tracking-tight text-ink-0 sm:text-5xl">{name}</h1>
 
-          {roleLine && <p className="mt-2 text-base text-brand-400">{roleLine}</p>}
-          {careerLine && <p className="mt-1 text-sm text-surface-400">{careerLine}</p>}
+          {roleLine && <p className="mt-2 text-base text-accent">{roleLine}</p>}
+          {careerLine && <p className="mt-1 text-sm text-ink-400">{careerLine}</p>}
 
           {life.hasAnything && (
             /* A real <dl>. The old markup was icons beside bare strings, which
@@ -86,29 +84,29 @@ export default function PersonHero({
             <dl className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm">
               {life.born && (
                 <div>
-                  <dt className="text-[11px] uppercase tracking-wider text-surface-500">Born</dt>
-                  <dd className="text-surface-200">
+                  <dt className="text-xs uppercase tracking-wider text-ink-500">Born</dt>
+                  <dd className="text-ink-200">
                     <time dateTime={life.born.iso}>{life.born.label}</time>
                     {/* The number people actually came for. */}
-                    {life.age != null && <span className="text-surface-400"> · {life.age}</span>}
+                    {life.age != null && <span className="text-ink-400"> · {life.age}</span>}
                   </dd>
                 </div>
               )}
               {life.died && (
                 <div>
-                  <dt className="text-[11px] uppercase tracking-wider text-surface-500">Died</dt>
-                  <dd className="text-surface-200">
+                  <dt className="text-xs uppercase tracking-wider text-ink-500">Died</dt>
+                  <dd className="text-ink-200">
                     <time dateTime={life.died.iso}>{life.died.label}</time>
                     {/* Age AT death — the current age of someone who has died
                         is not a smaller mistake than no age at all. */}
-                    {life.ageAtDeath != null && <span className="text-surface-400"> · aged {life.ageAtDeath}</span>}
+                    {life.ageAtDeath != null && <span className="text-ink-400"> · aged {life.ageAtDeath}</span>}
                   </dd>
                 </div>
               )}
               {life.place && (
                 <div className="min-w-0">
-                  <dt className="text-[11px] uppercase tracking-wider text-surface-500">From</dt>
-                  <dd className="truncate text-surface-200">{life.place}</dd>
+                  <dt className="text-xs uppercase tracking-wider text-ink-500">From</dt>
+                  <dd className="truncate text-ink-200">{life.place}</dd>
                 </div>
               )}
             </dl>
@@ -123,7 +121,7 @@ export default function PersonHero({
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className="rounded-full border border-surface-700 p-2 text-surface-300 transition hover:border-surface-600 hover:text-white"
+                  className="rounded-full border border-line-strong p-2 text-ink-300 transition hover:border-line-input hover:text-ink-0"
                 >
                   <Icon className="size-4" />
                 </a>

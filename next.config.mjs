@@ -133,7 +133,7 @@ const nextConfig = {
   },
 
   /**
-   * The genre routes became /app/browse.
+   * The genre routes became browse, which now lives inside Search.
    *
    * These URLs are in people's history and in the wild, and the ids carry over
    * unchanged — a genre id is a genre id — so a redirect costs one line and
@@ -147,16 +147,39 @@ const nextConfig = {
     return [
       {
         source: "/app/moviebygenre/list/:id(\\d+):rest(-.*)?",
-        destination: "/app/browse?genre=:id",
+        destination: "/app/search?browse=1&genre=:id",
         permanent: true,
       },
       {
         source: "/app/tvbygenre/list/:id(\\d+):rest(-.*)?",
-        destination: "/app/browse?type=tv&genre=:id",
+        destination: "/app/search?browse=1&type=tv&genre=:id",
         permanent: true,
       },
-      { source: "/app/moviebygenre/:path*", destination: "/app/browse", permanent: true },
-      { source: "/app/tvbygenre/:path*", destination: "/app/browse?type=tv", permanent: true },
+      { source: "/app/moviebygenre/:path*", destination: "/app/search?browse=1", permanent: true },
+      { source: "/app/tvbygenre/:path*", destination: "/app/search?browse=1&type=tv", permanent: true },
+
+      /**
+       * Pages the redesign folded into new homes (docs/design/PAGES.md §0).
+       * Temporary (307) for now, so a browser does not cache them forever
+       * while the new places settle; make them permanent once they have, and
+       * drop each after three months (EXECUTION.md phase 6).
+       */
+      { source: "/app/watchlist", destination: "/app/up-next", permanent: false },
+      { source: "/app/notification", destination: "/app/people", permanent: false },
+      { source: "/app/messages", destination: "/app/people", permanent: false },
+      // A thread was keyed by the other person's id; a room accepts that and settles on their name.
+      { source: "/app/messages/:id", destination: "/app/people/:id", permanent: false },
+      { source: "/app/search/:query", destination: "/app/search?q=:query", permanent: false },
+      { source: "/app/profile", destination: "/app/search?scope=people", permanent: false },
+      { source: "/app/person", destination: "/app/search?scope=people", permanent: false },
+      // Clubs became group rooms in People (migration 107).
+      { source: "/app/clubs", destination: "/app/people", permanent: false },
+      { source: "/app/clubs/:slug", destination: "/app/people/g/:slug", permanent: false },
+      // Browse moved inside Search; its query (genre, lang, keyword…) passes through untouched.
+      { source: "/app/browse", destination: "/app/search?browse=1", permanent: false },
+      // Settings is one page of sections (PAGES.md §7); your data is one of them.
+      { source: "/app/profile/setup", destination: "/app/settings", permanent: false },
+      { source: "/app/data", destination: "/app/settings#your-data", permanent: false },
     ];
   },
 };

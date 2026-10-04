@@ -115,15 +115,15 @@ export default function TitleDrawer({
       aria-label={query.label}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-t-2xl border border-surface-700 bg-surface-900 sm:rounded-2xl"
+        className="flex max-h-[85vh] w-full max-w-read flex-col rounded-t-2xl border border-line-strong bg-raised sm:rounded-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-surface-800 p-5">
+        <header className="flex items-start justify-between gap-4 border-b border-line p-5">
           <div className="min-w-0">
-            <h3 className="truncate text-base font-semibold text-surface-100">
+            <h3 className="truncate text-base font-semibold text-ink-100">
               {query.label}
             </h3>
-            <p className="mt-0.5 text-xs text-surface-400">
+            <p className="mt-0.5 text-xs text-ink-400">
               {loading ? "Loading…" : `${total} title${total === 1 ? "" : "s"}`}
             </p>
           </div>
@@ -132,7 +132,7 @@ export default function TitleDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-1.5 text-surface-400 transition-colors hover:bg-surface-800 hover:text-surface-100"
+            className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-overlay hover:text-ink-100"
           >
             <X className="size-4" />
           </button>
@@ -142,19 +142,19 @@ export default function TitleDrawer({
           {loading && (
             <div className="space-y-2 p-2">
               {Array.from({ length: 6 }, (_, i) => (
-                <div key={i} className="h-14 animate-pulse rounded-lg bg-surface-800/60" />
+                <div key={i} className="h-14 animate-pulse rounded-lg bg-overlay/60" />
               ))}
             </div>
           )}
 
           {!loading && error && (
-            <p className="p-8 text-center text-sm text-red-300">
+            <p className="p-8 text-center text-sm text-danger">
               Couldn&rsquo;t load these titles.
             </p>
           )}
 
           {!loading && !error && rows.length === 0 && (
-            <p className="p-8 text-center text-sm text-surface-500">
+            <p className="p-8 text-center text-sm text-ink-500">
               Nothing here.
             </p>
           )}
@@ -164,20 +164,20 @@ export default function TitleDrawer({
               <li key={`${row.item_type}:${row.item_id}`}>
                 <AppLink
                   href={titlePath(row.item_type, row.item_id, row.title)}
-                  className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-surface-800/60"
+                  className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-overlay/60"
                 >
                   <Image
                     src={getPosterUrl(row.image_url, "w92")}
                     alt=""
                     width={36}
                     height={54}
-                    className="h-[54px] w-9 shrink-0 rounded object-cover bg-surface-800"
+                    className="h-13.5 w-9 shrink-0 rounded object-cover bg-overlay"
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm text-surface-100">
+                    <span className="block truncate text-sm text-ink-100">
                       {row.title ?? "Untitled"}
                     </span>
-                    <span className="mt-0.5 block text-xs text-surface-500">
+                    <span className="mt-0.5 block text-xs text-ink-500">
                       {row.release_year ?? "—"} · {row.item_type === "tv" ? "TV" : "Film"}
                     </span>
                   </span>
@@ -187,7 +187,7 @@ export default function TitleDrawer({
                         <span className="block font-medium" style={{ color: SERIES.you }}>
                           {formatStars(row.your_score)}★
                         </span>
-                        <span className="block text-[10px] text-surface-600">you</span>
+                        <span className="block text-xs text-ink-600">you</span>
                       </span>
                     )}
                     {row.crowd_score != null && (
@@ -195,7 +195,7 @@ export default function TitleDrawer({
                         <span className="block font-medium" style={{ color: SERIES.crowd }}>
                           {row.crowd_score.toFixed(1)}
                         </span>
-                        <span className="block text-[10px] text-surface-600">TMDB</span>
+                        <span className="block text-xs text-ink-600">TMDB</span>
                       </span>
                     )}
                   </span>
@@ -209,7 +209,7 @@ export default function TitleDrawer({
               type="button"
               onClick={loadMore}
               disabled={loadingMore}
-              className="mt-2 w-full rounded-lg border border-surface-700 py-2.5 text-sm text-surface-300 transition-colors hover:border-surface-600 hover:text-surface-100 disabled:opacity-50"
+              className="mt-2 w-full rounded-lg border border-line-strong py-2.5 text-sm text-ink-300 transition-colors hover:border-line-input hover:text-ink-100 disabled:opacity-50"
             >
               {loadingMore ? "Loading…" : `Show more (${total - rows.length} left)`}
             </button>

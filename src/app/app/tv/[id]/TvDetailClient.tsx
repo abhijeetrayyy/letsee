@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Clock } from "lucide-react";
 import { releaseInfo } from "@/utils/releaseInfo";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
@@ -9,7 +9,8 @@ import type { MediaStatus } from "@/app/contextAPI/userPrefrence";
 import { Section, TitleHero } from "@components/detail/TitleChrome";
 import TitleIdentity, { tvIdentity } from "@components/detail/TitleIdentity";
 import ProgressRibbon from "@components/detail/ProgressRibbon";
-import NextEpisode from "@components/detail/NextEpisode";
+import { SeriesGlance } from "@components/detail/AtAGlance";
+import Trailer from "@components/detail/Trailer";
 import Availability from "@components/detail/Availability";
 import TitleTalk from "@components/takes/TitleTalk";
 import TheRoom from "@components/detail/TheRoom";
@@ -22,6 +23,7 @@ import MediaGallery from "@components/detail/MediaGallery";
 import TmdbReviews, { prepareReviews } from "@components/detail/TmdbReviews";
 import { tvFacts } from "@components/detail/TitleFacts";
 import TitleVitals from "@components/detail/TitleVitals";
+import Fold from "@components/ds/Fold";
 import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
 import ShareModal from "@components/social/ShareModal";
 import { useMounted } from "@/hooks/useMounted";
@@ -31,11 +33,11 @@ import { titlePath } from "@/utils/urls";
  * A series page, which is not a film page with more rows.
  *
  * A film is a thing you did or did not see; a series is a place you are inside
- * of. So this page opens on where you are in it — the ribbon of every episode
- * you have marked, and the one thing a show can tell you that a film cannot,
- * which is whether more is coming. Both sit above the synopsis, above the cast,
- * above anything a database could say about the show, because they are the
- * only two facts on the page that are about the reader.
+ * of. So this page opens on the one thing a show can tell you that a film
+ * cannot — whether more is coming, or how it ended — as the first tile of the
+ * glance panel, beside how long the whole thing takes (or how long you have
+ * left). Then where you are in it: the ribbon of every episode you have
+ * marked, shown once you've started.
  *
  * The season browser that follows replaces a row of tabs and a bare episode
  * list. It opens on the season you are actually in rather than season one of a
@@ -61,10 +63,10 @@ export default function TvDetailClient({
   createdBy = [],
   countryNames = [],
   reviews = [],
+  runtimes = null,
 }: any) {
   const { isAuthenticated } = useMediaInteraction();
 
-  const [showTrailer, setShowTrailer] = useState(false);
   const [markWatchedOpen, setMarkWatchedOpen] = useState(false);
   /** Status the reader picked from the menu; the modal applies it on save. */
   const [pendingStatus, setPendingStatus] = useState<MediaStatus | null>(null);
@@ -88,7 +90,7 @@ export default function TvDetailClient({
     : null;
   const posterUrl = show.poster_path
     ? `https://image.tmdb.org/t/p/w500${show.poster_path}`
-    : "/no-photo.webp";
+    : "/no-photo.svg";
 
   const crewGroups = groupCrew(credits?.crew);
   const crewKey = keyCrew(credits?.crew, createdBy);
@@ -96,8 +98,9 @@ export default function TvDetailClient({
   /**
    * Two rows come out of the fact list, both because something further up says
    * the same thing better. The next-episode date is answered above the fold
-   * with a countdown and an episode title beside it; the status is the card's
-   * own headline — "Ended", "Returning" — and the identity line's last segment.
+   * with a countdown and an episode title beside it; the status is that
+   * tile's own headline — "Ended", "Returning" — and the identity line's last
+   * segment.
    * A word repeated three screens later under a plainer label reads as a
    * second, worse answer rather than a confirmation.
    */
@@ -131,25 +134,7 @@ export default function TvDetailClient({
   const hasReviews = useMemo(() => prepareReviews(reviews, REVIEW_MAX).length > 0, [reviews]);
 
   return (
-    <div className="bg-surface-950">
-      {showTrailer && trailer && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
-          onClick={() => setShowTrailer(false)}
-        >
-          <div className="relative w-full max-w-4xl mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="aspect-video rounded-xl overflow-hidden">
-              <iframe
-                className="w-full h-full"
-                src={`https://www.youtube.com/embed/${trailer.key}?autoplay=1`}
-                allow="autoplay; encrypted-media"
-                allowFullScreen
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
+    <div className="bg-page">
       {markWatchedOpen && (
         <EpisodeManagementModal
           showId={String(show.id)}
@@ -176,24 +161,34 @@ export default function TvDetailClient({
         onClose={() => setShareModalOpen(false)}
       />
 
-      <TitleHero backdropUrl={backdropUrl} posterUrl={posterUrl} title={show.name}>
+      <TitleHero
+        compactOnPhone
+        backdropUrl={backdropUrl}
+        posterUrl={posterUrl}
+        title={show.name}
+        aside={trailer ? <Trailer videoKey={trailer.key} title={show.name} /> : null}
+      >
         <TitleIdentity
           kind="tv"
           view={tvIdentity(show, contentRatings)}
-          hasTrailer={!!trailer}
-          onPlayTrailer={() => setShowTrailer(true)}
           onShare={() => setShareModalOpen(true)}
           creditLines={creditLines}
           onAddWatchedTv={(intended) => {
             setPendingStatus(intended);
             setMarkWatchedOpen(true);
           }}
+          series={{
+            seasons: seasons.map((x: { season_number: number; episode_count: number }) => ({ season_number: x.season_number, episode_count: x.episode_count })),
+            lastAired: show.last_episode_to_air
+              ? { s: show.last_episode_to_air.season_number, e: show.last_episode_to_air.episode_number }
+              : null,
+          }}
           notice={
             /* A show that has not started has no next episode and no last one,
                so the card below renders nothing for it. This line is the only
                place the premiere date is stated. */
             premiereAhead ? (
-              <div className="mt-3 flex max-w-fit items-start gap-2 rounded-lg border border-brand-500/20 bg-brand-500/10 px-3 py-2 text-sm text-brand-300">
+              <div className="mt-3 flex max-w-fit items-start gap-2 rounded-lg border border-accent-strong/20 bg-action/10 px-3 py-2 text-sm text-accent-soft">
                 <Clock className="mt-0.5 size-3.5 shrink-0" />
                 <span>Premieres {firstAir.full}</span>
               </div>
@@ -202,107 +197,92 @@ export default function TvDetailClient({
         />
       </TitleHero>
 
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
-        {/* Where you are, and whether there is more coming. These two are the
-            page's whole reason for existing on a journal, so they run before
-            anything a database knows. Side by side on a wide screen, stacked on
-            a phone with the ribbon first — your own history outranks the
-            schedule. */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <Section title="Your progress">
-              <ProgressRibbon showId={show.id} seasons={seasons} isAuthenticated={isAuthenticated} />
-            </Section>
+      <>
+        {/*
+          The order (docs/design/PAGES.md §5, a series): the short version
+          first — what's next or how it ended, is it good, how long it takes —
+          then where you are in it, your people, the episodes, where to watch
+          and your entry; reference material folds in place.
+        */}
+        <div className="max-w-app mx-auto px-4 pt-8 sm:px-6 sm:pt-10 lg:px-8 pb-16 space-y-10">
+          <SeriesGlance show={show} keywords={keywords} runtimes={runtimes} countryNames={countryNames} />
+
+          {/* Side by side from `lg`: the ribbon is a narrow grid, and alone it
+              left most of a full-width card empty. Before you start there is
+              no ribbon, the wrapper is empty, and the room takes the row. */}
+          <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-8">
+            <div className="min-w-0 empty:hidden lg:flex-[2]">
+              <ProgressRibbon
+                showId={show.id}
+                seasons={seasons}
+                isAuthenticated={isAuthenticated}
+                lastAired={show.last_episode_to_air ? { s: show.last_episode_to_air.season_number, e: show.last_episode_to_air.episode_number } : null}
+              />
+            </div>
+            <div className="min-w-0 lg:flex-1">
+              <TheRoom itemId={show.id} itemType="tv" />
+            </div>
           </div>
-          <div>
-            <NextEpisode
+
+          <Section title="Episodes">
+            <SeasonBrowser
               showId={show.id}
               showName={show.name}
-              nextEpisode={show.next_episode_to_air}
-              lastEpisode={show.last_episode_to_air}
-              status={show.status}
-              inProduction={show.in_production}
+              seasons={seasons}
+              isAuthenticated={isAuthenticated}
+              lastAired={show.last_episode_to_air ? { s: show.last_episode_to_air.season_number, e: show.last_episode_to_air.episode_number } : null}
             />
-          </div>
-        </div>
-
-        {/* The facts, straight after your progress. This is the moment a
-            reader forms an assumption — who made it, which network, how long a
-            season runs — and the band now carries the genres and keywords with
-            them instead of leaving those at the bottom of the page. */}
-        <TitleVitals
-          genres={show.genres ?? []}
-          facts={facts}
-          keywords={keywords}
-          mediaType="tv"
-          room={<TheRoom itemId={show.id} itemType="tv" />}
-        />
-
-        <Section title="Where to watch">
-          <Availability mediaId={show.id} mediaType="tv" />
-        </Section>
-
-        <Section title="Episodes">
-          <SeasonBrowser
-            showId={show.id}
-            showName={show.name}
-            seasons={seasons}
-            isAuthenticated={isAuthenticated}
-          />
-        </Section>
-
-        {cast.length > 0 && (
-          <Section title="Cast" subtitle={`${cast.length} regulars`}>
-            <CastRow cast={cast} fullCreditsHref={`${titlePath("tv", show.id, show.name)}/cast`} />
           </Section>
-        )}
 
-        {(crewGroups.length > 0 || crewKey.length > 0) && (
-          <Section title="Crew">
-            <CrewBlock groups={crewGroups} keyPeople={crewKey} />
-          </Section>
-        )}
-
-        {(videos.length > 0 || backdrops.length > 0 || posters.length > 0) && (
-          <Section title="Media" subtitle="Trailers, clips and stills">
-            <div className="space-y-8">
-              <VideoShelf videos={videos} />
-              <MediaGallery backdrops={backdrops} posters={posters} title={show.name} />
-            </div>
-          </Section>
-        )}
-
-        {/* Watching, writing and reading what others wrote are one act of
-            attention, so they sit together rather than being split across the
-            page. */}
-        {/* Not a grid any more: its right column held only "Who's here", which
-            now sits beside the details where it can be seen. */}
-        <div className="space-y-10">
-          <div className="space-y-10">
+          <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
+            <Section title="Where to watch">
+              <Availability mediaId={show.id} mediaType="tv" compact />
+            </Section>
             <Section title="Your entry">
               <TitleTalk
                 itemId={String(show.id)}
                 itemType="tv"
                 itemName={show.name}
-                imageUrl={
-                  show.poster_path ? `https://image.tmdb.org/t/p/w342${show.poster_path}` : null
-                }
+                imageUrl={show.poster_path ? `https://image.tmdb.org/t/p/w342${show.poster_path}` : null}
                 genres={(show.genres ?? []).map((g: { name: string }) => g.name)}
                 isAuthenticated={isAuthenticated}
               />
             </Section>
-
-            {/* The card for the group chat: two names, two scores, one poster.
-                Exists only when somebody the viewer watched with (or follows)
-                also scored this. */}
-            <WeWatched itemId={String(show.id)} itemType="tv" itemName={show.name} posterPath={show.poster_path ?? null} />
-
-            {hasReviews && <TmdbReviews reviews={reviews} max={REVIEW_MAX} />}
           </div>
 
-        </div>
+          {cast.length > 0 && (
+            <Section title="Cast" subtitle={`${cast.length} regulars`}>
+              <CastRow cast={cast} fullCreditsHref={`${titlePath("tv", show.id, show.name)}/cast`} />
+            </Section>
+          )}
 
-      </div>
+          <WeWatched itemId={String(show.id)} itemType="tv" itemName={show.name} posterPath={show.poster_path ?? null} />
+
+          <div className="space-y-3">
+            <Fold title="Details" hint="Genres, network, runtime, languages, keywords">
+              <TitleVitals genres={show.genres ?? []} facts={facts} keywords={keywords} mediaType="tv" />
+            </Fold>
+            {(crewGroups.length > 0 || crewKey.length > 0) && (
+              <Fold title="Crew" count={crewGroups.reduce((n, g) => n + g.people.length, 0) || undefined}>
+                <CrewBlock groups={crewGroups} keyPeople={crewKey} />
+              </Fold>
+            )}
+            {(videos.length > 0 || backdrops.length > 0 || posters.length > 0) && (
+              <Fold title="Trailers, clips and stills" count={videos.length + backdrops.length + posters.length}>
+                <div className="space-y-8">
+                  <VideoShelf videos={videos} />
+                  <MediaGallery backdrops={backdrops} posters={posters} title={show.name} />
+                </div>
+              </Fold>
+            )}
+            {hasReviews && (
+              <Fold title="Reviews from TMDB" count={reviews.length}>
+                <TmdbReviews reviews={reviews} max={REVIEW_MAX} />
+              </Fold>
+            )}
+          </div>
+        </div>
+      </>
     </div>
   );
 }
