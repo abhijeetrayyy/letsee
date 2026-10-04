@@ -30,7 +30,7 @@ export default function CastRow({
           href={personPath(actor.id, actor.name)}
           className="group w-28 shrink-0 sm:w-32"
         >
-          <div className="aspect-[2/3] w-full overflow-hidden rounded-xl bg-surface-800 ring-1 ring-surface-700/50 transition-all group-hover:ring-brand-500/40">
+          <div className="aspect-2/3 w-full overflow-hidden rounded-xl bg-overlay ring-1 ring-line-strong/50 transition-all group-hover:ring-focus/40">
             {actor.profile_path ? (
               <img
                 src={`https://image.tmdb.org/t/p/w342${actor.profile_path}`}
@@ -40,15 +40,15 @@ export default function CastRow({
               />
             ) : (
               <div className="flex size-full items-center justify-center">
-                <Users className="size-7 text-surface-600" />
+                <Users className="size-7 text-ink-600" />
               </div>
             )}
           </div>
-          <p className="mt-2 line-clamp-1 text-sm font-medium text-surface-200 transition-colors group-hover:text-white">
+          <p className="mt-2 line-clamp-1 text-sm font-medium text-ink-200 transition-colors group-hover:text-ink-0">
             {actor.name}
           </p>
           {actor.character && (
-            <p className="line-clamp-1 text-xs text-surface-500">{actor.character}</p>
+            <p className="line-clamp-1 text-xs text-ink-500">{actor.character}</p>
           )}
         </Link>
       ))}
@@ -58,10 +58,10 @@ export default function CastRow({
           className="group flex w-28 shrink-0 flex-col sm:w-32"
           aria-label="View the full cast and crew"
         >
-          <span className="flex aspect-[2/3] w-full items-center justify-center rounded-xl border border-dashed border-surface-700 bg-surface-900/60 text-surface-400 transition-colors group-hover:border-brand-500/50 group-hover:text-brand-300">
+          <span className="flex aspect-2/3 w-full items-center justify-center rounded-xl border border-dashed border-line-strong bg-raised/60 text-ink-400 transition-colors group-hover:border-accent-strong/50 group-hover:text-accent-soft">
             <ArrowRight className="size-6" />
           </span>
-          <span className="mt-2 text-sm font-medium text-surface-300 group-hover:text-white">
+          <span className="mt-2 text-sm font-medium text-ink-300 group-hover:text-ink-0">
             Full cast &amp; crew
           </span>
         </Link>

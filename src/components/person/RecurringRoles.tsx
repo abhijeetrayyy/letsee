@@ -18,9 +18,9 @@ export default function RecurringRoles({
     <ul className="space-y-4">
       {roles.slice(0, 4).map((r) => (
         <li key={r.label}>
-          <p className="text-sm text-surface-200">
+          <p className="text-sm text-ink-200">
             {r.label}
-            <span className="text-surface-500">
+            <span className="text-ink-500">
               {" "}· <span className="font-mono tabular-nums">{r.count}</span> times
               {r.from != null && r.to != null && r.from !== r.to ? ` · ${r.from}–${r.to}` : r.from != null ? ` · ${r.from}` : ""}
             </span>
@@ -28,7 +28,7 @@ export default function RecurringRoles({
           <div className="mt-2 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
             {r.titles.map((t) => (
               <Link key={t.key} href={titlePath(t.mediaType, t.id, t.title)} title={t.title} className="shrink-0">
-                <span className="block h-[96px] w-16 overflow-hidden rounded bg-surface-800 ring-1 ring-surface-700/40 transition hover:ring-brand-500/40">
+                <span className="block h-24 w-16 overflow-hidden rounded bg-overlay ring-1 ring-line-strong/40 transition hover:ring-focus/40">
                   {t.posterPath && (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={`https://image.tmdb.org/t/p/w185${t.posterPath}`} alt={t.title} loading="lazy" className="h-full w-full object-cover" />

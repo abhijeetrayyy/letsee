@@ -43,8 +43,8 @@ export default function MediaGallery({
             type="button"
             onClick={() => setOpenAt(i)}
             aria-label={`Open image ${i + 1} of ${images.length}`}
-            className={`group relative shrink-0 overflow-hidden rounded-xl bg-surface-800 ring-1 ring-surface-700/50 transition-all hover:ring-brand-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
-              img.wide ? "aspect-video w-[22rem] sm:w-[28rem]" : "aspect-[2/3] w-40 sm:w-48"
+            className={`group relative shrink-0 overflow-hidden rounded-xl bg-overlay ring-1 ring-line-strong/50 transition-all hover:ring-focus/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
+              img.wide ? "aspect-video w-88 sm:w-112" : "aspect-2/3 w-40 sm:w-48"
             }`}
           >
             <img

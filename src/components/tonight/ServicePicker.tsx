@@ -12,6 +12,8 @@ type Props = {
   /** Called once the save lands, so Tonight can resolve with real constraints. */
   onSaved?: (region: string, providerIds: number[]) => void;
   onCancel?: () => void;
+  /** Inside a page section that already has its own heading and card (settings). */
+  bare?: boolean;
 };
 
 /**
@@ -22,7 +24,7 @@ type Props = {
  * once, and anything more elaborate would be a form standing between someone
  * and the thing they came for.
  */
-export default function ServicePicker({ onSaved, onCancel }: Props) {
+export default function ServicePicker({ onSaved, onCancel, bare = false }: Props) {
   const { data: mine } = useSWR<{ region: string; providers: Provider[] }>(
     "/api/user/providers",
     swrFetcher,
@@ -51,7 +53,15 @@ export default function ServicePicker({ onSaved, onCancel }: Props) {
   // TMDB lists well over a hundred providers per region, most of them niche
   // rental storefronts. The top slice by display_priority is what people
   // actually subscribe to, and the API already returns them in that order.
-  const providers = useMemo(() => (catalogue?.providers ?? []).slice(0, 32), [catalogue]);
+  // Plus any you already have that sit below it: a save writes exactly the
+  // chips shown, so a service missing from them was silently dropped.
+  const providers = useMemo(() => {
+    const all = catalogue?.providers ?? [];
+    const top = all.slice(0, 32);
+    const shown = new Set(top.map((p) => p.id));
+    const yours = (mine?.region === effectiveRegion ? mine.providers : []).filter((p) => !shown.has(p.id));
+    return [...top, ...yours];
+  }, [catalogue, mine, effectiveRegion]);
 
   const countries = useMemo(
     () =>
@@ -95,16 +105,16 @@ export default function ServicePicker({ onSaved, onCancel }: Props) {
   };
 
   return (
-    <div className="rounded-2xl border border-surface-800 bg-surface-900/60 p-5 sm:p-6">
-      <h2 className="text-white font-semibold text-lg">What do you have?</h2>
-      <p className="text-surface-400 text-sm mt-1">
-        So we only suggest things you can actually put on.
-      </p>
+    <div className={bare ? "" : "rounded-card border border-line-strong bg-raised/40 p-5 sm:p-6"}>
+      {!bare && (
+        <>
+          <h2 className="text-2xl text-ink-0">What do you have?</h2>
+          <p className="mt-1 text-sm text-ink-400">So we only suggest things you can actually put on.</p>
+        </>
+      )}
 
-      <label className="block mt-5">
-        <span className="text-xs font-semibold text-surface-500 uppercase tracking-[0.15em]">
-          Country
-        </span>
+      <label className={`block ${bare ? "" : "mt-5"}`}>
+        <span className="text-sm font-medium text-ink-0">Country</span>
         <select
           value={effectiveRegion}
           onChange={(e) => {
@@ -112,7 +122,7 @@ export default function ServicePicker({ onSaved, onCancel }: Props) {
             setRegion(e.target.value);
             setSelected(new Set());
           }}
-          className="mt-2 w-full sm:w-64 rounded-xl bg-surface-950 border border-surface-800 px-3 py-2.5 text-sm text-white focus:border-brand-500 focus:outline-none"
+          className="mt-2 h-10 w-full rounded-control bg-raised px-3 text-sm text-ink-0 ring-1 ring-inset ring-line-input focus:outline-none focus-visible:ring-2 focus-visible:ring-focus sm:w-64"
         >
           {countries.map((c) => (
             <option key={c.iso_3166_1} value={c.iso_3166_1}>
@@ -123,16 +133,14 @@ export default function ServicePicker({ onSaved, onCancel }: Props) {
       </label>
 
       <div className="mt-5">
-        <span className="text-xs font-semibold text-surface-500 uppercase tracking-[0.15em]">
-          Services
-        </span>
+        <span className="text-sm font-medium text-ink-0">Services</span>
         {isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-surface-400 py-6">
+          <div className="flex items-center gap-2 text-sm text-ink-400 py-6">
             <Loader2 className="size-4 animate-spin" />
             Loading services…
           </div>
         ) : providers.length === 0 ? (
-          <p className="text-surface-500 text-sm py-6">
+          <p className="text-ink-500 text-sm py-6">
             No services listed for this country. You can still get picks — they just won&apos;t be
             filtered by what you have.
           </p>
@@ -146,10 +154,8 @@ export default function ServicePicker({ onSaved, onCancel }: Props) {
                   type="button"
                   onClick={() => toggle(p.id)}
                   aria-pressed={on}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm transition ${
-                    on
-                      ? "border-brand-500 bg-brand-500/15 text-brand-300"
-                      : "border-surface-700 bg-surface-950/60 text-surface-300 hover:border-surface-600 hover:text-white"
+                  className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors ${
+                    on ? "bg-action text-on-action" : "text-ink-300 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"
                   }`}
                 >
                   {on && <Check className="size-3.5" />}
@@ -161,14 +167,14 @@ export default function ServicePicker({ onSaved, onCancel }: Props) {
         )}
       </div>
 
-      {error && <p className="text-rose-400 text-sm mt-4">{error}</p>}
+      {error && <p className="mt-4 text-sm text-danger">{error}</p>}
 
       <div className="flex items-center gap-3 mt-6">
         <button
           type="button"
           onClick={save}
           disabled={saving}
-          className="btn-primary text-sm px-5 py-2.5 disabled:opacity-60"
+          className="inline-flex h-11 items-center rounded-full bg-action px-6 text-base font-semibold text-on-action transition-colors hover:bg-action-hover disabled:opacity-60"
         >
           {saving ? "Saving…" : "Save"}
         </button>
@@ -176,7 +182,7 @@ export default function ServicePicker({ onSaved, onCancel }: Props) {
           <button
             type="button"
             onClick={onCancel}
-            className="text-sm text-surface-400 hover:text-white transition"
+            className="text-sm text-ink-400 hover:text-ink-0 transition"
           >
             Skip for now
           </button>

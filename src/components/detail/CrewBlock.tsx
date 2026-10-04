@@ -198,7 +198,7 @@ export default function CrewBlock({
               href={personPath(person.id, person.name)}
               className="group w-28 shrink-0 sm:w-32"
             >
-              <div className="aspect-[2/3] w-full overflow-hidden rounded-xl bg-surface-800 ring-1 ring-surface-700/50 transition-all group-hover:ring-brand-500/40">
+              <div className="aspect-2/3 w-full overflow-hidden rounded-xl bg-overlay ring-1 ring-line-strong/50 transition-all group-hover:ring-focus/40">
                 <img
                   src={`https://image.tmdb.org/t/p/w342${person.profile_path}`}
                   alt={person.name}
@@ -206,13 +206,13 @@ export default function CrewBlock({
                   className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
-              <p className="mt-2 line-clamp-1 text-sm font-medium text-surface-200 transition-colors group-hover:text-white">
+              <p className="mt-2 line-clamp-1 text-sm font-medium text-ink-200 transition-colors group-hover:text-ink-0">
                 {person.name}
               </p>
               {/* The job that earned the tile, not the merged list — a director
                   whose subtitle reads "Producer, Writer" because that is TMDB's
                   array order is worse than no subtitle. */}
-              <p className="line-clamp-1 text-xs text-surface-500">{person.job}</p>
+              <p className="line-clamp-1 text-xs text-ink-500">{person.job}</p>
             </Link>
           ))}
         </div>
@@ -220,7 +220,7 @@ export default function CrewBlock({
 
       {groups.map((group) => (
         <div key={group.department}>
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-surface-500">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-500">
             {group.department}
           </p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
@@ -231,12 +231,12 @@ export default function CrewBlock({
               <div key={`${group.department}:${person.id}`} className="min-w-0">
                 <Link
                   href={personPath(person.id, person.name)}
-                  className="block truncate text-sm text-surface-200 transition-colors hover:text-brand-400"
+                  className="block truncate text-sm text-ink-200 transition-colors hover:text-accent"
                 >
                   {person.name}
                 </Link>
                 {person.jobs.length > 0 && (
-                  <p className="truncate text-xs text-surface-500">{person.jobs.join(", ")}</p>
+                  <p className="truncate text-xs text-ink-500">{person.jobs.join(", ")}</p>
                 )}
               </div>
             ))}

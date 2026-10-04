@@ -59,7 +59,7 @@ export default function PersonPortraits({
             type="button"
             onClick={() => setIndex(i)}
             aria-label={`${name}, portrait ${i + 1} of ${profiles.length}`}
-            className="group aspect-[2/3] overflow-hidden rounded-lg bg-surface-800 ring-1 ring-surface-700/40 transition hover:ring-brand-500/40"
+            className="group aspect-2/3 overflow-hidden rounded-lg bg-overlay ring-1 ring-line-strong/40 transition hover:ring-focus/40"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -78,9 +78,9 @@ export default function PersonPortraits({
           ref={moreRef}
           type="button"
           onClick={() => setVisibleCount((count) => Math.min(count + PAGE_SIZE, profiles.length))}
-          className="mx-auto mt-6 block rounded-full border border-surface-700 bg-surface-900 px-5 py-2 text-sm text-surface-300 transition-colors hover:border-brand-500/40 hover:text-white"
+          className="mx-auto mt-6 block rounded-full border border-line-strong bg-raised px-5 py-2 text-sm text-ink-300 transition-colors hover:border-accent-strong/40 hover:text-ink-0"
         >
-          Show more portraits <span className="text-surface-500">({profiles.length - visibleCount} left)</span>
+          Show more portraits <span className="text-ink-500">({profiles.length - visibleCount} left)</span>
         </button>
       )}
       <Lightbox images={images} index={index} onClose={() => setIndex(null)} onIndexChange={setIndex} />

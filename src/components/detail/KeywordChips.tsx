@@ -33,8 +33,8 @@ export default function KeywordChips({
   if (keywords.length === 0) return null;
 
   return (
-    <div className={bare ? "" : "rounded-xl border border-surface-800/50 bg-surface-900/30 p-4"}>
-      <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-surface-400">
+    <div className={bare ? "" : "rounded-xl border border-line/50 bg-raised/30 p-4"}>
+      <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
         <Tag className="size-3.5" /> Keywords
       </h3>
       <div className="flex flex-wrap gap-1.5">
@@ -44,7 +44,7 @@ export default function KeywordChips({
             href={buildBrowseUrl({ type: mediaType, keyword: String(k.id) })}
             // Same chip shape as before, plus the hover the genre chips
             // directly above already had.
-            className="rounded-lg bg-surface-800/60 px-2 py-1 text-[10px] text-surface-400 transition-colors hover:bg-surface-700 hover:text-white"
+            className="rounded-lg bg-overlay/60 px-2 py-1 text-xs text-ink-400 transition-colors hover:bg-hover hover:text-ink-0"
           >
             {k.name}
           </Link>

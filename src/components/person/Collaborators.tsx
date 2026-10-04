@@ -14,20 +14,20 @@ function List({ title, people }: { title: string; people: Collaborator[] }) {
   if (people.length < 4) return null;
   return (
     <div>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">{title}</h3>
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-400">{title}</h3>
       <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
         {people.map((p) => (
           <Link key={p.id} href={personPath(p.id, p.name)} className="group w-28 shrink-0 sm:w-32">
-            <div className="aspect-[2/3] w-full overflow-hidden rounded-xl bg-surface-800 ring-1 ring-surface-700/50 transition-all group-hover:ring-brand-500/40">
+            <div className="aspect-2/3 w-full overflow-hidden rounded-xl bg-overlay ring-1 ring-line-strong/50 transition-all group-hover:ring-focus/40">
               {p.profilePath ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={`https://image.tmdb.org/t/p/w342${p.profilePath}`} alt={p.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center"><Users className="size-6 text-surface-600" aria-hidden /></div>
+                <div className="flex h-full w-full items-center justify-center"><Users className="size-6 text-ink-600" aria-hidden /></div>
               )}
             </div>
-            <p className="mt-2 line-clamp-1 text-sm font-medium text-surface-200 transition-colors group-hover:text-white">{p.name}</p>
-            <p className="line-clamp-1 text-xs text-surface-500">
+            <p className="mt-2 line-clamp-1 text-sm font-medium text-ink-200 transition-colors group-hover:text-ink-0">{p.name}</p>
+            <p className="line-clamp-1 text-xs text-ink-500">
               {p.job ? `${p.job} · ` : ""}{p.count} together
             </p>
           </Link>

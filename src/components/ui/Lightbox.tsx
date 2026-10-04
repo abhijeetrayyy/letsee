@@ -89,7 +89,7 @@ export default function Lightbox({ images, index, onClose, onIndexChange }: Ligh
             setZoomed((z) => !z);
             setOffset({ x: 0, y: 0 });
           }}
-          className="flex size-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+          className="flex size-10 items-center justify-center rounded-full bg-white/10 text-ink-0 backdrop-blur transition-colors hover:bg-white/20"
           aria-label={zoomed ? "Zoom out" : "Zoom in"}
         >
           {zoomed ? <ZoomOut className="size-5" /> : <ZoomIn className="size-5" />}
@@ -100,7 +100,7 @@ export default function Lightbox({ images, index, onClose, onIndexChange }: Ligh
             e.stopPropagation();
             onClose();
           }}
-          className="flex size-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+          className="flex size-10 items-center justify-center rounded-full bg-white/10 text-ink-0 backdrop-blur transition-colors hover:bg-white/20"
           aria-label="Close"
         >
           <X className="size-5" />
@@ -115,7 +115,7 @@ export default function Lightbox({ images, index, onClose, onIndexChange }: Ligh
               e.stopPropagation();
               go(-1);
             }}
-            className="absolute left-2 z-10 flex size-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20 sm:left-4"
+            className="absolute left-2 z-10 flex size-11 items-center justify-center rounded-full bg-white/10 text-ink-0 backdrop-blur transition-colors hover:bg-white/20 sm:left-4"
             aria-label="Previous image"
           >
             <ChevronLeft className="size-6" />
@@ -126,7 +126,7 @@ export default function Lightbox({ images, index, onClose, onIndexChange }: Ligh
               e.stopPropagation();
               go(1);
             }}
-            className="absolute right-2 z-10 flex size-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20 sm:right-4"
+            className="absolute right-2 z-10 flex size-11 items-center justify-center rounded-full bg-white/10 text-ink-0 backdrop-blur transition-colors hover:bg-white/20 sm:right-4"
             aria-label="Next image"
           >
             <ChevronRight className="size-6" />
@@ -159,11 +159,11 @@ export default function Lightbox({ images, index, onClose, onIndexChange }: Ligh
           transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoomed ? 2 : 1})`,
           cursor: zoomed ? (dragging ? "grabbing" : "grab") : "zoom-in",
         }}
-        className="max-h-[88vh] max-w-[92vw] select-none rounded-lg object-contain transition-transform duration-200"
+        className="max-h-[88vh] max-w-full select-none rounded-lg object-contain transition-transform duration-200"
       />
 
       {images.length > 1 && (
-        <p className="absolute bottom-4 text-xs text-white/60">
+        <p className="absolute bottom-4 text-xs text-ink-0/60">
           {index + 1} / {images.length}
         </p>
       )}

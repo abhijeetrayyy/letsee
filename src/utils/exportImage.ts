@@ -1,3 +1,5 @@
+import { TOKENS } from "@/design/tokens";
+
 /**
  * Render a DOM node to a PNG and hand it to the browser as a download.
  *
@@ -17,7 +19,7 @@ export async function exportNodeAsPng(
 ): Promise<void> {
   const html2canvas = (await import("html2canvas")).default;
   const canvas = await html2canvas(node, {
-    backgroundColor: opts.backgroundColor ?? "#09090b",
+    backgroundColor: opts.backgroundColor ?? TOKENS.page,
     // ×2 lands a 540×960 card exactly on 1080×1920 without resampling.
     scale: opts.scale ?? 2,
     useCORS: true,

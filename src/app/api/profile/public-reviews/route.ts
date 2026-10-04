@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
+import { publishedReviewText } from "@/utils/publishedReviews";
 
 /**
  * GET /api/profile/public-reviews?userId=...&page=1&limit=20
@@ -102,9 +103,17 @@ export async function GET(request: Request) {
   const totalItems = count ?? 0;
   const totalPages = Math.ceil(totalItems / limit);
 
+  // What is shown is the published take, not this row's copy of it; a stale
+  // copy with no take behind it is dropped (utils/publishedReviews.ts). The
+  // count can run one or two high for that, which nobody reads as a promise.
+  const published = await publishedReviewText(supabase, userId, items ?? []);
+  const shown = (items ?? [])
+    .map((i) => ({ ...i, public_review_text: published.get(`${i.item_type}:${i.item_id}`) ?? null }))
+    .filter((i) => i.public_review_text);
+
   return new Response(
     JSON.stringify({
-      data: items ?? [],
+      data: shown,
       totalItems,
       totalPages,
     })

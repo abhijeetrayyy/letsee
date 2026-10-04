@@ -1,0 +1,141 @@
+/*
+ * The design tokens. The only place a colour is written down.
+ *
+ * Every class in the app that colours something names one of these
+ * (`bg-raised`, `border-line`, `text-ink-400`, `bg-action`), never a palette
+ * shade. Changing a value here changes every instance at once.
+ *
+ * FOURTH PASS (Oct 2026) — paper and screen (docs/design/SYSTEM.md §1).
+ * The app is light: warm white paper, near-black ink, and one colour the
+ * interface owns — a bright green for the primary action, focus and the
+ * moments people make. Films are shown the way a cinema shows them: on dark
+ * bands (a title's hero, Home's hero, a profile's banner) that switch to the
+ * dark palette below with `data-theme="dark"`. Dark is also a whole-app
+ * choice in the account menu. The graphite pass read as cold; the blue-black
+ * and gold pass did not hold together; the owner asked for contrast.
+ *
+ * The light values are the defaults (`@theme`); the dark values redefine the
+ * same names under `[data-theme="dark"]`, on <html> for the whole app or on
+ * any element for a band. Several tokens share a value; they stay separate
+ * names because they mean different things.
+ *
+ * `src/design/tokens.ts` mirrors the light values as hex for JS consumers;
+ * `tests/invariants/token-contrast.test.ts` checks every pair in both palettes.
+ */
+/* `static`: emit every variable even if no utility class uses it, because
+   globals.css and inline styles read some of them through var(). */
+@theme static {
+  /* ── Surfaces: paper, and white cards on it ───────────── */
+  --color-page: #f6f5f1;        /* the page: warm paper                */
+  --color-raised: #ffffff;      /* cards, rows, stubs                  */
+  --color-raised-2: #faf9f6;    /* a card inside a card                */
+  --color-overlay: #ffffff;     /* sheets, menus, toasts               */
+  --color-hover: #ecebe5;       /* hover, pressed, monograms           */
+  --color-active: #e1e0d9;      /* selected, solid quiet buttons       */
+  --color-muted: #8a8882;       /* small solid marks                   */
+  --color-inverse: #141414;     /* the rare dark surface on paper      */
+  --color-inverse-2: #2a2a29;
+
+  /* ── Lines ────────────────────────────────────────────── */
+  --color-line: #e7e5df;        /* dividers                            */
+  --color-line-strong: #d8d6cf; /* card edges                          */
+  --color-line-input: #85837d;  /* inputs, outlines (≥ 3 : 1)          */
+  --color-line-bold: #6c6a65;
+  --color-line-light: #57554f;
+  --color-line-lighter: #3c3b38;
+
+  /* ── Ink: text ────────────────────────────────────────── */
+  --color-ink-0: #141414;       /* titles, names                       */
+  --color-ink-50: #141414;
+  --color-ink-100: #141414;
+  --color-ink-200: #1d1d1c;
+  --color-ink-300: #2f2f2d;     /* body                                */
+  --color-ink-400: #4a4946;     /* secondary, people's words           */
+  --color-ink-500: #67655f;     /* metadata, dates                     */
+  --color-ink-600: #706e68;     /* quiet labels (≥ 4.5 : 1 on paper)   */
+  --color-ink-700: #a6a49e;     /* disabled only                       */
+  --color-ink-900: #ffffff;     /* text on the inverse surface         */
+  --color-ink-950: #ffffff;
+
+  /* ── The primary action: bright green, black text ─────── */
+  --color-action: #1ccf68;
+  --color-action-hover: #3ddc80;
+  --color-action-press: #14b95a;
+  --color-on-action: #04150b;
+  --color-on-action-light: #04150b;
+
+  /* ── Emphasis: green dark enough to read on paper ─────── */
+  --color-accent: #0a7a3c;
+  --color-accent-strong: #0a7a3c;
+  --color-accent-soft: #086b34;
+  --color-accent-softer: #09713a;
+  --color-focus: #0a7a3c;
+
+  /* ── Danger ───────────────────────────────────────────── */
+  --color-danger: #b3261f;
+  --color-danger-fill: #b3261f;
+
+  /* ── Radii (SYSTEM.md §4) → rounded-media, -control, -card, -sheet ── */
+  --radius-media: 6px;
+  --radius-control: 10px;
+  --radius-card: 14px;
+  --radius-sheet: 20px;
+
+  /* ── The three content widths (SYSTEM.md §3) → max-w-read, -app, -sheet ── */
+  --container-read: 40rem;
+  --container-app: 76rem;
+  --container-sheet: 32rem;
+}
+
+:root {
+  color-scheme: light;
+}
+
+/* Dark: a neutral charcoal (no blue), the same green brighter. The whole app
+   when chosen, and always the bands films are shown on. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-page: #0f1011;
+  --color-raised: #18191b;
+  --color-raised-2: #1d1e21;
+  --color-overlay: #222326;
+  --color-hover: #2b2c30;
+  --color-active: #35363a;
+  --color-muted: #6d6e72;
+  --color-inverse: #f5f5f3;
+  --color-inverse-2: #e4e4e1;
+
+  --color-line: #242528;
+  --color-line-strong: #303134;
+  --color-line-input: #6d6e72;
+  --color-line-bold: #85868a;
+  --color-line-light: #9d9ea2;
+  --color-line-lighter: #c3c4c7;
+
+  --color-ink-0: #f5f5f3;
+  --color-ink-50: #f5f5f3;
+  --color-ink-100: #f5f5f3;
+  --color-ink-200: #f5f5f3;
+  --color-ink-300: #d9d9d6;
+  --color-ink-400: #bdbdb9;
+  --color-ink-500: #9a9a96;
+  --color-ink-600: #8e8e8a;
+  --color-ink-700: #5f5f5c;
+  --color-ink-900: #0f1011;
+  --color-ink-950: #0f1011;
+
+  --color-action: #1ccf68;
+  --color-action-hover: #3ddc80;
+  --color-action-press: #14b95a;
+  --color-on-action: #04150b;
+  --color-on-action-light: #04150b;
+
+  --color-accent: #3ddc80;
+  --color-accent-strong: #3ddc80;
+  --color-accent-soft: #7ae9a6;
+  --color-accent-softer: #a9f0c5;
+  --color-focus: #3ddc80;
+
+  --color-danger: #f66d67;
+  --color-danger-fill: #6b1e1d;
+}

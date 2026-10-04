@@ -1,3 +1,4 @@
+import RecapHeader from "@components/profile/v2/RecapHeader";
 import Link from "@components/ui/AppLink";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -101,13 +102,13 @@ export default async function YearInReviewPage(ctx: Ctx) {
   if (!isOwner && !isPublic) {
     return (
       <Shell>
-        <h1 className="text-2xl font-bold text-white">Not shared</h1>
-        <p className="mt-2 text-surface-400">
+        <h1 className="text-2xl font-medium text-ink-0">Not shared</h1>
+        <p className="mt-2 text-ink-400">
           @{username} hasn&apos;t published their {year}.
         </p>
         <Link
           href={`/app/profile/${username}`}
-          className="mt-6 inline-flex text-sm text-brand-400 hover:text-brand-300"
+          className="mt-6 inline-flex text-sm text-accent hover:text-accent-soft"
         >
           View their profile instead
         </Link>
@@ -138,10 +139,10 @@ export default async function YearInReviewPage(ctx: Ctx) {
   if (data.sparse) {
     return (
       <Shell>
-        <h1 className="text-2xl font-bold text-white">
+        <h1 className="text-2xl font-medium text-ink-0">
           {isOwner ? `Not much to show for ${year} yet` : `@${username} had a quiet ${year}`}
         </h1>
-        <p className="mt-2 text-surface-400">
+        <p className="mt-2 text-ink-400">
           {isOwner
             ? `You've logged ${data.movies + data.shows} things in ${year}. Log a few more and this becomes worth looking at.`
             : "There isn't enough logged to make a card."}
@@ -157,16 +158,16 @@ export default async function YearInReviewPage(ctx: Ctx) {
 
   return (
     <Shell>
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-white tracking-tight">
-          {isOwner ? `Your ${year}` : `@${username}'s ${year}`}
-        </h1>
-        <p className="mt-2 text-surface-400">
-          {isOwner
-            ? "Save it, post it, or keep it to yourself."
-            : `What they watched in ${year}.`}
-        </p>
-      </header>
+      <RecapHeader
+        owner={isOwner ? "Your" : `${username}'s`}
+        label={String(year)}
+        films={data.movies}
+        series={data.shows}
+        people={data.watchedWith.slice(0, 3).map((w) => ({ name: w.username ?? w.name ?? "someone", avatarUrl: w.avatarUrl, count: w.count }))}
+        prev={{ href: `/app/profile/${username}/year/${year - 1}`, label: String(year - 1) }}
+        next={year < new Date().getUTCFullYear() ? { href: `/app/profile/${username}/year/${year + 1}`, label: String(year + 1) } : null}
+        note={isOwner ? "Save it, post it, or keep it to yourself." : undefined}
+      />
 
       <YearInReviewCard data={data} isOwner={isOwner} initialPublic={isPublic} />
     </Shell>
@@ -175,8 +176,8 @@ export default async function YearInReviewPage(ctx: Ctx) {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="w-full bg-surface-950 min-h-screen">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-14">{children}</div>
+    <div className="w-full bg-page min-h-screen">
+      <div className="max-w-read mx-auto px-4 sm:px-6 py-10 sm:py-14">{children}</div>
     </div>
   );
 }

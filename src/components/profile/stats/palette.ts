@@ -1,50 +1,66 @@
+import { TOKENS, TOKENS_DARK, alpha } from "@/design/tokens";
+import { isDarkTheme } from "@/lib/theme";
 /**
- * Two series, two colours, chosen by measurement rather than by taste.
+ * Two series: you, and everyone else.
  *
- * `#16a34a` (the app's own brand-600) and `#3987e5` clear every gate of the
- * data-viz colour check against this app's dark chart surface (#18181b):
- * both inside the dark lightness band, both above the chroma floor, both above
- * 3:1 contrast on the surface, adjacent CVD ΔE 24.3 (deuteranopia) against a
- * target of 8, normal-vision ΔE 26.4 against a floor of 15.
+ * The interface has no accent colour (docs/design/SYSTEM.md §1), so the
+ * series are told apart by lightness and position rather than hue: you are
+ * the interface's white (`ink0`, 16.7 : 1 on the chart surface `raised`),
+ * the crowd is the metadata grey (`ink500`, 6.3 : 1). The two differ by
+ * 2.6 : 1 from each other, which reads at a glance for every kind of colour
+ * vision because nothing depends on hue.
  *
- * The green is the app's, so "you" wears the colour the product already means
- * by *you*, and the crowd gets a hue that is unmistakable beside it — including
- * for the ~8% of men with red-green colour deficiency, for whom the green/gold
- * pairing this section used to reach for is nearly a single colour.
- *
- * Tritanopia is the one axis where the pair is close (ΔE 4.6). It is also the
- * rarest deficiency, and the charts here never lean on hue alone: the two
- * series keep a fixed left/right order inside every group, both are named in a
- * legend, and every chart has a table view. Position and text carry the
- * identity; colour only reinforces it.
+ * The charts never lean on colour alone: the two series keep a fixed
+ * left/right order inside every group, both are named in a legend, and every
+ * chart has a table view. Position and text carry the identity; lightness
+ * only reinforces it.
  *
  * ── On the delta colours ───────────────────────────────────────────────────
- * A difference between the two series is drawn in whichever series' colour is
- * winning — green when you rated above the crowd, blue when the crowd rated
- * above you. That is deliberately not a red/green good-bad axis: rating a film
- * higher than everyone else is not an error, and colouring it as one would be
- * the chart making a judgement the data does not support.
+ * A difference between the two series is drawn in whichever series is ahead —
+ * white when you rated above the crowd, grey when the crowd rated above you.
+ * Deliberately not a red/green good-bad axis: rating a film higher than
+ * everyone else is not an error.
  */
 
+// Read at draw time, so the charts follow the app's light or dark theme:
+// "you" is the ink of whichever palette is showing, never ink on ink.
+const pal = () => (isDarkTheme() ? TOKENS_DARK : TOKENS);
+
 export const SERIES = {
-  you: "#16a34a",
-  crowd: "#3987e5",
-} as const;
+  get you() {
+    return pal().ink0;
+  },
+  get crowd() {
+    return pal().ink500;
+  },
+};
 
 /** Softer fills for large areas; the solid steps stay for small marks. */
 export const SERIES_SOFT = {
-  you: "rgba(22, 163, 74, 0.85)",
-  crowd: "rgba(57, 135, 229, 0.85)",
-} as const;
+  get you() {
+    return alpha(pal().ink0, 0.85);
+  },
+  get crowd() {
+    return alpha(pal().ink500, 0.85);
+  },
+};
 
 export const NEUTRAL = {
   /** Bars with no series identity — counts, activity, decades. */
-  mark: "#52525b",
-  markHover: "#71717a",
+  get mark() {
+    return pal().active;
+  },
+  get markHover() {
+    return pal().lineInput;
+  },
   /** The zero line of a diverging axis. */
-  axis: "#3f3f46",
-  track: "rgba(63, 63, 70, 0.35)",
-} as const;
+  get axis() {
+    return pal().lineStrong;
+  },
+  get track() {
+    return alpha(pal().lineStrong, 0.35);
+  },
+};
 
 export type SeriesKey = keyof typeof SERIES;
 

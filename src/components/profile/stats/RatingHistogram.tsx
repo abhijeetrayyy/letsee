@@ -1,4 +1,5 @@
 "use client";
+import { TOKENS, alpha } from "@/design/tokens";
 
 import { useState } from "react";
 import { formatStars } from "@/utils/ratingScale";
@@ -63,12 +64,12 @@ export default function RatingHistogram({
       <div>
         <TableToggle asTable={asTable} onToggle={() => setAsTable(false)} />
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[320px] text-sm">
+          <table className="w-full min-w-80 text-sm">
             <caption className="sr-only">
               Titles by rating, yours against TMDB&rsquo;s
             </caption>
             <thead>
-              <tr className="border-b border-surface-800 text-left text-xs uppercase tracking-wider text-surface-500">
+              <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-ink-500">
                 <th scope="col" className="py-2 pr-3 font-medium">Rating</th>
                 {showYou && <th scope="col" className="py-2 pr-3 text-right font-medium">You</th>}
                 <th scope="col" className="py-2 text-right font-medium">TMDB</th>
@@ -76,17 +77,17 @@ export default function RatingHistogram({
             </thead>
             <tbody>
               {scores.map((score) => (
-                <tr key={score} className="border-b border-surface-800/50 last:border-0">
-                  <th scope="row" className="py-1.5 pr-3 font-normal text-surface-300">
+                <tr key={score} className="border-b border-line/50 last:border-0">
+                  <th scope="row" className="py-1.5 pr-3 font-normal text-ink-300">
                     {score}
-                    <span className="ml-2 text-xs text-surface-500">{formatStars(score)}★</span>
+                    <span className="ml-2 text-xs text-ink-500">{formatStars(score)}★</span>
                   </th>
                   {showYou && (
-                    <td className="py-1.5 pr-3 text-right tabular-nums text-surface-200">
+                    <td className="py-1.5 pr-3 text-right tabular-nums text-ink-200">
                       {valueAt(you, score)}
                     </td>
                   )}
-                  <td className="py-1.5 text-right tabular-nums text-surface-200">
+                  <td className="py-1.5 text-right tabular-nums text-ink-200">
                     {valueAt(crowd, score)}
                   </td>
                 </tr>
@@ -121,21 +122,21 @@ export default function RatingHistogram({
               >
                 {isHovered && (
                   <Tooltip x={50}>
-                    <p className="font-medium text-surface-100">
+                    <p className="font-medium text-ink-100">
                       Rated {score}
-                      <span className="ml-1.5 text-surface-400">{formatStars(score)}★</span>
+                      <span className="ml-1.5 text-ink-400">{formatStars(score)}★</span>
                     </p>
                     {showYou && (
-                      <p className="mt-1 flex items-center gap-1.5 text-surface-300">
-                        <span className="size-2 rounded-[2px]" style={{ backgroundColor: SERIES.you }} />
+                      <p className="mt-1 flex items-center gap-1.5 text-ink-300">
+                        <span className="size-2 rounded-xs" style={{ backgroundColor: SERIES.you }} />
                         You: <span className="tabular-nums font-medium">{yourCount}</span>
                       </p>
                     )}
-                    <p className="mt-0.5 flex items-center gap-1.5 text-surface-300">
-                      <span className="size-2 rounded-[2px]" style={{ backgroundColor: SERIES.crowd }} />
+                    <p className="mt-0.5 flex items-center gap-1.5 text-ink-300">
+                      <span className="size-2 rounded-xs" style={{ backgroundColor: SERIES.crowd }} />
                       TMDB: <span className="tabular-nums font-medium">{crowdCount}</span>
                     </p>
-                    <p className="mt-1.5 border-t border-surface-800 pt-1.5 text-[10px] text-surface-500">
+                    <p className="mt-1.5 border-t border-line pt-1.5 text-xs text-ink-500">
                       Click a bar to see the titles
                     </p>
                   </Tooltip>
@@ -143,7 +144,7 @@ export default function RatingHistogram({
 
                 {/* The 2px gap between the two fills is the spacer that keeps
                     adjacent bars from reading as one shape. */}
-                <div className="flex h-full items-end justify-center gap-[2px]">
+                <div className="flex h-full items-end justify-center gap-0.5">
                   {showYou && (
                     <Bar
                       count={yourCount}
@@ -177,8 +178,8 @@ export default function RatingHistogram({
           {scores.map((score) => (
             <div
               key={score}
-              className={`flex-1 text-center text-[11px] tabular-nums transition-colors ${
-                hovered === score ? "text-surface-200" : "text-surface-500"
+              className={`flex-1 text-center text-xs tabular-nums transition-colors ${
+                hovered === score ? "text-ink-200" : "text-ink-500"
               }`}
             >
               {score}
@@ -187,7 +188,7 @@ export default function RatingHistogram({
         </div>
       </div>
 
-      <p className="mt-3 text-[11px] text-surface-500">
+      <p className="mt-3 text-xs text-ink-500">
         Both scales run 1–10, so a bar in one series sits directly under the
         comparable bar in the other. 10 is {formatStars(10)}★.
         {showYou && ` You've rated ${total(you)}; TMDB has a score for ${total(crowd)}.`}
@@ -224,12 +225,12 @@ function Bar({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`w-full max-w-[26px] rounded-t-[4px] transition-all duration-300 ${
+      className={`w-full max-w-6.5 rounded-t transition-all duration-300 ${
         onClick ? "cursor-pointer" : "cursor-default"
       } ${dimmed ? "opacity-45" : "opacity-100"}`}
       style={{
         height: `${height}%`,
-        backgroundColor: count > 0 ? color : "rgba(63,63,70,0.5)",
+        backgroundColor: count > 0 ? color : alpha(TOKENS.lineStrong, 0.5),
         boxShadow: !dimmed && count > 0 ? `inset 0 0 0 1px ${solid}` : undefined,
       }}
     />
@@ -241,7 +242,7 @@ function TableToggle({ asTable, onToggle }: { asTable: boolean; onToggle: () => 
     <button
       type="button"
       onClick={onToggle}
-      className="rounded-md border border-surface-700/70 px-2 py-1 text-[11px] text-surface-400 transition-colors hover:border-surface-600 hover:text-surface-200"
+      className="rounded-md border border-line-strong/70 px-2 py-1 text-xs text-ink-400 transition-colors hover:border-line-input hover:text-ink-200"
     >
       {asTable ? "Show chart" : "Show numbers"}
     </button>

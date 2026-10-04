@@ -1,4 +1,5 @@
 "use client";
+import { TOKENS } from "@/design/tokens";
 
 import { useCallback, useEffect, useState } from "react";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -96,21 +97,21 @@ export default function StatsSection({
 
   if (loading) {
     return (
-      <div className="flex min-h-[200px] flex-col items-center justify-center gap-3 rounded-xl border border-surface-700/60 bg-surface-900/40 p-6">
+      <div className="flex min-h-50 flex-col items-center justify-center gap-3 rounded-xl border border-line-strong/60 bg-raised/40 p-6">
         <LoadingSpinner size="md" className="shrink-0 border-t-white" />
-        <p className="animate-pulse text-sm text-surface-500">Loading stats…</p>
+        <p className="animate-pulse text-sm text-ink-500">Loading stats…</p>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="flex min-h-[200px] flex-col items-center justify-center gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-6">
-        <p className="text-sm text-red-300">Couldn&rsquo;t load stats.</p>
+      <div className="flex min-h-50 flex-col items-center justify-center gap-3 rounded-xl border border-danger/20 bg-danger/5 p-6">
+        <p className="text-sm text-danger">Couldn&rsquo;t load stats.</p>
         <button
           type="button"
           onClick={fetchData}
-          className="rounded-lg border border-red-500/30 px-3 py-1.5 text-xs text-red-200 transition-colors hover:bg-red-500/10"
+          className="rounded-lg border border-danger/30 px-3 py-1.5 text-xs text-danger transition-colors hover:bg-danger/10"
         >
           Try again
         </button>
@@ -125,9 +126,9 @@ export default function StatsSection({
 
   if (!hasAnything) {
     return (
-      <div className="rounded-xl border border-surface-700/60 bg-surface-900/50 p-12 text-center">
+      <div className="rounded-xl border border-line-strong/60 bg-raised/50 p-12 text-center">
         <div className="mb-4 text-4xl">📊</div>
-        <p className="text-sm text-surface-400">
+        <p className="text-sm text-ink-400">
           {isOwner
             ? "No stats yet. Start watching and rating to see your statistics here."
             : "No stats available yet."}
@@ -179,7 +180,7 @@ export default function StatsSection({
           really can the owner: no promise about *when* the rest arrive,
           because the backfill is run by hand rather than on a schedule. */}
       {isOwner && (coverage.crowd_pending > 0 || coverage.crowd_unrated > 0) && (
-        <p className="rounded-lg border border-surface-800 bg-surface-900/40 px-4 py-2.5 text-xs text-surface-400">
+        <p className="rounded-lg border border-line bg-raised/40 px-4 py-2.5 text-xs text-ink-400">
           TMDB scores are in for {coverage.crowd_known} of your{" "}
           {coverage.watched_total} watched titles, and the charts below count
           only those.
@@ -346,17 +347,17 @@ function AgreementBar({
   const total = Math.max(1, comparison.count);
   const segments = [
     { key: "kinder", label: "You rated higher", value: comparison.kinder, color: SERIES.you },
-    { key: "agrees", label: "Within a point", value: comparison.agrees, color: "#52525b" },
+    { key: "agrees", label: "Within a point", value: comparison.agrees, color: TOKENS.active },
     { key: "harsher", label: "You rated lower", value: comparison.harsher, color: SERIES.crowd },
   ];
 
   return (
     <div className="mt-5">
-      <div className="flex h-3 gap-[2px] overflow-hidden rounded-full">
+      <div className="flex h-3 gap-0.5 overflow-hidden rounded-full">
         {segments.map((segment) => (
           <div
             key={segment.key}
-            className="h-full rounded-[2px] transition-all duration-500"
+            className="h-full rounded-xs transition-all duration-500"
             style={{
               width: `${(segment.value / total) * 100}%`,
               backgroundColor: segment.color,
@@ -366,16 +367,16 @@ function AgreementBar({
           />
         ))}
       </div>
-      <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-surface-400">
+      <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-ink-400">
         {segments.map((segment) => (
           <span key={segment.key} className="inline-flex items-center gap-2">
             <span
-              className="size-2.5 rounded-[3px]"
+              className="size-2.5 rounded-xs"
               style={{ backgroundColor: segment.color }}
               aria-hidden
             />
             {segment.label}
-            <span className="tabular-nums font-medium text-surface-200">
+            <span className="tabular-nums font-medium text-ink-200">
               {segment.value}
             </span>
           </span>
@@ -396,11 +397,11 @@ function TitleDeltaList({
 }) {
   return (
     <div>
-      <h4 className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-surface-400">
+      <h4 className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-ink-400">
         {heading}
       </h4>
       {titles.length === 0 ? (
-        <p className="text-xs text-surface-600">{emptyLabel}</p>
+        <p className="text-xs text-ink-600">{emptyLabel}</p>
       ) : (
         <ul className="space-y-1.5">
           {titles.slice(0, 5).map((title) => (
@@ -408,10 +409,10 @@ function TitleDeltaList({
               key={`${title.item_type}:${title.item_id}`}
               className="flex items-center gap-3 text-sm"
             >
-              <span className="min-w-0 flex-1 truncate text-surface-200">
+              <span className="min-w-0 flex-1 truncate text-ink-200">
                 {title.title ?? "Untitled"}
               </span>
-              <span className="shrink-0 text-xs tabular-nums text-surface-500">
+              <span className="shrink-0 text-xs tabular-nums text-ink-500">
                 <span style={{ color: SERIES.you }}>{title.you}</span>
                 {" · "}
                 <span style={{ color: SERIES.crowd }}>{title.crowd.toFixed(1)}</span>

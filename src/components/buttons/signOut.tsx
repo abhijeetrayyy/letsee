@@ -2,7 +2,7 @@
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
-import { FaRightFromBracket } from "react-icons/fa6";
+import { LogOutIcon } from "lucide-react";
 
 const SignOut: React.FC = () => {
   const router = useRouter();
@@ -37,8 +37,8 @@ const SignOut: React.FC = () => {
         disabled={isLoading}
         className={`w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
           isLoading
-            ? "bg-surface-700 text-surface-400 cursor-not-allowed"
-            : "bg-red-500/10 border border-red-500/20 text-red-300 hover:bg-red-500/20 hover:border-red-500/30"
+            ? "bg-hover text-ink-400 cursor-not-allowed"
+            : "bg-danger/10 border border-danger/20 text-danger hover:bg-danger/20 hover:border-danger/30"
         }`}
       >
         {isLoading ? (
@@ -67,7 +67,7 @@ const SignOut: React.FC = () => {
           </>
         ) : (
           <>
-            <FaRightFromBracket className="size-4" />
+            <LogOutIcon className="size-4" />
             Sign out
           </>
         )}

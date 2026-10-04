@@ -2,12 +2,11 @@
 
 import React, { useState, useEffect, useCallback, useRef, Component } from "react";
 import { supabase } from "@/utils/supabase/client";
-import { MdContentCopy } from "react-icons/md";
-import { FaTwitter, FaWhatsapp } from "react-icons/fa6";
-import { IoIosCopy } from "react-icons/io";
+import { fetchRecipients } from "@/lib/db/recipients";
 import Link from "@components/ui/AppLink";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { siteUrl } from "@/utils/siteUrl";
+import { CopyIcon, TwitterIcon, MessageCircleIcon } from "lucide-react";
 
 const CONTENT_MAX_LENGTH = 2000;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -117,14 +116,14 @@ class ShareModalErrorBoundary extends Component<
       return (
         <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-9999" onClick={this.props.onClose}>
           <div
-            className="bg-surface-800 w-full max-w-md rounded-lg p-6 shadow-xl"
+            className="bg-overlay w-full max-w-sheet rounded-lg p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-white mb-4">Something went wrong loading the share dialog.</p>
+            <p className="text-ink-0 mb-4">Something went wrong loading the share dialog.</p>
             <button
               type="button"
               onClick={this.props.onClose}
-              className="w-full py-2 rounded-lg bg-surface-600 text-white hover:bg-surface-500"
+              className="w-full py-2 rounded-lg bg-active text-ink-0 hover:bg-muted"
             >
               Close
             </button>
@@ -304,18 +303,10 @@ const SendMessageModal: React.FC<Props> = ({
     if (!searchDebounced.trim()) {
       setLoading(true);
       setError(null);
-      fetch("/api/share/recipients")
-        .then(async (res) => {
+      fetchRecipients(sender.id)
+        .then(({ connections }) => {
           if (cancelled) return;
-          if (!res.ok) throw new Error(String(res.status));
-          const body = await res.json();
-          const d = body?.data ?? body;
-          setUsers(
-            ((d?.connections ?? []) as { id: string; username: string }[]).map((u) => ({
-              id: u.id,
-              username: u.username,
-            })),
-          );
+          setUsers(connections.map((u) => ({ id: u.id, username: u.username })));
         })
         .catch(() => {
           // No connections list just means an empty start, not an error worth
@@ -515,31 +506,31 @@ const SendMessageModal: React.FC<Props> = ({
       aria-modal="true"
     >
       <div
-        className="bg-surface-800 w-full h-fit max-w-3xl sm:rounded-lg p-5 shadow-xl"
+        className="bg-overlay w-full h-fit max-w-read sm:rounded-lg p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center p-4 border-b">
           {profileIncomplete ? (
             <Link
-              className="bg-blue-600 hover:bg-blue-700 rounded-md px-3 py-2 text-white text-lg font-semibold"
-              href={"/app/profile/setup"}
+              className="bg-active hover:bg-active rounded-md px-3 py-2 text-ink-0 text-lg font-semibold"
+              href={"/app/settings"}
             >
               Complete Profile
             </Link>
           ) : (
             <Link
-              className="bg-blue-600 hover:bg-blue-700 rounded-md px-3 py-2 text-white text-lg font-semibold"
+              className="bg-active hover:bg-active rounded-md px-3 py-2 text-ink-0 text-lg font-semibold"
               href={"/login"}
             >
               Log in
             </Link>
           )}
-          <button type="button" onClick={onClose} className="text-white hover:text-gray-300 p-1" aria-label="Close">
+          <button type="button" onClick={onClose} className="text-ink-0 hover:text-ink-300 p-1" aria-label="Close">
             ✕
           </button>
         </div>
         <div className="p-4">
-          <p className="text-white">
+          <p className="text-ink-0">
             {profileIncomplete
               ? "Complete your profile to send messages."
               : "You need to log in to send messages."}
@@ -556,11 +547,11 @@ const SendMessageModal: React.FC<Props> = ({
       aria-labelledby="share-modal-title"
     >
       <div
-        className="bg-surface-800 w-full max-w-3xl sm:rounded-lg p-5 shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-overlay w-full max-w-read sm:rounded-lg p-5 shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center p-4 border-b border-surface-700 shrink-0">
-          <h2 id="share-modal-title" className="text-white text-lg font-semibold truncate pr-8">
+        <div className="flex justify-between items-center p-4 border-b border-line-strong shrink-0">
+          <h2 id="share-modal-title" className="text-ink-0 text-lg font-medium truncate pr-8">
             {normalized.id != null
               ? `Share: ${normalized.displayName.slice(0, 24)}${normalized.displayName.length > 24 ? "…" : ""}`
               : "Send message"}
@@ -568,7 +559,7 @@ const SendMessageModal: React.FC<Props> = ({
           <button
             type="button"
             onClick={handleClose}
-            className="absolute top-4 right-4 text-surface-400 hover:text-white p-1 rounded"
+            className="absolute top-4 right-4 text-ink-400 hover:text-ink-0 p-1 rounded"
             aria-label="Close"
           >
             ✕
@@ -578,9 +569,9 @@ const SendMessageModal: React.FC<Props> = ({
         <div className="p-4 overflow-y-auto min-h-0 flex-1">
           {link && (
           <div className="flex items-center justify-between mb-4">
-            <span className="text-white truncate max-w-[200px]">{link}</span>
+            <span className="text-ink-0 truncate max-w-50">{link}</span>
             <button onClick={() => copyToClipboard(link)} className="shrink-0 p-1" aria-label="Copy link">
-              {copyToggle ? <IoIosCopy /> : <MdContentCopy />}
+              {copyToggle ? <CopyIcon /> : <CopyIcon />}
             </button>
           </div>
           )}
@@ -589,36 +580,36 @@ const SendMessageModal: React.FC<Props> = ({
           <div className="flex space-x-4 mb-4">
             <button
               onClick={() => shareOnTwitter(link, shareText)}
-              className="text-white hover:text-blue-400"
+              className="text-ink-0 hover:text-ink-300"
             >
-              <FaTwitter size={24} />
+              <TwitterIcon size={24} />
             </button>
             <button
               onClick={() => shareOnWhatsApp(link, shareText)}
-              className="text-white hover:text-green-400"
+              className="text-ink-0 hover:text-ink-300"
             >
-              <FaWhatsapp size={24} />
+              <MessageCircleIcon size={24} />
             </button>
             {/* <button
               onClick={() => shareOnInstagram(link, shareText)}
-              className="text-white hover:text-pink-400"
+              className="text-ink-0 hover:text-ink-300"
             >
               <FaInstagram size={24} />
             </button> */}
           </div>
           )}
-          <label className="text-surface-300 text-sm">Search username</label>
+          <label className="text-ink-300 text-sm">Search username</label>
           <input
             type="text"
             placeholder="Search users..."
-            className="mt-2 text-gray-600 bg-white w-full border rounded-lg p-2 mb-4"
+            className="mt-2 text-ink-600 bg-white w-full border rounded-lg p-2 mb-4"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
 
           <div className=" max-h-40 overflow-y-auto mb-4">
             {loading ? (
-              <div className="flex items-center justify-center gap-2 py-6 text-surface-300">
+              <div className="flex items-center justify-center gap-2 py-6 text-ink-300">
                 <LoadingSpinner size="sm" className="border-t-white shrink-0" />
                 <span className="text-sm animate-pulse">Loading users…</span>
               </div>
@@ -633,8 +624,8 @@ const SendMessageModal: React.FC<Props> = ({
                     <img loading="lazy" decoding="async"
                       className={`rounded-full w-20 h-20  ${
                         selectedUsers.some((u) => u.id === user.id)
-                          ? "border-2 border-blue-500 text-white"
-                          : "border-2 border-surface-600 hover:border-surface-500"
+                          ? "border-2 border-line-input text-ink-0"
+                          : "border-2 border-line-input hover:border-line-bold"
                       }`}
                       src="/avatar.svg"
                       alt={user.username}
@@ -654,7 +645,7 @@ const SendMessageModal: React.FC<Props> = ({
                 {selectedUsers.map((user) => (
                   <div
                     key={user.id}
-                    className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm"
+                    className="bg-hover text-ink-500 px-2 py-1 rounded-full text-sm"
                   >
                     {user.username}
                   </div>
@@ -663,25 +654,25 @@ const SendMessageModal: React.FC<Props> = ({
             </div>
           )}
 
-          {warning && <p className="text-yellow-500 text-sm mb-2">{warning}</p>}
+          {warning && <p className="text-ink-400 text-sm mb-2">{warning}</p>}
 
           <textarea
-            className="w-full rounded-lg border border-surface-600 bg-surface-200 text-surface-900 placeholder-surface-500 p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full rounded-lg border border-line-input bg-inverse-2 text-ink-900 placeholder-ink-500 p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-focus focus:border-transparent"
             placeholder="Type your message..."
             rows={4}
             maxLength={CONTENT_MAX_LENGTH}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
           />
-          <p className="text-right text-xs text-surface-500 mb-2">
+          <p className="text-right text-xs text-ink-500 mb-2">
             {message.length}/{CONTENT_MAX_LENGTH}
           </p>
 
-          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-          {success && <p className="text-green-500 text-sm mb-4">{success}</p>}
+          {error && <p className="text-danger text-sm mb-4">{error}</p>}
+          {success && <p className="text-ink-400 text-sm mb-4">{success}</p>}
 
           <button
-            className="w-full bg-blue-500 text-white p-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-70 transition-all duration-200 active:scale-[0.99]"
+            className="w-full bg-hover text-ink-0 p-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-70 transition-all duration-200 active:scale-[0.99]"
             onClick={sendMessage}
             disabled={loading}
             aria-busy={loading}

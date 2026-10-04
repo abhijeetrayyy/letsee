@@ -176,17 +176,17 @@ async function page({ params }: PageProps) {
 
   if (!showResult.data || !creditsResult.data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-surface-900 text-surface-200 p-4">
-        <div className="max-w-xl text-center">
+      <div className="min-h-screen flex items-center justify-center bg-raised text-ink-200 p-4">
+        <div className="max-w-sheet text-center">
           <p className="text-lg font-semibold">Cast data unavailable.</p>
           {errors.length > 0 && (
-            <ul className="mt-3 text-sm text-amber-200 list-disc list-inside">
+            <ul className="mt-3 text-sm text-ink-100 list-disc list-inside">
               {errors.map((message) => (
                 <li key={message}>{message}</li>
               ))}
             </ul>
           )}
-          <p className="mt-3 text-sm text-surface-400">
+          <p className="mt-3 text-sm text-ink-400">
             Try refreshing in a moment.
           </p>
         </div>
@@ -204,7 +204,7 @@ async function page({ params }: PageProps) {
   const cast = seriesCast(creditsResult.data, stubResult.data?.cast, Number.MAX_SAFE_INTEGER);
   const crew = seriesCrew(creditsResult.data, stubResult.data?.crew, 12);
   return (
-    <div className="min-h-screen bg-surface-950">
+    <div className="min-h-screen bg-page">
       <CreditsHero
         mediaType="tv"
         id={show.id}

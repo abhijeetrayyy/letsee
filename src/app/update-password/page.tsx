@@ -16,9 +16,9 @@ export const metadata = {
 
 function UpdatePasswordFallback() {
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-surface-950">
+    <div className="min-h-screen flex flex-col justify-center items-center bg-page">
       <LoadingSpinner size="lg" className="border-t-white" />
-      <p className="mt-4 text-sm text-surface-400">Loading…</p>
+      <p className="mt-4 text-sm text-ink-400">Loading…</p>
     </div>
   );
 }

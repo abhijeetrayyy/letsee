@@ -1,5 +1,7 @@
 "use client";
 
+import { useAuth } from "@/app/contextAPI/AuthProvider";
+
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "@components/ui/AppLink";
 import toast from "react-hot-toast";
@@ -52,6 +54,8 @@ const RUNS: Run[] = [
 const MILESTONES = [10, 25, 50, 100, 200];
 
 export default function QuickAddClient({ initialType = "movie" }: { initialType?: "movie" | "tv" }) {
+  const { user: me } = useAuth();
+  const myProfile = me?.username ? `/app/profile/${me.username}` : "/app";
   const { refreshPreferences } = useContext(UserPrefrenceContext);
   const { refresh: refreshInteractions } = useMediaInteraction();
 
@@ -266,23 +270,23 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
   return (
     <div className="min-h-screen pb-24">
       {/* Header — states the job, then gets out of the way */}
-      <header className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-8 pb-5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-gold">
+      <header className="max-w-app mx-auto px-4 sm:px-6 pt-8 pb-5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-ink-0">
           Quick add
         </p>
-        <h1 className="mt-1.5 text-2xl sm:text-[2rem] font-bold tracking-tight text-white">
+        <h1 className="mt-1.5 text-2xl sm:text-3xl font-medium tracking-tight text-ink-0">
           Your back catalogue
         </h1>
-        <p className="mt-1.5 text-sm text-surface-400">
+        <p className="mt-1.5 text-sm text-ink-400">
           Tap the ones you&apos;ve seen. Tap again if you loved it.
         </p>
       </header>
 
       {/* Runs — a bounded set to work through, not a filter form */}
-      <div className="sticky top-14 z-30 border-y border-surface-800/70 bg-surface-950/95 backdrop-blur">
+      <div className="sticky top-14 z-30 border-y border-line/70 bg-page/95 backdrop-blur">
         {/* Stacked on small screens: sharing one row squeezed the runs down to
             two visible chips, which hid the main navigation of the page. */}
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-2.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+        <div className="max-w-app mx-auto px-4 sm:px-6 py-2.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           <div className="flex gap-1 overflow-x-auto no-scrollbar -mx-1 px-1 flex-1">
             {RUNS.map((r) => (
               <button
@@ -290,10 +294,10 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
                 type="button"
                 onClick={() => { setRunId(r.id); setQuery(""); }}
                 aria-pressed={r.id === runId && !debouncedQuery}
-                className={`shrink-0 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
+                className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   r.id === runId && !debouncedQuery
-                    ? "bg-surface-100 text-surface-950"
-                    : "text-surface-400 hover:text-surface-100 hover:bg-surface-800/70"
+                    ? "bg-inverse text-ink-950"
+                    : "text-ink-400 hover:text-ink-100 hover:bg-overlay/70"
                 }`}
               >
                 {r.label}
@@ -302,14 +306,14 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
           </div>
 
           <div className="shrink-0 flex items-center gap-2">
-            <div className="flex rounded-lg overflow-hidden border border-surface-800">
+            <div className="flex rounded-lg overflow-hidden border border-line">
               {(["movie", "tv"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setType(t)}
                   aria-pressed={type === t}
                   className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                    type === t ? "bg-surface-800 text-white" : "text-surface-500 hover:text-surface-200"
+                    type === t ? "bg-overlay text-ink-0" : "text-ink-500 hover:text-ink-200"
                   }`}
                 >
                   {t === "movie" ? "Films" : "TV"}
@@ -317,33 +321,33 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
               ))}
             </div>
             <div className="relative flex-1 sm:flex-none sm:w-56">
-              <Search className="size-3.5 text-surface-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="size-3.5 text-ink-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Find a title"
                 aria-label="Search for a specific title"
-                className="w-full bg-surface-900 text-sm text-surface-200 placeholder:text-surface-600 rounded-lg pl-8 pr-2.5 py-1.5 border border-surface-800 focus:border-surface-600 outline-none"
+                className="w-full bg-raised text-sm text-ink-200 placeholder:text-ink-600 rounded-lg pl-8 pr-2.5 py-1.5 border border-line focus:border-line-input outline-none"
               />
             </div>
           </div>
         </div>
       </div>
 
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-5">
+      <div className="max-w-app mx-auto px-4 sm:px-6 pt-5">
         {/* Where you are in this run */}
         <div className="flex items-baseline justify-between gap-4 mb-3">
-          <p className="text-sm text-surface-400">
+          <p className="text-sm text-ink-400">
             {debouncedQuery ? (
-              <>Results for <span className="text-surface-200">{debouncedQuery}</span></>
+              <>Results for <span className="text-ink-200">{debouncedQuery}</span></>
             ) : (
               run.caption
             )}
           </p>
           {runProgress > 0 && (
-            <p className="shrink-0 text-sm tabular-nums text-surface-500">
-              <span className="text-accent-gold font-semibold">{runProgress}</span> marked here
+            <p className="shrink-0 text-sm tabular-nums text-ink-500">
+              <span className="text-ink-0 font-semibold">{runProgress}</span> marked here
             </p>
           )}
         </div>
@@ -351,27 +355,27 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
         {loading ? (
           <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-8 xl:grid-cols-10 gap-1.5">
             {Array.from({ length: 30 }).map((_, i) => (
-              <div key={i} className="aspect-[2/3] rounded-md bg-surface-900 animate-pulse" />
+              <div key={i} className="aspect-2/3 rounded-md bg-raised animate-pulse" />
             ))}
           </div>
         ) : failed ? (
           <div className="py-24 text-center">
-            <p className="text-surface-200 font-medium">Couldn&apos;t load titles</p>
-            <p className="text-sm text-surface-500 mt-1">The film database didn&apos;t respond.</p>
+            <p className="text-ink-200 font-medium">Couldn&apos;t load titles</p>
+            <p className="text-sm text-ink-500 mt-1">The film database didn&apos;t respond.</p>
             <button
               type="button"
               onClick={() => setReloadKey((k) => k + 1)}
-              className="mt-4 px-4 py-2 rounded-lg bg-surface-800 text-surface-200 text-sm font-medium hover:bg-surface-700"
+              className="mt-4 px-4 py-2 rounded-lg bg-overlay text-ink-200 text-sm font-medium hover:bg-hover"
             >
               Try again
             </button>
           </div>
         ) : items.length === 0 ? (
           <div className="py-24 text-center">
-            <p className="text-surface-200 font-medium">
+            <p className="text-ink-200 font-medium">
               {debouncedQuery ? "Nothing found" : `Nothing left in ${run.label}`}
             </p>
-            <p className="text-sm text-surface-500 mt-1">
+            <p className="text-sm text-ink-500 mt-1">
               {debouncedQuery ? "Try a different spelling." : "You've logged all of these. Pick another run above."}
             </p>
           </div>
@@ -379,7 +383,10 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
           <>
             <div
               ref={gridRef}
-              role="grid"
+              // A list, not role="grid": the columns change with the width, so
+              // there are no fixed rows to declare. Arrow keys still move by
+              // the columns on screen (onGridKeyDown).
+              role="list"
               aria-label={`${run.label} — tap to mark as seen`}
               onKeyDown={onGridKeyDown}
               className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-8 xl:grid-cols-10 gap-1.5"
@@ -400,7 +407,7 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
                   type="button"
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="px-5 py-2.5 rounded-lg bg-surface-900 text-surface-300 text-sm font-medium border border-surface-800 hover:bg-surface-800 hover:text-white disabled:opacity-60 transition-colors"
+                  className="px-5 py-2.5 rounded-lg bg-raised text-ink-300 text-sm font-medium border border-line hover:bg-overlay hover:text-ink-0 disabled:opacity-60 transition-colors"
                 >
                   {loadingMore ? "Loading…" : "More from this run"}
                 </button>
@@ -408,30 +415,30 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
             )}
           </>
         )}
-      </main>
+      </div>
 
       {/* Always mounted, so landing the first mark doesn't shift the grid */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-surface-800 bg-surface-950/95 backdrop-blur">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
-          <p className="text-sm text-surface-300 tabular-nums">
-            <span className="text-lg font-semibold text-white">{total}</span>
-            <span className="text-surface-500"> logged this session</span>
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-page/95 backdrop-blur">
+        <div className="max-w-app mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
+          <p className="text-sm text-ink-300 tabular-nums">
+            <span className="text-lg font-semibold text-ink-0">{total}</span>
+            <span className="text-ink-500"> logged this session</span>
           </p>
 
           <button
             type="button"
             onClick={undo}
             disabled={total === 0 && historyRef.current.length === 0}
-            className="ml-auto inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-surface-400 hover:text-white hover:bg-surface-800 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+            className="ml-auto inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-ink-400 hover:text-ink-0 hover:bg-overlay disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
           >
             <Undo2 className="size-4" />
             <span className="hidden sm:inline">Undo</span>
           </button>
 
           <Link
-            href="/app/profile"
+            href={myProfile}
             onClick={finish}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-brand-500 text-surface-950 text-sm font-semibold hover:bg-brand-400 transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-action text-on-action text-sm font-semibold hover:bg-action-hover transition-colors"
           >
             Done
             <ArrowRight className="size-4" />
@@ -459,18 +466,18 @@ function Tile({
 }) {
   const state = mark === "loved" ? "Loved" : mark === "seen" ? "Seen" : "Not marked";
   return (
-    <div role="gridcell" className="group relative">
+    <div role="listitem" className="group relative">
       <button
         type="button"
         onClick={onActivate}
         aria-label={`${item.name}${item.year ? `, ${item.year}` : ""}. ${state}. Activate to change.`}
-        className="block w-full aspect-[2/3] rounded-md overflow-hidden bg-surface-900 relative focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-surface-950"
+        className="block w-full aspect-2/3 rounded-md overflow-hidden bg-raised relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ink-0 focus-visible:ring-offset-2 focus-visible:ring-offset-page"
       >
         <img
           src={`https://image.tmdb.org/t/p/w342${item.posterPath}`}
           alt=""
           loading="lazy"
-          className={`w-full h-full object-cover transition-[filter,transform] duration-200 ${
+          className={`w-full h-full object-cover transition-all duration-200 ${
             mark ? "saturate-[.35] brightness-[.55] scale-[1.02]" : "group-hover:brightness-110"
           }`}
         />
@@ -478,7 +485,7 @@ function Tile({
         {mark && (
           <svg
             viewBox="0 0 100 150"
-            className="absolute inset-0 w-full h-full pointer-events-none text-accent-gold"
+            className="absolute inset-0 w-full h-full pointer-events-none text-ink-0"
             aria-hidden
           >
             {/* Deliberately imperfect: drawn by hand, not stamped */}
@@ -504,8 +511,8 @@ function Tile({
 
         {/* Title on demand — the poster is the recognition unit, but a quiet
             fallback matters for anything less than iconic */}
-        <span className="absolute inset-x-0 bottom-0 px-1.5 py-1 bg-gradient-to-t from-surface-950 via-surface-950/85 to-transparent opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-          <span className="block text-[10px] leading-tight text-surface-200 line-clamp-2 text-left">
+        <span className="absolute inset-x-0 bottom-0 px-1.5 py-1 bg-gradient-to-t from-page via-page/85 to-transparent opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+          <span className="block text-xs leading-tight text-ink-200 line-clamp-2 text-left">
             {item.name}
           </span>
         </span>

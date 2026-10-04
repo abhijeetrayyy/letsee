@@ -157,7 +157,7 @@ export default async function MoviePage({ params }: PageProps) {
   const movie = result.data;
   if (!movie) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-surface-950 text-surface-300 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-page text-ink-300 p-4">
         <p>Movie data unavailable. Try refreshing.</p>
       </div>
     );
@@ -261,12 +261,12 @@ export default async function MoviePage({ params }: PageProps) {
         data={[
           movieLd(movie),
           breadcrumbLd([
-            { name: "Films", path: "/app/browse" },
+            { name: "Films", path: "/app/search?browse=1" },
             { name: movie.title, path: titlePath("movie", movie.id, movie.title) },
           ]),
         ]}
       />
-    <div className="bg-surface-950 min-h-screen">
+    <div className="bg-page min-h-screen">
       <MovieDetailClient
         movie={movieForClient}
         directors={directors}
@@ -282,13 +282,12 @@ export default async function MoviePage({ params }: PageProps) {
         reviews={reviews}
       />
 
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
-        {/* Streamed: getRelated is 2.1–5.4s cold and sits at the bottom
-            of the page. Nothing above it should wait. */}
-        <Suspense fallback={null}>
-          <RelatedStream {...relatedArgs} />
-        </Suspense>
-      </div>
+      {/* Streamed: getRelated is 2.1–5.4s cold and sits at the bottom
+          of the page. Nothing above it should wait. RelatedSection sets its
+          own width and gutter; wrapping it in another doubled both. */}
+      <Suspense fallback={null}>
+        <RelatedStream {...relatedArgs} />
+      </Suspense>
     </div>
     </>
   );

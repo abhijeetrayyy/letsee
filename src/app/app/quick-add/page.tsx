@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/utils/supabase/server";
+import { getAuthUserId } from "@/utils/apiAuth";
 import QuickAddClient from "./QuickAddClient";
 
 export const dynamic = "force-dynamic";
@@ -18,15 +18,13 @@ export default async function QuickAddPage({
 }: {
   searchParams: Promise<{ type?: string }>;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!(await getAuthUserId())) redirect("/login");
 
   const { type } = await searchParams;
 
   return (
-    <main className="min-h-screen bg-surface-950">
+    <div className="min-h-screen bg-page">
       <QuickAddClient initialType={type === "tv" ? "tv" : "movie"} />
-    </main>
+    </div>
   );
 }

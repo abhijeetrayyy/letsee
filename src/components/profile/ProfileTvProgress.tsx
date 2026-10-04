@@ -1,24 +1,29 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useState } from "react";
 import useSWRInfinite from "swr/infinite";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import TvShowCard from "@components/profile/TvShowCard";
+import toast from "react-hot-toast";
+import { Check, LoaderCircle } from "lucide-react";
+import Link from "@components/ui/AppLink";
 import TvCalendarView from "@components/profile/TvCalendarView";
-import EpisodeManagementModal from "@components/tv/EpisodeManagementModal";
-import { swrFetcher, SwrFetchError } from "@/utils/swrFetcher";
+import { swrFetcher } from "@/utils/swrFetcher";
+import { getPosterUrl } from "@/utils/imageUrl";
 import { titlePath } from "@/utils/urls";
+import { episodeLabel } from "@/lib/logging/episodes";
+import { offersNextCheck, seriesLine } from "@/lib/logging/seriesProgress";
 
-const PAGE_SIZE = 12;
-
-const TV_STATUS_LABELS: Record<string, string> = {
-  watchlist: "Watchlist",
-  watching: "Watching",
-  watched: "Watched",
-  on_hold: "On Hold",
-  dropped: "Dropped",
-  untagged: "Untagged",
-};
+/**
+ * Series progress on a profile: every show someone is inside of, as rows —
+ * where they are, how far through, and (on your own profile) one check for
+ * the next episode, with Undo. Filters are the four words the rest of the app
+ * uses (Watching · Watched · Stopped · Want to watch), not the five database
+ * states. Read through `/api/profile/tv-progress`, which checks visibility
+ * before it reads anything.
+ *
+ * The episodes-by-month calendar stays one tap away for anyone who wants the
+ * history rather than the shelf.
+ */
+const PAGE_SIZE = 20;
 
 export type ProfileTvProgressItem = {
   show_id: string;
@@ -37,422 +42,184 @@ export type ProfileTvProgressItem = {
 
 type TvProgressPage = { items: ProfileTvProgressItem[]; total: number };
 
-interface ProfileTvProgressProps {
-  userId: string;
-  isOwner?: boolean;
-}
+const FILTERS: { key: string; label: string }[] = [
+  { key: "", label: "All" },
+  { key: "watching", label: "Watching" },
+  { key: "watched", label: "Watched" },
+  { key: "on_hold,dropped", label: "Stopped" },
+  { key: "watchlist", label: "Want to watch" },
+];
 
-export default function ProfileTvProgress({
-  userId,
-  isOwner = false,
-}: ProfileTvProgressProps) {
-  const [markingId, setMarkingId] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [sortBy, setSortBy] = useState<"last_watched" | "name" | "progress">("last_watched");
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "calendar">("grid");
-  const [editModalShowId, setEditModalShowId] = useState<string | null>(null);
-  const [editModalShowName, setEditModalShowName] = useState("");
+export default function ProfileTvProgress({ userId, isOwner = false }: { userId: string; isOwner?: boolean }) {
+  const [filter, setFilter] = useState("");
+  const [calendar, setCalendar] = useState(false);
+  const [marking, setMarking] = useState<string | null>(null);
 
-  const getKey = (
-    pageIndex: number,
-    previousPageData: TvProgressPage | null,
-  ): string | null => {
-    if (previousPageData && previousPageData.items.length < PAGE_SIZE) return null;
-    const offset = pageIndex * PAGE_SIZE;
-    const statusParam = statusFilter ? `&status=${statusFilter}` : "";
-    return `/api/profile/tv-progress?userId=${encodeURIComponent(userId)}&limit=${PAGE_SIZE}&offset=${offset}${statusParam}`;
-  };
-
-  const { data, error, size, setSize, isLoading, isValidating, mutate } =
-    useSWRInfinite<TvProgressPage>(getKey, swrFetcher);
-
-  useEffect(() => {
-    setSize(1);
-  }, [statusFilter, setSize]);
+  const { data, error, size, setSize, isLoading, isValidating, mutate } = useSWRInfinite<TvProgressPage>(
+    (index, previous) => {
+      // Paged by the route's offset, not by how many came back: the route
+      // drops a show TMDB can't describe, so a short page isn't the end.
+      if (previous && index * PAGE_SIZE >= previous.total) return null;
+      const status = filter ? `&status=${encodeURIComponent(filter)}` : "";
+      return `/api/profile/tv-progress?userId=${encodeURIComponent(userId)}&limit=${PAGE_SIZE}&offset=${index * PAGE_SIZE}${status}`;
+    },
+    swrFetcher,
+    { revalidateOnFocus: false },
+  );
 
   const items = data ? data.flatMap((p) => p.items) : [];
   const total = data?.[0]?.total ?? 0;
-  const loading = isLoading;
   const loadingMore = isValidating && size > 1;
-  const remainingCount = total - items.length;
-  const hasMore = remainingCount > 0;
 
-  const handleViewMore = () => {
-    if (hasMore && !loadingMore) setSize((prev) => prev + 1);
+  const toggle = (showId: string, s: number, e: number) =>
+    fetch("/api/watched-episode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showId, seasonNumber: s, episodeNumber: e }),
+    }).then((r) => r.ok, () => false);
+
+  const markNext = async (item: ProfileTvProgressItem) => {
+    if (!item.next_season || !item.next_episode || marking) return;
+    const ep = { s: item.next_season, e: item.next_episode };
+    setMarking(item.show_id);
+    const ok = await toggle(item.show_id, ep.s, ep.e);
+    if (ok) await mutate();
+    setMarking(null);
+    if (!ok) {
+      toast.error("That didn't save. Check your connection.");
+      return;
+    }
+    toast(
+      (t) => (
+        <span className="flex items-center gap-3">
+          Marked {episodeLabel(ep)}
+          <button
+            type="button"
+            className="rounded-full px-3 py-1 font-medium ring-1 ring-inset ring-line-input"
+            onClick={async () => {
+              toast.dismiss(t.id);
+              if (await toggle(item.show_id, ep.s, ep.e)) await mutate();
+              else toast.error("Couldn't undo that.");
+            }}
+          >
+            Undo
+          </button>
+        </span>
+      ),
+      { duration: 6000 },
+    );
   };
 
-  const handleMarkNext = async (showId: string) => {
-    const item = items.find((i) => i.show_id === showId);
-    if (!item?.next_season || !item?.next_episode || markingId) return;
-    setMarkingId(showId);
-    try {
-      const res = await fetch("/api/watched-episode", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          showId,
-          seasonNumber: item.next_season,
-          episodeNumber: item.next_episode,
-        }),
-      });
-      if (res.ok) await mutate();
-    } catch (err) {
-      console.error("Failed to mark next episode:", err);
-    } finally {
-      setMarkingId(null);
-    }
-  };
-
-  const sortedItems = [...items].sort((a, b) => {
-    if (sortBy === "name") return a.show_name.localeCompare(b.show_name);
-    if (sortBy === "progress") {
-      const pa = a.total_episodes > 0 ? a.episodes_watched / a.total_episodes : 0;
-      const pb = b.total_episodes > 0 ? b.episodes_watched / b.total_episodes : 0;
-      return pb - pa;
-    }
-    return 0;
-  });
-
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-surface-700/60 bg-surface-900/40 p-6 flex flex-col items-center justify-center gap-3 min-h-[120px]">
-        <LoadingSpinner size="md" className="border-t-white shrink-0" />
-        <p className="text-surface-500 text-sm animate-pulse">Loading series progress…</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    const message =
-      error instanceof SwrFetchError ? error.message : "Failed to load progress details.";
-    return (
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-6 flex flex-col items-center gap-3">
-        <p className="text-amber-200 text-sm font-medium text-center">{message}</p>
-        <button
-          onClick={() => mutate()}
-          className="px-4 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 text-xs transition-colors"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
+  const chip = (on: boolean) =>
+    `inline-flex h-9 shrink-0 items-center rounded-full px-3.5 text-sm font-medium transition-colors ${
+      on ? "bg-action text-on-action" : "text-ink-300 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"
+    }`;
 
   return (
-    <div className="space-y-6">
-      {/* Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Status Tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-surface-900 border border-surface-800 rounded-xl overflow-x-auto no-scrollbar whitespace-nowrap">
-          {[
-            { id: "", label: "All" },
-            { id: "watching", label: "Watching" },
-            { id: "watched", label: "Watched" },
-            { id: "on_hold", label: "On Hold" },
-            { id: "dropped", label: "Dropped" },
-            { id: "watchlist", label: "Watchlist" },
-            { id: "untagged", label: "Untagged" },
-          ].map((s) => (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <nav aria-label="Filter series" className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
+          {FILTERS.map((f) => (
             <button
-              key={s.id}
-              onClick={() => setStatusFilter(s.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                statusFilter === s.id
-                  ? "bg-surface-800 text-white shadow-sm"
-                  : "text-surface-500 hover:text-surface-400"
-              }`}
+              key={f.key}
+              type="button"
+              aria-pressed={filter === f.key}
+              onClick={() => {
+                setFilter(f.key);
+                setCalendar(false);
+              }}
+              className={chip(filter === f.key && !calendar)}
             >
-              {s.label}
+              {f.label}
             </button>
           ))}
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Sorting */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            className="bg-surface-900 border border-surface-800 text-surface-300 text-xs py-2 px-3 rounded-xl focus:ring-1 focus:ring-brand-500 outline-none h-[38px]"
-          >
-            <option value="last_watched">Last Activity</option>
-            <option value="name">Sort by Name</option>
-            <option value="progress">Sort by Progress</option>
-          </select>
-
-          {/* View Toggle */}
-          <div className="flex items-center gap-1.5 p-1 bg-surface-900 border border-surface-800 rounded-xl">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-lg transition-all ${
-                viewMode === "grid"
-                  ? "bg-surface-800 text-white shadow-sm"
-                  : "text-surface-500 hover:text-surface-400"
-              }`}
-              title="Grid View"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="7" height="7"></rect>
-                <rect x="14" y="3" width="7" height="7"></rect>
-                <rect x="14" y="14" width="7" height="7"></rect>
-                <rect x="3" y="14" width="7" height="7"></rect>
-              </svg>
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-2 rounded-lg transition-all ${
-                viewMode === "list"
-                  ? "bg-surface-800 text-white shadow-sm"
-                  : "text-surface-500 hover:text-surface-400"
-              }`}
-              title="List View"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="8" y1="6" x2="21" y2="6"></line>
-                <line x1="8" y1="12" x2="21" y2="12"></line>
-                <line x1="8" y1="18" x2="21" y2="18"></line>
-                <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                <line x1="3" y1="18" x2="3.01" y2="18"></line>
-              </svg>
-            </button>
-            <button
-              onClick={() => setViewMode("calendar")}
-              className={`p-2 rounded-lg transition-all ${
-                viewMode === "calendar"
-                  ? "bg-surface-800 text-white shadow-sm"
-                  : "text-surface-500 hover:text-surface-400"
-              }`}
-              title="Calendar View"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="16" y1="2" x2="16" y2="6"></line>
-                <line x1="8" y1="2" x2="8" y2="6"></line>
-                <line x1="3" y1="10" x2="21" y2="10"></line>
-              </svg>
-            </button>
-          </div>
-        </div>
+        </nav>
+        <button
+          type="button"
+          onClick={() => setCalendar((v) => !v)}
+          aria-expanded={calendar}
+          className="text-sm text-ink-400 underline decoration-line-input underline-offset-4 hover:text-ink-0"
+        >
+          {calendar ? "Back to the shows" : "Episodes by month"}
+        </button>
       </div>
 
-      {/* Empty State */}
-      {total === 0 && !loading && (
-        <div className="rounded-2xl border border-surface-700/60 bg-surface-900/20 p-12 text-center">
-          <p className="text-surface-500 text-sm">
-            {statusFilter
-              ? `No series found in the "${TV_STATUS_LABELS[statusFilter]}" category.`
-              : "No episode progress yet. Mark episodes as watched on TV show pages to see your progress here."}
-          </p>
-        </div>
-      )}
-
-      {/* Calendar View */}
-      {viewMode === "calendar" ? (
+      {calendar ? (
         <TvCalendarView userId={userId} isOwner={isOwner} />
-      ) : viewMode === "grid" ? (
-        <>
-          {/* Grid View */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {sortedItems.map((item) => (
-              <TvShowCard
-                key={item.show_id}
-                showId={item.show_id}
-                showName={item.show_name}
-                posterPath={item.poster_path}
-                seasonsCompleted={item.seasons_completed}
-                episodesWatched={item.episodes_watched}
-                totalEpisodes={item.total_episodes}
-                nextSeason={item.next_season}
-                nextEpisode={item.next_episode}
-                allComplete={item.all_complete}
-                caughtUp={item.caught_up}
-                nextAirDate={item.next_air_date}
-                tvStatus={item.tv_status}
-                isOwner={isOwner}
-                onMarkNext={handleMarkNext}
-                markingId={markingId}
-                onEpisodesChanged={() => mutate()}
-              />
-            ))}
-          </div>
-
-          {/* Load More */}
-          {hasMore && (
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={handleViewMore}
-                disabled={loadingMore}
-                className="px-6 py-3 rounded-xl text-sm font-medium bg-surface-800 text-surface-200 hover:bg-surface-700 disabled:opacity-50 transition-colors flex items-center gap-2"
-              >
-                {loadingMore ? (
-                  <>
-                    <LoadingSpinner size="sm" className="border-t-white shrink-0" />
-                    Loading…
-                  </>
-                ) : (
-                  `Load more (${remainingCount} left)`
-                )}
-              </button>
+      ) : isLoading ? (
+        <div className="flex flex-col" aria-hidden>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex items-center gap-3 border-b border-line py-2">
+              <div className="h-18 w-12 rounded-media bg-raised" />
+              <div className="h-4 flex-1 rounded bg-raised" />
             </div>
-          )}
-        </>
+          ))}
+        </div>
+      ) : error ? (
+        <p className="text-sm text-ink-400">
+          Series progress didn&apos;t load.{" "}
+          <button type="button" onClick={() => void mutate()} className="font-medium text-ink-0 underline decoration-line-input underline-offset-4">
+            Try again
+          </button>
+        </p>
+      ) : total === 0 ? (
+        <p className="text-sm text-ink-500">
+          {filter
+            ? `Nothing under ${FILTERS.find((f) => f.key === filter)?.label ?? "that"}.`
+            : isOwner
+              ? "No series yet. Tick an episode on any series page and it shows up here."
+              : "No series yet."}
+        </p>
       ) : (
         <>
-          {/* List View */}
-          <div className="rounded-xl border border-surface-700/60 bg-surface-900/40 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[480px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-surface-700/60 bg-surface-800/50">
-                    <th className="px-4 py-3 font-semibold text-surface-200">Series</th>
-                    <th className="px-4 py-3 font-semibold text-surface-200 text-center whitespace-nowrap">Status</th>
-                    <th className="px-4 py-3 font-semibold text-surface-200 text-center whitespace-nowrap">Progress</th>
-                    <th className="px-4 py-3 font-semibold text-surface-200 text-center whitespace-nowrap">Episodes</th>
-                    <th className="px-4 py-3 font-semibold text-surface-200 whitespace-nowrap">Next up</th>
-                    {isOwner && (
-                      <th className="px-4 py-3 font-semibold text-surface-200 whitespace-nowrap text-center">Actions</th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedItems.map((item) => {
-                    const percent = item.total_episodes > 0
-                      ? Math.round((item.episodes_watched / item.total_episodes) * 100)
-                      : 0;
-                    const statusColor = item.tv_status === "watching"
-                      ? "text-emerald-400"
-                      : item.tv_status === "watched"
-                      ? "text-brand-400"
-                      : item.tv_status === "dropped"
-                      ? "text-red-400"
-                      : "text-surface-400";
-
-                    return (
-                      <tr
-                        key={item.show_id}
-                        className="border-b border-surface-700/40 hover:bg-surface-800/50 transition-colors"
-                      >
-                        <td className="px-4 py-3">
-                          <a
-                            href={titlePath("tv", item.show_id, item.show_name)}
-                            className="font-medium text-white hover:text-brand-400 hover:underline flex items-center gap-3"
-                          >
-                            {item.poster_path ? (
-                              <img loading="lazy" decoding="async"
-                                src={`https://image.tmdb.org/t/p/w92${item.poster_path}`}
-                                alt=""
-                                className="w-9 h-[54px] object-cover rounded shrink-0 shadow-lg"
-                              />
-                            ) : (
-                              <div className="w-9 h-[54px] rounded bg-surface-700 shrink-0 flex items-center justify-center text-surface-500 text-[10px]">
-                                No poster
-                              </div>
-                            )}
-                            <div className="flex flex-col gap-1">
-                              <span className="line-clamp-1">{item.show_name}</span>
-                              <div className="w-24 h-1 bg-surface-700 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-brand-500"
-                                  style={{ width: `${percent}%` }}
-                                />
-                              </div>
-                            </div>
-                          </a>
-                        </td>
-                        <td className={`px-4 py-3 text-center text-xs font-medium ${statusColor}`}>
-                          {TV_STATUS_LABELS[item.tv_status ?? "untagged"] ?? "Untagged"}
-                        </td>
-                        <td className="px-4 py-3 text-surface-300 text-center text-xs font-medium">
-                          {percent}%
-                        </td>
-                        <td className="px-4 py-3 text-surface-300 text-center text-xs font-medium">
-                          {item.episodes_watched}/{item.total_episodes}
-                        </td>
-                        <td className="px-4 py-3">
-                          {item.next_season && item.next_episode ? (
-                            <button
-                              onClick={() => handleMarkNext(item.show_id)}
-                              disabled={markingId === item.show_id}
-                              className="text-xs font-medium text-brand-400 hover:text-brand-300 underline-offset-4 hover:underline disabled:opacity-50"
-                            >
-                              {markingId === item.show_id ? "Marking…" : `S${item.next_season}E${item.next_episode}`}
-                            </button>
-                          ) : (
-                            <span className="text-xs text-surface-500">
-                              {item.all_complete ? "Complete" : "—"}
-                            </span>
-                          )}
-                        </td>
-                        {isOwner && (
-                          <td className="px-4 py-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditModalShowId(item.show_id);
-                                setEditModalShowName(item.show_name);
-                              }}
-                              className="text-[11px] font-medium text-surface-400 hover:text-brand-400 transition-colors"
-                            >
-                              Manage
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Load More */}
-          {hasMore && (
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={handleViewMore}
-                disabled={loadingMore}
-                className="px-6 py-3 rounded-xl text-sm font-medium bg-surface-800 text-surface-200 hover:bg-surface-700 disabled:opacity-50 transition-colors flex items-center gap-2"
-              >
-                {loadingMore ? (
-                  <>
-                    <LoadingSpinner size="sm" className="border-t-white shrink-0" />
-                    Loading…
-                  </>
-                ) : (
-                  `Load more (${remainingCount} left)`
-                )}
-              </button>
-            </div>
+          <ul className="flex flex-col">
+            {items.map((item) => {
+              const pct = item.total_episodes > 0 ? Math.min(100, Math.round((item.episodes_watched / item.total_episodes) * 100)) : 0;
+              const canMark = offersNextCheck(item, isOwner);
+              return (
+                <li key={item.show_id} className="flex items-center gap-3 border-b border-line py-2 last:border-b-0">
+                  <Link href={titlePath("tv", item.show_id, item.show_name)} className="flex min-w-0 flex-1 items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={getPosterUrl(item.poster_path, "w92")} alt="" loading="lazy" className="aspect-2/3 w-12 shrink-0 rounded-media object-cover ring-1 ring-inset ring-line" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-display text-base text-ink-0">{item.show_name}</span>
+                      <span className="block truncate text-sm text-ink-400">{seriesLine(item)}</span>
+                      <span className="mt-1.5 flex items-center gap-2">
+                        <span className="h-1 w-24 overflow-hidden rounded-full bg-line-strong">
+                          <span className="block h-full bg-action" style={{ width: `${pct}%` }} />
+                        </span>
+                        <span className="font-mono text-xs tabular-nums text-ink-500">
+                          {item.episodes_watched} of {item.total_episodes}
+                        </span>
+                      </span>
+                    </span>
+                  </Link>
+                  {canMark && (
+                    <button
+                      type="button"
+                      onClick={() => void markNext(item)}
+                      disabled={marking === item.show_id}
+                      aria-label={`Mark ${episodeLabel({ s: item.next_season!, e: item.next_episode! })} of ${item.show_name} watched`}
+                      className="flex size-11 shrink-0 items-center justify-center rounded-full text-ink-300 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0 disabled:opacity-60"
+                    >
+                      {marking === item.show_id ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {size * PAGE_SIZE < total && (
+            <button
+              type="button"
+              onClick={() => void setSize(size + 1)}
+              disabled={loadingMore}
+              className="inline-flex h-10 w-full items-center justify-center rounded-full text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0 disabled:opacity-60"
+            >
+              {loadingMore ? "Loading…" : `Showing ${items.length} · More`}
+            </button>
           )}
         </>
-      )}
-
-      {/* Count */}
-      {total > 0 && (
-        <div className="px-4 py-3 border-t border-surface-700/60 bg-surface-800/50 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-surface-400">
-            Showing{" "}
-            <span className="font-medium text-surface-200">{items.length}</span>{" "}
-            of <span className="font-medium text-surface-200">{total}</span> TV
-            show{total !== 1 ? "s" : ""}
-          </p>
-        </div>
-      )}
-
-      {/* Episode Management Modal */}
-      {editModalShowId && (
-        <EpisodeManagementModal
-          showId={editModalShowId}
-          showName={editModalShowName}
-          isOpen={!!editModalShowId}
-          onClose={() => setEditModalShowId(null)}
-          onSuccess={() => {
-            setEditModalShowId(null);
-            mutate();
-          }}
-        />
       )}
     </div>
   );

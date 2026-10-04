@@ -15,19 +15,19 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="bg-surface-700 text-white w-full h-screen flex justify-center items-center flex-col gap-3 px-4">
+    <div className="bg-hover text-ink-0 w-full h-screen flex justify-center items-center flex-col gap-3 px-4">
       <p>Sorry, something went wrong.</p>
-      <div className="w-full max-w-lg rounded-md bg-surface-800 px-4 py-3 text-sm text-surface-200">
+      <div className="w-full max-w-sheet rounded-md bg-overlay px-4 py-3 text-sm text-ink-200">
         <p className="font-semibold">Why this happened</p>
         <p className="mt-1">
           {error?.message || "An unexpected error occurred while loading data."}
         </p>
         {error?.digest && (
-          <p className="mt-2 text-xs text-surface-400">
+          <p className="mt-2 text-xs text-ink-400">
             Error ID: {error.digest}
           </p>
         )}
-        <p className="mt-2 text-xs text-surface-400">
+        <p className="mt-2 text-xs text-ink-400">
           If this keeps happening, the TMDB API or network may be unavailable.
         </p>
       </div>
@@ -35,13 +35,13 @@ export default function Error({
         <button
           type="button"
           onClick={() => reset()}
-          className="px-3 py-2 bg-surface-600 rounded-md hover:bg-surface-500"
+          className="px-3 py-2 bg-active rounded-md hover:bg-muted"
         >
           Try again
         </button>
         <Link
           href="/login"
-          className="px-3 py-2 bg-surface-600 rounded-md hover:bg-surface-500"
+          className="px-3 py-2 bg-active rounded-md hover:bg-muted"
         >
           Log in
         </Link>

@@ -9,52 +9,33 @@ type DisplayItem = {
   item_name: string;
 };
 
-const NO_POSTER = "/no-photo.webp";
+const NO_POSTER = "/no-photo.svg";
 
 import { titlePath } from "@/utils/urls";
 export default function TasteInFourStrip({ items }: { items: DisplayItem[] }) {
   if (!items?.length) return null;
 
+  // Four posters side by side, large: the four are a portrait of the person,
+  // so they get the width, not an overlapping fan of thumbnails.
   return (
-    <div className="w-full">
-      <div className="flex justify-center sm:justify-start gap-0 overflow-x-auto pb-4 pretty-scrollbar">
-        {items.map((it, i) => {
+    <ol className="grid max-w-read grid-cols-4 gap-3 sm:gap-5">
+      {items.map((it) => {
           const href = titlePath(it.item_type, it.item_id, it.item_name);
           /**
-           * Resolve rather than trust the stored string.
-           *
-           * This used the column verbatim as a src, which works only if every
-           * writer happened to store an absolute URL. The taste-of-four picker
-           * now also accepts titles straight from TMDB search, whose
-           * `poster_path` is a bare "/abc.jpg" — as a src that resolves against
-           * our own domain and 404s, which is why a film added that way showed
-           * broken here while the same film rendered fine in the watched and
-           * favourites lists, which store the full URL.
-           *
-           * getPosterUrl accepts both forms, so this also fixes rows already
-           * written in the wrong shape without a migration.
+           * Resolve rather than trust the stored string: the column holds
+           * either an absolute URL or a bare TMDB "/abc.jpg", and
+           * getPosterUrl accepts both.
            */
           const imgSrc = getPosterUrl(it.image_url, "w342");
           return (
-            <Link
-              key={`${it.item_id}-${it.position}`}
-              href={href}
-              className="relative shrink-0 w-24 sm:w-28 md:w-32 rounded-lg overflow-hidden border-2 border-surface-700/80 shadow-xl hover:shadow-2xl hover:scale-105 hover:z-10 hover:border-accent-gold/50 transition-all duration-300 -ml-3 first:ml-0"
-            >
-              <img loading="lazy" decoding="async"
-                src={imgSrc}
-                alt={it.item_name}
-                className="w-full aspect-2/3 object-cover"
-              />
-              {/* Gradient and title: visible on touch (mobile), hover-reveal on md+ */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-100 transition-opacity md:opacity-0 md:hover:opacity-100" />
-              <p className="absolute bottom-0 left-0 right-0 p-2 text-xs font-medium text-white truncate bg-black/60 opacity-100 transition-opacity md:opacity-0 md:hover:opacity-100">
-                {it.item_name}
-              </p>
-            </Link>
+            <li key={`${it.item_id}-${it.position}`} className="min-w-0">
+              <Link href={href} className="group block">
+                <img loading="lazy" decoding="async" src={imgSrc} alt="" className="img-fade aspect-2/3 w-full rounded-media object-cover shadow-xl ring-1 ring-inset ring-line-strong transition-opacity group-hover:opacity-90" />
+                <span className="mt-2 block truncate font-display text-base text-ink-0">{it.item_name}</span>
+              </Link>
+            </li>
           );
         })}
-      </div>
-    </div>
+    </ol>
   );
 }

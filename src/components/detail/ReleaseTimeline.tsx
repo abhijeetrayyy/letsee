@@ -256,16 +256,16 @@ export default function ReleaseTimeline({
       title="Release"
       subtitle={allBorrowed ? `No dates on file for ${countryName(country)}` : countryName(country)}
     >
-      <div className="rounded-2xl border border-surface-800 bg-surface-900/40 p-4 sm:p-5">
+      <div className="rounded-2xl border border-line bg-raised/40 p-4 sm:p-5">
         <ol className="relative space-y-4">
           {rows.map((r, i) => {
             const ahead = today ? dayGap(today, r.date) : null;
             const future = ahead !== null && ahead > 0;
             const dot = r.primary
               ? future
-                ? "bg-accent-gold"
-                : "bg-brand-500"
-              : "bg-surface-600";
+                ? "bg-ink-0"
+                : "bg-action"
+              : "bg-active";
 
             return (
               <li key={r.key} className="relative flex gap-3 pl-1">
@@ -274,42 +274,42 @@ export default function ReleaseTimeline({
                 {i < rows.length - 1 && (
                   <span
                     aria-hidden
-                    className="absolute left-[7px] top-4 h-full w-px bg-surface-800"
+                    className="absolute left-1.75 top-4 h-full w-px bg-overlay"
                   />
                 )}
                 <span
                   aria-hidden
-                  className={`relative mt-1.5 h-[9px] w-[9px] shrink-0 rounded-full ${dot}`}
+                  className={`relative mt-1.5 h-2.25 w-2.25 shrink-0 rounded-full ${dot}`}
                 />
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                     <span
-                      className={`text-sm ${r.primary ? "font-semibold text-white" : "text-surface-300"}`}
+                      className={`text-sm ${r.primary ? "font-semibold text-ink-0" : "text-ink-300"}`}
                     >
                       {r.label}
                     </span>
                     <time
                       dateTime={toIso(r.date)}
-                      className="font-mono text-xs tabular-nums text-surface-400"
+                      className="font-mono text-xs tabular-nums text-ink-400"
                     >
                       {formatLongDate(r.date)}
                     </time>
                     {!r.isLocal && (
                       <span
-                        className="rounded-md bg-surface-800/70 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-surface-400"
+                        className="rounded-md bg-overlay/70 px-1.5 py-0.5 text-xs uppercase tracking-wider text-ink-400"
                         title={`Date on file for ${countryName(r.country)}, not ${countryName(country)}`}
                       >
                         {r.country}
                       </span>
                     )}
                     {future && (
-                      <span className="text-[11px] text-accent-gold">
+                      <span className="text-xs text-ink-0">
                         in {ahead} day{ahead === 1 ? "" : "s"}
                       </span>
                     )}
                   </div>
-                  <p className="mt-0.5 truncate text-[11px] text-surface-500">
+                  <p className="mt-0.5 truncate text-xs text-ink-500">
                     {r.note ?? r.hint}
                   </p>
                 </div>
@@ -319,8 +319,8 @@ export default function ReleaseTimeline({
         </ol>
 
         {theatricalWindow !== null && theatricalWindow > 0 && (
-          <p className="mt-4 border-t border-surface-800 pt-3 text-xs text-surface-500">
-            <span className="font-mono tabular-nums text-surface-300">{theatricalWindow}</span>{" "}
+          <p className="mt-4 border-t border-line pt-3 text-xs text-ink-500">
+            <span className="font-mono tabular-nums text-ink-300">{theatricalWindow}</span>{" "}
             days in cinemas before it reached home.
           </p>
         )}

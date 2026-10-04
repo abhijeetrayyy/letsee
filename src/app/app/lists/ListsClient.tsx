@@ -1,122 +1,157 @@
 "use client";
 
-import Link from "@components/ui/AppLink";
+import { useState } from "react";
 import useSWR from "swr";
-import { ListPlus, Loader2 } from "lucide-react";
-import { swrFetcher } from "@/utils/swrFetcher";
-import { useAuth } from "@/app/contextAPI/AuthProvider";
+import { Plus } from "lucide-react";
+import Link from "@components/ui/AppLink";
 import Avatar from "@components/ui/Avatar";
+import Mosaic from "@components/ds/Mosaic";
+import CreateListModal from "@components/profile/CreateListModal";
+import { useAuth } from "@/app/contextAPI/AuthProvider";
+import { fetchRoomList } from "@/lib/db/rooms";
+import { fetchListsBy, fetchMyLists, fetchPopularLists, type ListCard } from "@/lib/db/lists";
 import { listPath } from "@/utils/urls";
-
-type PublicList = {
-  id: number;
-  name: string;
-  description: string | null;
-  items_count: number;
-  reaction_count: number;
-  updated_at: string;
-  users?: { username: string | null; avatar_url: string | null } | null;
-};
+import { fetchDiary } from "@/lib/db/viewings";
+import { getPosterUrl } from "@/utils/imageUrl";
 
 /**
- * Browse everyone's public lists.
- *
- * /app/lists had no page at all — only /app/lists/[listId] — so the route 404'd
- * for everyone, and a list could only be reached from its author's profile.
- * Lists are the most shareable thing in the app, so they need a front door.
+ * Lists (docs/design/PAGES.md §6): **Yours** — the ones you made and the ones
+ * you help keep — then **From your people**, then popular. Each card is the
+ * list's first four posters with its maker's face. Read in the browser under
+ * the viewer's own RLS; the page itself is static.
  */
 export function ListsClient() {
-  const { isAuthenticated } = useAuth();
-  const { data, isLoading, error } = useSWR<{ lists: PublicList[] }>(
-    "/api/user-lists?scope=public",
-    swrFetcher,
-  );
+  const { user, status } = useAuth();
+  const me = status === "ok" ? user?.id ?? null : null;
+  const [creating, setCreating] = useState(false);
+  const [idea, setIdea] = useState("");
+  const [opening, setOpening] = useState(0);
+  const start = (name: string) => {
+    setIdea(name);
+    setOpening((n) => n + 1);
+    setCreating(true);
+  };
 
-  const lists = data?.lists ?? [];
+  const { data: mine, mutate } = useSWR(me ? ["lists-mine", me] : null, () => fetchMyLists(me!), { revalidateOnFocus: false });
+  const { data: recent } = useSWR(me && mine?.length === 0 ? ["lists-recent-posters", me] : null, () => fetchDiary(me!, { limit: 12 }), { revalidateOnFocus: false });
+  const { data: rooms } = useSWR(me ? ["rooms", me] : null, () => fetchRoomList(me!), { revalidateOnFocus: false });
+  const peopleIds = (rooms?.people ?? []).slice(0, 24).map((p) => p.person.id);
+  const { data: theirs } = useSWR(peopleIds.length ? ["lists-people", peopleIds.join(",")] : null, () => fetchListsBy(peopleIds), { revalidateOnFocus: false });
+  const { data: popular, isLoading } = useSWR(["lists-popular"], () => fetchPopularLists(), { revalidateOnFocus: false });
+
+  const shown = new Set([...(mine ?? []), ...(theirs ?? [])].map((l) => l.id));
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 sm:px-6 py-8">
-      <header className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Lists</h1>
-        <p className="mt-1.5 text-sm text-surface-400">
-          Collections people have put together — a director&apos;s run, a mood, a year worth
-          revisiting.
-        </p>
-      </header>
-
-      {isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-28 rounded-2xl bg-surface-900/60 animate-pulse" />
-          ))}
+    <div className="mx-auto flex w-full max-w-app flex-col gap-10 px-4 pb-16 pt-6 sm:px-6 sm:pt-10">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-4xl text-ink-0 sm:text-5xl">Lists</h1>
+          <p className="mt-1 max-w-read text-base text-ink-400">A handful of titles that belong together — a director’s run, a mood, a year worth revisiting.</p>
         </div>
-      ) : error ? (
-        <div className="py-16 text-center">
-          <p className="text-surface-200 font-medium">Couldn&apos;t load lists</p>
-          <p className="mt-1 text-sm text-surface-500">Try again in a moment.</p>
-        </div>
-      ) : lists.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-surface-700/60 bg-surface-900/30 px-6 py-14 text-center">
-          <ListPlus className="mx-auto size-8 text-surface-600" aria-hidden />
-          <p className="mt-3 text-surface-200 font-medium">No public lists yet</p>
-          <p className="mx-auto mt-1.5 max-w-md text-sm text-surface-500">
-            A list is a handful of titles that belong together. Make one on your profile and
-            set it to public, and it will show up here.
-          </p>
-          <Link
-            href={isAuthenticated ? "/app/profile" : "/signup"}
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-surface-950 hover:bg-brand-400 transition-colors"
-          >
-            {isAuthenticated ? "Make a list" : "Join to make one"}
+        {me ? (
+          <button type="button" onClick={() => start("")} className="inline-flex h-10 items-center gap-2 rounded-full bg-action px-4 text-sm font-semibold text-on-action hover:bg-action-hover">
+            <Plus className="size-4" aria-hidden />
+            New list
+          </button>
+        ) : (
+          <Link href="/signup" className="inline-flex h-10 items-center rounded-full bg-action px-4 text-sm font-semibold text-on-action hover:bg-action-hover">
+            Join to make one
           </Link>
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {lists.map((list) => (
-            <Link
-              key={list.id}
-              href={listPath(list.id, list.name)}
-              className="group rounded-2xl border border-surface-800/70 bg-surface-900/40 p-4 hover:border-surface-600/60 hover:bg-surface-900/70 transition-colors"
-            >
-              <h2 className="font-semibold text-white group-hover:text-brand-400 transition-colors line-clamp-1">
-                {list.name}
-              </h2>
-              {list.description && (
-                <p className="mt-1 text-sm text-surface-400 line-clamp-2">{list.description}</p>
-              )}
+        )}
+      </header>
+      {me && <CreateListModal key={opening} initialName={idea} open={creating} onClose={() => setCreating(false)} onSuccess={() => void mutate()} />}
 
-              <div className="mt-3 flex items-center gap-2 text-xs text-surface-500">
-                {list.users?.username && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Avatar
-                      src={list.users.avatar_url}
-                      name={list.users.username}
-                      size={18}
-                    />
-                    {list.users.username}
-                  </span>
-                )}
-                <span className="text-surface-700">·</span>
-                <span>
-                  {list.items_count} {list.items_count === 1 ? "title" : "titles"}
-                </span>
-                {list.reaction_count > 0 && (
-                  <>
-                    <span className="text-surface-700">·</span>
-                    <span>{list.reaction_count} liked</span>
-                  </>
-                )}
-              </div>
-            </Link>
+      {me && (
+        <Section title="Yours">
+          {mine && mine.length === 0 ? (
+            <StartAList posters={[...new Map((recent ?? []).filter((v) => v.imageUrl).map((v) => [`${v.itemType}:${v.itemId}`, getPosterUrl(v.imageUrl, "w342")])).values()]} onStart={start} />
+          ) : (
+            <Grid lists={mine} />
+          )}
+        </Section>
+      )}
+
+      {(theirs ?? []).length > 0 && (
+        <Section title="From your people">
+          <Grid lists={theirs} />
+        </Section>
+      )}
+
+      <Section title="Popular">
+        {isLoading ? <Grid lists={undefined} /> : (popular ?? []).filter((l) => !shown.has(l.id)).length ? <Grid lists={(popular ?? []).filter((l) => !shown.has(l.id))} /> : <p className="text-sm text-ink-500">No public lists yet.</p>}
+      </Section>
+    </div>
+  );
+}
+
+/** Ideas a first list can start from; each opens the new-list sheet with its name filled in. */
+const IDEAS = ["Films I'd show a friend", `The best of ${new Date().getFullYear()}`, "Comfort watches", "A director's run", "Watch these together"];
+
+/**
+ * No lists yet: a cover made of what you've watched lately — the shape a
+ * list takes — and a few ideas that start one, instead of a line of grey text.
+ */
+function StartAList({ posters, onStart }: { posters: string[]; onStart: (name: string) => void }) {
+  return (
+    <div className="flex flex-col gap-6 rounded-card border border-line-strong bg-raised p-5 sm:flex-row sm:items-center sm:p-6">
+      <div className="w-32 shrink-0 sm:w-40">
+        <Mosaic posters={posters.slice(0, 4)} />
+      </div>
+      <div className="min-w-0">
+        <p className="font-display text-2xl text-ink-0">Start with three films.</p>
+        <p className="mt-1 max-w-read text-sm text-ink-400">A list is a handful of titles that belong together. Make one alone, or invite someone to add to it.</p>
+        <ul className="mt-4 flex flex-wrap gap-2">
+          {IDEAS.map((name) => (
+            <li key={name}>
+              <button type="button" onClick={() => onStart(name)} className="inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0">
+                <Plus className="size-3.5" aria-hidden />
+                {name}
+              </button>
+            </li>
           ))}
-        </div>
-      )}
+        </ul>
+      </div>
+    </div>
+  );
+}
 
-      {isLoading && (
-        <p className="sr-only" role="status">
-          <Loader2 className="animate-spin" aria-hidden /> Loading lists
-        </p>
-      )}
-    </main>
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section aria-label={title}>
+      <h2 className="mb-4 text-xl text-ink-0">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function Grid({ lists }: { lists: ListCard[] | undefined }) {
+  if (!lists) {
+    return (
+      <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5" aria-hidden>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <li key={i} className="aspect-2/3 rounded-media bg-raised" />
+        ))}
+      </ul>
+    );
+  }
+  return (
+    <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
+      {lists.map((l) => (
+        <li key={l.id} className="min-w-0">
+          <Link href={listPath(l.id, l.name)} className="group block">
+            <Mosaic posters={l.posters} className="transition-opacity group-hover:opacity-90" />
+            <span className="mt-2 block truncate font-display text-base text-ink-0">{l.name}</span>
+            <span className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-500">
+              {l.owner && <Avatar src={l.owner.avatarUrl} name={l.owner.username} size={18} />}
+              <span className="truncate">
+                {[l.owner?.username, `${l.count} ${l.count === 1 ? "title" : "titles"}`, l.visibility !== "public" ? (l.visibility === "private" ? "only you" : "followers") : null]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

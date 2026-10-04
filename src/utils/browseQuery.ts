@@ -82,10 +82,12 @@ export function buildDiscoverQuery(p: BrowseParams, apiKey: string): URLSearchPa
     lte = `${start + 9}-12-31`;
   }
 
-  // "Newest first" without a ceiling surfaces TMDB's placeholder entries for
-  // titles years from release — no poster, no votes, no use. The same care the
-  // rating sort needs at its bottom end, this one needs at its top.
-  if (p.sort === "new") {
+  // Only what's out. "Newest first" without a ceiling surfaced TMDB's
+  // placeholder entries for titles years from release — no poster, no votes,
+  // no use — and the default "popular" order did the same with upcoming films
+  // that have buzz: browsing Drama opened on 2026 releases nobody can watch yet.
+  // Browse is for choosing something to put on.
+  {
     const today = todayIso();
     lte = lte && lte < today ? lte : today;
   }

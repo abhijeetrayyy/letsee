@@ -3,6 +3,8 @@
 import { supabase } from "@/utils/supabase/client";
 import Link from "next/link";
 import React, { useState } from "react";
+import Mark from "@components/ds/Mark";
+import InviteBanner from "@components/doors/InviteBanner";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Film, Eye, EyeOff } from "lucide-react";
 
@@ -32,45 +34,23 @@ export default function LoginForm({
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-surface-950 px-4 py-10">
-      {/* Background decoration */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-brand-500/8 rounded-full blur-3xl animate-pulse-soft" />
-        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-blue-500/6 rounded-full blur-3xl animate-pulse-soft" style={{ animationDelay: "1s" }} />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(34,197,94,0.03)_0%,transparent_70%)]" />
-      </div>
+    <div className="min-h-screen flex flex-col justify-center items-center bg-page px-4 py-10">
+      <div className="relative w-full max-w-read">
+        <Link href="/" aria-label="letsee" className="mb-10 inline-flex">
+          <Mark withName={false} size="lg" />
+        </Link>
 
-      <div className="relative w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2.5 text-2xl font-bold text-white hover:text-brand-400 transition-colors"
-          >
-            <Film className="w-7 h-7 text-brand-500" />
-            LetSee
-          </Link>
-          <p className="text-surface-500 mt-1.5 text-sm">
-            Social film journal for cinephiles
-          </p>
-        </div>
-
-        {/* Card */}
-        <div className="rounded-2xl border border-white/10 bg-surface-900/60 backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-black/30">
+        <div>
+          <InviteBanner />
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-white mb-1">
-              Welcome back
-            </h1>
-            <p className="text-surface-400 text-sm">
-              Sign in to continue your cinematic journey
-            </p>
+            <h1 className="text-4xl leading-tight text-ink-0">Welcome back.</h1>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <div>
               <label
                 htmlFor="login-email"
-                className="block text-sm font-medium text-surface-300 mb-2"
+                className="block text-sm font-medium text-ink-300 mb-2"
               >
                 Email
               </label>
@@ -82,7 +62,7 @@ export default function LoginForm({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-xl bg-surface-800/60 border border-surface-700/50 px-4 py-3 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/40 transition-all"
+                className="w-full rounded-xl bg-overlay/60 border border-line-strong/50 px-4 py-3 text-ink-0 placeholder-ink-500 focus:outline-none focus:ring-2 focus:ring-focus/30 focus:border-accent-strong/40 transition-all"
                 placeholder="you@example.com"
               />
             </div>
@@ -91,13 +71,13 @@ export default function LoginForm({
               <div className="flex items-center justify-between mb-2">
                 <label
                   htmlFor="login-password"
-                  className="block text-sm font-medium text-surface-300"
+                  className="block text-sm font-medium text-ink-300"
                 >
                   Password
                 </label>
                 <Link
                   href="/forgot-password"
-                  className="text-xs font-medium text-brand-400 hover:text-brand-300 transition-colors"
+                  className="text-xs font-medium text-accent hover:text-accent-soft transition-colors"
                 >
                   Forgot password?
                 </Link>
@@ -111,14 +91,15 @@ export default function LoginForm({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full rounded-xl bg-surface-800/60 border border-surface-700/50 px-4 py-3 pr-12 text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/40 transition-all"
+                  className="w-full rounded-xl bg-overlay/60 border border-line-strong/50 px-4 py-3 pr-12 text-ink-0 placeholder-ink-500 focus:outline-none focus:ring-2 focus:ring-focus/30 focus:border-accent-strong/40 transition-all"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-500 hover:text-surface-300 transition-colors"
-                  tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-500 hover:text-ink-300 transition-colors"
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />
@@ -130,13 +111,13 @@ export default function LoginForm({
             </div>
 
             {info && (
-              <div className="rounded-xl bg-brand-500/10 border border-brand-500/20 px-4 py-3 text-sm text-brand-300 flex items-start gap-2">
-                <span className="mt-0.5 shrink-0">✉️</span>
+              <div role="status" className="rounded-xl bg-action/10 border border-accent-strong/20 px-4 py-3 text-sm text-accent-soft flex items-start gap-2">
+                <span aria-hidden className="mt-0.5 shrink-0">✉️</span>
                 {info}
               </div>
             )}
             {error && (
-              <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-300">
+              <div role="alert" className="rounded-xl bg-danger/10 border border-danger/20 px-4 py-3 text-sm text-danger">
                 {error}
               </div>
             )}
@@ -148,7 +129,7 @@ export default function LoginForm({
             >
               {loading ? (
                 <>
-                  <LoadingSpinner size="sm" className="border-t-surface-950" />
+                  <LoadingSpinner size="sm" className="border-t-page" />
                   Signing in…
                 </>
               ) : (
@@ -157,12 +138,12 @@ export default function LoginForm({
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-white/5 text-center">
-            <p className="text-sm text-surface-400 mt-5">
+          <div className="mt-6 pt-6 border-t border-line text-center">
+            <p className="text-sm text-ink-400 mt-5">
               Don&apos;t have an account?{" "}
               <Link
                 href="/signup"
-                className="font-medium text-brand-400 hover:text-brand-300 transition-colors"
+                className="font-medium text-accent underline decoration-line-input underline-offset-4 hover:text-accent-soft transition-colors"
               >
                 Create one
               </Link>

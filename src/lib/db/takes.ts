@@ -35,6 +35,8 @@ export type OtherTake = {
   score: number | null;
   body: string;
   updatedAt: string;
+  /** Written for the people who were there, and you were (112). */
+  forUs?: boolean;
 };
 
 export type TakesForTitle = {
@@ -57,7 +59,7 @@ export async function fetchTakesForTitle(
   id: TakeIdentity,
   viewerId: string | null,
 ): Promise<TakesForTitle> {
-  const [mine, publicRes, blocked] = await Promise.all([
+  const [mine, publicRes, usRes, blocked] = await Promise.all([
     viewerId
       ? getMyTake(supabase, viewerId, id)
       : Promise.resolve({ take: null, privateNote: null }),
@@ -73,10 +75,31 @@ export async function fetchTakesForTitle(
       .not("body", "is", null)
       .order("updated_at", { ascending: false })
       .limit(20),
+    // Words written for the people who were there: RLS (takes_us_read) returns
+    // only those whose author was there with you. Signed out, there are none.
+    viewerId
+      ? supabase
+          .from("takes")
+          .select("user_id, score, body, updated_at, users!inner(username, avatar_url)")
+          .eq("item_id", id.itemId)
+          .eq("item_type", id.itemType)
+          .eq("scope", id.scope)
+          .eq("season_number", id.seasonNumber)
+          .eq("episode_number", id.episodeNumber)
+          .eq("visibility", "us")
+          .neq("user_id", viewerId)
+          .not("body", "is", null)
+          .limit(20)
+      : Promise.resolve({ data: [] as never[] }),
     getBlockedUserIds(supabase, viewerId),
   ]);
 
-  const others: OtherTake[] = (publicRes.data ?? [])
+  type Row = { user_id: string; score: number | null; body: string | null; updated_at: string; users: unknown };
+  const rows = [
+    ...((publicRes.data ?? []) as Row[]).map((r) => ({ ...r, forUs: false })),
+    ...((usRes.data ?? []) as Row[]).map((r) => ({ ...r, forUs: true })),
+  ];
+  const others: OtherTake[] = rows
     .filter((r) => r.user_id !== viewerId && !blocked.has(r.user_id))
     .map((r) => {
       const author = r.users as unknown as {
@@ -89,10 +112,17 @@ export async function fetchTakesForTitle(
         score: r.score ?? null,
         body: r.body as string,
         updatedAt: r.updated_at as string,
+        forUs: r.forUs,
       };
-    });
+    })
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
   return { mine: mine.take, privateNote: mine.privateNote, others };
+}
+
+/** The viewer's own take on one thing, both rows. */
+export function fetchMyTake(userId: string, id: TakeIdentity) {
+  return getMyTake(supabase, userId, id);
 }
 
 /** Save the viewer's take. Returns an error message, or null on success. */

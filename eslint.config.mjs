@@ -19,7 +19,17 @@ import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
  */
 export default [
   {
-    ignores: ["node_modules/**", ".next/**", ".next-build/**", "public/**", "next-env.d.ts"],
+    ignores: ["node_modules/**", ".next/**", ".next-build/**", ".design-screens/**", "public/**", "next-env.d.ts"],
   },
   ...(Array.isArray(nextCoreWebVitals) ? nextCoreWebVitals : [nextCoreWebVitals]),
+  {
+    // One icon family (docs/design/SYSTEM.md §6). react-icons was removed in the
+    // phase 4 flip; this keeps it from coming back.
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { patterns: [{ group: ["react-icons", "react-icons/*"], message: "Use lucide-react: one icon family (docs/design/SYSTEM.md §6)." }] },
+      ],
+    },
+  },
 ];

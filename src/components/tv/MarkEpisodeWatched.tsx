@@ -1,66 +1,53 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
-import { useWatchedEpisode } from "./useWatchedEpisode";
+import toast from "react-hot-toast";
+import { Check, LoaderCircle } from "lucide-react";
+import { useMarkEpisode } from "./useWatchedEpisode";
+import { useEpisodeRevealed } from "./EpisodeSpoilerGate";
 
-interface MarkEpisodeWatchedProps {
-  showId: string;
-  seasonNumber: number;
-  episodeNumber: number;
-}
-
-export default function MarkEpisodeWatched({
-  showId,
-  seasonNumber,
-  episodeNumber,
-}: MarkEpisodeWatchedProps) {
-  const { watched, mutate, ready, signedIn } = useWatchedEpisode(showId, seasonNumber, episodeNumber);
-  const [toggling, setToggling] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const toggle = useCallback(async () => {
-    setToggling(true);
-    try {
-      const res = await fetch("/api/watched-episode", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ showId, seasonNumber, episodeNumber }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data?.action) {
-        // Revalidate the show's shared entry: the spoiler gates lower on the
-        // page read the same key, so marking reveals the overview and thread
-        // without a reload.
-        await mutate();
-        setError(null);
-      } else {
-        throw new Error(String(res.status));
-      }
-    } catch {
-      setError("Couldn’t save. Try again.");
-    } finally {
-      setToggling(false);
-    }
-  }, [showId, seasonNumber, episodeNumber, mutate]);
+/**
+ * The episode page's one action (docs/design/PAGES.md, the episode page).
+ *
+ * Watched: says so, with the day, and a quiet way to take it back. Not
+ * watched: the spoiler gate below carries **I've watched it**, so this stays
+ * out of the way — unless you chose Show anyway, and then the button is here,
+ * because the gate is gone.
+ */
+export default function MarkEpisodeWatched({ showId, seasonNumber, episodeNumber }: { showId: string; seasonNumber: number; episodeNumber: number }) {
+  const { watched, watchedAt, ready, signedIn, toggle, busy } = useMarkEpisode(showId, seasonNumber, episodeNumber);
+  const revealed = useEpisodeRevealed(showId, seasonNumber, episodeNumber);
 
   if (!ready || !signedIn || watched === null) return null;
 
+  const run = async () => {
+    if (!(await toggle())) toast.error("That didn't save. Check your connection.");
+  };
+
+  if (watched) {
+    const day = watchedAt ? new Date(watchedAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : null;
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="inline-flex h-10 items-center gap-2 rounded-full bg-raised px-4 text-sm font-medium text-ink-0 ring-1 ring-inset ring-line-strong">
+          <Check className="size-4" aria-hidden />
+          Watched{day ? ` · ${day}` : ""}
+        </span>
+        <button type="button" onClick={run} disabled={busy} className="text-sm text-ink-500 underline decoration-line-input underline-offset-4 hover:text-ink-0 disabled:opacity-60">
+          {busy ? "Unmarking…" : "Unmark"}
+        </button>
+      </div>
+    );
+  }
+
+  if (!revealed) return null;
   return (
-    <div>
-      <button
-        type="button"
-        onClick={toggle}
-        disabled={toggling}
-        aria-pressed={watched}
-        className={`inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
-          watched
-            ? "bg-emerald-600/90 text-white hover:bg-emerald-600"
-            : "bg-surface-700/80 text-surface-200 hover:bg-surface-600 border border-surface-600"
-        } disabled:opacity-60`}
-      >
-        {toggling ? "…" : watched ? <>✓ Marked as watched</> : <>Mark as watched</>}
-      </button>
-      {error && <p className="mt-2 text-xs text-red-400" role="status">{error}</p>}
-    </div>
+    <button
+      type="button"
+      onClick={run}
+      disabled={busy}
+      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-action px-5 text-base font-semibold text-on-action transition-colors hover:bg-action-hover disabled:opacity-60 sm:w-auto"
+    >
+      {busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
+      I&apos;ve watched it
+    </button>
   );
 }

@@ -2,14 +2,17 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import Link from "@components/ui/AppLink";
 import { createClient } from "@/utils/supabase/server";
+import { getAuthUserId } from "@/utils/apiAuth";
 import { getPosterUrl } from "@/utils/imageUrl";
 import Avatar from "@components/ui/Avatar";
 import Comments from "@components/social/Comments";
+import ReplyInRoom from "@components/rooms/ReplyInRoom";
 import LikeButton from "@components/reactions/LikeButton";
 import { slugify } from "@/utils/urls";
 import JsonLd from "@components/seo/JsonLd";
 import { reviewLd, breadcrumbLd } from "@/utils/structuredData";
 import { parseRouteId, reviewPath, titlePath, profilePath } from "@/utils/urls";
+import { publishedReviewText } from "@/utils/publishedReviews";
 
 export const dynamic = "force-dynamic";
 
@@ -46,19 +49,21 @@ type RouteParams = { params: Promise<{ id: string }> };
 const getReviewAndAuthor = cache(async (reviewId: number) => {
   const supabase = await createClient();
 
-  const { data: review } = await supabase
+  const { data: row } = await supabase
     .from("watched_items")
     .select("id, user_id, item_id, item_type, item_name, image_url, public_review_text, watched_at")
     .eq("id", reviewId)
     .maybeSingle();
 
-  if (!review) return { review: null, author: null };
+  if (!row) return { review: null, author: null };
 
-  const { data: author } = await supabase
-    .from("users")
-    .select("id, username, avatar_url, visibility, profile_show_public_reviews")
-    .eq("id", review.user_id)
-    .maybeSingle();
+  // The words come from the published take, never the copy on this row
+  // (utils/publishedReviews.ts): no take on the shelf, no review.
+  const [{ data: author }, published] = await Promise.all([
+    supabase.from("users").select("id, username, avatar_url, visibility, profile_show_public_reviews").eq("id", row.user_id).maybeSingle(),
+    publishedReviewText(supabase, row.user_id, [row]),
+  ]);
+  const review = { ...row, public_review_text: published.get(`${row.item_type}:${row.item_id}`) ?? null };
 
   return { review, author };
 });
@@ -117,7 +122,7 @@ export async function generateMetadata({ params }: RouteParams) {
       author?.profile_show_public_reviews !== false;
     if (!author?.username || !isPublic) return fallback;
 
-    const title = `@${author.username} on ${review.item_name || "a film"} · LetSee`;
+    const title = `@${author.username} on ${review.item_name || "a film"}`;
     const description = review.public_review_text.slice(0, 200);
     const image = review.image_url ? getPosterUrl(review.image_url, "w500") : undefined;
 
@@ -165,11 +170,11 @@ export default async function ReviewPage({ params }: RouteParams) {
   // until both have arrived, so they are asked for at the same time rather
   // than one after the other. `getReviewAndAuthor` is the same call
   // `generateMetadata` already made this request, so it costs nothing here.
-  const [{ data: { user: viewer } }, { review, author }] = await Promise.all([
-    supabase.auth.getUser(),
+  const [viewerId, { review, author }] = await Promise.all([
+    // From the token, not a round trip to the auth server.
+    getAuthUserId(),
     getReviewAndAuthor(reviewId),
   ]);
-  const viewerId = viewer?.id ?? null;
 
   if (!review?.public_review_text) notFound();
   if (!author?.username) notFound();
@@ -223,59 +228,51 @@ export default async function ReviewPage({ params }: RouteParams) {
           ]),
         ]}
       />
-    <div className="min-h-screen w-full bg-surface-950 text-white">
-      <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
-        <article className="rounded-2xl border border-surface-700/60 bg-surface-900/40 p-5 sm:p-6">
-          {/* Author */}
-          <div className="flex items-center gap-3">
-            <Link href={`/app/profile/${author.username}`}>
-              <Avatar src={author.avatar_url} name={author.username} size="md" />
-            </Link>
-            <div className="min-w-0">
-              <Link
-                href={`/app/profile/${author.username}`}
-                className="font-semibold text-white hover:text-brand-400 transition-colors"
-              >
-                @{author.username}
-              </Link>
-              <p className="text-xs text-surface-500">{formatDate(review.watched_at)}</p>
-            </div>
-          </div>
-
-          {/* The film */}
-          <Link href={detailHref} className="mt-5 flex gap-4 group">
-            <img loading="lazy" decoding="async"
-              src={getPosterUrl(review.image_url, "w185")}
-              alt={review.item_name ?? ""}
-              className="w-20 aspect-[2/3] rounded-lg object-cover shrink-0 shadow-lg"
-            />
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold text-white group-hover:text-brand-400 transition-colors">
-                {review.item_name}
-              </h1>
-              <p className="mt-1 text-xs uppercase tracking-wider text-surface-500">
-                {review.item_type === "tv" ? "TV Series" : "Film"}
-              </p>
-            </div>
+    <article className="w-full">
+      {/* The film, on a dark band lit by its own poster; then the words on paper. */}
+      <header data-theme="dark" className="relative isolate overflow-hidden bg-page">
+        <div aria-hidden className="absolute inset-0 -z-10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={getPosterUrl(review.image_url, "w342")} alt="" className="absolute inset-0 h-full w-full scale-125 object-cover opacity-60" style={{ filter: "blur(64px) saturate(1.5)" }} />
+          <div className="absolute inset-0 bg-linear-to-b from-page/20 via-page/50 to-page" />
+        </div>
+        <div className="mx-auto flex max-w-read items-end gap-5 px-4 pb-10 pt-12 sm:gap-6 sm:pt-16">
+          <Link href={detailHref} aria-label={`Open ${review.item_name ?? "the film"}`} className="shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={getPosterUrl(review.image_url, "w342")} alt="" className="img-fade aspect-2/3 w-28 rounded-media object-cover shadow-2xl ring-1 ring-inset ring-line-strong sm:w-36" />
           </Link>
-
-          {/* The review */}
-          <p className="mt-5 whitespace-pre-wrap leading-relaxed text-surface-200">
-            {review.public_review_text}
-          </p>
-
-          <div className="mt-4 pt-4 border-t border-surface-800/60">
-            <LikeButton targetType="review" targetId={review.id} />
+          <div className="min-w-0 pb-1">
+            <Link href={`/app/profile/${author.username}`} className="inline-flex items-center gap-2 text-sm text-ink-300 hover:text-ink-0">
+              <Avatar src={author.avatar_url} name={author.username} size={24} />
+              <span className="font-medium text-ink-0">{author.username}</span> on
+            </Link>
+            <h1 className="mt-2 text-3xl leading-tight text-ink-0 sm:text-5xl">
+              <Link href={detailHref} className="hover:underline hover:decoration-line-input hover:underline-offset-4">
+                {review.item_name}
+              </Link>
+            </h1>
+            <p className="mt-2 font-mono text-xs uppercase tracking-wide text-ink-400">
+              {review.item_type === "tv" ? "Series" : "Film"} · watched {formatDate(review.watched_at)}
+            </p>
           </div>
-        </article>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-read px-4 pb-16 pt-8 sm:pt-10">
+        <p className="whitespace-pre-wrap font-display text-2xl leading-relaxed text-ink-0">{review.public_review_text}</p>
+
+        <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-5">
+          <LikeButton targetType="review" targetId={review.id} />
+          <ReplyInRoom authorId={author.id as string} author={author.username as string} quote={review.public_review_text as string} />
+        </div>
 
         {/* Replying to one person's take is a direct social act — unlike
             commenting into the void on a title page. */}
-        <section className="mt-8">
+        <section className="mt-10">
           <Comments itemId={String(review.id)} itemType="review" />
         </section>
       </div>
-    </div>
+    </article>
     </>
   );
 }

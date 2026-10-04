@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "@components/ui/AppLink";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import useSWR from "swr";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
@@ -16,10 +16,14 @@ import { titlePath } from "@/utils/urls";
  * "You have seen 3 of 4" is the same fact as "12 of 24 episodes" with the time
  * axis collapsed: a set with a defined end, and your position in it. So this
  * borrows the ribbon's whole grammar rather than inventing a second one. Green
- * is you, everything you have not seen sits back, the count reads the same way
- * ("3 of 4 films" against "41 of 62 episodes"), and the tiles are the control
- * — tap the check and the film is marked, no modal, no navigating away and
- * coming back.
+ * is you, everything you have not seen sits back, and the count reads the same
+ * way ("3 of 4 films" against "41 of 62 episodes").
+ *
+ * The tiles used to be a control too — a check on each poster that marked the
+ * film watched. It was the one place left on the page where something became
+ * "watched" without a viewing behind it, so it went with the logging cleanup
+ * (src/lib/logging/titleState.ts: logging is the only way to mark something
+ * watched). A tile is a link to that film, where Log it is.
  *
  * The reason it earns the space: measured live, 40% of popular films and 40%
  * of top-rated films belong to a collection, so this fires on a large minority
@@ -48,28 +52,27 @@ function year(date: string | null): string {
 export default function FranchiseStrip({
   collection,
   currentId,
+  bare = false,
 }: {
   /** `movie.belongs_to_collection`, which the movie page already has in hand. */
   collection: MinimalCollection | null;
   /** The film being viewed, so its own tile can be marked rather than read as just another entry. */
   currentId: number | string;
+  /** Inside a fold that already carries the collection's name: no heading of its own. */
+  bare?: boolean;
 }) {
-  const { getStatus, setStatus, isAuthenticated } = useMediaInteraction();
+  const { getStatus } = useMediaInteraction();
 
+  // The same entry as the "Watch order" tile at the top of the page.
   const { data, error } = useSWR<CollectionResponse>(
     collection?.id ? `/api/collection?id=${collection.id}` : null,
     swrFetcher,
+    { revalidateOnFocus: false },
   );
-
-  /** Optimistic overlay, so a tap fills the tile now rather than after a round trip. */
-  const [pending, setPending] = useState<Record<number, boolean>>({});
 
   const parts: CollectionPart[] = useMemo(() => data?.parts ?? [], [data]);
 
-  const isSeen = useCallback(
-    (id: number) => (id in pending ? pending[id] : getStatus(String(id), "movie") === "watched"),
-    [pending, getStatus],
-  );
+  const isSeen = useCallback((id: number) => getStatus(String(id), "movie") === "watched", [getStatus]);
 
   const seen = useMemo(() => parts.filter((p) => isSeen(p.id)).length, [parts, isSeen]);
 
@@ -80,46 +83,24 @@ export default function FranchiseStrip({
    */
   const nextUp = useMemo(() => parts.find((p) => !isSeen(p.id)) ?? null, [parts, isSeen]);
 
-  const toggle = useCallback(
-    async (part: CollectionPart) => {
-      if (!isAuthenticated) return;
-      const next = !isSeen(part.id);
-      setPending((p) => ({ ...p, [part.id]: next }));
-      await setStatus(String(part.id), next ? "watched" : null, {
-        itemType: "movie",
-        name: part.title,
-        imgUrl: part.posterPath ? `${POSTER}${part.posterPath}` : undefined,
-      });
-      setPending((p) => {
-        const { [part.id]: _drop, ...rest } = p;
-        // The provider reverts its own optimistic write when the request fails,
-        // so dropping the overlay is enough to snap the tile back to the truth
-        // either way.
-        return rest;
-      });
-    },
-    [isAuthenticated, isSeen, setStatus],
-  );
-
   if (!collection?.id) return null;
   if (error) return null;
 
   const name = data?.name ?? collection.name ?? "Collection";
+  const frame = (children: React.ReactNode) => (bare ? children : <Section title={name}>{children}</Section>);
 
   // The heading is known from the movie payload before the fetch resolves, so
   // the section can hold its shape instead of popping in under the reader.
   if (!data) {
-    return (
-      <Section title={name}>
-        <div className="flex gap-3 overflow-hidden">
-          {Array.from({ length: 5 }, (_, i) => (
-            <div
-              key={i}
-              className="h-[150px] w-24 shrink-0 animate-pulse rounded-xl bg-surface-800/60 sm:h-[174px] sm:w-28"
-            />
-          ))}
-        </div>
-      </Section>
+    return frame(
+      <div className="flex gap-3 overflow-hidden">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div
+            key={i}
+            className="h-37.5 w-24 shrink-0 animate-pulse rounded-xl bg-overlay/60 sm:h-43.5 sm:w-28"
+          />
+        ))}
+      </div>,
     );
   }
 
@@ -128,26 +109,26 @@ export default function FranchiseStrip({
   const pct = Math.round((seen / parts.length) * 100);
   const currentKey = String(currentId);
 
-  return (
-    <Section title={name}>
+  return frame(
+    <>
       <div className="mb-4 flex items-baseline justify-between gap-3">
-        <p className="text-sm text-surface-300">
+        <p className="text-sm text-ink-300">
           {seen > 0 ? (
             <>
-              <span className="font-mono tabular-nums text-white">{seen}</span>
-              <span className="text-surface-500">
+              <span className="font-mono tabular-nums text-ink-0">{seen}</span>
+              <span className="text-ink-500">
                 {" "}
                 of {parts.length} film{parts.length === 1 ? "" : "s"}
               </span>
             </>
           ) : (
-            <span className="text-surface-500">
+            <span className="text-ink-500">
               {parts.length} film{parts.length === 1 ? "" : "s"}
             </span>
           )}
         </p>
         {seen > 0 && (
-          <span className="font-mono text-xs tabular-nums text-brand-400">{pct}%</span>
+          <span className="font-mono text-xs tabular-nums text-accent">{pct}%</span>
         )}
       </div>
 
@@ -157,68 +138,49 @@ export default function FranchiseStrip({
           const here = String(p.id) === currentKey;
           return (
             <div key={p.id} className="w-24 shrink-0 sm:w-28">
-              <div className="relative">
-                <Link
-                  href={titlePath("movie", p.id, p.title)}
-                  aria-current={here ? "page" : undefined}
-                  className="block"
+              <Link
+                href={titlePath("movie", p.id, p.title)}
+                aria-current={here ? "page" : undefined}
+                className="block"
+              >
+                <div
+                  className={`overflow-hidden rounded-xl transition ${
+                    on
+                      ? "ring-2 ring-focus"
+                      : here
+                        ? "ring-2 ring-line-light"
+                        : "ring-1 ring-line"
+                  }`}
                 >
-                  <div
-                    className={`overflow-hidden rounded-xl transition ${
-                      on
-                        ? "ring-2 ring-brand-500"
-                        : here
-                          ? "ring-2 ring-surface-400"
-                          : "ring-1 ring-surface-800"
-                    }`}
-                  >
-                    {p.posterPath ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={`${POSTER}${p.posterPath}`}
-                        alt={p.title}
-                        loading="lazy"
-                        className={`h-[150px] w-full object-cover transition sm:h-[174px] ${
-                          on ? "opacity-100" : "opacity-60 hover:opacity-90"
-                        }`}
-                      />
-                    ) : (
-                      <div className="flex h-[150px] w-full items-center justify-center bg-surface-800 px-2 text-center text-[10px] text-surface-500 sm:h-[174px]">
-                        {p.title}
-                      </div>
-                    )}
-                  </div>
-                </Link>
-
-                {isAuthenticated && (
-                  <button
-                    type="button"
-                    onClick={() => toggle(p)}
-                    aria-pressed={on}
-                    aria-label={`${p.title} — ${on ? "watched" : "mark watched"}`}
-                    title={on ? "Watched" : "Mark watched"}
-                    className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-[13px] leading-none transition-colors ${
-                      on
-                        ? "bg-brand-500 text-surface-950 hover:bg-brand-400"
-                        : "bg-surface-950/75 text-surface-400 hover:bg-surface-900 hover:text-surface-200"
-                    }`}
-                  >
-                    ✓
-                  </button>
-                )}
-              </div>
+                  {p.posterPath ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={`${POSTER}${p.posterPath}`}
+                      alt={p.title}
+                      loading="lazy"
+                      className={`h-37.5 w-full object-cover transition sm:h-43.5 ${
+                        on ? "opacity-100" : "opacity-60 hover:opacity-90"
+                      }`}
+                    />
+                  ) : (
+                    <div className="flex h-37.5 w-full items-center justify-center bg-overlay px-2 text-center text-xs text-ink-500 sm:h-43.5">
+                      {p.title}
+                    </div>
+                  )}
+                </div>
+              </Link>
 
               <p
-                className={`mt-1.5 truncate text-[11px] leading-tight ${
-                  here ? "text-white" : "text-surface-400"
+                className={`mt-1.5 truncate text-xs leading-tight ${
+                  here ? "text-ink-0" : "text-ink-400"
                 }`}
                 title={p.title}
               >
                 {p.title}
               </p>
-              <p className="font-mono text-[10px] tabular-nums text-surface-600">
+              <p className="font-mono text-xs tabular-nums text-ink-600">
                 {i + 1}. {year(p.releaseDate)}
-                {here && <span className="ml-1 text-surface-400">· here</span>}
+                {here && <span className="ml-1 text-ink-400">· here</span>}
               </p>
             </div>
           );
@@ -226,16 +188,16 @@ export default function FranchiseStrip({
       </div>
 
       {nextUp && seen > 0 && (
-        <p className="mt-2 text-xs text-surface-500">
+        <p className="mt-2 text-xs text-ink-500">
           Next in order:{" "}
           <Link
             href={titlePath("movie", nextUp.id, nextUp.title)}
-            className="text-brand-400 hover:text-brand-300"
+            className="text-accent hover:text-accent-soft"
           >
             {nextUp.title}
           </Link>
         </p>
       )}
-    </Section>
+    </>,
   );
 }
