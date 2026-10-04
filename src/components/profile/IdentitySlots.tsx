@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import { getPosterUrl } from "@/utils/imageUrl";
 import { personPath, titlePath } from "@/utils/urls";
 import { fetchIdentitySlots, saveIdentitySlots, type IdentitySlot, type SlotKind } from "@/lib/db/identitySlots";
+import ProfileSection from "@components/profile/v2/ProfileSection";
 
 /**
  * Four people, a comfort watch, a hill to die on.
@@ -36,7 +37,12 @@ function hrefFor(it: IdentitySlot | Pick): string {
   return it.itemType === "person" ? personPath(it.itemId, it.itemName) : titlePath(it.itemType, it.itemId, it.itemName);
 }
 
-export default function IdentitySlots({ userId, isOwner }: { userId: string; isOwner: boolean }) {
+/**
+ * Its own section, "Picks", under its own head (ProfileSection) — it used to
+ * sit inside Favourites with no heading of its own, three more boxes nobody
+ * could place. A visitor sees only the picks that were made.
+ */
+export default function IdentitySlots({ userId, isOwner, username }: { userId: string; isOwner: boolean; username: string }) {
   const { data, mutate } = useSWR(["identity-slots", userId], () => fetchIdentitySlots(userId));
   const [editing, setEditing] = useState<SlotKind | null>(null);
 
@@ -45,7 +51,16 @@ export default function IdentitySlots({ userId, isOwner }: { userId: string; isO
   if (empty && !isOwner) return null;
 
   return (
-    <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <ProfileSection
+      id="picks"
+      title={isOwner ? "Your picks" : `${username}'s picks`}
+      description={
+        isOwner
+          ? "Four people you'd follow anywhere, the one you put on when you can't decide, and a hill you'll die on."
+          : `Who ${username} would follow anywhere, what they put on when they can't decide, and a hill they'll die on.`
+      }
+    >
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       {/* People */}
       <Block
         icon={<Users className="size-3.5" />}
@@ -123,6 +138,7 @@ export default function IdentitySlots({ userId, isOwner }: { userId: string; isO
         />
       )}
     </div>
+    </ProfileSection>
   );
 }
 
@@ -145,18 +161,23 @@ function Block({
 }) {
   if (empty && !isOwner) return null;
   return (
-    <div className="rounded-xl border border-line/50 bg-raised/30 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ink-400">
-          {icon} {title}
+    <div className="flex flex-col rounded-card border border-line-strong bg-raised p-4 sm:p-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-ink-0">
+          <span className="text-ink-500">{icon}</span> {title}
         </h3>
         {isOwner && (
-          <button type="button" onClick={onEdit} className="text-xs text-ink-500 hover:text-ink-0">
+          <button
+            type="button"
+            onClick={onEdit}
+            aria-label={`${empty ? "Add" : "Edit"} ${title.toLowerCase()}`}
+            className="inline-flex h-8 shrink-0 items-center rounded-full px-3 text-xs font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0"
+          >
             {empty ? "Add" : "Edit"}
           </button>
         )}
       </div>
-      {empty ? <p className="text-sm text-ink-600">{emptyText}</p> : children}
+      {empty ? <p className="text-sm leading-relaxed text-ink-500">{emptyText}</p> : children}
     </div>
   );
 }

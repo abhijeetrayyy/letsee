@@ -12,6 +12,7 @@ import { getPosterUrl } from "@/utils/imageUrl";
 import type { BecauseItem } from "@/utils/title/because";
 import { SectionTitle } from "./parts";
 
+import Rail from "@components/ds/Rail";
 /**
  * "Because you love Serendipity": a row of what TMDB recommends from one of
  * your favourites, minus anything already in your library.
@@ -63,13 +64,15 @@ export default function BecauseYouLove({ me }: { me: string }) {
           Because you love <em className="italic">{seed.itemName}</em>
         </span>
       </SectionTitle>
-      <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        {items.map((i) => (
-          <li key={`${i.type}:${i.id}`} className="w-36 shrink-0 snap-start sm:w-44">
-            <TitleCard id={String(i.id)} title={i.title} mediaType={i.type} imageUrl={getPosterUrl(i.posterPath, "w342")} year={i.year} />
-          </li>
-        ))}
-      </ul>
+      <Rail>
+        <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 sm:scroll-px-6 lg:scroll-px-8 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          {items.map((i) => (
+            <li key={`${i.type}:${i.id}`} className="w-36 shrink-0 snap-start sm:w-44">
+              <TitleCard id={String(i.id)} title={i.title} mediaType={i.type} imageUrl={getPosterUrl(i.posterPath, "w342")} year={i.year} />
+            </li>
+          ))}
+        </ul>
+      </Rail>
     </section>
   );
 }

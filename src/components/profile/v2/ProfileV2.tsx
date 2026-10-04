@@ -8,7 +8,8 @@ import LazyFold from "@components/ds/LazyFold";
 import PassSheet from "@components/ds/PassSheet";
 import { FollowerBtnClient, ShowFollower, ShowFollowing } from "@components/profile/profileBtn";
 import ProfileActionsDropdown from "@components/profile/ProfileActionsDropdown";
-import ProfileFavourites from "@components/profile/v2/ProfileFavourites";
+import ProfileFavourites, { ProfileFour } from "@components/profile/v2/ProfileFavourites";
+import IdentitySlots from "@components/profile/IdentitySlots";
 import WatchedGrid from "@components/profile/WatchedGrid";
 import ProfileTvProgress from "@components/profile/ProfileTvProgress";
 import ReviewsSection from "@components/profile/ReviewsSection";
@@ -25,6 +26,7 @@ import { sinceLabel, watchedLabel } from "@components/rooms/time";
 import { getPosterUrl } from "@/utils/imageUrl";
 import { titlePath } from "@/utils/urls";
 
+import Rail from "@components/ds/Rail";
 /**
  * A profile under `ui=v2` (docs/design/PAGES.md §6).
  *
@@ -138,7 +140,11 @@ export default function ProfileV2({ data }: { data: ProfileV2Data }) {
         </p>
       ) : (
         <>
+          {/* Three sections, each with its own head and its own way to change it
+              (ProfileSection): the four chosen, everything hearted, the picks. */}
+          <ProfileFour userId={user.id} username={user.username} isOwner={isOwner} four={data.four} />
           <ProfileFavourites userId={user.id} username={user.username} isOwner={isOwner} viewerId={viewerId} four={data.four} />
+          <IdentitySlots userId={user.id} isOwner={isOwner} username={user.username} />
 
           {sharesAnything && between && (
             <section aria-labelledby="between">
@@ -151,16 +157,18 @@ export default function ProfileV2({ data }: { data: ProfileV2Data }) {
                     {between.together.length} {between.together.length === 1 ? "film" : "films"} together since{" "}
                     {sinceLabel(between.together[between.together.length - 1].watchedOn)}
                   </p>
-                  <ul className="no-scrollbar -mx-4 mt-3 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 pb-1">
-                    {between.together.slice(0, 12).map((t) => (
-                      <li key={t.viewingId} className="w-28 shrink-0 snap-start sm:w-32">
-                        <Link href={titlePath(t.itemType, t.itemId, t.itemName)} className="block">
-                          <img src={getPosterUrl(t.imageUrl, "w185")} alt={t.itemName} loading="lazy" className="aspect-2/3 w-full rounded-media bg-hover object-cover" />
-                          <span className="mt-1.5 block truncate font-mono text-xs uppercase text-ink-500">{watchedLabel(t.watchedOn)}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
+                  <Rail>
+                    <ul className="no-scrollbar -mx-4 mt-3 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 pb-1">
+                      {between.together.slice(0, 12).map((t) => (
+                        <li key={t.viewingId} className="w-28 shrink-0 snap-start sm:w-32">
+                          <Link href={titlePath(t.itemType, t.itemId, t.itemName)} className="block">
+                            <img src={getPosterUrl(t.imageUrl, "w185")} alt={t.itemName} loading="lazy" className="aspect-2/3 w-full rounded-media bg-hover object-cover" />
+                            <span className="mt-1.5 block truncate font-mono text-xs uppercase text-ink-500">{watchedLabel(t.watchedOn)}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </Rail>
                 </>
               )}
               {between.meet.length > 0 && (
@@ -185,16 +193,18 @@ export default function ProfileV2({ data }: { data: ProfileV2Data }) {
               <h2 id="watching-now" className="mb-4 text-2xl text-ink-0 sm:text-3xl">
                 Watching now
               </h2>
-              <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-                {data.watching.map((w, n) => (
-                  <li key={`${w.item_type}:${w.item_id}`} className="w-32 shrink-0 snap-start sm:w-40">
-                    <Link href={titlePath(w.item_type === "tv" ? "tv" : "movie", w.item_id, w.item_name)} className="block">
-                      <img src={getPosterUrl(w.image_url, "w342")} alt={w.item_name} loading={n < 3 ? "eager" : "lazy"} className="img-fade aspect-2/3 w-full rounded-media bg-hover object-cover" />
-                      <span className="mt-2 block truncate font-display text-base text-ink-0">{w.item_name}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <Rail>
+                <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 sm:scroll-px-6 lg:scroll-px-8 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+                  {data.watching.map((w, n) => (
+                    <li key={`${w.item_type}:${w.item_id}`} className="w-32 shrink-0 snap-start sm:w-40">
+                      <Link href={titlePath(w.item_type === "tv" ? "tv" : "movie", w.item_id, w.item_name)} className="block">
+                        <img src={getPosterUrl(w.image_url, "w342")} alt={w.item_name} loading={n < 3 ? "eager" : "lazy"} className="img-fade aspect-2/3 w-full rounded-media bg-hover object-cover" />
+                        <span className="mt-2 block truncate font-display text-base text-ink-0">{w.item_name}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </Rail>
             </section>
           )}
 

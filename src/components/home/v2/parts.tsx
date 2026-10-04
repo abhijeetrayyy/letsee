@@ -21,6 +21,7 @@ import { tonightHref } from "@/lib/people/tonight";
 import TitleCard from "@components/ds/TitleCard";
 import type { CommunityLog, CommunityTitle } from "@/lib/db/community";
 
+import Rail from "@components/ds/Rail";
 /**
  * The pieces of Home (docs/design/PAGES.md §1). Each renders only with
  * something real behind it; the page decides which appear and in what order.
@@ -218,22 +219,24 @@ export function PassRow({ pass }: { pass: Pass & { person: RoomPerson } }) {
 
 export function PeopleRow({ people }: { people: { room: RoomSummary; line: string | null }[] }) {
   return (
-    <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 pb-1">
-      {people.map(({ room, line }) => (
-        <li key={room.person.id} className="w-32 shrink-0 snap-start">
-          <Link href={`/app/people/${encodeURIComponent(room.person.username)}`} className="block rounded-card px-1 py-2 text-center transition-colors hover:bg-raised">
-            <span className="relative mx-auto block w-fit">
-              <span className="block rounded-full p-0.5 ring-2 ring-accent/70">
-                <Avatar src={room.person.avatarUrl} name={room.person.username} size={80} />
+    <Rail>
+      <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 pb-1">
+        {people.map(({ room, line }) => (
+          <li key={room.person.id} className="w-32 shrink-0 snap-start">
+            <Link href={`/app/people/${encodeURIComponent(room.person.username)}`} className="block rounded-card px-1 py-2 text-center transition-colors hover:bg-raised">
+              <span className="relative mx-auto block w-fit">
+                <span className="block rounded-full p-0.5 ring-2 ring-accent/70">
+                  <Avatar src={room.person.avatarUrl} name={room.person.username} size={80} />
+                </span>
+                {room.unread && <span className="absolute right-1 top-1 size-3.5 rounded-full bg-accent ring-2 ring-page" aria-label="Something new" />}
               </span>
-              {room.unread && <span className="absolute right-1 top-1 size-3.5 rounded-full bg-accent ring-2 ring-page" aria-label="Something new" />}
-            </span>
-            <span className="mt-2 block truncate text-sm font-medium text-ink-0">{room.person.username}</span>
-            {line && <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-ink-500">{line}</span>}
-          </Link>
-        </li>
-      ))}
-    </ul>
+              <span className="mt-2 block truncate text-sm font-medium text-ink-0">{room.person.username}</span>
+              {line && <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-ink-500">{line}</span>}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Rail>
   );
 }
 
@@ -342,40 +345,44 @@ export function NextStep({ title, body, action }: { title: string; body: string;
  */
 export function CommunityLately({ logs }: { logs: CommunityLog[] }) {
   return (
-    <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-4 sm:gap-x-4 sm:gap-y-7 sm:overflow-visible sm:px-0 sm:pb-0">
-      {logs.map((l) => (
-        <li key={l.id} className="w-36 shrink-0 snap-start sm:w-auto sm:min-w-0">
-          <TitleCard
-            id={l.itemId}
-            title={l.itemName}
-            mediaType={l.itemType}
-            imageUrl={getPosterUrl(l.imageUrl, "w342")}
-            role={`${l.person.username} · ${whenWatched(l.watchedOn)}`}
-            people={[{ username: l.person.username, avatarUrl: l.person.avatarUrl }]}
-          />
-        </li>
-      ))}
-    </ul>
+    <Rail>
+      <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-4 sm:gap-x-4 sm:gap-y-7 sm:overflow-visible sm:px-0 sm:pb-0">
+        {logs.map((l) => (
+          <li key={l.id} className="w-36 shrink-0 snap-start sm:w-auto sm:min-w-0">
+            <TitleCard
+              id={l.itemId}
+              title={l.itemName}
+              mediaType={l.itemType}
+              imageUrl={getPosterUrl(l.imageUrl, "w342")}
+              role={`${l.person.username} · ${whenWatched(l.watchedOn)}`}
+              people={[{ username: l.person.username, avatarUrl: l.person.avatarUrl }]}
+            />
+          </li>
+        ))}
+      </ul>
+    </Rail>
   );
 }
 
 /** Titles several people here logged lately, most people first, with their faces. */
 export function PopularHere({ titles }: { titles: CommunityTitle[] }) {
   return (
-    <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-      {titles.map((t) => (
-        <li key={`${t.itemType}:${t.itemId}`} className="w-36 shrink-0 snap-start sm:w-44">
-          <TitleCard
-            id={t.itemId}
-            title={t.itemName}
-            mediaType={t.itemType}
-            imageUrl={getPosterUrl(t.imageUrl, "w342")}
-            role={`${t.people.length} people here`}
-            people={t.people.map((p) => ({ username: p.username, avatarUrl: p.avatarUrl }))}
-          />
-        </li>
-      ))}
-    </ul>
+    <Rail>
+      <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 sm:scroll-px-6 lg:scroll-px-8 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        {titles.map((t) => (
+          <li key={`${t.itemType}:${t.itemId}`} className="w-36 shrink-0 snap-start sm:w-44">
+            <TitleCard
+              id={t.itemId}
+              title={t.itemName}
+              mediaType={t.itemType}
+              imageUrl={getPosterUrl(t.imageUrl, "w342")}
+              role={`${t.people.length} people here`}
+              people={t.people.map((p) => ({ username: p.username, avatarUrl: p.avatarUrl }))}
+            />
+          </li>
+        ))}
+      </ul>
+    </Rail>
   );
 }
 

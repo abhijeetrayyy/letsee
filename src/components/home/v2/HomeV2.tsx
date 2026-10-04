@@ -28,6 +28,7 @@ import TitleCard from "@components/ds/TitleCard";
 import BecauseYouLove from "./BecauseYouLove";
 import NewOnYourServices from "@components/home/NewOnYourServices";
 import { useSearchIndex } from "@components/header/useSearchIndex";
+import Rail from "@components/ds/Rail";
 import {
   CommunityLately,
   Hero,
@@ -281,18 +282,20 @@ export default function HomeV2() {
               <SectionTitle>
                 <span id="watching">What you’re watching</span>
               </SectionTitle>
-              <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-                {/* Not the one the hero already shows. */}
-                {(watching ?? []).slice(current && !lastNight && !tonight ? 1 : 0, 12).map((w) => (
-                  <li key={`${w.item_type}:${w.item_id}`} className="w-36 shrink-0 snap-start sm:w-44">
-                    <Link href={titlePath(w.item_type === "tv" ? "tv" : "movie", w.item_id, w.item_name)} className="group block">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={getPosterUrl(w.image_url, "w342")} alt="" loading="lazy" className="img-fade aspect-2/3 w-full rounded-media bg-raised object-cover ring-1 ring-inset ring-line transition-opacity group-hover:opacity-90" />
-                      <span className="mt-2 block truncate font-display text-base text-ink-0">{w.item_name}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <Rail>
+                <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 sm:scroll-px-6 lg:scroll-px-8 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+                  {/* Not the one the hero already shows. */}
+                  {(watching ?? []).slice(current && !lastNight && !tonight ? 1 : 0, 12).map((w) => (
+                    <li key={`${w.item_type}:${w.item_id}`} className="w-36 shrink-0 snap-start sm:w-44">
+                      <Link href={titlePath(w.item_type === "tv" ? "tv" : "movie", w.item_id, w.item_name)} className="group block">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={getPosterUrl(w.image_url, "w342")} alt="" loading="lazy" className="img-fade aspect-2/3 w-full rounded-media bg-raised object-cover ring-1 ring-inset ring-line transition-opacity group-hover:opacity-90" />
+                        <span className="mt-2 block truncate font-display text-base text-ink-0">{w.item_name}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </Rail>
             </section>
           )}
 
@@ -330,16 +333,18 @@ export default function HomeV2() {
               >
                 <span id="trending">Trending now</span>
               </SectionTitle>
-              <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-                {trending.map((r) => {
-                  const [type, id] = r.k.split(":");
-                  return (
-                    <li key={r.k} className="w-36 shrink-0 snap-start sm:w-44">
-                      <TitleCard id={id} title={r.n} mediaType={type === "tv" ? "tv" : "movie"} imageUrl={getPosterUrl(r.p ?? null, "w342")} year={r.y ? String(r.y) : null} />
-                    </li>
-                  );
-                })}
-              </ul>
+              <Rail>
+                <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 sm:scroll-px-6 lg:scroll-px-8 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+                  {trending.map((r) => {
+                    const [type, id] = r.k.split(":");
+                    return (
+                      <li key={r.k} className="w-36 shrink-0 snap-start sm:w-44">
+                        <TitleCard id={id} title={r.n} mediaType={type === "tv" ? "tv" : "movie"} imageUrl={getPosterUrl(r.p ?? null, "w342")} year={r.y ? String(r.y) : null} />
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Rail>
             </section>
           )}
 

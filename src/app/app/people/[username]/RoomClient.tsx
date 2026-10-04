@@ -19,6 +19,7 @@ import { titlePath } from "@/utils/urls";
 import { fetchHidden, hideEvent, unhideAll, unhideEvent } from "@/lib/db/roomHidden";
 import { eventRef, hiddenKey, withoutHidden } from "@/lib/rooms/hidden";
 
+import Rail from "@components/ds/Rail";
 /**
  * A room with one person (docs/design/RETHINK.md §4).
  *
@@ -425,16 +426,18 @@ function BetweenYou({ name, together, open, meet }: { name: string; together: To
         {together.length > 0 && (
           <div>
             <h2 className="mb-3 font-sans text-xs font-medium tracking-normal text-ink-500">Together</h2>
-            <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 pb-1">
-              {together.slice(0, 24).map((t) => (
-                <li key={t.viewingId} className="w-20 shrink-0 snap-start">
-                  <Link href={titlePath(t.itemType, t.itemId, t.itemName)} className="group/poster block">
-                    <img src={getPosterUrl(t.imageUrl, "w185")} alt={t.itemName} loading="lazy" decoding="async" className="aspect-2/3 w-full rounded-media bg-hover object-cover ring-1 ring-line-strong" />
-                    <span className="mt-1.5 block truncate font-mono text-xs uppercase text-ink-500">{watchedLabel(t.watchedOn)}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <Rail>
+              <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 pb-1">
+                {together.slice(0, 24).map((t) => (
+                  <li key={t.viewingId} className="w-20 shrink-0 snap-start">
+                    <Link href={titlePath(t.itemType, t.itemId, t.itemName)} className="group/poster block">
+                      <img src={getPosterUrl(t.imageUrl, "w185")} alt={t.itemName} loading="lazy" decoding="async" className="aspect-2/3 w-full rounded-media bg-hover object-cover ring-1 ring-line-strong" />
+                      <span className="mt-1.5 block truncate font-mono text-xs uppercase text-ink-500">{watchedLabel(t.watchedOn)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Rail>
           </div>
         )}
         {open.length > 0 && (
@@ -501,16 +504,18 @@ function ListsMeet({ name, items }: { name: string; items: ListMeet[] }) {
       <h2 id="lists-meet" className="mb-2.5 font-sans text-xs font-medium tracking-normal text-ink-500">
         Where your lists meet
       </h2>
-      <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 pb-1">
-        {items.map((t) => (
-          <li key={`${t.itemType}:${t.itemId}`} className="w-24 shrink-0 snap-start">
-            <Link href={titlePath(t.itemType, t.itemId, t.itemName)} className="block">
-              <img src={getPosterUrl(t.imageUrl, "w185")} alt={t.itemName} loading="lazy" decoding="async" className="aspect-2/3 w-full rounded-media bg-hover object-cover ring-1 ring-line-strong" />
-              <span className={`mt-1.5 block text-xs leading-snug ${t.kind === "both" ? "font-medium text-accent" : "text-ink-400"}`}>{said[t.kind]}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <Rail>
+        <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 pb-1">
+          {items.map((t) => (
+            <li key={`${t.itemType}:${t.itemId}`} className="w-24 shrink-0 snap-start">
+              <Link href={titlePath(t.itemType, t.itemId, t.itemName)} className="block">
+                <img src={getPosterUrl(t.imageUrl, "w185")} alt={t.itemName} loading="lazy" decoding="async" className="aspect-2/3 w-full rounded-media bg-hover object-cover ring-1 ring-line-strong" />
+                <span className={`mt-1.5 block text-xs leading-snug ${t.kind === "both" ? "font-medium text-accent" : "text-ink-400"}`}>{said[t.kind]}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Rail>
     </section>
   );
 }

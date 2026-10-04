@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Moon, Settings, Sun } from "lucide-react";
+import { Database, Link2, ListVideo, Moon, Pencil, Settings, Sun, Upload } from "lucide-react";
 import { currentTheme, setTheme, type Theme } from "@/lib/theme";
 import Link from "@components/ui/AppLink";
 import Avatar from "@components/ui/Avatar";
@@ -30,12 +30,14 @@ export function ThemeSwitch({ className = "mb-2 px-3" }: { className?: string } 
     setTheme(t);
     set(t);
   };
+  // Sized by their words, not a fixed width: at w-44 beside its label the
+  // switch was wider than the account menu and pushed out of it.
   const seg = (on: boolean) =>
-    `inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-medium transition-colors ${on ? "bg-inverse text-ink-900" : "text-ink-400 hover:text-ink-0"}`;
+    `inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors ${on ? "bg-inverse text-ink-900" : "text-ink-400 hover:text-ink-0"}`;
   return (
-    <div className={`flex items-center justify-between gap-3 ${className}`}>
-      <span className="text-sm text-ink-500">Appearance</span>
-      <div role="group" aria-label="Appearance" className="flex w-44 gap-1 rounded-full p-1 ring-1 ring-inset ring-line-strong">
+    <div className={`flex min-w-0 items-center justify-between gap-3 ${className}`}>
+      <span className="min-w-0 text-sm text-ink-500">Appearance</span>
+      <div role="group" aria-label="Appearance" className="flex shrink-0 gap-1 rounded-full p-1 ring-1 ring-inset ring-line-strong">
         <button type="button" aria-pressed={theme === "light"} onClick={() => pick("light")} className={seg(theme === "light")}>
           <Sun className="size-4" aria-hidden /> Light
         </button>
@@ -47,54 +49,72 @@ export function ThemeSwitch({ className = "mb-2 px-3" }: { className?: string } 
   );
 }
 
+/**
+ * The menu's contents, in three groups with room between them: you and your
+ * places (profile, edit, lists, links, history, data), two settings as
+ * label-and-control rows, then signing out. Everything sizes to the menu —
+ * the old version had a fixed-width switch and a full-width button that
+ * stuck out past its edges.
+ */
 function AccountLinks({ user, onPick }: { user: AuthUser | null; onPick: () => void }) {
-  const row = "flex h-11 items-center rounded-control px-3 text-sm font-medium text-ink-300 transition-colors hover:bg-hover hover:text-ink-0";
+  const row = "flex h-10 w-full min-w-0 items-center gap-3 rounded-control px-3 text-sm font-medium text-ink-200 transition-colors hover:bg-hover hover:text-ink-0";
+  const icon = "size-4 shrink-0 text-ink-500";
   const name = user?.username ?? null;
   return (
-    <div className="grid gap-1">
+    <div className="flex min-w-0 flex-col">
       {name && (
-        <Link href={`/app/profile/${name}`} onClick={onPick} className="mb-1 flex items-center gap-3 rounded-control px-3 py-2 transition-colors hover:bg-hover">
+        <Link href={`/app/profile/${name}`} onClick={onPick} className="flex min-w-0 items-center gap-3 rounded-control px-3 py-2.5 transition-colors hover:bg-hover">
           <Avatar src={user?.avatar_url} name={name} size={36} />
           <span className="min-w-0">
             <span className="block truncate text-sm font-semibold text-ink-0">{name}</span>
-            <span className="block text-xs text-ink-500">Your profile</span>
+            <span className="block text-xs text-ink-500">See your profile</span>
           </span>
         </Link>
       )}
-      {name ? (
-        <>
-          <Link href="/app/settings" onClick={onPick} className={row}>
-            Edit profile
+      <div className="my-1.5 border-t border-line" />
+      <nav aria-label="Your account" className="flex flex-col">
+        {name ? (
+          <>
+            <Link href="/app/settings" onClick={onPick} className={row}>
+              <Pencil className={icon} aria-hidden />
+              Edit profile
+            </Link>
+            <Link href="/app/lists" onClick={onPick} className={row}>
+              <ListVideo className={icon} aria-hidden />
+              Lists
+            </Link>
+            <Link href="/app/links" onClick={onPick} className={row}>
+              <Link2 className={icon} aria-hidden />
+              Links you&apos;ve sent
+            </Link>
+            <Link href="/app/import" onClick={onPick} className={row}>
+              <Upload className={icon} aria-hidden />
+              Bring your history in
+            </Link>
+            <Link href="/app/settings#your-data" onClick={onPick} className={row}>
+              <Database className={icon} aria-hidden />
+              Your data
+            </Link>
+          </>
+        ) : (
+          <Link href="/app/welcome" onClick={onPick} className={row}>
+            <Pencil className={icon} aria-hidden />
+            Finish your profile
           </Link>
-          <Link href="/app/lists" onClick={onPick} className={row}>
-            Lists
-          </Link>
-          <Link href="/app/links" onClick={onPick} className={row}>
-            Links you&apos;ve sent
-          </Link>
-          <Link href="/app/import" onClick={onPick} className={row}>
-            Bring your history in
-          </Link>
-          <Link href="/app/settings#your-data" onClick={onPick} className={row}>
-            Your data
-          </Link>
-        </>
-      ) : (
-        <Link href="/app/welcome" onClick={onPick} className={row}>
-          Finish your profile
-        </Link>
-      )}
-      <div className="my-2 border-t border-line" />
-      <ThemeSwitch />
-      <div className="flex items-center justify-between gap-3 px-3">
-        <span className="text-sm text-ink-500">Where you watch</span>
-        <CountrySelector />
+        )}
+      </nav>
+      <div className="my-1.5 border-t border-line" />
+      <div className="flex flex-col gap-2 px-3 py-1.5">
+        <ThemeSwitch className="" />
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <span className="min-w-0 text-sm text-ink-500">Where you watch</span>
+          <CountrySelector />
+        </div>
       </div>
-      <div className="mt-3 px-1">
-        <SignOut />
-      </div>
+      <div className="my-1.5 border-t border-line" />
+      <SignOut />
       {/* The footer's credits, which left app pages with the footer. */}
-      <p className="mt-3 px-3 text-xs leading-relaxed text-ink-600">
+      <p className="mt-2 px-3 pb-1 text-xs leading-relaxed text-ink-600">
         Film and TV data from{" "}
         <a href="https://www.themoviedb.org" target="_blank" rel="noreferrer" className="underline decoration-line-input underline-offset-2 hover:text-ink-300">
           TMDB
@@ -142,7 +162,7 @@ export function AccountMenu({ user }: { user: AuthUser | null }) {
         <Avatar src={user?.avatar_url} name={name} size={30} />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-card border border-line-strong bg-overlay p-2 shadow-2xl">
+        <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-card border border-line-strong bg-overlay p-2 shadow-2xl">
           <AccountLinks user={user} onPick={() => setOpen(false)} />
         </div>
       )}

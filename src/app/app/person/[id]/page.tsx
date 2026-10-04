@@ -17,6 +17,7 @@ import JsonLd from "@components/seo/JsonLd";
 import { personLd, breadcrumbLd } from "@/utils/structuredData";
 import { personPath } from "@/utils/urls";
 
+import Rail from "@components/ds/Rail";
 /** Impersonal HTML; see the movie page for why this is cached. */
 /**
  * A day, not an hour.
@@ -159,25 +160,27 @@ export default async function PersonPage({ params }: PageProps) {
             and a half before the work began — and a full row from `lg`. */}
         {defining.length >= 4 && (
           <Section title="Known for">
-            <div className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-6 lg:gap-4 lg:overflow-visible lg:px-0 xl:grid-cols-8">
-              {defining.map((c, i) => (
-                <div key={c.key} className="w-32 shrink-0 snap-start sm:w-36 lg:w-auto">
-                <TitleCard
-                  eager={i < 2}
-                  id={c.id}
-                  title={c.title}
-                  mediaType={c.mediaType}
-                  posterPath={c.posterPath}
-                  genres={[]}
-                  showActions
-                  rank={i + 1}
-                  releaseDate={c.date || null}
-                  rating={c.voteAverage || null}
-                  voteCount={c.voteCount || null}
-                />
-                </div>
-              ))}
-            </div>
+            <Rail>
+              <div className="no-scrollbar -mx-4 flex snap-x scroll-px-4 sm:scroll-px-6 gap-3 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-6 lg:gap-4 lg:overflow-visible lg:px-0 xl:grid-cols-8">
+                {defining.map((c, i) => (
+                  <div key={c.key} className="w-32 shrink-0 snap-start sm:w-36 lg:w-auto">
+                  <TitleCard
+                    eager={i < 2}
+                    id={c.id}
+                    title={c.title}
+                    mediaType={c.mediaType}
+                    posterPath={c.posterPath}
+                    genres={[]}
+                    showActions
+                    rank={i + 1}
+                    releaseDate={c.date || null}
+                    rating={c.voteAverage || null}
+                    voteCount={c.voteCount || null}
+                  />
+                  </div>
+                ))}
+              </div>
+            </Rail>
           </Section>
         )}
 

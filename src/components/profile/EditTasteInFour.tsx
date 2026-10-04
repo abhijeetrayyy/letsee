@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { getPosterUrl } from "@/utils/imageUrl";
@@ -21,12 +21,17 @@ type PickableItem = {
   image_url?: string | null;
 };
 
+/** Lets the profile's empty slots open the editor at that slot. */
+export type FourEditorHandle = { open: (slot?: number) => void };
+
 export default function EditTasteInFour({
   currentItems,
   profileId,
+  handle,
 }: {
   currentItems: DisplayItem[];
   profileId: string;
+  handle?: React.Ref<FourEditorHandle>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -59,11 +64,14 @@ export default function EditTasteInFour({
     return arr;
   });
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
-  const [pickerTab, setPickerTab] = useState<"watched" | "favorites">("watched");
+  // Favourites first: the four are usually chosen from what you've hearted.
+  const [pickerTab, setPickerTab] = useState<"watched" | "favorites">("favorites");
   const [saving, setSaving] = useState(false);
   const [watched, setWatched] = useState<PickableItem[]>([]);
   const [favorites, setFavorites] = useState<PickableItem[]>([]);
   const [loaded, setLoaded] = useState(false);
+  /** `loaded` flips when the read starts (so it runs once); this is whether it has come back. */
+  const [fetching, setFetching] = useState(false);
   const [query, setQuery] = useState("");
   const [remote, setRemote] = useState<PickableItem[]>([]);
   const [searching, setSearching] = useState(false);
@@ -102,6 +110,7 @@ export default function EditTasteInFour({
   const loadPickable = useCallback(async () => {
     if (loaded) return;
     setLoaded(true);
+    setFetching(true);
     try {
       // This picker only ever opens on your own profile, so the viewer and the
       // owner are the same person — but it is passed explicitly rather than
@@ -125,6 +134,8 @@ export default function EditTasteInFour({
       })));
     } catch {
       setLoaded(false);
+    } finally {
+      setFetching(false);
     }
   }, [profileId, loaded]);
 
@@ -135,10 +146,17 @@ export default function EditTasteInFour({
     });
     setSlots(arr);
     setSelectedSlot(null);
-    setPickerTab("watched");
+    setPickerTab("favorites");
     setOpen(true);
     loadPickable();
   };
+
+  useImperativeHandle(handle, () => ({
+    open: (slot?: number) => {
+      openModal();
+      if (typeof slot === "number") setSelectedSlot(slot);
+    },
+  }));
 
   const assignToSlot = useCallback((item: PickableItem, slotIndex: number) => {
     setSlots((prev) => prev.map((it, i) =>
@@ -341,19 +359,24 @@ export default function EditTasteInFour({
                         <p className="text-xs font-medium text-ink-400 mt-1.5 w-full truncate text-center">
                           {it ? it.item_name : `Slot ${idx + 1}`}
                         </p>
+                        {/* Stacked, not side by side: four slots across a phone are
+                            about 70px each, and "Poster" and "Remove" in one row ran
+                            into each other (and into the next slot). */}
                         {it && (
-                          <div className="mt-0.5 flex items-center gap-2">
+                          <div className="mt-1 flex w-full flex-col items-stretch gap-1">
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); void loadPosters(idx); }}
-                              className="text-xs text-ink-400 hover:text-ink-0"
+                              aria-label={`Choose a poster for ${it.item_name}`}
+                              className="h-7 rounded-full text-xs font-medium text-ink-300 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"
                             >
                               Poster
                             </button>
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); clearSlot(idx); }}
-                              className="text-xs text-danger hover:text-danger"
+                              aria-label={`Take ${it.item_name} out of your four`}
+                              className="h-7 rounded-full text-xs font-medium text-danger hover:bg-danger/10"
                             >
                               Remove
                             </button>
@@ -404,17 +427,6 @@ export default function EditTasteInFour({
                 <div className="flex gap-2 mb-4">
                   <button
                     type="button"
-                    onClick={() => setPickerTab("watched")}
-                    className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      pickerTab === "watched"
-                        ? "bg-action text-on-action"
-                        : "bg-overlay text-ink-400 hover:text-ink-0"
-                    }`}
-                  >
-                    Watched ({watched.length})
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setPickerTab("favorites")}
                     className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                       pickerTab === "favorites"
@@ -422,7 +434,18 @@ export default function EditTasteInFour({
                         : "bg-overlay text-ink-400 hover:text-ink-0"
                     }`}
                   >
-                    Favorites ({favorites.length})
+                    Favourites
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPickerTab("watched")}
+                    className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      pickerTab === "watched"
+                        ? "bg-action text-on-action"
+                        : "bg-overlay text-ink-400 hover:text-ink-0"
+                    }`}
+                  >
+                    Watched
                   </button>
                 </div>
                 {/* The search that was missing entirely. Without it you could
@@ -440,14 +463,14 @@ export default function EditTasteInFour({
                 </div>
 
                 <div className="rounded-xl border border-line-strong bg-overlay/50 p-4">
-                  {!loaded ? (
+                  {!loaded || fetching ? (
                     <div className="py-12 flex flex-col items-center justify-center gap-3">
                       <LoadingSpinner size="md" className="border-t-white shrink-0" />
                       <p className="text-ink-500 text-sm animate-pulse">Loading…</p>
                     </div>
                   ) : pickerList.length === 0 ? (
                     <p className="text-ink-500 text-sm py-12 text-center">
-                      {pickerTab === "watched" ? "No watched titles yet." : "No favorites yet."}
+                      {pickerTab === "watched" ? "No watched titles yet." : "No favourites yet. Heart a title on its page."}
                     </p>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">

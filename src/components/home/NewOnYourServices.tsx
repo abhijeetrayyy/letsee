@@ -10,6 +10,7 @@ import { getPosterUrl } from "@/utils/imageUrl";
 import { titlePath } from "@/utils/urls";
 import { useInView } from "@/hooks/useInView";
 
+import Rail from "@components/ds/Rail";
 /**
  * "New on your services this week."
  *
@@ -99,27 +100,29 @@ export default function NewOnYourServices() {
         <MonitorPlay className="size-5 text-accent" aria-hidden />
         <h2 className="text-2xl text-ink-0 sm:text-3xl">New on your services</h2>
       </div>
-      <div className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        {data.items.map((r) => (
-          <Link
-            key={`${r.item_type}:${r.item_id}`}
-            href={titlePath(r.item_type, r.item_id, r.item_name)}
-            className="group w-36 shrink-0 snap-start sm:w-44"
-          >
-            <div className="relative aspect-2/3 overflow-hidden rounded-media bg-raised ring-1 ring-inset ring-line">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={getPosterUrl(r.image_url, "w342")}
-                alt=""
-                loading="lazy"
-                className="img-fade h-full w-full object-cover transition-opacity group-hover:opacity-90"
-              />
-            </div>
-            <p className="mt-2 truncate font-display text-base text-ink-0">{r.item_name}</p>
-            <p className="truncate text-xs text-ink-500">{r.provider_name}</p>
-          </Link>
-        ))}
-      </div>
+      <Rail>
+        <div className="no-scrollbar -mx-4 flex snap-x scroll-px-4 sm:scroll-px-6 lg:scroll-px-8 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          {data.items.map((r) => (
+            <Link
+              key={`${r.item_type}:${r.item_id}`}
+              href={titlePath(r.item_type, r.item_id, r.item_name)}
+              className="group w-36 shrink-0 snap-start sm:w-44"
+            >
+              <div className="relative aspect-2/3 overflow-hidden rounded-media bg-raised ring-1 ring-inset ring-line">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={getPosterUrl(r.image_url, "w342")}
+                  alt=""
+                  loading="lazy"
+                  className="img-fade h-full w-full object-cover transition-opacity group-hover:opacity-90"
+                />
+              </div>
+              <p className="mt-2 truncate font-display text-base text-ink-0">{r.item_name}</p>
+              <p className="truncate text-xs text-ink-500">{r.provider_name}</p>
+            </Link>
+          ))}
+        </div>
+      </Rail>
       <p className="mt-2 text-xs text-ink-600">Availability from JustWatch via TMDB.</p>
     </section>
   );

@@ -35,10 +35,11 @@ const SignOut: React.FC = () => {
       <button
         onClick={handleSignOut}
         disabled={isLoading}
-        className={`w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
-          isLoading
-            ? "bg-hover text-ink-400 cursor-not-allowed"
-            : "bg-danger/10 border border-danger/20 text-danger hover:bg-danger/20 hover:border-danger/30"
+        type="button"
+        // A row like the menu's others, in the danger colour — not a pink slab
+        // the full width of the menu (it overflowed it).
+        className={`flex h-10 w-full items-center gap-3 rounded-control px-3 text-left text-sm font-medium transition-colors ${
+          isLoading ? "cursor-not-allowed text-ink-400" : "text-danger hover:bg-danger/10"
         }`}
       >
         {isLoading ? (
@@ -67,7 +68,7 @@ const SignOut: React.FC = () => {
           </>
         ) : (
           <>
-            <LogOutIcon className="size-4" />
+            <LogOutIcon className="size-4" aria-hidden />
             Sign out
           </>
         )}

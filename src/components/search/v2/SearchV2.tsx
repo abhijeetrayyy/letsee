@@ -26,6 +26,7 @@ import { MOODS } from "@/staticData/moods";
 import { getPosterUrl } from "@/utils/imageUrl";
 import { listPath, personPath, titlePath } from "@/utils/urls";
 
+import Rail from "@components/ds/Rail";
 /**
  * Search, one implementation (docs/design/PAGES.md §4).
  *
@@ -132,7 +133,14 @@ function SearchPage() {
   const browsing = params.get("browse") === "1";
   const browseParams = useMemo(() => parseBrowseParams(Object.fromEntries(params.entries())), [params]);
   const dq = useDebounced(q.trim(), 300);
-  const [recent, setRecent] = useState<string[]>(readRecent);
+  // Empty on the server and in the first render, then read from this browser:
+  // read during render, the page hydrated with recent searches the server never
+  // drew, and React threw the whole page away and rebuilt it.
+  const [recent, setRecent] = useState<string[]>([]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- browser storage only exists after mount
+    setRecent(readRecent());
+  }, []);
 
   const input = useRef<HTMLInputElement>(null);
   const results = useRef<HTMLDivElement>(null);
@@ -398,7 +406,7 @@ function openBrowse(e: React.MouseEvent<HTMLAnchorElement>) {
 }
 
 function Shelf({ children }: { children: React.ReactNode }) {
-  return <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">{children}</ul>;
+  return <Rail><ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 sm:scroll-px-6 lg:scroll-px-8 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">{children}</ul></Rail>;
 }
 
 /* ── Titles ─────────────────────────────────────────────────────────────── */

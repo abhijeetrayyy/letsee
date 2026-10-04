@@ -64,7 +64,9 @@ export default function CountrySelector() {
         aria-label="Select country for streaming availability"
       >
         <GlobeIcon className="size-4 shrink-0 text-ink-400" />
-        <span className="hidden max-w-20 truncate sm:inline">
+        {/* Always named: it now lives only in the account menu, where a bare
+            globe beside "Where you watch" didn't say where. */}
+        <span className="max-w-24 truncate">
           {selectedCountry?.english_name ?? country}
         </span>
         <ChevronDownIcon

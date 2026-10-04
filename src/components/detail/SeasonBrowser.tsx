@@ -15,6 +15,7 @@ import { epKey, isOut, type Ep } from "@/lib/logging/episodes";
 import { useEpisodeMarks } from "@components/tv/useEpisodeMarks";
 import { seasonPath } from "@/utils/urls";
 
+import Rail from "@components/ds/Rail";
 /**
  * A season as a place you go, not a filter you apply.
  *
@@ -236,55 +237,57 @@ export default function SeasonBrowser({
           that there is more, and 81 of them cost nothing the browser has to
           lay out at once. */}
       {ordered.length > 1 && (
-        <div ref={railRef} className="no-scrollbar relative flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
-          {ordered.map((s) => {
-            const total = s.episode_count ?? 0;
-            const seen = Math.min(watchedPerSeason.get(s.season_number) ?? 0, total);
-            const pct = total > 0 ? Math.round((seen / total) * 100) : 0;
-            const year = parseTmdbDate(s.air_date)?.y ?? null;
-            const isOpen = s.season_number === active;
-            return (
-              <button
-                key={s.season_number}
-                type="button"
-                ref={(el) => {
-                  cardRefs.current[s.season_number] = el;
-                }}
-                onClick={() => setPicked(s.season_number)}
-                aria-pressed={isOpen}
-                className="group w-22 shrink-0 snap-start text-left sm:w-26"
-              >
-                <div
-                  className={`relative aspect-2/3 overflow-hidden rounded-media bg-raised transition-opacity ${
-                    isOpen ? "ring-2 ring-ink-0" : "opacity-60 ring-1 ring-inset ring-line group-hover:opacity-100"
-                  }`}
+        <Rail>
+          <div ref={railRef} className="no-scrollbar relative flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
+            {ordered.map((s) => {
+              const total = s.episode_count ?? 0;
+              const seen = Math.min(watchedPerSeason.get(s.season_number) ?? 0, total);
+              const pct = total > 0 ? Math.round((seen / total) * 100) : 0;
+              const year = parseTmdbDate(s.air_date)?.y ?? null;
+              const isOpen = s.season_number === active;
+              return (
+                <button
+                  key={s.season_number}
+                  type="button"
+                  ref={(el) => {
+                    cardRefs.current[s.season_number] = el;
+                  }}
+                  onClick={() => setPicked(s.season_number)}
+                  aria-pressed={isOpen}
+                  className="group w-22 shrink-0 snap-start text-left sm:w-26"
                 >
-                  {s.poster_path ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={`https://image.tmdb.org/t/p/w185${s.poster_path}`} alt="" loading="lazy" className="h-full w-full object-cover" />
-                  ) : (
-                    /* 42% of seasons have no poster. A numbered tile is a
-                       recognisable object; an empty grey box is not. */
-                    <div className="flex h-full w-full items-center justify-center">
-                      <span className="font-mono text-2xl tabular-nums text-ink-500">
-                        {s.season_number === 0 ? "SP" : String(s.season_number).padStart(2, "0")}
-                      </span>
-                    </div>
-                  )}
-                  {total > 0 && seen > 0 && (
-                    <div className="absolute inset-x-0 bottom-0 h-1 bg-page/70">
-                      <div className="h-full bg-action" style={{ width: `${pct}%` }} />
-                    </div>
-                  )}
-                </div>
-                <p className={`mt-1.5 truncate text-xs font-medium ${isOpen ? "text-ink-0" : "text-ink-400"}`}>{seasonName(s)}</p>
-                <p className="truncate font-mono text-xs tabular-nums text-ink-500">
-                  {seen > 0 ? `${seen} of ${total}` : (year ?? `${total} eps`)}
-                </p>
-              </button>
-            );
-          })}
-        </div>
+                  <div
+                    className={`relative aspect-2/3 overflow-hidden rounded-media bg-raised transition-opacity ${
+                      isOpen ? "ring-2 ring-ink-0" : "opacity-60 ring-1 ring-inset ring-line group-hover:opacity-100"
+                    }`}
+                  >
+                    {s.poster_path ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={`https://image.tmdb.org/t/p/w185${s.poster_path}`} alt="" loading="lazy" className="h-full w-full object-cover" />
+                    ) : (
+                      /* 42% of seasons have no poster. A numbered tile is a
+                         recognisable object; an empty grey box is not. */
+                      <div className="flex h-full w-full items-center justify-center">
+                        <span className="font-mono text-2xl tabular-nums text-ink-500">
+                          {s.season_number === 0 ? "SP" : String(s.season_number).padStart(2, "0")}
+                        </span>
+                      </div>
+                    )}
+                    {total > 0 && seen > 0 && (
+                      <div className="absolute inset-x-0 bottom-0 h-1 bg-page/70">
+                        <div className="h-full bg-action" style={{ width: `${pct}%` }} />
+                      </div>
+                    )}
+                  </div>
+                  <p className={`mt-1.5 truncate text-xs font-medium ${isOpen ? "text-ink-0" : "text-ink-400"}`}>{seasonName(s)}</p>
+                  <p className="truncate font-mono text-xs tabular-nums text-ink-500">
+                    {seen > 0 ? `${seen} of ${total}` : (year ?? `${total} eps`)}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </Rail>
       )}
 
       {/* The season itself */}

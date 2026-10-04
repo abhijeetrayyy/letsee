@@ -9,6 +9,7 @@ import { Section } from "@components/detail/TitleChrome";
 import type { CollectionResponse, CollectionPart } from "@/app/api/collection/route";
 import { titlePath } from "@/utils/urls";
 
+import Rail from "@components/ds/Rail";
 /**
  * How far through a franchise you are — the film counterpart of the episode
  * ribbon.
@@ -132,60 +133,62 @@ export default function FranchiseStrip({
         )}
       </div>
 
-      <div className="no-scrollbar -mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
-        {parts.map((p, i) => {
-          const on = isSeen(p.id);
-          const here = String(p.id) === currentKey;
-          return (
-            <div key={p.id} className="w-24 shrink-0 sm:w-28">
-              <Link
-                href={titlePath("movie", p.id, p.title)}
-                aria-current={here ? "page" : undefined}
-                className="block"
-              >
-                <div
-                  className={`overflow-hidden rounded-xl transition ${
-                    on
-                      ? "ring-2 ring-focus"
-                      : here
-                        ? "ring-2 ring-line-light"
-                        : "ring-1 ring-line"
-                  }`}
+      <Rail>
+        <div className="no-scrollbar -mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
+          {parts.map((p, i) => {
+            const on = isSeen(p.id);
+            const here = String(p.id) === currentKey;
+            return (
+              <div key={p.id} className="w-24 shrink-0 sm:w-28">
+                <Link
+                  href={titlePath("movie", p.id, p.title)}
+                  aria-current={here ? "page" : undefined}
+                  className="block"
                 >
-                  {p.posterPath ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={`${POSTER}${p.posterPath}`}
-                      alt={p.title}
-                      loading="lazy"
-                      className={`h-37.5 w-full object-cover transition sm:h-43.5 ${
-                        on ? "opacity-100" : "opacity-60 hover:opacity-90"
-                      }`}
-                    />
-                  ) : (
-                    <div className="flex h-37.5 w-full items-center justify-center bg-overlay px-2 text-center text-xs text-ink-500 sm:h-43.5">
-                      {p.title}
-                    </div>
-                  )}
-                </div>
-              </Link>
-
-              <p
-                className={`mt-1.5 truncate text-xs leading-tight ${
-                  here ? "text-ink-0" : "text-ink-400"
-                }`}
-                title={p.title}
-              >
-                {p.title}
-              </p>
-              <p className="font-mono text-xs tabular-nums text-ink-600">
-                {i + 1}. {year(p.releaseDate)}
-                {here && <span className="ml-1 text-ink-400">· here</span>}
-              </p>
-            </div>
-          );
-        })}
-      </div>
+                  <div
+                    className={`overflow-hidden rounded-xl transition ${
+                      on
+                        ? "ring-2 ring-focus"
+                        : here
+                          ? "ring-2 ring-line-light"
+                          : "ring-1 ring-line"
+                    }`}
+                  >
+                    {p.posterPath ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={`${POSTER}${p.posterPath}`}
+                        alt={p.title}
+                        loading="lazy"
+                        className={`h-37.5 w-full object-cover transition sm:h-43.5 ${
+                          on ? "opacity-100" : "opacity-60 hover:opacity-90"
+                        }`}
+                      />
+                    ) : (
+                      <div className="flex h-37.5 w-full items-center justify-center bg-overlay px-2 text-center text-xs text-ink-500 sm:h-43.5">
+                        {p.title}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+  
+                <p
+                  className={`mt-1.5 truncate text-xs leading-tight ${
+                    here ? "text-ink-0" : "text-ink-400"
+                  }`}
+                  title={p.title}
+                >
+                  {p.title}
+                </p>
+                <p className="font-mono text-xs tabular-nums text-ink-600">
+                  {i + 1}. {year(p.releaseDate)}
+                  {here && <span className="ml-1 text-ink-400">· here</span>}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </Rail>
 
       {nextUp && seen > 0 && (
         <p className="mt-2 text-xs text-ink-500">

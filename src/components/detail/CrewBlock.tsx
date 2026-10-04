@@ -1,6 +1,7 @@
 import Link from "@components/ui/AppLink";
 import { personPath } from "@/utils/urls";
 
+import Rail from "@components/ds/Rail";
 export type CrewMember = {
   id: number;
   name: string;
@@ -191,31 +192,33 @@ export default function CrewBlock({
         // 880px at the container cap but 629px at exactly 1024px, where the
         // three-column text grid first appears. It also makes this strip rhyme
         // with the Cast strip sitting directly above it in the same column.
-        <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
-          {keyPeople.map((person) => (
-            <Link
-              key={person.id}
-              href={personPath(person.id, person.name)}
-              className="group w-28 shrink-0 sm:w-32"
-            >
-              <div className="aspect-2/3 w-full overflow-hidden rounded-xl bg-overlay ring-1 ring-line-strong/50 transition-all group-hover:ring-focus/40">
-                <img
-                  src={`https://image.tmdb.org/t/p/w342${person.profile_path}`}
-                  alt={person.name}
-                  loading="lazy"
-                  className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-              </div>
-              <p className="mt-2 line-clamp-1 text-sm font-medium text-ink-200 transition-colors group-hover:text-ink-0">
-                {person.name}
-              </p>
-              {/* The job that earned the tile, not the merged list — a director
-                  whose subtitle reads "Producer, Writer" because that is TMDB's
-                  array order is worse than no subtitle. */}
-              <p className="line-clamp-1 text-xs text-ink-500">{person.job}</p>
-            </Link>
-          ))}
-        </div>
+        <Rail>
+          <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+            {keyPeople.map((person) => (
+              <Link
+                key={person.id}
+                href={personPath(person.id, person.name)}
+                className="group w-28 shrink-0 sm:w-32"
+              >
+                <div className="aspect-2/3 w-full overflow-hidden rounded-xl bg-overlay ring-1 ring-line-strong/50 transition-all group-hover:ring-focus/40">
+                  <img
+                    src={`https://image.tmdb.org/t/p/w342${person.profile_path}`}
+                    alt={person.name}
+                    loading="lazy"
+                    className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                </div>
+                <p className="mt-2 line-clamp-1 text-sm font-medium text-ink-200 transition-colors group-hover:text-ink-0">
+                  {person.name}
+                </p>
+                {/* The job that earned the tile, not the merged list — a director
+                    whose subtitle reads "Producer, Writer" because that is TMDB's
+                    array order is worse than no subtitle. */}
+                <p className="line-clamp-1 text-xs text-ink-500">{person.job}</p>
+              </Link>
+            ))}
+          </div>
+        </Rail>
       )}
 
       {groups.map((group) => (

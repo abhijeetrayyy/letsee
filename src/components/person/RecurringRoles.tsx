@@ -8,6 +8,7 @@ import Link from "@components/ui/AppLink";
  * Ethan Hunt eight.
  */
 import { titlePath } from "@/utils/urls";
+import Rail from "@components/ds/Rail";
 export default function RecurringRoles({
   roles,
 }: {
@@ -25,18 +26,20 @@ export default function RecurringRoles({
               {r.from != null && r.to != null && r.from !== r.to ? ` · ${r.from}–${r.to}` : r.from != null ? ` · ${r.from}` : ""}
             </span>
           </p>
-          <div className="mt-2 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-            {r.titles.map((t) => (
-              <Link key={t.key} href={titlePath(t.mediaType, t.id, t.title)} title={t.title} className="shrink-0">
-                <span className="block h-24 w-16 overflow-hidden rounded bg-overlay ring-1 ring-line-strong/40 transition hover:ring-focus/40">
-                  {t.posterPath && (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={`https://image.tmdb.org/t/p/w185${t.posterPath}`} alt={t.title} loading="lazy" className="h-full w-full object-cover" />
-                  )}
-                </span>
-              </Link>
-            ))}
-          </div>
+          <Rail>
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+              {r.titles.map((t) => (
+                <Link key={t.key} href={titlePath(t.mediaType, t.id, t.title)} title={t.title} className="shrink-0">
+                  <span className="block h-24 w-16 overflow-hidden rounded bg-overlay ring-1 ring-line-strong/40 transition hover:ring-focus/40">
+                    {t.posterPath && (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={`https://image.tmdb.org/t/p/w185${t.posterPath}`} alt={t.title} loading="lazy" className="h-full w-full object-cover" />
+                    )}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </Rail>
         </li>
       ))}
     </ul>
