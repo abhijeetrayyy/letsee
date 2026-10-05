@@ -9,7 +9,7 @@ export default function SkeletonCard({
   variant = "poster",
   className = "",
 }: SkeletonCardProps) {
-  const base = "animate-pulse bg-overlay rounded-xl";
+  const base = "animate-pulse bg-active rounded-xl motion-reduce:animate-none";
 
   if (variant === "poster") {
     return (

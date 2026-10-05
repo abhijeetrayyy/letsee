@@ -13,6 +13,7 @@ import { useAuth, type AuthUser } from "@/app/contextAPI/AuthProvider";
 import { useUnreadCounts } from "@/hooks/useUnreadCounts";
 import { activeTab, hidesTabBar, tabs, type TabKey } from "@components/ds/tabs";
 import { useClaimPendingPass } from "@components/doors/useClaimPendingPass";
+import { usePendingNavigation } from "@/lib/nav/pendingNavigation";
 
 /**
  * The shell under `ui=v2` (docs/design/PAGES.md §0, SYSTEM.md §8 Shell).
@@ -28,7 +29,9 @@ export function ShellBars() {
   const pathname = usePathname() ?? "/";
   const signedIn = status === "ok" && !!user;
   const username = user?.username ?? null;
-  const current = activeTab(pathname, username);
+  // A tapped tab is marked at once, not when its page arrives (lib/nav/pendingNavigation).
+  const going = usePendingNavigation(pathname);
+  const current = activeTab(going?.path ?? pathname, username);
   const somethingNew = useSomethingNew(signedIn ? user?.id : null);
 
   return (

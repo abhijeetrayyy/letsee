@@ -88,7 +88,7 @@ export default function TitleCard({
   const markLabel = status === "watched" ? "Watched" : status === "watchlist" ? "Saved" : status === "watching" ? "Watching" : null;
 
   return (
-    <Link href={href} className={`group block min-w-0 ${className}`} style={style}>
+    <Link href={href} data-nav-title={title} className={`group block min-w-0 ${className}`} style={style}>
       <span className="relative block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

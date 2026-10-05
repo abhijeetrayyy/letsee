@@ -1,5 +1,5 @@
 import RouteSkeleton from "@/components/ui/RouteSkeleton";
 
 export default function Loading() {
-  return <RouteSkeleton variant="detail" label="Loading show" />;
+  return <RouteSkeleton variant="title" label="Loading series" />;
 }

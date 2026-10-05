@@ -11,6 +11,7 @@ import { siteUrl } from "@/utils/siteUrl";
 import JsonLd from "@components/seo/JsonLd";
 import { organisationLd } from "@/utils/structuredData";
 import NavigationProgress from "@components/ui/NavigationProgress";
+import PendingNavigation from "@components/ui/PendingNavigation";
 import { Suspense } from "react";
 import { TOKENS } from "@/design/tokens";
 import { THEME_SCRIPT } from "@/lib/theme";
@@ -198,6 +199,8 @@ export default function RootLayout({
                   <main id="content" tabIndex={-1} className="scroll-mt-14 focus:outline-none md:scroll-mt-16">
                     {children}
                   </main>
+                  {/* The next page's shape while a tapped link's page loads. */}
+                  <PendingNavigation />
                 </UserPrefrenceProvider>
               </MediaInteractionProvider>
             </SwrProvider>

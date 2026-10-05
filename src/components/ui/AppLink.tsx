@@ -4,6 +4,7 @@ import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import type { ComponentProps } from "react";
 import { useCallback, useEffect, useRef } from "react";
+import { hintFromLink, startPendingNavigation, type NavHint } from "@/lib/nav/pendingNavigation";
 
 type AppLinkProps = ComponentProps<typeof NextLink>;
 
@@ -51,11 +52,14 @@ export default function AppLink({
   onPointerLeave,
   onFocus,
   onTouchStart,
+  onClick,
+  onNavigate,
   ...rest
 }: AppLinkProps) {
   const router = useRouter();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didPrefetch = useRef(false);
+  const tapped = useRef<NavHint | null>(null);
   const target = typeof href === "string" ? href : null;
 
   const prefetchOnIntent = useCallback(() => {
@@ -91,6 +95,26 @@ export default function AppLink({
       onTouchStart={(event) => {
         onTouchStart?.(event);
         if (!event.defaultPrevented) prefetchOnIntent();
+      }}
+      // What the tapped link shows of its page — the poster, the name — read
+      // on the click, before anything moves. Next calls onClick first, then
+      // onNavigate only for a navigation it handles itself: not a new tab, a
+      // modified click, or a link whose own handler stopped it.
+      onClick={(event) => {
+        onClick?.(event);
+        tapped.current = event.defaultPrevented ? null : hintFromLink(event.currentTarget);
+      }}
+      onNavigate={(event) => {
+        let stopped = false;
+        onNavigate?.({
+          preventDefault: () => {
+            stopped = true;
+            event.preventDefault();
+          },
+        });
+        // The next page's shape goes up at once (ui/PendingNavigation).
+        if (!stopped && target) startPendingNavigation(target, tapped.current ?? {});
+        tapped.current = null;
       }}
     />
   );
