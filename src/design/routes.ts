@@ -44,6 +44,7 @@ export const ROUTES: Record<string, RouteEntry> = {
   "/app/lists/[listId]": { family: "detail", step: 8, status: "S" },
 
   "/app/people": { family: "collection", step: 4, status: "S" },
+  "/app/people/find": { family: "collection", step: 4, status: "S" },
   "/app/people/[username]": { family: "room", step: 4, status: "S" },
   "/app/up-next": { family: "collection", step: 6, status: "S" },
 

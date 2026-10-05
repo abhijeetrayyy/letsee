@@ -418,7 +418,7 @@ function FirstWeek({
         <button type="button" onClick={() => void inviteSomeone(username)} className={buttonClass.primary}>
           Invite someone
         </button>
-        <Link href="/app/people" className={buttonClass.quiet}>
+        <Link href="/app/people/find" className={buttonClass.quiet}>
           Find people you know
         </Link>
       </div>

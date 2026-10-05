@@ -1,14 +1,10 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
-import { fetchAllRows } from "@/utils/fetchAllRows";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { tmdbConfigured } from "@/utils/tmdbClient";
 
-const BATCH_SIZE = 3;
-const BATCH_DELAY_MS = 150;
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export type ProfileTvProgressItem = {
   show_id: string;
@@ -45,15 +41,23 @@ export async function GET(req: NextRequest) {
       return jsonError("userId query parameter is required", 400);
     }
 
-    // Auth & Permission Check
+    /**
+     * Two rounds of reads, not dozens (migration 120). The profile check and
+     * the list of shows go out together; then, for the page's shows, their
+     * watched episodes (one row per season) and their TMDB details together.
+     * It used to read every watched episode the account had, a thousand at a
+     * time, to learn which shows it had — 4.5 s before the first show for an
+     * account with 9,000 episodes — and then each show's episodes one show at
+     * a time, three at once with a pause between.
+     */
     const authUserId = await getAuthUserId();
     const viewerId = authUserId ?? null;
 
-    const { data: profile, error: profileError } = await supabase
-      .from("users")
-      .select("visibility")
-      .eq("id", userId)
-      .maybeSingle();
+    const [{ data: profile, error: profileError }, showsRes] = await Promise.all([
+      supabase.from("users").select("visibility").eq("id", userId).maybeSingle(),
+      // Under the caller's RLS, as the table reads it replaces were.
+      supabase.rpc("tv_progress_shows", { p_user: userId }),
+    ]);
 
     if (profileError || !profile) {
       return jsonError("User not found", 404);
@@ -83,33 +87,20 @@ export async function GET(req: NextRequest) {
     if (!tmdbConfigured()) {
       return jsonError("TMDB_READ_TOKEN is missing", 500);
     }
-
-    // 1. Aggregate show IDs from user_media_status (canonical) plus any
-    // watched_episodes rows that predate a show having a status row.
-    const [statusRes, watchedEpRes] = await Promise.all([
-      supabase
-        .from("user_media_status")
-        .select("item_id, status, updated_at")
-        .eq("user_id", userId)
-        .eq("item_type", "tv"),
-      // Every show id, past the 1,000-row default (an account can have
-      // thousands of watched episodes).
-      fetchAllRows<{ show_id: string }>((from, to) =>
-        supabase.from("watched_episodes").select("show_id").eq("user_id", userId).order("id", { ascending: true }).range(from, to),
-      ).then(({ rows, error }) => ({ data: rows, error })),
-    ]);
-
-    const taggedData = statusRes.data ?? [];
-    const statusMap = new Map<string, string>();
-    const timeMap = new Map<string, string>();
-    for (const item of taggedData) {
-      statusMap.set(String(item.item_id), item.status);
-      timeMap.set(String(item.item_id), item.updated_at);
+    if (showsRes.error) {
+      return jsonError("Couldn't read series progress", 500);
     }
 
+    const shows = (showsRes.data ?? []) as { show_id: string; status: string | null; updated_at: string | null }[];
+    const statusMap = new Map<string, string>();
+    const timeMap = new Map<string, string>();
     const allIds = new Set<string>();
-    taggedData.forEach((r) => allIds.add(String(r.item_id)));
-    (watchedEpRes.data ?? []).forEach((r) => allIds.add(String(r.show_id)));
+    for (const row of shows) {
+      const id = String(row.show_id);
+      allIds.add(id);
+      if (row.status) statusMap.set(id, row.status);
+      if (row.updated_at) timeMap.set(id, row.updated_at);
+    }
 
     let filteredIds: string[] = [];
 
@@ -144,41 +135,30 @@ export async function GET(req: NextRequest) {
       return jsonSuccess({ items: [], total }, { maxAge: 0 });
     }
 
-    const items: ProfileTvProgressItem[] = [];
+    // The page's watched episodes in one read, and every show's TMDB details
+    // at once — fetchTmdb throttles itself, and getTvShowWithSeasons is cached.
+    const [episodesRes, details] = await Promise.all([
+      supabase.rpc("tv_progress_episodes", { p_user: userId, p_shows: slice }),
+      Promise.all(slice.map((id) => getTvShowWithSeasons(id).catch(() => null))),
+    ]);
+    if (episodesRes.error) {
+      return jsonError("Couldn't read series progress", 500);
+    }
+    const watchedByShow = new Map<string, Set<string>>();
+    for (const row of (episodesRes.data ?? []) as { show_id: string; season_number: number; episodes: number[] }[]) {
+      const set = watchedByShow.get(String(row.show_id)) ?? new Set<string>();
+      for (const e of row.episodes ?? []) set.add(`${row.season_number},${e}`);
+      watchedByShow.set(String(row.show_id), set);
+    }
 
-    // 2. Fetch details for the slice in batches to avoid overwhelming TMDB/Network
-    for (let i = 0; i < slice.length; i += BATCH_SIZE) {
-      const batch = slice.slice(i, i + BATCH_SIZE);
-      const batchResults = await Promise.all(
-        batch.map(async (showId) => {
-          const [watchedRes, showData] = await Promise.all([
-            fetchAllRows<{ season_number: number; episode_number: number }>((from, to) =>
-              supabase
-                .from("watched_episodes")
-                .select("season_number, episode_number")
-                .eq("user_id", userId)
-                .eq("show_id", showId)
-                .order("season_number", { ascending: true })
-                .order("episode_number", { ascending: true })
-                .range(from, to),
-            ).then(({ rows, error }) => ({ data: rows, error })),
-            getTvShowWithSeasons(showId),
-          ]);
-
-          if (watchedRes.error) {
-            console.error(`DB error for show ${showId}:`, watchedRes.error);
-            return null;
-          }
+    const items: ProfileTvProgressItem[] = slice
+      .map((showId, i): ProfileTvProgressItem | null => {
+          const showData = details[i];
           if (!showData) {
             console.warn(`TMDB data missing for show ${showId}`);
             return null;
           }
-
-          const watchedSet = new Set(
-            (watchedRes.data ?? []).map(
-              (r) => `${r.season_number},${r.episode_number}`,
-            ),
-          );
+          const watchedSet = watchedByShow.get(showId) ?? new Set<string>();
           const name = (showData?.name as string) ?? "Unknown Show";
           const poster = (showData?.poster_path as string) ?? null;
 
@@ -250,15 +230,8 @@ export async function GET(req: NextRequest) {
             next_air_date: nextToAir?.air_date ?? null,
             tv_status: statusMap.get(showId) ?? null,
           } as ProfileTvProgressItem;
-        }),
-      );
-
-      for (const item of batchResults) {
-        if (item) items.push(item);
-      }
-
-      if (i + BATCH_SIZE < slice.length) await delay(BATCH_DELAY_MS);
-    }
+        })
+      .filter((item): item is ProfileTvProgressItem => item !== null);
 
     return jsonSuccess({ items, total }, { maxAge: 0 });
   } catch (err: any) {

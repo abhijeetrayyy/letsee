@@ -37,5 +37,9 @@ describe("which tab a page belongs to", () => {
   it("steps the tab bar aside inside a room, not on the room list", () => {
     expect(hidesTabBar("/app/people/ana")).toBe(true);
     expect(hidesTabBar("/app/people")).toBe(false);
+    // Find people is a page of the tab, not a room.
+    expect(hidesTabBar("/app/people/find")).toBe(false);
+    expect(hidesTabBar("/app/people/finder")).toBe(true);
+    expect(activeTab("/app/people/find", "ray")).toBe("people");
   });
 });

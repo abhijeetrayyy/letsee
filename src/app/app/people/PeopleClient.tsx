@@ -9,7 +9,7 @@ import { useAuth } from "@/app/contextAPI/AuthProvider";
 import { fetchRoomList, searchPeople, type NamedCompanion, type RoomPerson, type RoomSummary } from "@/lib/db/rooms";
 import { inviteSomeone } from "@components/home/v2/parts";
 import RequestRow from "@components/rooms/RequestRow";
-import Discover from "@components/rooms/Discover";
+import PeopleNav from "@components/rooms/PeopleNav";
 import Groups from "@components/rooms/Groups";
 import { ago } from "@components/rooms/time";
 import { fetchNotifications, markNotificationsRead, type NotificationItem } from "@/lib/db/notifications";
@@ -57,13 +57,13 @@ export default function PeopleClient() {
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-16">
       <div className="min-w-0">
       <label className="relative block">
-        <span className="sr-only">Find someone, or start a room</span>
+        <span className="sr-only">Search your people, or start a room</span>
         <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-500" aria-hidden />
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Find someone, or start a room"
+          placeholder="Search your people, or start a room"
           className="h-11 w-full rounded-control bg-raised pl-10 pr-3.5 text-base text-ink-0 ring-1 ring-inset ring-line-input placeholder:text-ink-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         />
       </label>
@@ -94,18 +94,21 @@ export default function PeopleClient() {
           <Empty />
         )}
         {q && me && <StartRoom query={q} me={me} existing={rooms.map((r) => r.person.id)} />}
+        {q && (
+          <Link href={`/app/people/find?q=${encodeURIComponent(q)}`} className="mt-5 inline-block text-sm font-medium text-accent underline decoration-line-input underline-offset-4 hover:text-accent-soft">
+            Search everyone on letsee for &ldquo;{q}&rdquo;
+          </Link>
+        )}
       </section>
 
       {!q && data && <Bring username={user?.username ?? null} named={data.named} few={rooms.length < 3} />}
-
-      {!q && me && <Groups me={me} />}
-
-      {!q && me && <Lately me={me} />}
       </div>
 
-      {/* The rail: people you could watch with, beside the rooms you have. */}
-      <aside className="min-w-0">
-        {!q && me && <Discover me={me} known={new Set(rooms.map((r) => r.person.id))} className="lg:mt-0" />}
+      {/* The rail: your groups, and what happened lately. Meeting new people
+          has its own page now (People → Find people). */}
+      <aside className="min-w-0 lg:[&>section:first-child]:mt-0">
+        {!q && me && <Groups me={me} />}
+        {!q && me && <Lately me={me} />}
       </aside>
       </div>
 
@@ -192,7 +195,8 @@ function Lately({ me }: { me: string }) {
 function Page({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-app px-4 pb-16 pt-6 sm:px-6 sm:pt-10 lg:px-8">
-      <h1 className="mb-8 text-4xl text-ink-0 sm:text-5xl">People</h1>
+      <h1 className="mb-5 text-4xl text-ink-0 sm:text-5xl">People</h1>
+      <PeopleNav current="yours" />
       {children}
     </div>
   );

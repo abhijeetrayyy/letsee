@@ -337,7 +337,7 @@ export default function TonightRoom({ hasProviders, prefill = [], club = null, m
         {peopleData && people.length === 0 && (
           <p className="mt-3 text-sm text-ink-400">
             Tonight can decide for you alone. To decide with someone, follow them or start a room with them.{" "}
-            <Link href="/app/search?scope=people" className="font-medium text-ink-0 underline decoration-line-input underline-offset-4">
+            <Link href="/app/people/find" className="font-medium text-ink-0 underline decoration-line-input underline-offset-4">
               Find people
             </Link>
           </p>

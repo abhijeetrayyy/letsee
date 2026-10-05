@@ -38,8 +38,8 @@ export default function Discover({ me, known, className = "mt-10" }: { me: strin
         <h2 id="discover" className="text-xl text-ink-0">
           {fresh.length ? "You might get along with" : "People to watch with"}
         </h2>
-        <Link href="/app/search?scope=people" className="text-xs text-ink-400 underline decoration-line-input underline-offset-4 hover:text-ink-0">
-          Find anyone
+        <Link href="/app/people/find" className="text-xs text-ink-400 underline decoration-line-input underline-offset-4 hover:text-ink-0">
+          Find people
         </Link>
       </div>
       <ul className="divide-y divide-line">
