@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { lockScroll } from "@/lib/ui/scrollLock";
 import { Play, X } from "lucide-react";
 
 import Rail from "@components/ds/Rail";
@@ -60,15 +61,14 @@ export default function VideoShelf({ videos = [] }: { videos?: TmdbVideo[] }) {
 
   useEffect(() => {
     if (!playing) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setPlaying(null);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
+      unlock();
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [playing]);

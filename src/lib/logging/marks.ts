@@ -1,6 +1,6 @@
 /**
- * The marks: Watched · Watch later · Favourite for a film; Watching · Finished
- * · Watch later · Favourite for a series. What each shows, and what a tap does,
+ * The marks: Watched · Watching · Watch later · Favourite for a film;
+ * Watching · Finished · Watch later · Favourite for a series. What each shows, and what a tap does,
  * as plain functions — tested in tests/unit/marks.test.ts.
  *
  * This replaces "Log it" as the first thing on a title. The owner (5 Oct 2026):
@@ -54,10 +54,14 @@ export function marksFor(s: MarkState): Mark[] {
   const favourite: Mark = { key: "favourite", label: "Favourite", on: s.favourite, disabled: null };
 
   if (s.kind === "movie") {
+    // Watching a film too (owner, 5 Oct 2026): half-way through, or over two
+    // nights — "in progress", like a series.
     const watched = s.status === "watched" || s.logged;
+    const watching = s.status === "watching" || stopped(s.status);
     return [
       { key: "watched", label: "Watched", on: watched, disabled: null },
-      { ...later, disabled: watched && !later.on ? "You've watched it" : null },
+      { key: "watching", label: stopped(s.status) ? "Stopped" : "Watching", on: watching, disabled: null },
+      { ...later, disabled: (watched || watching) && !later.on ? (watching ? "You're watching it" : "You've watched it") : null },
       favourite,
     ];
   }

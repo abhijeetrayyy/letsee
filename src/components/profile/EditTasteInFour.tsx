@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useImperativeHandle, useRef } from "react";
+import { lockScroll } from "@/lib/ui/scrollLock";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { getPosterUrl } from "@/utils/imageUrl";
@@ -43,15 +44,14 @@ export default function EditTasteInFour({
   useEffect(() => {
     if (!open) return;
     const back = trigger.current;
-    const before = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     dialog.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = before;
+      unlock();
       window.removeEventListener("keydown", onKey);
       back?.focus();
     };

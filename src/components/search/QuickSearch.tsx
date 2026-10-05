@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lockScroll } from "@/lib/ui/scrollLock";
+import { usePendingNavigation } from "@/lib/nav/pendingNavigation";
 import { usePathname } from "next/navigation";
 import useSWR from "swr";
 import { ArrowRight, Clock, Search } from "lucide-react";
@@ -41,6 +43,12 @@ export default function QuickSearch() {
   // Choosing a result is a navigation; the panel shouldn't follow you there.
   // eslint-disable-next-line react-hooks/set-state-in-effect -- closing on navigation is the point
   useEffect(() => setOpen(false), [pathname]);
+  // And it goes the moment the navigation starts, not when the page arrives:
+  // it sits above everything, so the next page's shape (ui/PendingNavigation)
+  // was drawn underneath it and all anyone saw was the bar at the top.
+  const going = usePendingNavigation(pathname);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- closing when a navigation starts is the point
+  useEffect(() => { if (going) setOpen(false); }, [going]);
 
   if (!open) return null;
   return <Panel onClose={() => setOpen(false)} />;
@@ -61,11 +69,10 @@ function Panel({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     opener.current = document.activeElement;
-    const before = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     input.current?.focus();
     return () => {
-      document.body.style.overflow = before;
+      unlock();
       const back = opener.current as HTMLElement | null;
       if (back?.isConnected) back.focus?.();
     };

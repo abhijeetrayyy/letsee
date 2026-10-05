@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { lockScroll } from "@/lib/ui/scrollLock";
 import { createPortal } from "react-dom";
 import { Play, X } from "lucide-react";
 
@@ -60,14 +61,13 @@ function TrailerDialog({ videoKey, title, onClose }: { videoKey: string; title: 
 
   useEffect(() => {
     close.current?.focus();
-    const before = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCloseRef.current();
     };
     window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = before;
+      unlock();
       window.removeEventListener("keydown", onKey);
     };
   }, []);

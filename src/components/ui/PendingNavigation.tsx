@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { clearPendingNavigation, usePendingNavigation } from "@/lib/nav/pendingNavigation";
+import { releaseStrayLock } from "@/lib/ui/scrollLock";
 import RouteSkeleton from "@components/ui/RouteSkeleton";
 
 /**
@@ -24,9 +25,12 @@ export default function PendingNavigation() {
   const pathname = usePathname();
   const pending = usePendingNavigation(pathname);
 
-  // The path moved on: whatever was pending from the old one is done.
+  // The path moved on: whatever was pending from the old one is done — and
+  // a page must never arrive unscrollable because a panel on the last one
+  // didn't let go (lib/ui/scrollLock).
   useEffect(() => {
     clearPendingNavigation();
+    releaseStrayLock();
   }, [pathname]);
 
   // Back to a page from the browser's cache: it was saved mid-wait.
@@ -41,7 +45,9 @@ export default function PendingNavigation() {
   if (!pending?.shown) return null;
   const variant = pending.kind === "page" ? "grid" : pending.kind;
   return (
-    <div className="fixed inset-0 z-35 overflow-y-auto overscroll-contain bg-page pb-14 pt-14 md:pb-0">
+    // Not a scroll container: a skeleton has nothing to scroll to, and on a
+    // phone a swipe that starts on one stays with it after it's gone.
+    <div className="fixed inset-0 z-35 overflow-hidden bg-page pb-14 pt-14 md:pb-0">
       <RouteSkeleton variant={variant} hint={pending.hint} />
     </div>
   );

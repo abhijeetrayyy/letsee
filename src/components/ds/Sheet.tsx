@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
+import { lockScroll } from "@/lib/ui/scrollLock";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
@@ -51,8 +52,8 @@ export default function Sheet({
     if (!open) return;
     const self = panel.current;
     opener.current = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    // Counted, so a sheet over a sheet can close in either order (lib/ui/scrollLock).
+    const unlock = lockScroll();
     if (self) openSheets.push(self);
     self?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -63,7 +64,7 @@ export default function Sheet({
       window.removeEventListener("keydown", onKey);
       const at = self ? openSheets.indexOf(self) : -1;
       if (at >= 0) openSheets.splice(at, 1);
-      document.body.style.overflow = previousOverflow;
+      unlock();
       const back = opener.current as HTMLElement | null;
       if (back?.isConnected) back.focus?.();
       else openSheets[openSheets.length - 1]?.focus();

@@ -6,17 +6,25 @@ const show = (over: Partial<MarkState> = {}): MarkState => ({ kind: "tv", status
 const labels = (s: MarkState) => marksFor(s).map((m) => `${m.label}${m.on ? "*" : ""}${m.disabled ? "(x)" : ""}`);
 
 describe("marks for a film", () => {
-  it("are Watched, Watch later and Favourite", () => {
-    expect(labels(film())).toEqual(["Watched", "Watch later", "Favourite"]);
+  it("are Watched, Watching, Watch later and Favourite", () => {
+    expect(labels(film())).toEqual(["Watched", "Watching", "Watch later", "Favourite"]);
   });
 
-  it("can't be saved for later once watched, by mark or by diary", () => {
-    expect(labels(film({ status: "watched" }))).toEqual(["Watched*", "Watch later(x)", "Favourite"]);
-    expect(labels(film({ logged: true }))).toEqual(["Watched*", "Watch later(x)", "Favourite"]);
+  it("can't be saved for later once watched or started, by mark or by diary", () => {
+    expect(labels(film({ status: "watched" }))).toEqual(["Watched*", "Watching", "Watch later(x)", "Favourite"]);
+    expect(labels(film({ logged: true }))).toEqual(["Watched*", "Watching", "Watch later(x)", "Favourite"]);
+    expect(labels(film({ status: "watching" }))).toEqual(["Watched", "Watching*", "Watch later(x)", "Favourite"]);
   });
 
   it("show Watch later on, and still tappable, while saved", () => {
-    expect(labels(film({ status: "watchlist" }))).toEqual(["Watched", "Watch later*", "Favourite"]);
+    expect(labels(film({ status: "watchlist" }))).toEqual(["Watched", "Watching", "Watch later*", "Favourite"]);
+  });
+
+  it("taps: watching a film on and off, and from there to watched", () => {
+    expect(tapOf(film(), "watching")).toEqual({ do: "status", status: "watching", dated: false });
+    expect(tapOf(film({ status: "watching" }), "watching")).toEqual({ do: "status", status: null, dated: false });
+    expect(tapOf(film({ status: "watching" }), "watched")).toEqual({ do: "status", status: "watched", dated: false });
+    expect(tapOf(film({ status: "on_hold" }), "watching")).toEqual({ do: "status", status: "watching", dated: false });
   });
 
   it("taps: watched is a dateless mark, and comes off unless it's in the diary", () => {

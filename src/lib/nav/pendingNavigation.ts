@@ -138,6 +138,12 @@ export function startPendingNavigation(href: string, hint: NavHint = {}): void {
   }
   if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
 
+  // Put the keyboard away: tapping a search result with it still up left
+  // phones showing the next page in a shifted, half-height viewport that
+  // wouldn't scroll until the keyboard was dismissed by hand.
+  const active = document.activeElement as HTMLElement | null;
+  if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) active.blur();
+
   const { kind, key } = classifyPath(url.pathname);
   // A profile's name is its path. The link's own text can be anything — the
   // You tab's is an avatar's initial — so the path says whose it is.
