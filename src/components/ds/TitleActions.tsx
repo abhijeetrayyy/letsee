@@ -3,35 +3,32 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Bookmark, BookOpen, Check, CirclePause, CirclePlay, Heart, ListChecks, LoaderCircle, MoreHorizontal, Share2 } from "lucide-react";
-import LogItButton, { useLogIt } from "@components/ds/LogItButton";
+import { Check, CirclePause, CirclePlay, ListChecks, LoaderCircle, MoreHorizontal, NotebookPen, Share2 } from "lucide-react";
+import { useLogIt } from "@components/ds/LogItButton";
+import MarkTiles from "@components/ds/MarkTiles";
 import PassToButton from "@components/ds/PassToButton";
 import SaveContext from "@components/buttons/SaveContext";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { fetchMyViewings } from "@/lib/db/viewings";
 import { viewingsKey } from "@/lib/db/keys";
-import { menuStatus, primaryAction, saveAction, stateLine, statusWord, type Status } from "@/lib/logging/titleState";
+import { menuStatus, stateLine, statusWord, type Status } from "@/lib/logging/titleState";
 import { todayIso } from "@/utils/viewings";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { episodeLabel, epKey, leadsWithEpisode, nextEpisode, progressOf, type Ep, type SeasonInfo } from "@/lib/logging/episodes";
 import { getPosterUrl } from "@/utils/imageUrl";
 
 /**
- * A title's actions (docs/design/SYSTEM.md §8, `ActionBar`): **Log it** —
- * or **Log again** once you have — then **Save**, **Pass to…**, and one
- * "more" menu for everything else. Under it, one line saying where you stand.
+ * A title's actions. First, the marks everyone knows — **Watched · Watch later
+ * · Favourite** (a series: **Watching · Finished · Watch later · Favourite**),
+ * each one tap on or off (ds/MarkTiles, lib/logging/marks). Under them,
+ * **Add to diary** (a day, stars, who was there, your words — the effort you
+ * choose to make), **Pass to…**, and a menu for the rest. A series you're
+ * on leads with its next episode, one tap.
  *
- * One way to record, in view: a series you've started leads with its next
- * episode, and logging a night of it in your diary moves into the menu (two
- * green-and-outlined "watched" buttons side by side read as two ways to do the
- * same thing). The menu holds only what isn't on the bar — favourite,
- * episodes, one status change for a series, share — not the
- * status jargon it used to list (want to watch, mark as watching, clear).
- *
- * The rules live in `src/lib/logging/titleState.ts` and are tested there:
- * logging is the only way to mark something watched, saving is for things
- * you haven't watched, a series in progress stays in progress.
+ * "Log it" used to come first, alone, and nobody knew what it meant; Watch
+ * later was "Save", and Favourite lived in the menu (owner review, 5 Oct
+ * 2026). A mark has no date; a diary entry does.
  */
 export default function TitleActions({
   itemId,
@@ -58,7 +55,7 @@ export default function TitleActions({
 }) {
   const { user, status: authStatus } = useAuth();
   const me = authStatus === "ok" ? user?.id ?? null : null;
-  const { getStatus, setStatus, togglePreference, hasFavorite, refreshPreferences } = useContext(UserPrefrenceContext);
+  const { getStatus, setStatus, refreshPreferences } = useContext(UserPrefrenceContext);
   // The same cache entry as the viewings list under "Your entry", so a log here refreshes it there.
   const { data: viewings, mutate } = useSWR(me ? viewingsKey(itemId, itemType, me) : null, () => fetchMyViewings(me!, itemId, itemType), {
     revalidateOnFocus: false,
@@ -77,8 +74,7 @@ export default function TitleActions({
 
   const status = getStatus(itemId, itemType) as Status;
   const state = { kind: itemType, status, viewings: viewings ?? [] };
-  const primary = primaryAction(state);
-  const save = saveAction(state);
+  const later = status === "watchlist";
   const episodeLeads = !!me && !!series && leadsWithEpisode(watchedEps, status, next);
   const progress = series && watchedEps.size > 0 ? progressOf(series.seasons, watchedEps, series.lastAired) : null;
   const line = !me
@@ -146,88 +142,61 @@ export default function TitleActions({
     else toast.success(done);
   };
 
-  const toggleSave = () =>
-    save.saved ? changeStatus(null, "Removed from Up next") : changeStatus("watchlist", "Saved to Up next");
-
-  const favourite = hasFavorite(itemId);
-  // The diary log for a series you're on, offered from the menu (see above).
+  // The diary: "Add to diary" under the marks, and "Add date" after marking watched.
   const diary = useLogIt(
     { itemId, itemType, itemName, imageUrl, genres, adult },
     { onLogged: () => void mutate(), onUndone: () => void mutate() },
   );
   const menuStatusChange = me ? menuStatus(itemType, status) : null;
 
-  const toggleFavourite = async () => {
-    const result = await togglePreference({ funcType: "favorite", itemId: Number(itemId), name: itemName, mediaType: itemType, imgUrl: imageUrl ?? undefined, adult: !!adult, genres, currentState: favourite });
-    if (!result.ok) toast.error(result.message ?? "Couldn't change that.");
-  };
+  const title = { itemId, itemType, itemName, imageUrl, genres, adult };
+  const openDiary = () => (diary.logged ? diary.openDetails() : void diary.log({ details: true }));
 
   return (
     // The target of the hero's "Skip to Log it" link (TitleChrome): focusable
     // by script only, so the next Tab lands on the first action.
     <div id="title-actions" tabIndex={-1} className="mt-5 flex scroll-mt-24 flex-col gap-3 focus:outline-none">
-      {/* On a phone the log takes the full width and the rest sit in one row beneath it. */}
+      {episodeLeads && next && (
+        <button
+          type="button"
+          onClick={markNext}
+          disabled={marking}
+          aria-label={`Mark season ${next.s} episode ${next.e} watched`}
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-action px-5 text-base font-semibold text-on-action transition-colors hover:bg-action-hover disabled:opacity-60"
+        >
+          {marking ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
+          Watched <span className="font-mono text-sm tracking-wide">{episodeLabel(next)}</span>
+        </button>
+      )}
+      <MarkTiles title={title} logged={(viewings?.length ?? 0) > 0} onDiary={me ? openDiary : undefined} />
       <div className="flex flex-wrap items-center gap-2">
-        {episodeLeads && next && (
+        {me && (
           <button
             type="button"
-            onClick={markNext}
-            disabled={marking}
-            aria-label={`Mark season ${next.s} episode ${next.e} watched`}
-            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-action px-5 text-base font-semibold text-on-action transition-colors hover:bg-action-hover disabled:opacity-60 sm:w-auto"
+            onClick={openDiary}
+            disabled={diary.busy}
+            className="inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm font-medium text-ink-0 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover disabled:opacity-60"
           >
-            {marking ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
-            Watched <span className="font-mono text-sm tracking-wide">{episodeLabel(next)}</span>
-          </button>
-        )}
-        {!episodeLeads && (
-          <LogItButton
-            className="w-full sm:w-auto"
-            itemId={itemId}
-            itemType={itemType}
-            itemName={itemName}
-            imageUrl={imageUrl}
-            genres={genres}
-            adult={adult}
-            label={primary.label}
-            onLogged={() => void mutate()}
-            onUndone={() => void mutate()}
-          />
-        )}
-        {me && save.show && (
-          <button
-            type="button"
-            onClick={toggleSave}
-            disabled={busy}
-            aria-pressed={save.saved}
-            className={`inline-flex h-11 items-center gap-2 rounded-full px-5 text-base font-medium transition-colors disabled:opacity-60 ${
-              save.saved ? "bg-active text-ink-0" : "text-ink-0 ring-1 ring-inset ring-line-input hover:bg-hover"
-            }`}
-          >
-            <Bookmark className={`size-4 ${save.saved ? "fill-current" : ""}`} aria-hidden />
-            {save.saved ? "Saved" : "Save"}
+            {diary.busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <NotebookPen className="size-4" aria-hidden />}
+            {diary.logged ? "Edit today's entry" : "Add to diary"}
           </button>
         )}
         <PassToButton title={{ itemId, itemType, itemName, imageUrl: posterPath }} />
         <MoreMenu
           signedIn={!!me}
-          favourite={favourite}
-          onFavourite={toggleFavourite}
           statusChange={
             menuStatusChange
               ? { label: menuStatusChange.label, run: () => changeStatus(menuStatusChange.to, menuStatusChange.to === "watching" ? "Back to watching" : "Stopped") }
               : null
           }
-          onDiary={episodeLeads ? () => (diary.logged ? diary.openDetails() : void diary.log()) : undefined}
-          diaryLabel={diary.logged ? "Add details to tonight" : "Add tonight to your diary"}
           onEpisodes={onEpisodes}
           onShare={onShare}
         />
       </div>
       {diary.sheet}
-      {/* When saved, the plan box below already says so. */}
-      {line && !save.saved && <p className="text-sm text-ink-400">{line}</p>}
-      {save.saved && (
+      {/* When it's for later, the plan box below already says so. */}
+      {line && !later && <p className="text-sm text-ink-400">{line}</p>}
+      {later && (
         <SaveContext itemId={itemId} itemType={itemType} itemName={itemName} imageUrl={imageUrl} genres={genres} />
       )}
     </div>
@@ -239,22 +208,13 @@ const MENU_WIDTH = 240;
 
 function MoreMenu({
   signedIn,
-  favourite,
-  onFavourite,
   statusChange,
-  onDiary,
-  diaryLabel,
   onEpisodes,
   onShare,
 }: {
   signedIn: boolean;
-  favourite: boolean;
-  onFavourite: () => void;
   /** At most one: stop a series you're on, or resume one you stopped. */
   statusChange: { label: string; run: () => void } | null;
-  /** A series you've started: log a night of it in your diary. */
-  onDiary?: () => void;
-  diaryLabel: string;
   onEpisodes?: () => void;
   onShare: () => void;
 }) {
@@ -304,18 +264,6 @@ function MoreMenu({
       </button>
       {open && (
         <div role="menu" className={`absolute top-full z-30 mt-2 w-60 rounded-card border border-line-strong bg-overlay p-1.5 shadow-2xl ${align === "left" ? "left-0" : "right-0"}`}>
-          {signedIn && (
-            <button type="button" role="menuitem" onClick={pick(onFavourite)} className={item}>
-              <Heart className={`size-4 ${favourite ? "fill-current" : ""}`} aria-hidden />
-              {favourite ? "Remove from favourites" : "Add to favourites"}
-            </button>
-          )}
-          {onDiary && signedIn && (
-            <button type="button" role="menuitem" onClick={pick(onDiary)} className={item}>
-              <BookOpen className="size-4" aria-hidden />
-              {diaryLabel}
-            </button>
-          )}
           {onEpisodes && signedIn && (
             <button type="button" role="menuitem" onClick={pick(onEpisodes)} className={item}>
               <ListChecks className="size-4" aria-hidden />

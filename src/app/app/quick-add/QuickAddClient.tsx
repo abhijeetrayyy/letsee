@@ -272,13 +272,13 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
       {/* Header — states the job, then gets out of the way */}
       <header className="max-w-app mx-auto px-4 sm:px-6 pt-8 pb-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-ink-0">
-          Quick add
+          Fast mode
         </p>
         <h1 className="mt-1.5 text-2xl sm:text-3xl font-medium tracking-tight text-ink-0">
-          Your back catalogue
+          Mark what you&apos;ve seen
         </h1>
         <p className="mt-1.5 text-sm text-ink-400">
-          Tap the ones you&apos;ve seen. Tap again if you loved it.
+          Tap once: watched. Tap twice: a favourite. Tap again to clear. Nothing lands in your diary as &ldquo;today&rdquo; — this is your library, built in a minute.
         </p>
       </header>
 

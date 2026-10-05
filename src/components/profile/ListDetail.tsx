@@ -9,7 +9,7 @@ import Avatar from "@components/ui/Avatar";
 import Mosaic from "@components/ds/Mosaic";
 import Sheet from "@components/ds/Sheet";
 import TitlePicker, { type PickedTitle } from "@components/ds/TitlePicker";
-import { LogCheck } from "@components/ds/LogItButton";
+import { QuickMarkButton } from "@components/ds/QuickMarks";
 import LikeButton from "@components/reactions/LikeButton";
 import ListPeople from "@components/profile/ListPeople";
 import SeenOf from "@components/ui/SeenOf";
@@ -277,7 +277,7 @@ export function ListBody({ data, refresh }: { data: ListData; refresh: () => voi
                   </Link>
                   <EntryNote key={`${item.id}:${item.note ?? ""}`} item={item} canEdit={canEdit} meta={`${type === "tv" ? "Series" : "Film"}${adder ? ` · added by ${adder}` : ""}`} onSaved={refresh} />
                 </div>
-                <LogCheck title={{ itemId: item.item_id, itemType: type, itemName: item.item_name, imageUrl: item.image_url }} />
+                <QuickMarkButton title={{ itemId: item.item_id, itemType: type, itemName: item.item_name, imageUrl: item.image_url }} />
                 {canEdit && (
                   <button
                     type="button"

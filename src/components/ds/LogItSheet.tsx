@@ -5,7 +5,7 @@ import useSWR from "swr";
 import { ArrowRight, LoaderCircle, Search } from "lucide-react";
 import Link from "@components/ui/AppLink";
 import Sheet from "@components/ds/Sheet";
-import { LogCheck } from "@components/ds/LogItButton";
+import { MarkIcons } from "@components/ds/MarkTiles";
 import { useTitleSearch } from "@components/ds/TitlePicker";
 import { EpisodeRow, SaveRow, episodesFetcher, type Episode } from "@components/ds/UpNextRows";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
@@ -29,7 +29,7 @@ import { getPosterUrl } from "@/utils/imageUrl";
  */
 export default function LogItSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <Sheet open={open} onClose={onClose} title="Log it" description="What did you watch? It goes in your diary for today.">
+    <Sheet open={open} onClose={onClose} title="Add what you've watched" description="Search a film or series, then mark it: ✓ watched, ◷ watch later, ♥ favourite.">
       <Body onClose={onClose} />
     </Sheet>
   );
@@ -117,15 +117,10 @@ function Body({ onClose }: { onClose: () => void }) {
               <img src={getPosterUrl(t.imageUrl, "w92")} alt="" decoding="async" className="aspect-2/3 w-10 shrink-0 rounded-media bg-hover object-cover" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-display text-base text-ink-0">{t.itemName}</span>
-                <span className="block text-xs text-ink-500">
-                  {done.has(key(t)) ? "Logged today" : [t.year, t.itemType === "tv" ? "Series" : "Film"].filter(Boolean).join(" · ")}
-                </span>
+                <span className="block text-xs text-ink-500">{[t.year, t.itemType === "tv" ? "Series" : "Film"].filter(Boolean).join(" · ")}</span>
               </span>
-              <LogCheck
-                title={{ itemId: t.itemId, itemType: t.itemType, itemName: t.itemName, imageUrl: t.imageUrl }}
-                onLogged={() => mark(key(t), true)}
-                onUndone={() => mark(key(t), false)}
-              />
+              {/* The marks, right in the row: one title after another, nothing opened. */}
+              <MarkIcons title={{ itemId: t.itemId, itemType: t.itemType, itemName: t.itemName, imageUrl: t.imageUrl }} />
             </li>
           ))}
           {results.length === 0 && q.length >= 2 && <li className="py-3 text-sm text-ink-500">{asking ? "Looking…" : "Nothing by that name."}</li>}
@@ -173,7 +168,7 @@ function Body({ onClose }: { onClose: () => void }) {
           )}
           {!shows.length && !lined.length && (
             <p className="text-sm leading-relaxed text-ink-500">
-              Type the name of anything you&apos;ve watched. One tap puts it in your diary for today; when and who was there can follow.
+              Type the name of anything you&apos;ve watched, want to watch, or love — and tap its mark. To add it to your diary with a date and stars, open it.
             </p>
           )}
         </>
@@ -184,7 +179,7 @@ function Body({ onClose }: { onClose: () => void }) {
         onClick={onClose}
         className="flex items-center justify-between gap-3 rounded-card px-1 py-1 text-sm text-ink-400 transition-colors hover:text-ink-0"
       >
-        Catching up on a lot? Tick them off in bulk
+        Marking lots at once? Use fast mode — tap posters to mark them
         <ArrowRight className="size-4 shrink-0" aria-hidden />
       </Link>
     </div>

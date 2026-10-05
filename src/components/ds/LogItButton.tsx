@@ -53,10 +53,14 @@ export function useLogIt(title: LogTitle, { onLogged, onUndone }: Callbacks = {}
     setLogged(null);
     await refreshPreferences();
     onUndone?.();
-    toast.success("Removed from your diary");
+    toast.success("Taken out of your diary");
   };
 
-  const log = async () => {
+  /**
+   * `details`: straight into the sheet (when, stars, who, words) — the
+   * "Add to diary" under the marks — rather than the toast offering it.
+   */
+  const log = async ({ details = false }: { details?: boolean } = {}) => {
     if (busy || !user) return;
     setBusy(true);
     const previous = getStatus(itemId, itemType);
@@ -70,6 +74,10 @@ export function useLogIt(title: LogTitle, { onLogged, onUndone }: Callbacks = {}
     setLogged(saved);
     onLogged?.(saved);
     void refreshPreferences();
+    if (details) {
+      setSheetOpen(true);
+      return;
+    }
     toast.custom(
       (t) => (
         <div
@@ -78,7 +86,7 @@ export function useLogIt(title: LogTitle, { onLogged, onUndone }: Callbacks = {}
         >
           <Check className="size-4 shrink-0" aria-hidden />
           <span className="min-w-0 flex-1 truncate">
-            Logged <span className="text-ink-500">· today</span>
+            In your diary <span className="text-ink-500">· today</span>
           </span>
           <button
             type="button"
@@ -125,7 +133,7 @@ export function useLogIt(title: LogTitle, { onLogged, onUndone }: Callbacks = {}
 
 export default function LogItButton({
   size = "md",
-  label = "Log it",
+  label = "Add to diary",
   quiet = false,
   className = "",
   onLogged,
@@ -142,7 +150,7 @@ export default function LogItButton({
     return (
       <Link href={`/login?next=${encodeURIComponent(pathname)}`} className={`${base} bg-action text-on-action hover:bg-action-hover`}>
         <Plus className="size-4" aria-hidden />
-        Sign in to log
+        Sign in to mark it
       </Link>
     );
   }
@@ -151,12 +159,12 @@ export default function LogItButton({
     <>
       <button
         type="button"
-        onClick={logged ? openDetails : log}
+        onClick={logged ? openDetails : () => void log()}
         disabled={busy}
         className={`${base} ${quiet ? "font-medium text-ink-0 ring-1 ring-inset ring-line-input hover:bg-hover" : "bg-action text-on-action hover:bg-action-hover"} disabled:opacity-60`}
       >
         {busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : logged ? <Check className="size-4" aria-hidden /> : <Plus className="size-4" aria-hidden />}
-        {logged ? "Logged · add details" : label}
+        {logged ? "In your diary · add details" : label}
       </button>
       {sheet}
     </>
@@ -180,7 +188,7 @@ export function LogCheck({
     <>
       <button
         type="button"
-        onClick={logged ? openDetails : log}
+        onClick={logged ? openDetails : () => void log()}
         disabled={busy}
         aria-label={logged ? `Logged ${title.itemName}. Add details` : `Log ${title.itemName} as watched today`}
         className={`flex shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-60 ${

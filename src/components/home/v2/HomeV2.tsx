@@ -354,13 +354,20 @@ export default function HomeV2() {
         <aside className="flex flex-col gap-10 lg:pt-1">
           {me && <Discover me={me} known={known} className="" />}
           {list.diaryEmpty ? (
+            // Two ways to fill a new library: tap through films (fast mode),
+            // or bring a diary from elsewhere with its dates.
             <NextStep
-              title="Bring your history"
-              body="Letterboxd, Trakt, TV Time, IMDb or Netflix. Your diary arrives with its dates."
+              title="Add what you've already seen"
+              body="Tap through popular films and mark them in a minute — or bring your history from Letterboxd, Trakt, TV Time, IMDb or Netflix."
               action={
-                <Link href="/app/import" className={buttonClass.primary}>
-                  Bring it in
-                </Link>
+                <span className="flex flex-wrap gap-2">
+                  <Link href="/app/quick-add" className={buttonClass.primary}>
+                    Mark films fast
+                  </Link>
+                  <Link href="/app/import" className={buttonClass.quiet}>
+                    Import history
+                  </Link>
+                </span>
               }
             />
           ) : (

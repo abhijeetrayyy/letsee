@@ -533,7 +533,7 @@ function Decided({ candidate, onAgain }: { candidate: Candidate; onAgain: () => 
       <p className="text-sm text-ink-400">
         {candidate.episode
           ? `S${String(candidate.episode.seasonNumber).padStart(2, "0")} · E${String(candidate.episode.episodeNumber).padStart(2, "0")} is marked watched. The next one's ready when you are.`
-          : "It's in Up next as watching. Log it when you're done, and say who was there."}
+          : "It's in Up next as watching. Mark it watched when you're done, and say who was there."}
       </p>
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Link href={titlePath(candidate.itemType, candidate.itemId, candidate.itemName)} className={primary}>

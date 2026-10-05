@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 
-  let body: { showId?: string | number };
+  let body: { showId?: string | number; dated?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -102,7 +102,8 @@ export async function POST(req: NextRequest) {
     genres,
   });
   // Finishing a series is a viewing of it (095), dated today unless one exists.
-  await ensureFirstViewings(supabase, [{ itemId: showId, itemType: "tv" }]);
+  // Finished from a quick mark is seen-it, not watched-today.
+  if (body.dated !== false) await ensureFirstViewings(supabase, [{ itemId: showId, itemType: "tv" }]);
 
   // Counters are maintained by 069/078's statement triggers on
   // user_media_status, favorite_items and watched_episodes — the write above

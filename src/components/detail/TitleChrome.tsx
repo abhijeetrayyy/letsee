@@ -156,7 +156,7 @@ export function TitleHero({
           }}
           className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-20 focus:rounded-full focus:bg-overlay focus:px-4 focus:py-2.5 focus:text-sm focus:font-medium focus:text-ink-0 focus:shadow-lg focus:ring-1 focus:ring-line-strong"
         >
-          Skip to Log it
+          Skip to Watched, Watch later, Favourite
         </a>
         <div className="mb-8 flex items-center justify-between gap-3">
           <Link href="/app" className="inline-flex items-center gap-1.5 text-sm text-ink-500 transition-colors hover:text-ink-300">

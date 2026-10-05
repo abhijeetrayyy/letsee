@@ -305,7 +305,7 @@ function PassCard({ me, pass, saved, onSaved }: { me: string; pass: Pass & { per
           </>
         ) : (
           <>
-            <button type="button" onClick={logIt.log} disabled={logIt.busy} className={quiet}>
+            <button type="button" onClick={() => void logIt.log()} disabled={logIt.busy} className={quiet}>
               {logIt.busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
               Watched it
             </button>

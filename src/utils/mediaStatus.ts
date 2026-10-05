@@ -27,6 +27,13 @@ export type StatusWrite = {
   genres?: string[];
   /** Extra columns for the status row (the save context, `saved_at`). */
   extra?: Record<string, unknown>;
+  /**
+   * `false`: watched, but not on a day — "I've seen it", marked from a poster
+   * or a quick mark, says nothing about today. No dated viewing is made, so
+   * fifty films marked in a sitting don't fill the diary (or anyone's "On
+   * letsee lately") as watched today. Default true: a log is a dated event.
+   */
+  dated?: boolean;
 };
 
 /**
@@ -90,7 +97,7 @@ export async function writeStatus(
       .from("watched_items")
       .upsert({ ...base, is_watched: true }, { onConflict: "user_id,item_id,item_type" });
     if (mirrorError) console.error("writeStatus mirror:", mirrorError);
-    if (input.status === "watched") {
+    if (input.status === "watched" && input.dated !== false) {
       await ensureFirstViewings(supabase, [{ itemId: input.itemId, itemType: input.itemType }]);
     }
   } else {

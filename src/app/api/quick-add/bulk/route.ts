@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
-import { ensureFirstViewings } from "@/utils/mediaStatus";
 
 import { guard } from "@/lib/limits/guard";
 const VALID_STATUSES = ["watchlist", "watching", "watched"] as const;
@@ -53,7 +52,6 @@ export async function POST(req: NextRequest) {
 
   const statusRows: Record<string, unknown>[] = [];
   const watchedRows: Record<string, unknown>[] = [];
-  const watchedKeys: { itemId: string; itemType: "movie" | "tv" }[] = [];
   const favoriteRows: Record<string, unknown>[] = [];
   const removeIds: string[] = [];
   const removeTypes = new Set<string>();
@@ -99,7 +97,6 @@ export async function POST(req: NextRequest) {
         ...(imageUrl ? { image_url: imageUrl } : {}),
         genres, is_watched: true,
       });
-      watchedKeys.push({ itemId, itemType });
     }
   }
 
@@ -129,9 +126,10 @@ export async function POST(req: NextRequest) {
       .from("watched_items")
       .upsert(watchedRows, { onConflict: "user_id,item_id,item_type" });
     if (error) console.error("quick-add watched_items mirror:", error);
-    // A "watched" is a dated viewing (095): one round trip for the batch,
-    // dated today, only for titles that have none yet.
-    await ensureFirstViewings(supabase, watchedKeys);
+    // No dated viewing: this is a back catalogue — films seen over years,
+    // marked in one sitting. Dating them all today filled the diary, and
+    // everyone's "On letsee lately", with a month of films "watched today".
+    // Seen is enough; the date is for what you log as it happens.
   }
 
   if (favoriteRows.length > 0) {

@@ -13,6 +13,7 @@ import { fetchFavouriteKeys, fetchFavourites } from "@/lib/db/favourites";
 import { favKey, listWords, sharedFavourites, topGenres, type Favourite } from "@/lib/profile/favourites";
 import { getPosterUrl } from "@/utils/imageUrl";
 import { titlePath } from "@/utils/urls";
+import { QuickMarkButton } from "@components/ds/QuickMarks";
 import ProfileSection, { sectionAction } from "./ProfileSection";
 
 /**
@@ -64,7 +65,7 @@ export function ProfileFour({ userId, username, isOwner, four }: { userId: strin
       <ol className="grid max-w-read grid-cols-4 gap-3 sm:gap-5">
         {slots.map((it, i) =>
           it ? (
-            <li key={`${it.item_type}:${it.item_id}`} className="min-w-0">
+            <li key={`${it.item_type}:${it.item_id}`} className="relative min-w-0">
               <Link href={titlePath(it.item_type, it.item_id, it.item_name)} className="group block">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -76,6 +77,13 @@ export function ProfileFour({ userId, username, isOwner, four }: { userId: strin
                 />
                 <span className="mt-2 block truncate font-display text-sm text-ink-0 sm:text-base">{it.item_name}</span>
               </Link>
+              {/* On someone else's four: mark it for yourself, right here. */}
+              {!isOwner && (
+                <QuickMarkButton
+                  title={{ itemId: String(it.item_id), itemType: it.item_type === "tv" ? "tv" : "movie", itemName: it.item_name, imageUrl: it.image_url }}
+                  className="absolute right-1.5 top-1.5"
+                />
+              )}
             </li>
           ) : isOwner ? (
             <li key={`empty-${i}`} className="min-w-0">
@@ -222,7 +230,7 @@ export default function ProfileFavourites({
             className={`grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 lg:grid-cols-8 ${open || managing ? "" : "max-sm:[&>li:nth-child(n+7)]:hidden"}`}
           >
             {shown.map((f) => (
-              <Poster key={favKey(f)} favourite={f} shared={sharedKeys.has(favKey(f))} managing={managing} onRemove={() => void remove(f)} />
+              <Poster key={favKey(f)} favourite={f} shared={sharedKeys.has(favKey(f))} managing={managing} quick={visitor} onRemove={() => void remove(f)} />
             ))}
           </ul>
           {!managing && filtered.length > FIRST && (
@@ -237,7 +245,7 @@ export default function ProfileFavourites({
   );
 }
 
-function Poster({ favourite: f, shared, managing, onRemove }: { favourite: Favourite; shared: boolean; managing: boolean; onRemove: () => void }) {
+function Poster({ favourite: f, shared, managing, quick, onRemove }: { favourite: Favourite; shared: boolean; managing: boolean; quick: boolean; onRemove: () => void }) {
   return (
     <li className="relative min-w-0">
       <Link href={titlePath(f.itemType, f.itemId, f.itemName)} className="group block">
@@ -251,12 +259,16 @@ function Poster({ favourite: f, shared, managing, onRemove }: { favourite: Favou
         />
         <span className="mt-1.5 block truncate text-xs text-ink-400 group-hover:text-ink-0">{f.itemName}</span>
       </Link>
-      {shared && !managing && (
+      {/* A visitor marks it for themselves from here (ds/QuickMarks); the
+          button already shows a heart when they love it too. */}
+      {quick && !managing ? (
+        <QuickMarkButton title={{ itemId: f.itemId, itemType: f.itemType, itemName: f.itemName, imageUrl: f.imageUrl }} className="absolute right-1.5 top-1.5" />
+      ) : shared && !managing ? (
         <span className="pointer-events-none absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-page/85">
           <Heart className="size-3.5 fill-accent text-accent" aria-hidden />
           <span className="sr-only">You love it too</span>
         </span>
-      )}
+      ) : null}
       {managing && (
         <button
           type="button"

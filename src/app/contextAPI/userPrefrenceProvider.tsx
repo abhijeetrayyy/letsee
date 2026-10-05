@@ -315,6 +315,10 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
           imgUrl: payload.imgUrl,
           adult: payload.adult,
           genres: payload.genres,
+          // Adding means add: the route toggles, so a favourite the server
+          // already had (an import, another tab) was taken away instead.
+          ...(payload.currentState ? {} : { add: true }),
+          ...(payload.dated === false ? { dated: false } : {}),
         };
 
     const doFetch = (): Promise<{ ok: boolean; message?: string }> => {
@@ -506,6 +510,7 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
                   imgUrl: payload.imgUrl,
                   adult: payload.adult ?? false,
                   genres: payload.genres ?? [],
+                  ...(payload.dated === false ? { dated: false } : {}),
                 }),
               });
 

@@ -44,6 +44,8 @@ export type SetStatusPayload = {
   genres?: string[];
   /** Only meaningful when clearing a "watched" status. */
   keepData?: boolean;
+  /** `false`: watched with no day (a quick mark) — no diary entry is made. */
+  dated?: boolean;
 };
 
 export type TogglePreferencePayload = {
@@ -58,6 +60,12 @@ export type TogglePreferencePayload = {
   currentState: boolean;
   /** When removing from watched: if true, keep rating, diary and public review (soft unwatch). */
   keepData?: boolean;
+  /**
+   * Favourite only: `false` marks it seen without a day if it wasn't already
+   * (a quick mark, not tonight's viewing). Adding never un-favourites, whatever
+   * the server holds: `/api/favoriteButton` toggles unless told otherwise.
+   */
+  dated?: boolean;
 };
 
 export type TogglePreferenceResult = {

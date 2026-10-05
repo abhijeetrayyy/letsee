@@ -163,7 +163,7 @@ export default function LogTogetherSheet({
               disabled={busy}
               className="inline-flex h-11 w-full items-center justify-center rounded-full bg-action font-semibold text-on-action hover:bg-action-hover disabled:opacity-60"
             >
-              {busy ? "Logging…" : `Log it with ${person.username}`}
+              {busy ? "Logging…" : `Add to diary with ${person.username}`}
             </button>
           </>
         )}

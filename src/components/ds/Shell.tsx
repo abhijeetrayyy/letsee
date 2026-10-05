@@ -139,7 +139,7 @@ function TabIcon({
   }
 }
 
-/** Log it from the bar: the search-first sheet (PAGES.md §7). Bulk catch-up is a link inside it. */
+/** "Add" from the bar: search a title and mark it (ds/LogItSheet). "Log" meant nothing to people (owner, 5 Oct 2026). */
 function LogButton({ compact = false }: { compact?: boolean }) {
   const [open, setOpen] = useState(false);
   // Stable: Sheet's effect depends on onClose, and re-running it moves focus
@@ -160,7 +160,7 @@ function LogButton({ compact = false }: { compact?: boolean }) {
         }`}
       >
         <Plus className="size-4" aria-hidden />
-        {compact ? "Log" : "Log it"}
+        {compact ? "Add" : "Add watched"}
       </button>
       <LogItSheet open={open} onClose={close} />
     </>

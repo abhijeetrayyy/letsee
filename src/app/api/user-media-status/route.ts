@@ -96,6 +96,8 @@ export async function PUT(req: NextRequest) {
     imageUrl,
     adult,
     genres,
+    // A quick mark ("Watched" on a poster) is seen-it, not watched-today.
+    dated: body.dated !== false,
     extra: {
       ...(enteringWatchlist ? { saved_at: new Date().toISOString() } : {}),
       ...save.columns,

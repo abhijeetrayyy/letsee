@@ -7,6 +7,7 @@ import { Search as SearchIcon } from "lucide-react";
 import Link from "@components/ui/AppLink";
 import Avatar from "@components/ui/Avatar";
 import Faces from "@components/ds/Faces";
+import { QuickMarkButton } from "@components/ds/QuickMarks";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { buildVocabulary, correctQuery } from "@/lib/search/correct";
 import { searchMeta, type SearchMeta } from "@/lib/search/meta";
@@ -530,11 +531,10 @@ export function TitleResults({
                 <span className="block text-xs text-ink-500">
                   {[t.year, t.itemType === "tv" ? "Series" : "Film", t.meta?.genre].filter(Boolean).join(" · ")}
                   {t.meta?.rating != null && <span className="tabular-nums"> · ★ {t.meta.rating.toFixed(1)}</span>}
-                  {/* Where you stand, as words — not a button: search finds and
-                      opens; logging lives in Log it and on the title's page. */}
+                  {/* Where you stand, as words; the button beside the row changes it. */}
                   {(() => {
                     const st = getStatus(t.itemId, t.itemType);
-                    const word = st === "watched" ? "Watched" : st === "watchlist" ? "Saved" : st === "watching" ? "Watching" : null;
+                    const word = st === "watched" ? "Watched" : st === "watchlist" ? "Watch later" : st === "watching" ? "Watching" : null;
                     return word ? <span className="text-accent"> · {word}</span> : null;
                   })()}
                   {who.length > 0 && ` · seen by ${who[0].username}${who.length > 1 ? ` and ${who.length - 1} more of your people` : ""}`}
@@ -544,6 +544,8 @@ export function TitleResults({
               </span>
             </Link>
             {who.length > 0 && <Faces people={who} size={22} />}
+            {/* Mark it without opening it (ds/QuickMarks). */}
+            <QuickMarkButton title={{ itemId: t.itemId, itemType: t.itemType, itemName: t.itemName, imageUrl: t.imageUrl }} className="shrink-0" />
           </li>
         );
       })}

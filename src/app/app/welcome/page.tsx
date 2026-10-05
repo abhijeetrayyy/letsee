@@ -346,8 +346,8 @@ function StepName({ onDone }: { onDone: () => void }) {
 const FEATURES = [
   {
     icon: Check,
-    title: "Log what you watch",
-    body: "One tap logs a film or an episode. Add stars, a few words, and who you watched it with — your diary keeps the dates.",
+    title: "Mark what you watch",
+    body: "Watched, Watch later, Favourite — one tap each, on any poster. When you want, add a date, stars and who you watched it with to your diary.",
   },
   {
     icon: Heart,
@@ -735,7 +735,7 @@ function StepPeople({ username, onFinish, leaving }: { username: string | null; 
 
       <Actions primary="Go to letsee" onPrimary={onFinish} busy={leaving} />
       <p className="mt-4 text-center text-sm text-ink-500">
-        Coming from Letterboxd, Trakt, TV Time, IMDb or Netflix? You can bring your history in once you&apos;re in.
+        Once you&apos;re in: mark what you&apos;ve seen in a minute with fast mode (the + Add button, top right), or bring your history from Letterboxd, Trakt, TV Time, IMDb or Netflix.
       </p>
     </section>
   );

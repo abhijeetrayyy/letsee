@@ -1,21 +1,23 @@
 "use client";
 
-import { useContext } from "react";
-import { Bookmark, Check, Play } from "lucide-react";
 import Link from "@components/ui/AppLink";
 import Faces from "@components/ds/Faces";
-import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
+import { QuickMarkButton } from "@components/ds/QuickMarks";
 import { releaseInfo } from "@/utils/releaseInfo";
 import { titlePath, personPath } from "@/utils/urls";
 
 /**
  * The one card for a film, a series or a person (docs/design/SYSTEM.md §8,
- * `TitleCard`): the poster, the title, one line beneath. At most two marks on
- * the art — where *you* stand with it, top right (a check once watched, a
- * bookmark when saved, a play mark while you're watching), and the faces of
- * your people who have seen it, bottom left. No rating chips, no genre or type
- * badges, no button strip, no hover lift: a card is a door to the title, and
- * what you can do with a title lives on its page.
+ * `TitleCard`): the poster, the title, one line beneath. Two things on the
+ * art — where *you* stand with it, top right, and the faces of your people
+ * who have seen it, bottom left. No rating chips, no genre or type badges, no
+ * hover lift.
+ *
+ * Where you stand is a button now (ds/QuickMarks): ✓ watched, ▶ watching,
+ * ◷ watch later, ♥ favourite, or a plus — and tapping it marks the title
+ * right there, on any page the card is on (owner review, 5 Oct 2026). It sits
+ * beside the link, not inside it: a button inside a link is two controls in
+ * one, and the tap would open the page too.
  *
  * The props keep the old `MediaCard` names so every caller moved over without
  * re-plumbing; the ones that drew badges (`rating`, `rank`, `typeLabel`) are
@@ -76,50 +78,45 @@ export default function TitleCard({
   className = "",
   style,
 }: TitleCardProps) {
-  const { getStatus } = useContext(UserPrefrenceContext);
   const isPerson = mediaType === "person";
   const src = adult && !imageUrl ? "/pixeled.webp" : imageUrl ?? (posterPath ? `${isPerson ? FACE : POSTER}${posterPath}` : "/no-photo.svg");
   const href = isPerson ? personPath(id, title) : titlePath(mediaType, id, title);
 
   const release = releaseInfo(releaseDate);
   const line = role ?? knownFor ?? (release.isUpcoming ? `Out ${release.short}` : year ?? release.year ?? null);
-  const status = isPerson || hideState ? null : getStatus(id, mediaType);
-  const mark = status === "watched" ? Check : status === "watchlist" ? Bookmark : status === "watching" ? Play : null;
-  const markLabel = status === "watched" ? "Watched" : status === "watchlist" ? "Saved" : status === "watching" ? "Watching" : null;
 
   return (
-    <Link href={href} data-nav-title={title} className={`group block min-w-0 ${className}`} style={style}>
-      <span className="relative block">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt=""
-          loading={eager ? "eager" : "lazy"}
-          decoding="async"
-          className={`w-full bg-hover object-cover ring-1 ring-inset ring-line-strong transition-opacity group-hover:opacity-90 ${
-            isPerson ? "aspect-square rounded-full" : "aspect-2/3 rounded-media"
-          }`}
+    <div className={`group relative min-w-0 ${className}`} style={style}>
+      <Link href={href} data-nav-title={title} className="block min-w-0">
+        <span className="relative block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={src}
+            alt=""
+            loading={eager ? "eager" : "lazy"}
+            decoding="async"
+            className={`w-full bg-hover object-cover ring-1 ring-inset ring-line-strong transition-opacity group-hover:opacity-90 ${
+              isPerson ? "aspect-square rounded-full" : "aspect-2/3 rounded-media"
+            }`}
+          />
+          {people.length > 0 && (
+            <span className="absolute bottom-1.5 left-1.5">
+              <Faces people={people} size={20} />
+            </span>
+          )}
+        </span>
+        <span className={`mt-2 block ${isPerson ? "text-center" : ""}`}>
+          <span className={`line-clamp-2 leading-snug text-ink-0 ${isPerson ? "text-sm font-medium" : "font-display text-base"}`}>{title}</span>
+          {line && <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-ink-500">{line}</span>}
+          {subtitle && <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-ink-500">{subtitle}</span>}
+        </span>
+      </Link>
+      {!isPerson && !hideState && (
+        <QuickMarkButton
+          title={{ itemId: String(id), itemType: mediaType, itemName: title, imageUrl: imageUrl ?? (posterPath ? `${POSTER}${posterPath}` : null), adult }}
+          className="absolute right-1.5 top-1.5"
         />
-        {mark && (
-          <span className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-page/85 text-ink-0 ring-1 ring-line-strong" title={markLabel ?? undefined}>
-            {(() => {
-              const Icon = mark;
-              return <Icon className={`size-3.5 ${status === "watchlist" || status === "watching" ? "fill-current" : ""}`} aria-hidden />;
-            })()}
-            <span className="sr-only">{markLabel}</span>
-          </span>
-        )}
-        {people.length > 0 && (
-          <span className="absolute bottom-1.5 left-1.5">
-            <Faces people={people} size={20} />
-          </span>
-        )}
-      </span>
-      <span className={`mt-2 block ${isPerson ? "text-center" : ""}`}>
-        <span className={`line-clamp-2 leading-snug text-ink-0 ${isPerson ? "text-sm font-medium" : "font-display text-base"}`}>{title}</span>
-        {line && <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-ink-500">{line}</span>}
-        {subtitle && <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-ink-500">{subtitle}</span>}
-      </span>
-    </Link>
+      )}
+    </div>
   );
 }

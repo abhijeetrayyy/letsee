@@ -215,7 +215,7 @@ export default function LogViewing({
             onClick={() => setOpen(true)}
             className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-line-strong px-3 py-1.5 text-xs text-ink-300 transition hover:border-line-input hover:text-ink-0"
           >
-            <Plus className="size-3" /> {latest ? "Log again" : "Log a viewing"}
+            <Plus className="size-3" /> {latest ? "Add another viewing" : "Add to diary"}
           </button>
         )}
       </div>
@@ -304,7 +304,7 @@ export default function LogViewing({
               disabled={busy}
               className="btn-primary rounded-full px-4 py-1.5 text-xs disabled:opacity-50"
             >
-              {busy ? <Loader2 className="size-3.5 animate-spin" /> : latest ? "Log this viewing" : "Log it"}
+              {busy ? <Loader2 className="size-3.5 animate-spin" /> : "Add to diary"}
             </button>
           </div>
         </div>
