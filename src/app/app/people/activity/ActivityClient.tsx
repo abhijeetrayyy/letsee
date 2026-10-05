@@ -144,7 +144,7 @@ export default function ActivityClient() {
 
 const VERB: Record<ActivityKind, (n: number) => string> = {
   watched: (n) => (n > 1 ? `watched ${n} titles` : "watched"),
-  watching: (n) => (n > 1 ? `started ${n} titles` : "started watching"),
+  watching: (n) => (n > 1 ? `started watching ${n} titles` : "started watching"),
   rated: () => "rated",
   reviewed: () => "wrote about",
   loved: (n) => (n > 1 ? `loved ${n} titles` : "loved"),
