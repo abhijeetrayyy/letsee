@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import MoreFrom from "@components/detail/MoreFrom";
+import FansAlsoLove from "@components/detail/FansAlsoLove";
 import { Clock } from "lucide-react";
 import { releaseInfo } from "@/utils/releaseInfo";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
@@ -257,6 +259,20 @@ export default function TvDetailClient({
           )}
 
           <WeWatched itemId={String(show.id)} itemType="tv" itemName={show.name} posterPath={show.poster_path ?? null} />
+
+          {/* The creator's other series (and how many you've seen), the lead's
+              work, and what people here who love it love — each loads when near. */}
+          {createdBy[0] && (
+            <MoreFrom
+              person={{ id: createdBy[0].id, name: createdBy[0].name, profilePath: (createdBy[0] as { profile_path?: string | null }).profile_path ?? null }}
+              role="creator"
+              current={{ id: show.id, type: "tv" }}
+            />
+          )}
+          {cast[0] && (
+            <MoreFrom person={{ id: cast[0].id, name: cast[0].name, profilePath: cast[0].profile_path ?? null }} role="actor" current={{ id: show.id, type: "tv" }} />
+          )}
+          <FansAlsoLove itemId={String(show.id)} itemType="tv" itemName={show.name} />
 
           <div className="space-y-3">
             <Fold title="Details" hint="Genres, network, runtime, languages, keywords">

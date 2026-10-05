@@ -14,8 +14,8 @@ export function usernameProblem(name: string): string | null {
   if (!name) return "Choose a username.";
   if (name.length < USERNAME_MIN) return `At least ${USERNAME_MIN} characters.`;
   if (name.length > USERNAME_MAX) return `At most ${USERNAME_MAX} characters.`;
-  // "find" is a page (/app/people/find), so nobody's room could live there.
-  if (name === "null" || name === "undefined" || name === "find") return "That username isn't allowed.";
+  // "find" and "activity" are pages under /app/people, so nobody's room could live there.
+  if (name === "null" || name === "undefined" || name === "find" || name === "activity") return "That username isn't allowed.";
   return null;
 }
 

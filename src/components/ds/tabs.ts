@@ -46,8 +46,8 @@ export function activeTab(pathname: string, username: string | null): TabKey | n
  * bottom; and onboarding has nowhere else to go yet.
  */
 export function hidesTabBar(pathname: string): boolean {
-  // A room (/app/people/<name>) hides it for its composer; Find people is a page of the tab.
-  return /^\/app\/people\/(?!find(\/|$))[^/]+/.test(pathname) || /^\/app\/(welcome|quick-add)(\/|$)/.test(pathname);
+  // A room (/app/people/<name>) hides it for its composer; Find people and Activity are pages of the tab.
+  return /^\/app\/people\/(?!(find|activity)(\/|$))[^/]+/.test(pathname) || /^\/app\/(welcome|quick-add)(\/|$)/.test(pathname);
 }
 
 function safeDecode(segment: string): string {

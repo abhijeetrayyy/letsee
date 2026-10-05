@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { MessageCircle, Search } from "lucide-react";
+import { ArrowRight, MessageCircle, Search } from "lucide-react";
 import Link from "@components/ui/AppLink";
 import Avatar from "@components/ui/Avatar";
 import FollowButton from "@components/profile/FollowButton";
@@ -59,6 +59,24 @@ export default function FindPeopleClient() {
 
   return (
     <Page>
+      {/* The game: meet people by their four favourite films before you know who they are. */}
+      <Link
+        href="/app/people/find/four"
+        className="group mb-6 flex max-w-read items-center gap-4 rounded-card bg-raised p-4 ring-1 ring-inset ring-line-strong transition-colors hover:bg-hover sm:p-5"
+      >
+        <span aria-hidden className="grid size-14 shrink-0 grid-cols-2 gap-0.5 overflow-hidden rounded-control">
+          {[0, 1, 2, 3].map((i) => (
+            <span key={i} className={i % 3 === 0 ? "bg-action" : "bg-active"} />
+          ))}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs font-medium uppercase tracking-wider text-accent">A game</span>
+          <span className="block font-display text-xl text-ink-0">Blind four</span>
+          <span className="block text-sm text-ink-400">A stranger&apos;s four favourite films. Your taste? Turn the card to meet them.</span>
+        </span>
+        <ArrowRight className="size-5 shrink-0 text-ink-400 transition-transform group-hover:translate-x-0.5" aria-hidden />
+      </Link>
+
       <label className="relative block max-w-read">
         <span className="sr-only">Search people on letsee by username</span>
         <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-500" aria-hidden />

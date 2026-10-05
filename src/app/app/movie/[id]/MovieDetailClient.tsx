@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import MoreFrom from "@components/detail/MoreFrom";
+import FansAlsoLove from "@components/detail/FansAlsoLove";
 import { Calendar } from "lucide-react";
 import { releaseInfo } from "@/utils/releaseInfo";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
@@ -235,6 +237,21 @@ export default function MovieDetailClient({
           )}
 
           <WeWatched itemId={String(movie.id)} itemType="movie" itemName={movie.title} posterPath={movie.poster_path ?? null} />
+
+          {/* Where to go from here: the director's other films (and how many
+              you've seen), the lead's, and what people here who love it love.
+              Each waits until it's a screen away; none adds a call to this page. */}
+          {directors[0] && (
+            <MoreFrom
+              person={{ id: directors[0].id, name: directors[0].name, profilePath: (directors[0] as { profile_path?: string | null }).profile_path ?? null }}
+              role="director"
+              current={{ id: movie.id, type: "movie" }}
+            />
+          )}
+          {cast[0] && (!directors[0] || cast[0].id !== directors[0].id) && (
+            <MoreFrom person={{ id: cast[0].id, name: cast[0].name, profilePath: cast[0].profile_path ?? null }} role="actor" current={{ id: movie.id, type: "movie" }} />
+          )}
+          <FansAlsoLove itemId={String(movie.id)} itemType="movie" itemName={movie.title} />
 
           <div className="space-y-3">
             {/* Its own fold, and an address: the "Watch order" tile above
