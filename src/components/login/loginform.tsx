@@ -1,27 +1,24 @@
 "use client";
 
-import { supabase } from "@/utils/supabase/client";
 import Link from "next/link";
 import React, { useState } from "react";
-import Mark from "@components/ds/Mark";
-import InviteBanner from "@components/doors/InviteBanner";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { Film, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { Notice, authInput, authLink, authPrimary } from "@components/auth/AuthShell";
 
 type LoginFormProps = {
+  email: string;
+  onEmailChange: (email: string) => void;
   onLogin: (email: string, password: string) => Promise<void>;
   loading: boolean;
   error: string;
   info?: string;
+  /** Under the messages: a way to act on them (send the confirmation link again). */
+  extra?: React.ReactNode;
+  signUpHref: string;
 };
 
-export default function LoginForm({
-  onLogin,
-  loading,
-  error,
-  info,
-}: LoginFormProps) {
-  const [email, setEmail] = useState("");
+export default function LoginForm({ email, onEmailChange, onLogin, loading, error, info, extra, signUpHref }: LoginFormProps) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -34,123 +31,85 @@ export default function LoginForm({
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-page px-4 py-10">
-      <div className="relative w-full max-w-read">
-        <Link href="/" aria-label="letsee" className="mb-10 inline-flex">
-          <Mark withName={false} size="lg" />
-        </Link>
+    <>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+        <div>
+          <label htmlFor="login-email" className="mb-2 block text-sm font-medium text-ink-300">
+            Email
+          </label>
+          <input
+            id="login-email"
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={email}
+            onChange={(e) => onEmailChange(e.target.value)}
+            required
+            disabled={loading}
+            className={authInput}
+            placeholder="you@example.com"
+          />
+        </div>
 
         <div>
-          <InviteBanner />
-          <div className="mb-6">
-            <h1 className="text-4xl leading-tight text-ink-0">Welcome back.</h1>
+          <div className="mb-2 flex items-center justify-between">
+            <label htmlFor="login-password" className="block text-sm font-medium text-ink-300">
+              Password
+            </label>
+            <Link href="/forgot-password" className="text-sm font-medium text-accent transition-colors hover:text-accent-soft">
+              Forgot password?
+            </Link>
           </div>
-
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-            <div>
-              <label
-                htmlFor="login-email"
-                className="block text-sm font-medium text-ink-300 mb-2"
-              >
-                Email
-              </label>
-              <input
-                id="login-email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full rounded-xl bg-overlay/60 border border-line-strong/50 px-4 py-3 text-ink-0 placeholder-ink-500 focus:outline-none focus:ring-2 focus:ring-focus/30 focus:border-accent-strong/40 transition-all"
-                placeholder="you@example.com"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label
-                  htmlFor="login-password"
-                  className="block text-sm font-medium text-ink-300"
-                >
-                  Password
-                </label>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs font-medium text-accent hover:text-accent-soft transition-colors"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-              <div className="relative">
-                <input
-                  id="login-password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full rounded-xl bg-overlay/60 border border-line-strong/50 px-4 py-3 pr-12 text-ink-0 placeholder-ink-500 focus:outline-none focus:ring-2 focus:ring-focus/30 focus:border-accent-strong/40 transition-all"
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  aria-pressed={showPassword}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-500 hover:text-ink-300 transition-colors"
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {info && (
-              <div role="status" className="rounded-xl bg-action/10 border border-accent-strong/20 px-4 py-3 text-sm text-accent-soft flex items-start gap-2">
-                <span aria-hidden className="mt-0.5 shrink-0">✉️</span>
-                {info}
-              </div>
-            )}
-            {error && (
-              <div role="alert" className="rounded-xl bg-danger/10 border border-danger/20 px-4 py-3 text-sm text-danger">
-                {error}
-              </div>
-            )}
-
+          <div className="relative">
+            <input
+              id="login-password"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={loading}
+              className={`${authInput} pr-12`}
+              placeholder="Your password"
+            />
             <button
-              type="submit"
-              disabled={!canSubmit}
-              className="btn-primary w-full justify-center py-3.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:transform-none"
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-500 transition-colors hover:text-ink-300"
             >
-              {loading ? (
-                <>
-                  <LoadingSpinner size="sm" className="border-t-page" />
-                  Signing in…
-                </>
-              ) : (
-                "Sign in"
-              )}
+              {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
             </button>
-          </form>
-
-          <div className="mt-6 pt-6 border-t border-line text-center">
-            <p className="text-sm text-ink-400 mt-5">
-              Don&apos;t have an account?{" "}
-              <Link
-                href="/signup"
-                className="font-medium text-accent underline decoration-line-input underline-offset-4 hover:text-accent-soft transition-colors"
-              >
-                Create one
-              </Link>
-            </p>
           </div>
         </div>
-      </div>
-    </div>
+
+        {info && <Notice tone="info">{info}</Notice>}
+        {error && <Notice tone="error">{error}</Notice>}
+        {extra}
+
+        <button type="submit" disabled={!canSubmit} className={authPrimary}>
+          {loading ? (
+            <>
+              <LoadingSpinner size="sm" className="border-t-page" />
+              Signing in…
+            </>
+          ) : (
+            "Sign in"
+          )}
+        </button>
+      </form>
+
+      <p className="mt-8 border-t border-line pt-6 text-center text-sm text-ink-400">
+        New to letsee?{" "}
+        <Link href={signUpHref} className={authLink}>
+          Create an account
+        </Link>
+      </p>
+    </>
   );
 }

@@ -217,7 +217,9 @@ export async function loadParticipants(
     genreRowsByUser.set(row.user_id, rows);
   }
 
-  return userIds.map((userId) => {
+  // Someone who has deleted their account isn't watching tonight: no name
+  // comes back for them, and they're left out rather than called "someone".
+  return userIds.filter((userId) => nameById.get(userId)?.username).map((userId) => {
     const statuses = statusByUser.get(userId) ?? new Map<string, string>();
     const watchlist = new Set<string>();
     for (const [key, status] of statuses) {
@@ -225,7 +227,7 @@ export async function loadParticipants(
     }
     return {
       userId,
-      username: nameById.get(userId)?.username ?? "someone",
+      username: nameById.get(userId)!.username as string,
       avatarUrl: nameById.get(userId)?.avatar_url ?? null,
       providerIds: providersByUser.get(userId) ?? new Set<number>(),
       genreVector: buildGenreVector(genreRowsByUser.get(userId) ?? []),

@@ -28,13 +28,13 @@ export default function FrontDoor() {
         people={[{ username: "Priya", avatarUrl: null }]}
       />
       <ul className="flex flex-col gap-2 text-lg leading-snug text-ink-300">
-        <li>Log in one tap, and say who was there.</li>
-        <li>Pass a film to a friend, and find out when they watch it.</li>
+        <li>Log what you watch in one tap, and who you watched it with.</li>
+        <li>See what your friends love, and pass them a film.</li>
         <li>Decide tonight’s film together.</li>
       </ul>
       <div className="flex flex-wrap items-center gap-3">
         <Link href="/signup" prefetch className="inline-flex h-12 items-center rounded-full bg-action px-6 text-base font-semibold text-on-action transition-colors hover:bg-action-hover">
-          Start with someone
+          Create an account
         </Link>
         <Link href="/login" prefetch className="inline-flex h-12 items-center rounded-full px-6 text-base font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0">
           Sign in

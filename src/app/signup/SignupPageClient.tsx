@@ -1,94 +1,139 @@
 "use client";
 
-import SignupForm from "@/components/signup/signupForm";
-import { supabase } from "@/utils/supabase/client";
-import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { UserCheck } from "lucide-react";
+import SignupForm from "@/components/signup/signupForm";
+import AuthShell, { authLink, authPrimary, authSecondary } from "@components/auth/AuthShell";
+import ResendConfirmation from "@components/auth/ResendConfirmation";
+import { supabase } from "@/utils/supabase/client";
+import { nextQuery, safeNext } from "@/lib/auth/next";
+import { authMessage, authProblem, signUpOutcome } from "@/lib/auth/messages";
+import { readAuthEmail, rememberAuthEmail } from "@/lib/auth/email";
 
+type Stage = "form" | "sent" | "resent" | "exists";
+
+/**
+ * Making an account, and saying plainly what happened.
+ *
+ * After "Create account" there are three outcomes, and each gets its own
+ * screen instead of one sentence hedging across all of them:
+ *
+ * - A new address: check your inbox, with a way to send it again.
+ * - An address that signed up before and never confirmed: we sent the link
+ *   again (Supabase does), and we say that's what happened.
+ * - An address that already has an account: no email is sent, and the screen
+ *   says to sign in, with the address already filled in.
+ *
+ * lib/auth/messages tells them apart; the owner chose to say "already has an
+ * account" outright (see signUpOutcome).
+ */
 export default function SignupPageClient() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
+  const next = safeNext(searchParams.get("next"), "");
+  const [stage, setStage] = useState<Stage>("form");
+  const [email, setEmail] = useState("");
+  const [initialEmail, setInitialEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
+  // Already signed in: there's nothing to make.
   useEffect(() => {
-    const checkUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session) {
-        router.push("/app");
-      }
-    };
-    checkUser();
-  }, [router]);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.replace(next || "/app");
+    });
+     
+    setInitialEmail(readAuthEmail());
+  }, [router, next]);
 
-  useEffect(() => {
-    const errorParam = searchParams.get("error");
-    const statusParam = searchParams.get("status");
-    if (errorParam) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- useSearchParams resolves on the client; deriving in render would flash the wrong state
-      setError(decodeURIComponent(errorParam));
-    }
-    if (statusParam === "check-email") {
-      setInfo("Check your email to confirm your account.");
-    }
-  }, [searchParams]);
+  // Where the confirmation link lands; it carries `next` so an invitation
+  // still ends in that person's room (the callback checks it again).
+  const redirectTo = () => `${window.location.origin}/auth/callback?next=${encodeURIComponent(next || "/app/welcome")}`;
 
-  const signup = async (email: string, password: string) => {
+  const signup = async (address: string, password: string) => {
     setLoading(true);
     setError("");
-    setInfo("");
-
-    // Explicit emailRedirectTo: without it Supabase falls back to the
-    // project's Site URL, so a confirmation link would point at whatever that
-    // happens to be rather than the domain the person signed up on.
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/app/welcome`,
-      },
-    });
-
-    if (error) {
-      setError(error.message);
+    setEmail(address);
+    rememberAuthEmail(address);
+    try {
+      const { data, error } = await supabase.auth.signUp({ email: address, password, options: { emailRedirectTo: redirectTo() } });
+      const outcome = signUpOutcome({ user: data?.user, session: data?.session, error });
+      if (outcome === "signed_in") {
+        router.replace(`/app/welcome${nextQuery(next)}`);
+        return;
+      }
+      if (outcome === "error") {
+        // Asked again too soon: the last email is still the one to open.
+        if (authProblem(error) === "email_rate_limit") setStage("resent");
+        else setError(authMessage(error));
+        return;
+      }
+      setStage(outcome === "check_email" ? "sent" : outcome === "resent_unconfirmed" ? "resent" : "exists");
+    } catch {
+      setError(authMessage({ name: "AuthRetryableFetchError", status: 0 }));
+    } finally {
       setLoading(false);
-      return;
     }
-    if (data.session) {
-      router.push("/app/welcome");
-      return;
-    }
-    /**
-     * One message, whichever case this is — and it has to name both.
-     *
-     * When the address already has an account, Supabase returns SUCCESS with
-     * no session and sends no mail. That is deliberate: a different response
-     * for a known address would let anyone probe which emails are registered,
-     * which on a site with private profiles is a real leak. But the screen
-     * then told people to check an inbox nothing was ever sent to, and the
-     * only way to discover the truth was to guess and try logging in — which
-     * is exactly what happened.
-     *
-     * `data.user.identities` is empty in that case, and it is deliberately NOT
-     * read here. Branching on it would restore the enumeration hole in the UI
-     * after the API closed it. Instead the copy covers both outcomes, so it is
-     * true either way and neither leaves anybody waiting.
-     */
-    setInfo(
-      "If that email is new, a confirmation link is on its way. If you already have an account, sign in instead.",
-    );
-    setLoading(false);
   };
 
+  const signInHref = `/login${nextQuery(next)}`;
+
+  if (stage === "exists") {
+    return (
+      <AuthShell title="You already have an account" lead={<><span className="font-medium text-ink-0">{email}</span> is already on letsee. Sign in with it — nothing was sent, and nothing has changed.</>}>
+        <div className="flex flex-col gap-3">
+          <Link href={signInHref} className={authPrimary}>
+            <UserCheck className="size-4" aria-hidden />
+            Sign in
+          </Link>
+          <Link href="/forgot-password" className={authSecondary}>
+            Forgotten the password? Reset it
+          </Link>
+          <button type="button" onClick={() => setStage("form")} className="mt-2 text-sm text-ink-400 underline underline-offset-4 hover:text-ink-200">
+            Use a different email
+          </button>
+        </div>
+      </AuthShell>
+    );
+  }
+
+  if (stage === "sent" || stage === "resent") {
+    return (
+      <AuthShell
+        title={stage === "sent" ? "Check your inbox" : "You've started before"}
+        lead={
+          stage === "sent" ? (
+            <>We sent a link to <span className="font-medium text-ink-0">{email}</span>. Open it to confirm your email, and you&apos;re in.</>
+          ) : (
+            <><span className="font-medium text-ink-0">{email}</span> began signing up earlier but was never confirmed. We&apos;ve sent the confirmation link again.</>
+          )
+        }
+      >
+        <ResendConfirmation email={email} redirectTo={redirectTo} justSent />
+        <div className="mt-6 flex flex-col items-center gap-3 border-t border-line pt-6 text-sm text-ink-400">
+          <button type="button" onClick={() => setStage("form")} className="underline underline-offset-4 hover:text-ink-200">
+            Wrong email? Start again
+          </button>
+          <p>
+            Already confirmed?{" "}
+            <Link href={signInHref} className={authLink}>
+              Sign in
+            </Link>
+          </p>
+        </div>
+      </AuthShell>
+    );
+  }
+
   return (
-    <SignupForm
-      onSignup={signup}
-      loading={loading}
-      error={error}
-      info={info}
-    />
+    <AuthShell
+      invite
+      title="Create your account"
+      lead="Keep a diary of what you watch, see what your friends love, and decide what to watch together."
+    >
+      <SignupForm key={initialEmail} onSignup={signup} loading={loading} error={error} initialEmail={initialEmail} signInHref={signInHref} />
+    </AuthShell>
   );
 }

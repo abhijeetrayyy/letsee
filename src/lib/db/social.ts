@@ -43,29 +43,38 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
   );
   if (visible.length === 0) return [];
 
-  const { data: users } = await supabase
+  const { data: users, error: usersError } = await supabase
     .from("users")
     .select("id, username, avatar_url")
     .in(
       "id",
       visible.map((r) => r.partner_id),
     );
+  if (usersError) throw usersError;
   const byId = new Map((users ?? []).map((u) => [u.id, u]));
 
-  return visible.map((r) => {
+  /**
+   * Someone who isn't returned has deleted their account: the profile row is
+   * hidden from everyone but its owner (082). Their conversation leaves with
+   * them, as their profile does, and comes back if they reactivate. It used
+   * to stay as a room called "user" — a real, claimable username — linking to
+   * /app/people/user, and its unread dot stayed lit for a month.
+   */
+  return visible.flatMap((r) => {
     const u = byId.get(r.partner_id);
+    if (!u?.username) return [];
     const isCard = r.last_message_type === "cardmix";
-    return {
+    return [{
       userId: r.partner_id,
-      username: u?.username ?? "user",
-      avatarUrl: u?.avatar_url ?? null,
+      username: u.username,
+      avatarUrl: u.avatar_url ?? null,
       // A shared card with no note should read as a thing sent, not as an
       // empty line.
       lastMessage: (r.last_content ?? "").trim() || (isCard ? "Sent a title" : ""),
       lastAt: r.last_at,
       unread: Number(r.unread) || 0,
       fromMe: r.last_from_me,
-    };
+    }];
   });
 }
 
@@ -82,12 +91,16 @@ export async function fetchConnections(
   if (!allowed) throw new Error("Forbidden");
 
   const isFollowing = direction === "following";
+  // The embed names the real constraint (`fk_followed` never existed, so
+  // these lists answered PGRST200 and the modal showed an error), and is
+  // inner, so an account that has been deleted — its row hidden — drops out
+  // instead of showing as "@—".
   const { data, error } = await supabase
     .from("user_connections")
     .select(
       isFollowing
-        ? "followed_id, users!fk_followed(username)"
-        : "follower_id, users!fk_follower(username)",
+        ? "followed_id, users!user_connections_followed_id_fkey!inner(username)"
+        : "follower_id, users!user_connections_follower_id_fkey!inner(username)",
     )
     .eq(isFollowing ? "follower_id" : "followed_id", ownerId);
 

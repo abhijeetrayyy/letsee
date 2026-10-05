@@ -42,7 +42,8 @@ const ALLOWED = new Set([
   "src/components/signup/signupForm.tsx",
   "src/app/forgot-password/page.tsx",
   "src/components/clientComponent/update_password.tsx",
-  "src/app/app/welcome/page.tsx",
+  "src/components/auth/AuthShell.tsx",
+  "src/app/signup/SignupPageClient.tsx",
 ]);
 
 describe("links are cheap by default", () => {

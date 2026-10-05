@@ -1,52 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { safeNext } from "@/lib/auth/next";
+import { authProblem } from "@/lib/auth/messages";
+import { andNext, landingFor } from "@/lib/auth/landing";
 
 /**
- * Exchanges a PKCE code for a session. Despite the name this is not an OAuth
- * route — sign-in is email and password only. Supabase sends confirmation and
- * password-reset links here with ?code=, so it stays.
+ * Where the confirmation email's link lands: Supabase has confirmed the
+ * address and hands over a one-time code to swap for a session.
+ *
+ * Every way that can go wrong ends on the sign-in page with a short code the
+ * page turns into a sentence (lib/auth/messages), never Supabase's text:
+ *
+ * - The link expired or was already used: Supabase sends `error_code` instead
+ *   of a code, and sign-in offers a new link.
+ * - The link was opened on another device or browser than the one that signed
+ *   up. The code can only be swapped where sign-up started (PKCE keeps half of
+ *   it there), but the address was confirmed before we got here — so that one
+ *   isn't a failure: sign-in says the email is confirmed and to sign in.
+ *
+ * `next` is checked (lib/auth/next): it travels in an email, so it's never
+ * trusted to point off the site.
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/app";
+  const next = safeNext(searchParams.get("next"));
+  const back = (problem: string) => NextResponse.redirect(new URL(`/login?error=${problem}${andNext(next)}`, req.url));
 
-  if (!code) {
-    return NextResponse.redirect(
-      new URL(
-        `/login?error=${encodeURIComponent("That link is missing its code. Request a new one.")}`,
-        req.url,
-      ),
-    );
+  const errorCode = searchParams.get("error_code");
+  if (searchParams.get("error") || errorCode) {
+    return back(errorCode === "otp_expired" ? "link_expired" : "link_invalid");
   }
+
+  const code = searchParams.get("code");
+  if (!code) return back("link_invalid");
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
-    return NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent(error.message)}`, req.url)
-    );
+    const problem = authProblem(error);
+    return back(problem === "link_other_device" || problem === "link_expired" ? problem : "link_invalid");
   }
 
-  // Check if user needs profile setup
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from("users")
-      .select("username")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    // No handle yet = brand new. Send them through onboarding, which ends in
-    // a follow, rather than dumping them on the settings page.
-    if (!profile?.username) {
-      return NextResponse.redirect(new URL("/app/welcome", req.url));
-    }
-  }
-
-  return NextResponse.redirect(new URL(next, req.url));
+  return NextResponse.redirect(new URL(await landingFor(supabase, data.user?.id, next), req.url));
 }

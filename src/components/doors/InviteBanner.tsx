@@ -28,7 +28,7 @@ export default function InviteBanner() {
     <div className="mb-6 flex items-center gap-3 rounded-card bg-raised px-4 py-3 ring-1 ring-inset ring-line-strong">
       <Avatar src={person.avatarUrl} name={person.username} size={36} />
       <p className="text-sm text-ink-300">
-        <span className="font-semibold text-ink-0">{person.username}</span> invited you. Your room with them is waiting.
+        <span className="font-semibold text-ink-0">{person.username}</span> invited you to letsee. Once you&apos;re in, you&apos;ll go straight to them.
       </p>
     </div>
   );

@@ -23,13 +23,17 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   if (error) return jsonError(error.message, 500);
 
   return jsonSuccess({
-    collaborators: (data ?? []).map((c) => {
+    // Someone whose account has been deleted (row hidden) is left out, not
+    // shown as "user" — a username anyone could register.
+    collaborators: (data ?? []).flatMap((c) => {
       const u = Array.isArray(c.users) ? c.users[0] : c.users;
-      return {
+      const username = (u as { username?: string } | null)?.username;
+      if (!username) return [];
+      return [{
         userId: c.user_id,
-        username: (u as { username?: string })?.username ?? "user",
+        username,
         avatarUrl: (u as { avatar_url?: string | null })?.avatar_url ?? null,
-      };
+      }];
     }),
   });
 }

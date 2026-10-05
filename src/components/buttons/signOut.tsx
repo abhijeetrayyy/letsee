@@ -3,6 +3,7 @@ import React, { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
 import { LogOutIcon } from "lucide-react";
+import { THEME_KEY } from "@/lib/theme";
 
 const SignOut: React.FC = () => {
   const router = useRouter();
@@ -16,13 +17,29 @@ const SignOut: React.FC = () => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw new Error(error.message);
-      localStorage.clear();
-      sessionStorage.clear();
+      // Everything this device kept for you goes — except how you like the
+      // screen to look, which isn't yours more than the device's, and wiping it
+      // flashed the next person's page into the wrong theme.
+      const theme = (() => {
+        try {
+          return localStorage.getItem(THEME_KEY);
+        } catch {
+          return null;
+        }
+      })();
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+        if (theme) localStorage.setItem(THEME_KEY, theme);
+      } catch {
+        // Storage refused; signing out has still happened.
+      }
       router.push("/login");
       router.refresh();
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Sign-out failed";
+      const errorMessage = err instanceof Error && /fetch|network/i.test(err.message)
+        ? "Couldn't reach letsee to sign out. Check your connection and try again."
+        : "Signing out didn't work. Try again.";
       setError(errorMessage);
       setTimeout(() => setError(null), 5000);
     } finally {

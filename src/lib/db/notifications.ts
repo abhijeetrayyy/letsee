@@ -58,10 +58,16 @@ export async function fetchNotifications(
   if (listRes.error) throw listRes.error;
 
   // PostgREST returns an embedded one-to-one as an array on some shapes.
-  const data = (listRes.data ?? []).map((n: Record<string, unknown>) => ({
-    ...n,
-    actor: Array.isArray(n.actor) ? (n.actor[0] ?? null) : (n.actor ?? null),
-  })) as NotificationItem[];
+  // Something done by a person whose account has since been deleted (their
+  // row hidden, 082) is left out: it read "Someone started following you"
+  // and linked to /app/profile/Someone. Notifications with no person at all
+  // (a title arriving on a service) have no actor and stay.
+  const data = (listRes.data ?? [])
+    .map((n: Record<string, unknown>) => ({
+      ...n,
+      actor: Array.isArray(n.actor) ? (n.actor[0] ?? null) : (n.actor ?? null),
+    }))
+    .filter((n) => !(n as { actor_id?: string | null }).actor_id || n.actor) as NotificationItem[];
 
   const totalItems = listRes.count ?? 0;
 

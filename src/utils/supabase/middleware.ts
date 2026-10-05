@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { safeNext } from "@/lib/auth/next";
 
 const PUBLIC_AUTH_ROUTES = ["/login", "/signup", "/forgot-password"];
 
@@ -147,6 +148,9 @@ export async function updateSession(request: NextRequest) {
      * before the auth-route redirect rather than after it.
      */
     let profile: { username: string | null; deleted_at: string | null } | null = null;
+    // Read and answered — so `profile === null` means there's no row, not that
+    // the read failed or was skipped.
+    let profileKnown = false;
     const vouched = pathname.startsWith("/app") && !!sessionKey && request.cookies.get(PROFILE_OK)?.value === sessionKey;
     if (!vouched && (pathname === "/" || isAuthRoute || pathname.startsWith("/app"))) {
       const { data, error: profileError } = await supabase
@@ -155,7 +159,10 @@ export async function updateSession(request: NextRequest) {
         .eq("id", userId)
         .limit(1)
         .maybeSingle();
-      if (!profileError) profile = data;
+      if (!profileError) {
+        profile = data;
+        profileKnown = true;
+      }
       if (profile?.username && !profile.deleted_at) {
         response.cookies.set(PROFILE_OK, sessionKey!, {
           path: "/",
@@ -195,11 +202,22 @@ export async function updateSession(request: NextRequest) {
      * app shell with nothing explaining what LetSee is. Someone already signed
      * in has no use for the pitch; someone who isn't has nothing else.
      */
+    // Signed in already: on to where the link meant to take you, when it's
+    // somewhere on this site (lib/auth/next), else home.
     if (pathname === "/" || isAuthRoute) {
-      return redirectWithCookies(new URL("/app", request.url));
+      return redirectWithCookies(new URL(safeNext(request.nextUrl.searchParams.get("next")), request.url));
     }
 
-    if (pathname.startsWith("/app") && !isOnboarding && profile && !profile.username) {
+    /**
+     * Not set up yet: no username, or no profile row at all.
+     *
+     * Only a row with an empty username was caught here, and nothing creates
+     * the row before welcome's first step does (save_my_profile), so a new
+     * account that left welcome — or signed in on another device before
+     * finishing — could wander every page with no profile behind it, where
+     * every write that needs one fails.
+     */
+    if (pathname.startsWith("/app") && !isOnboarding && profileKnown && !profile?.username) {
       return redirectWithCookies(new URL("/app/welcome", request.url));
     }
   }

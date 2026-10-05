@@ -25,6 +25,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+type CompanionUser = { username: string | null; avatar_url: string | null; deleted_at?: string | null };
+
 export type YearFilm = {
   itemId: string;
   itemType: "movie" | "tv";
@@ -96,7 +98,7 @@ type ViewingRow = {
     | {
         companion_user_id: string | null;
         name: string | null;
-        users: { username: string | null; avatar_url: string | null } | { username: string | null; avatar_url: string | null }[] | null;
+        users: CompanionUser | CompanionUser[] | null;
       }[]
     | null;
 };
@@ -117,7 +119,7 @@ export async function buildYearInReview(
     supabase
       .from("viewings")
       .select(
-        "id, item_id, item_type, watched_on, rewatch, viewing_companions!viewing_id(companion_user_id, name, users(username, avatar_url))",
+        "id, item_id, item_type, watched_on, rewatch, viewing_companions!viewing_id(companion_user_id, name, users(username, avatar_url, deleted_at))",
       )
       .eq("user_id", userId)
       .gte("watched_on", start)
@@ -234,6 +236,11 @@ export async function buildYearInReview(
   for (const v of viewings) {
     for (const c of v.viewing_companions ?? []) {
       const u = Array.isArray(c.users) ? c.users[0] : c.users;
+      // A visitor's card is read with the admin client (RLS would hide the
+      // owner's own diary from them), which also sees accounts that have been
+      // deleted. Someone who left isn't named on anyone's year — nor is one
+      // whose row can't be read at all.
+      if (c.companion_user_id && (!u?.username || u.deleted_at)) continue;
       const key = c.companion_user_id ? `u:${c.companion_user_id}` : `n:${(c.name ?? "").trim().toLowerCase()}`;
       if (key === "n:") continue;
       const e = companions.get(key) ?? {
@@ -295,7 +302,18 @@ async function findSharedWith(
     .select("followed_id")
     .eq("follower_id", userId);
 
-  const followedIds = (connections ?? []).map((c) => c.followed_id as string);
+  const followed = (connections ?? []).map((c) => c.followed_id as string);
+  if (followed.length === 0) return null;
+  // Only people anyone may see: this can run with the admin client for a
+  // visitor, and "@x both watched…" would otherwise speak for a private
+  // profile, or for someone who has deleted their account.
+  const { data: open } = await supabase
+    .from("users")
+    .select("id")
+    .in("id", followed)
+    .is("deleted_at", null)
+    .eq("visibility", "public");
+  const followedIds = (open ?? []).map((u) => u.id as string);
   if (followedIds.length === 0) return null;
 
   // Bounded so a decade-long library doesn't build a query the size of a book.

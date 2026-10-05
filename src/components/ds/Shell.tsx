@@ -183,7 +183,8 @@ function PhoneTopBar({ status, user, current }: { status: string; user: AuthUser
         </Link>
       </div>
     );
-  } else if (status === "needs_profile") {
+  } else if (status === "needs_profile" && !pathname.startsWith("/app/welcome")) {
+    // Not on welcome itself, where it linked to the page you were on.
     action = (
       <div className="flex items-center gap-1">
         <Link href="/app/welcome" className="inline-flex h-9 items-center rounded-full bg-action px-4 text-sm font-semibold text-on-action hover:bg-action-hover">
@@ -294,7 +295,7 @@ function DesktopBar({
               </Link>
             </>
           )}
-          {status === "needs_profile" && (
+          {status === "needs_profile" && !pathname.startsWith("/app/welcome") && (
             <>
               <Link href="/app/welcome" className="inline-flex h-9 shrink-0 items-center rounded-full bg-action px-4 text-sm font-semibold text-on-action hover:bg-action-hover">
                 Finish your profile

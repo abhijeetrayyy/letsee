@@ -450,13 +450,13 @@ function SignedOutDoor() {
       <Mark withName={false} size="lg" />
       <h1 className="text-4xl leading-tight text-ink-0 sm:text-5xl">Keep the films you watch, and the people you watch them with.</h1>
       <ul className="grid gap-2 text-base text-ink-400">
-        <li>Log in one tap, and say who was there.</li>
-        <li>Pass a film to a friend, and find out when they watch it.</li>
+        <li>Log what you watch in one tap, and who you watched it with.</li>
+        <li>See what your friends love, and pass them a film.</li>
         <li>Decide tonight’s film together.</li>
       </ul>
       <div className="flex flex-wrap gap-2">
         <Link href="/signup" className={buttonClass.primary}>
-          Start with someone
+          Create an account
         </Link>
         <Link href="/login?next=/app" className={buttonClass.quiet}>
           Sign in

@@ -141,8 +141,10 @@ async function fetchProfileData(username: string | null, currentUserIdInput: Pro
   const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
   const [stats, followers, following, connection, four, watching, month] = await Promise.all([
     getUserStats(supabase, profileId),
-    supabase.from("user_connections").select("id", { count: "exact", head: true }).eq("followed_id", profileId),
-    supabase.from("user_connections").select("id", { count: "exact", head: true }).eq("follower_id", profileId),
+    // Inner on the other person, so someone who has deleted their account
+    // (row hidden, 082) isn't counted among followers or following.
+    supabase.from("user_connections").select("id, users!user_connections_follower_id_fkey!inner(id)", { count: "exact", head: true }).eq("followed_id", profileId),
+    supabase.from("user_connections").select("id, users!user_connections_followed_id_fkey!inner(id)", { count: "exact", head: true }).eq("follower_id", profileId),
     // Only a followers-only profile needs to know whether this visitor follows.
     !isOwner && currentUserId && visibility === "followers"
       ? supabase.from("user_connections").select("id").eq("follower_id", currentUserId).eq("followed_id", profileId).maybeSingle()

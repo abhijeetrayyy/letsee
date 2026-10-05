@@ -49,7 +49,9 @@ export async function sendPass(
     .select("id, sender_id, recipient_id, content, message_type, metadata, is_read, created_at");
   if (error) {
     console.error("sendPass:", error);
-    return { sent: [], error: error.code === "23503" ? "That person isn't here any more." : "Couldn't pass that. Try again." };
+    // 23503 once their account is erased; 42501 while it's deleting (the
+    // insert rules refuse anyone who has gone, migration 119).
+    return { sent: [], error: error.code === "23503" || error.code === "42501" ? "That person isn't on letsee any more." : "Couldn't pass that. Try again." };
   }
   return { sent: (data ?? []) as Message[], error: null };
 }

@@ -116,8 +116,16 @@ export function AccountSection({ email }: { email: string }) {
       <div className="border-t border-line pt-4">
         <p className="text-sm font-medium text-ink-200">Delete your account</p>
         <p className="mt-1 text-sm text-ink-500">
-          It closes now and is erased after 30 days: your diary, ratings, words, lists and rooms. Signing back in before then cancels it.
+          Your account closes straight away, and is erased after 30 days. Signing back in before then brings everything back as it was.
         </p>
+        {/* What happens, said plainly, including to other people — it was one
+            line that left out the half that touches anyone else
+            (migration 119 decides each of these). */}
+        <ul className="mt-3 grid gap-1.5 text-sm text-ink-400">
+          <li><span className="font-medium text-ink-200">Straight away,</span> your profile, lists and comments disappear for everyone, and nobody can message, follow or pass you a film.</li>
+          <li><span className="font-medium text-ink-200">After 30 days,</span> your diary, ratings, favourites, lists, words and conversations are erased for good, along with your email and password.</li>
+          <li><span className="font-medium text-ink-200">What others keep:</span> a group you started passes to its longest-standing member, a list others help keep passes to them, and replies to your comments stay, under &ldquo;This comment was deleted&rdquo;.</li>
+        </ul>
         {!open ? (
           <button
             type="button"

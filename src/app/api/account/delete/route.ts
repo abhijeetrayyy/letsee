@@ -3,7 +3,6 @@ import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
-const GRACE_PERIOD_DAYS = 30;
 
 export async function POST(req: NextRequest) {
   const userId = await getAuthUserId();
@@ -35,18 +34,18 @@ export async function POST(req: NextRequest) {
     return jsonError("Invalid password", 401);
   }
 
-  const scheduledAt = new Date();
-  scheduledAt.setDate(scheduledAt.getDate() + GRACE_PERIOD_DAYS);
-
-  const { error } = await supabase
-    .from("users")
-    .update({
-      deleted_at: new Date().toISOString(),
-      deletion_scheduled_at: scheduledAt.toISOString(),
-    })
-    .eq("id", userId);
-
-  if (error) return jsonError(error.message, 500);
+  /**
+   * One function closes it (migration 119): it marks the account, schedules
+   * the erase, and marks what this person sent as read — it can't be opened
+   * now, and an unread dot would sit on someone else's People tab for a month.
+   * It raises when there's no open account to close, where the old update
+   * reported success having changed nothing.
+   */
+  const { data: when, error } = await supabase.rpc("close_my_account");
+  if (error) {
+    return jsonError(error.code === "P0002" ? "There's no open account to delete." : "Couldn't delete your account. Try again.", error.code === "P0002" ? 409 : 500);
+  }
+  const scheduledAt = new Date(String(when));
 
   // Sign out the user
   await supabase.auth.signOut();

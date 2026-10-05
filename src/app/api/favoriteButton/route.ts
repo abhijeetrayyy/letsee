@@ -23,6 +23,18 @@ export async function POST(req: NextRequest) {
   const imgUrl = typeof body.imgUrl === "string" ? body.imgUrl : null;
   const adult = body.adult === true;
   const genres = Array.isArray(body.genres) ? (body.genres as string[]) : [];
+  /**
+   * Two switches for welcome's "films you love" (app/welcome):
+   *
+   * - `add`: favourite it, never un-favourite. This route toggles, so a pick
+   *   that was already a favourite — a Letterboxd like brought in by an
+   *   import — was taken OUT of favourites, and out of the profile's four.
+   * - `dated: false`: seen, but not today. A pick is a film you loved at some
+   *   point; a viewing dated today put four films on your diary and on
+   *   everyone's "On letsee lately" as watched by someone who'd just joined.
+   */
+  const addOnly = body.add === true;
+  const dated = body.dated !== false;
 
   if (!itemId || !name) {
     return jsonError("itemId and name are required", 400);
@@ -41,6 +53,10 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (findError) return jsonError("Failed to check favorite status", 500);
+
+  if (existing && addOnly) {
+    return jsonSuccess({ action: "kept", message: "Already a favourite" });
+  }
 
   // If already favorited, remove it (toggle off)
   if (existing) {
@@ -157,7 +173,7 @@ export async function POST(req: NextRequest) {
   ]);
   // A favourite you had not marked watched is now watched, and a watched
   // title is a dated viewing (095). No-op when the diary already has one.
-  if (needsPromotion) await ensureFirstViewings(supabase, [{ itemId, itemType: mediaType }]);
+  if (needsPromotion && dated) await ensureFirstViewings(supabase, [{ itemId, itemType: mediaType }]);
 
   /**
    * No recount here.

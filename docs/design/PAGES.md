@@ -203,16 +203,18 @@ Phone heights are at 375 × 812 with every fold closed; a "screen" is 812 px.
 ## 8. Doors — signed out
 
 ### `/` — the front door
-- **New:** the mark → **"Keep the films you watch, and the people you watch them with."** in the voice → one example stub → three plain lines (log in one tap with who was there; pass a film and hear when it's watched; decide tonight together) → **Start with someone** · Sign in → "Bring your history from Letterboxd, Trakt, TV Time, IMDb or Netflix". Signed-in visitors go to Home. Not indexed.
+- **New:** the mark → **"Keep the films you watch, and the people you watch them with."** in the voice → one example stub → three plain lines (log what you watch in one tap, and who with; see what your friends love and pass them a film; decide tonight together) → **Create an account** · Sign in ("Start with someone" until 5 Oct 2026: it read as a requirement to someone who came alone) → "Bring your history from Letterboxd, Trakt, TV Time, IMDb or Netflix". Signed-in visitors go to Home. Not indexed.
 
 ### `/p/[token]` — the invited door (new)
 - One page per shared thing — a pass, a stub, a room invite, a Tonight session, a list — showing who sent it and what it is, with one action that signs the visitor up *into* that thing (`RETHINK.md` §3b). Noindex, cached, one read. Tokens expire after 30 days; a pass link works once per recipient.
 
 ### `/login`, `/signup`, `/forgot-password`, `/update-password`
 - One column at `w-read`, the mark, one form, errors on their fields, password visibility, a pending state, autocomplete attributes, a clear sent state. When arriving from an invited door, the page says whose invitation it is.
+- **After "Create account"** (5 Oct 2026, `lib/auth/messages` `signUpOutcome`): a new address gets *Check your inbox* with *Send it again* (once a minute); an address that signed up before and never confirmed gets *You've started before* (the link was sent again); an address that already has an account gets *You already have an account* — no email is sent — with Sign in (the email carried over) and Reset. Sign-in turns *Email not confirmed* into a sentence and a *Send the confirmation link* button. Every email-link failure (expired, used, opened on another device, malformed) lands on sign-in with a fixed message chosen by a short code, never text from the link.
 
 ### `/app/welcome` — the first five minutes
-- Three skippable steps with a progress line: **Bring your history** (optional) → **Ten films you've seen** → **Your first person** (invite by link, find by username, or the person who invited you, already there). Lands on Home's first-week state, or inside the room you were invited to.
+- **Built (5 Oct 2026, owner review):** four steps, only the first needed — **Choose a username** → **Here's what letsee does** (four things you can do, nothing to do) → **Pick a few films you love** (up to four, any number; they become your four and favourites, seen but not dated) → **Know anyone here?** (the person who invited you, find by username, people with your taste only when there are some, send a link). A progress line with *Step N of 4*, Back, and **Skip setup** at the top of every step after the name; each step's Skip is the same size as its main button. Lands where `next` says, else in the inviter's room, else Home. Importing a history left the flow: it lives in Settings and Home's first card, and the last step says so.
+- *Planned:* three skippable steps: Bring your history → Ten films you've seen → Your first person.
 
 ### `/tv-time` — importer landing for TV Time refugees
 - The Focus template with the import as the one action.

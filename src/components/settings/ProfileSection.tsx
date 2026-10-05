@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabase/client";
 import Avatar from "@components/ui/Avatar";
 import { Labeled, Section, inputClass, useSaver } from "./Field";
+import { cleanUsername, usernameProblem, usernameSaveProblem } from "@/lib/people/username";
 
 export type ProfileRow = {
   username: string;
@@ -12,21 +13,17 @@ export type ProfileRow = {
   avatar_url: string;
 };
 
-const NAME_MIN = 2;
 const NAME_MAX = 15;
 const LINE_MAX = 80;
 const BIO_MAX = 400;
 
 export function cleanName(input: string): string {
-  return input.toLowerCase().replace(/[^a-z0-9_]/g, "");
+  return cleanUsername(input);
 }
 
+// One set of rules for a username, here and in welcome (lib/people/username, migration 118).
 export function nameProblem(name: string): string | null {
-  if (!name) return "Pick a name.";
-  if (name.length < NAME_MIN) return `At least ${NAME_MIN} characters.`;
-  if (name.length > NAME_MAX) return `At most ${NAME_MAX} characters.`;
-  if (name === "null" || name === "undefined") return "That name isn't allowed.";
-  return null;
+  return usernameProblem(name);
 }
 
 /** A picture link is optional; when given it has to be a web address the page can load. */
@@ -110,8 +107,8 @@ export default function ProfileSection({
   const rename = async () => {
     const ok = await run(async () => {
       const { data, error } = await supabase.from("users").update({ username: name, updated_at: new Date().toISOString() }).eq("id", me).select("id");
-      if (error?.code === "23505") return "Someone just took that name. Try another.";
-      return error || !data?.length ? "That didn't save. Try again." : null;
+      if (error) return usernameSaveProblem(error);
+      return !data?.length ? "That didn't save. Try again." : null;
     });
     if (ok) {
       setSaved((cur) => ({ ...cur, username: name }));
@@ -131,7 +128,7 @@ export default function ProfileSection({
         <p className="text-sm text-ink-500">How you appear to your people: your name, a line, a few words about you, and a picture.</p>
       </div>
 
-      <Labeled id="settings-name" label="Your name" help={<span aria-live="polite">{nameStatus}</span>}>
+      <Labeled id="settings-name" label="Username" help={<span aria-live="polite">{nameStatus}</span>}>
         <div className="flex gap-2">
           <input
             id="settings-name"

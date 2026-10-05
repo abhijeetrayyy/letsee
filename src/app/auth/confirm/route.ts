@@ -1,40 +1,49 @@
 import { type EmailOtpType } from "@supabase/supabase-js";
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 import { createClient } from "@/utils/supabase/server";
-import { redirect } from "next/navigation";
+import { safeNext } from "@/lib/auth/next";
+import { authProblem } from "@/lib/auth/messages";
+import { andNext, landingFor } from "@/lib/auth/landing";
 
 /**
- * Server-side auth callback for email links (signup confirm, password reset, etc.).
- * Supabase can redirect here with token_hash and type; we verify OTP and redirect.
- * Supports both "next" and "redirect_to" query params (Supabase docs use redirect_to).
+ * Email links in the token-hash form (`?token_hash=…&type=…`), which work on
+ * any device — unlike /auth/callback's code, which only swaps in the browser
+ * that asked. Supabase sends links here when its email templates point here.
+ *
+ * `next` (or Supabase's own `redirect_to`, which may be a full address) is
+ * only followed to a path on this site (lib/auth/next). A reset link always
+ * lands on the page that sets the new password.
  */
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const token_hash = searchParams.get("token_hash");
-  const type = searchParams.get("type") as EmailOtpType | null;
-  const nextPath =
-    searchParams.get("next") ??
-    searchParams.get("redirect_to") ??
-    "/app";
+const TYPES = new Set<EmailOtpType>(["signup", "email", "recovery", "invite", "magiclink", "email_change"]);
 
-  const safeNext = nextPath.startsWith("/") ? nextPath : `/${nextPath}`;
-
-  if (!token_hash || !type) {
-    redirect(`/login?error=${encodeURIComponent("Missing token or type.")}`);
+function requestedNext(searchParams: URLSearchParams, origin: string): string | null {
+  const raw = searchParams.get("next") ?? searchParams.get("redirect_to");
+  if (!raw) return null;
+  try {
+    const url = new URL(raw, origin);
+    return url.origin === origin ? url.pathname + url.search : null;
+  } catch {
+    return null;
   }
+}
+
+export async function GET(request: NextRequest) {
+  const { searchParams, origin } = new URL(request.url);
+  const tokenHash = searchParams.get("token_hash");
+  const type = searchParams.get("type") as EmailOtpType | null;
+  const next = safeNext(requestedNext(searchParams, origin));
+  const back = (problem: string) => NextResponse.redirect(new URL(`/login?error=${problem}${andNext(next)}`, request.url));
+
+  if (!tokenHash || !type || !TYPES.has(type)) return back("link_invalid");
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.verifyOtp({
-    type,
-    token_hash,
-  });
-
+  const { data, error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
   if (error) {
-    redirect(
-      `/login?error=${encodeURIComponent(error.message ?? "Invalid or expired link.")}`
-    );
+    if (type === "recovery") return NextResponse.redirect(new URL("/forgot-password?error=link_expired", request.url));
+    return back(authProblem(error) === "link_expired" ? "link_expired" : "link_invalid");
   }
 
-  redirect(safeNext);
+  if (type === "recovery") return NextResponse.redirect(new URL("/update-password", request.url));
+  return NextResponse.redirect(new URL(await landingFor(supabase, data.user?.id, next), request.url));
 }

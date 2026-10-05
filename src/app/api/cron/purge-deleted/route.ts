@@ -21,17 +21,21 @@ export const maxDuration = 60;
  * ── How the delete propagates ──────────────────────────────────────────────
  *
  * One call to `auth.admin.deleteUser` is the whole operation.
- * `public.users.id` is `references auth.users(id) on delete cascade`, and every
- * one of the 61 foreign keys pointing at `public.users(id)` is CASCADE (58) or
- * SET NULL (3). So removing the auth row unwinds the entire library, the social
- * graph, the messages and the writing, and nothing can block it on a foreign
- * key. Verified by reading every `references public.users(id)` in
- * migrations/000_baseline.sql — there are no unqualified ones.
+ * `public.users.id` references `auth.users(id)` on delete cascade, and the
+ * foreign keys into `public.users(id)` are CASCADE for what was theirs (diary,
+ * ratings, favourites, lists, words, follows, passes, conversations) and SET
+ * NULL for attribution on shared things (`club_picks.picked_by`, list
+ * `added_by`, `save_with_user_id`, `comments.user_id`, a report's reporter).
  *
- * The three SET NULL columns are attribution, not content: `club_picks.picked_by`,
- * `user_list_collaborators.added_by` and `user_list_items.added_by`. A club's
- * pick of the week and a shared list's entries survive their author leaving,
- * which is right — they belong to the group.
+ * Before the cascade reaches anything, the `users_leaving` trigger (migration
+ * 119) keeps what belongs to other people: a group they made passes to its
+ * longest-standing member (closing only if nobody else is in it), a list
+ * someone helps keep passes to its first collaborator, a Tonight session to
+ * the next person in it, and a comment someone replied to stays as an empty
+ * marker with no author so the replies keep their place.
+ *
+ * It also clears sign-ups nobody finished — never confirmed, never named, a
+ * month on (`abandoned_signups`). Nothing else ever could.
  *
  * ── Safety ─────────────────────────────────────────────────────────────────
  *
@@ -85,9 +89,24 @@ export async function GET(request: Request) {
     purged.push(user.id);
   }
 
-  if (purged.length > 0 || failed.length > 0) {
+  // Sign-ups nobody finished: never confirmed, never given a username, a month
+  // on. No profile to keep, nothing anyone else holds. Same batch, same
+  // isolation; a failure here never stops the accounts above.
+  const abandoned: string[] = [];
+  const { data: stale, error: staleError } = await supabase.rpc("abandoned_signups", { p_days: 30, p_limit: BATCH });
+  if (staleError) console.error("purge-deleted: could not list abandoned sign-ups:", staleError.message);
+  for (const row of (stale ?? []) as { id: string }[]) {
+    const { error: deleteError } = await supabase.auth.admin.deleteUser(row.id);
+    if (deleteError) {
+      failed.push({ id: row.id, reason: deleteError.message });
+      continue;
+    }
+    abandoned.push(row.id);
+  }
+
+  if (purged.length > 0 || abandoned.length > 0 || failed.length > 0) {
     console.log(
-      `purge-deleted: ${purged.length} purged, ${failed.length} failed, ${(due ?? []).length} due this run`,
+      `purge-deleted: ${purged.length} purged, ${abandoned.length} abandoned sign-ups removed, ${failed.length} failed, ${(due ?? []).length} due this run`,
     );
   }
 
@@ -96,6 +115,7 @@ export async function GET(request: Request) {
       success: true,
       due: (due ?? []).length,
       purged: purged.length,
+      abandoned: abandoned.length,
       failed,
       // True when the batch filled, so an operator can tell "nothing to do"
       // from "there is more behind this".

@@ -61,14 +61,18 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   const pick = picks?.[0] ?? null;
   const activePick = pick && new Date(pick.ends_at).getTime() > Date.now() ? pick : null;
 
-  const normalized = (members ?? []).map((m) => {
+  // A member whose account has been deleted has no name to show; they're
+  // left out rather than called "user".
+  const normalized = (members ?? []).flatMap((m) => {
     const u = Array.isArray(m.users) ? m.users[0] : m.users;
-    return {
+    const username = (u as { username?: string } | null)?.username;
+    if (!username) return [];
+    return [{
       userId: m.user_id,
-      username: (u as { username?: string })?.username ?? "user",
+      username,
       avatarUrl: (u as { avatar_url?: string | null })?.avatar_url ?? null,
       role: m.role,
-    };
+    }];
   });
 
   return jsonSuccess({

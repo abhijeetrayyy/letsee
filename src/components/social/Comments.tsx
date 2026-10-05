@@ -145,19 +145,35 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
         </form>
       )}
 
-      {visible.map(c => (
+      {/* A comment whose author has deleted their account (row hidden, or no
+          author once the account is gone — migration 119) keeps its place
+          only while someone else's reply hangs off it, and says so; it never
+          borrows a name. "@anon" was a username anyone could register. */}
+      {visible.filter(c => c.users?.username || replies(c.id).length > 0).map(c => (
         <div key={c.id} className="group">
           <div className="flex gap-2.5">
-            <Link href={`/app/profile/${c.users?.username||""}`} className="shrink-0 mt-0.5">
-              <Avatar src={c.users?.avatar_url} name={c.users?.username || "?"} size={28} />
-            </Link>
+            {c.users?.username ? (
+              <Link href={`/app/profile/${c.users.username}`} className="shrink-0 mt-0.5">
+                <Avatar src={c.users.avatar_url} name={c.users.username} size={28} />
+              </Link>
+            ) : (
+              <span aria-hidden className="mt-0.5 size-7 shrink-0 rounded-full bg-active" />
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <Link href={`/app/profile/${c.users?.username||""}`} className="text-xs font-semibold text-ink-0 hover:text-accent">@{c.users?.username||"anon"}</Link>
+                {c.users?.username ? (
+                  <Link href={`/app/profile/${c.users.username}`} className="text-xs font-semibold text-ink-0 hover:text-accent">@{c.users.username}</Link>
+                ) : (
+                  <span className="text-xs font-semibold text-ink-500">Deleted account</span>
+                )}
                 <span className="text-xs text-ink-500">{timeAgo(c.created_at)}</span>
               </div>
-              <p className="text-sm text-ink-300 mt-0.5 leading-relaxed">{c.body}</p>
-              <div className="flex items-center gap-1 mt-1">
+              {c.users?.username ? (
+                <p className="text-sm text-ink-300 mt-0.5 leading-relaxed">{c.body}</p>
+              ) : (
+                <p className="text-sm italic text-ink-500 mt-0.5">This comment was deleted.</p>
+              )}
+              {c.users?.username && <div className="flex items-center gap-1 mt-1">
                 <LikeButton targetType="comment" targetId={c.id} initialCount={c.reaction_count} initialLiked={c.viewer_liked} size="sm" />
                 {isAuthenticated && <button onClick={()=>{setReplyTo(c.id);setBody("");}} className="text-xs text-ink-500 hover:text-accent px-2 py-1.5">Reply</button>}
                 {/* Only your own comments — the API rejects anything else, and
@@ -172,18 +188,20 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
                     <Trash2 className="size-3.5"/>
                   </button>
                 )}
-              </div>
-              {replies(c.id).map(r => (
+              </div>}
+              {replies(c.id).map(r => r.users?.username ? (
                 <div key={r.id} className="flex gap-2 mt-2 ml-4 pl-3 border-l-2 border-line">
-                  <Link href={`/app/profile/${r.users?.username||""}`} className="shrink-0 mt-0.5">
-                    <Avatar src={r.users?.avatar_url} name={r.users?.username || "?"} size={20} />
+                  <Link href={`/app/profile/${r.users.username}`} className="shrink-0 mt-0.5">
+                    <Avatar src={r.users.avatar_url} name={r.users.username} size={20} />
                   </Link>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5"><Link href={`/app/profile/${r.users?.username||""}`} className="text-xs font-semibold text-ink-0">@{r.users?.username}</Link><span className="text-xs text-ink-500">{timeAgo(r.created_at)}</span></div>
+                    <div className="flex items-center gap-1.5"><Link href={`/app/profile/${r.users.username}`} className="text-xs font-semibold text-ink-0">@{r.users.username}</Link><span className="text-xs text-ink-500">{timeAgo(r.created_at)}</span></div>
                     <p className="text-xs text-ink-400 mt-0.5">{r.body}</p>
                     <LikeButton targetType="comment" targetId={r.id} initialCount={r.reaction_count} initialLiked={r.viewer_liked} size="sm" />
                   </div>
                 </div>
+              ) : (
+                <p key={r.id} className="mt-2 ml-4 border-l-2 border-line pl-3 text-xs italic text-ink-500">A reply from a deleted account was removed.</p>
               ))}
             </div>
           </div>

@@ -1,82 +1,71 @@
 "use client";
 
 import LoginForm from "@/components/login/loginform";
+import AuthShell, { authPrimary } from "@components/auth/AuthShell";
+import ResendConfirmation from "@components/auth/ResendConfirmation";
 import { supabase } from "@/utils/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-
-/**
- * Where to go after signing in: back to the page that sent you here (a film
- * you tried to log, a pass someone shared), or Home. Only paths inside the app
- * are accepted, so `next` cannot be used to send someone to another site.
- */
-function returnTo(next: string | null): string {
-  // Back into the app, or back to the link that sent you here (`/invite?t=…`).
-  if (!next || !(next.startsWith("/app") || next.startsWith("/invite?")) || next.startsWith("//") || next.includes("\\")) return "/app";
-  return next;
-}
+import { nextQuery, safeNext } from "@/lib/auth/next";
+import { authMessage, authProblem, messageForCode } from "@/lib/auth/messages";
+import { readAuthEmail, rememberAuthEmail } from "@/lib/auth/email";
+import { forgetInviter } from "@/lib/people/invite";
 
 export default function LoginPageClient() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const errorParam = searchParams.get("error");
+  // Where to go after signing in: back to the page that sent you here, or home (lib/auth/next).
+  const next = safeNext(searchParams.get("next"));
+
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  /** Offer the confirmation email again: the account isn't confirmed, or its link failed. */
+  const [offerResend, setOfferResend] = useState(false);
   /**
    * Set when the middleware bounced a signed-in-but-deleted account here.
    *
    * At that moment the session is valid — the redirect happens *after* the sign
    * in succeeds — so /api/account/reactivate, which requires auth, is callable
    * from this screen. That is the only place the grace period can be escaped
-   * from, and until now nothing rendered it: the page displayed the raw string
-   * "account-deleted" as an error and offered no way out, which meant a 30-day
-   * countdown with no cancel button.
+   * from.
    */
   const [deletedAccount, setDeletedAccount] = useState(false);
   const [reactivating, setReactivating] = useState(false);
-  const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     /**
-     * Not when we were sent here *because* the account is deleted.
-     *
-     * A deleted user still holds a valid session at this point, so the old
-     * unconditional redirect pushed them to /app, the middleware saw
-     * `deleted_at` and bounced them straight back — a loop, with the
-     * reactivation offer below never getting a frame to render in. This is the
-     * one screen where having a session is not a reason to leave.
+     * Not when we were sent here *because* the account is deleted: a deleted
+     * user still holds a valid session, and leaving would loop through the
+     * middleware with the reactivation offer never getting a frame.
      */
-    if (searchParams.get("error") === "account-deleted") return;
-
-    const checkUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session) {
-        router.push(returnTo(searchParams.get("next")));
-      }
-    };
-    checkUser();
-  }, [router, searchParams]);
+    if (errorParam === "account-deleted") return;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.replace(next);
+    });
+  }, [router, errorParam, next]);
 
   useEffect(() => {
-    const errorParam = searchParams.get("error");
-    const statusParam = searchParams.get("status");
+     
+    setEmail((cur) => cur || readAuthEmail());
     if (errorParam === "account-deleted") {
-      // A slug is not a sentence. This one was being shown to users verbatim.
       setDeletedAccount(true);
-      setError("");
-    } else if (errorParam) {
-      setError(decodeURIComponent(errorParam));
+      return;
     }
-    if (statusParam === "check-email") {
-      setInfo("Check your email to confirm your account.");
+    // Only problems we know, in our words: free text in a link is never shown (lib/auth/messages).
+    const known = messageForCode(errorParam);
+    if (known?.kind === "notice") setInfo(known.text);
+    else if (known) {
+      setError(known.text);
+      setOfferResend(known.problem === "link_expired" || known.problem === "link_invalid");
     }
-    if (statusParam === "account-deleted") {
-      setInfo(
-        "Your account is scheduled for deletion. Sign back in within 30 days to cancel it.",
-      );
+    if (searchParams.get("status") === "account-deleted") {
+      setInfo("Your account is scheduled for deletion. Sign back in within 30 days to cancel it.");
     }
-  }, [searchParams]);
+     
+  }, [errorParam, searchParams]);
 
   const reactivate = async () => {
     setReactivating(true);
@@ -85,36 +74,43 @@ export default function LoginPageClient() {
       const res = await fetch("/api/account/reactivate", { method: "POST" });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(payload?.error || "Couldn't reactivate your account.");
+        setError(payload?.error || "Couldn't bring your account back. Try again.");
         return;
       }
       setDeletedAccount(false);
       router.push("/app");
     } catch {
-      setError("Couldn't reach the server. Try again.");
+      setError(authMessage({ name: "AuthRetryableFetchError", status: 0 }));
     } finally {
       setReactivating(false);
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (address: string, password: string) => {
     setLoading(true);
     setError("");
     setInfo("");
-
+    setOfferResend(false);
+    rememberAuthEmail(address);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email: address, password });
       if (error) {
-        setError(error.message);
-      } else {
-        router.push(returnTo(searchParams.get("next")));
+        const problem = authProblem(error);
+        setError(authMessage(error));
+        setOfferResend(problem === "email_not_confirmed");
+        return;
       }
+      // Someone who already has a profile isn't joining anyone: an invitation
+      // remembered on this device would otherwise follow them around sign-in
+      // for a month ("X invited you").
+      const id = data.user?.id;
+      if (id) {
+        const { data: row } = await supabase.from("users").select("username").eq("id", id).maybeSingle();
+        if (row?.username) forgetInviter();
+      }
+      router.replace(next);
     } catch {
-      setError("An unexpected error occurred. Please try again.");
+      setError(authMessage({ name: "AuthRetryableFetchError", status: 0 }));
     } finally {
       setLoading(false);
     }
@@ -122,20 +118,11 @@ export default function LoginPageClient() {
 
   if (deletedAccount) {
     return (
-      <div className="mx-auto max-w-sheet px-4 py-16 text-center">
-        <h1 className="text-xl font-medium text-ink-0">
-          This account is scheduled for deletion
-        </h1>
-        <p className="mt-3 text-sm text-ink-300">
-          You asked us to delete it. Nothing has been removed yet — you can
-          bring it back exactly as it was, with everything still in place.
-          Once the 30 days are up it is deleted permanently.
-        </p>
-        <button
-          onClick={reactivate}
-          disabled={reactivating}
-          className="mt-6 w-full rounded-lg bg-action px-4 py-2 font-medium text-on-action-light min-h-11 hover:bg-action-hover disabled:opacity-50 transition-colors"
-        >
+      <AuthShell
+        title="This account is scheduled for deletion"
+        lead="You asked us to delete it. Nothing has been removed yet — you can bring it back exactly as it was. Once the 30 days are up it's deleted for good."
+      >
+        <button onClick={reactivate} disabled={reactivating} className={authPrimary}>
           {reactivating ? "Bringing it back…" : "Reactivate my account"}
         </button>
         {error ? (
@@ -152,16 +139,32 @@ export default function LoginPageClient() {
         >
           Sign out and leave it deleted
         </button>
-      </div>
+      </AuthShell>
     );
   }
 
+  const redirectTo = () => `${window.location.origin}/auth/callback?next=${encodeURIComponent(next === "/app" ? "/app/welcome" : next)}`;
+
   return (
-    <LoginForm
-      onLogin={login}
-      loading={loading}
-      error={error}
-      info={info}
-    />
+    <AuthShell invite title="Welcome back" lead="Sign in to your diary, your people and what's up next.">
+      <LoginForm
+        email={email}
+        onEmailChange={setEmail}
+        onLogin={login}
+        loading={loading}
+        error={error}
+        info={info}
+        signUpHref={`/signup${nextQuery(next)}`}
+        extra={
+          offerResend ? (
+            email.trim() ? (
+              <ResendConfirmation key={email.trim()} email={email.trim()} redirectTo={redirectTo} hint={false} />
+            ) : (
+              <p className="text-sm text-ink-400">Type your email above to get a new confirmation link.</p>
+            )
+          ) : null
+        }
+      />
+    </AuthShell>
   );
 }

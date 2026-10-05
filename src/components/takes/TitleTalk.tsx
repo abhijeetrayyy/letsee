@@ -482,9 +482,12 @@ export default function TitleTalk({
       commentId: null as number | null,
       forUs: o.forUs === true,
     }));
-    const commentRows = (comments ?? []).map((c) => ({
+    // A flat thread, so a comment whose author has deleted their account
+    // simply leaves it. It used to stay as "someone", linking to the profile
+    // of whoever registers that name.
+    const commentRows = (comments ?? []).filter((c) => c.users?.username).map((c) => ({
       key: `comment:${c.id}`,
-      username: c.users?.username ?? "someone",
+      username: c.users!.username!,
       avatarUrl: c.users?.avatar_url ?? null,
       body: c.body,
       score: null as number | null,
