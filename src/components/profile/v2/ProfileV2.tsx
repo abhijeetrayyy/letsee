@@ -19,7 +19,7 @@ import StatsSection from "@components/profile/StatsSection";
 import type { TasteStats } from "@components/profile/stats/types";
 import type { UserStats } from "@/utils/userStats";
 import { fetchRoom, fetchRoomList } from "@/lib/db/rooms";
-import { fetchDiary, fetchWatchCompanions } from "@/lib/db/viewings";
+import { fetchLately, fetchWatchCompanions } from "@/lib/db/viewings";
 import { stars } from "@/lib/people/moments";
 import { names } from "@/lib/people/home";
 import { sinceLabel, watchedLabel } from "@components/rooms/time";
@@ -267,10 +267,14 @@ export default function ProfileV2({ data }: { data: ProfileV2Data }) {
   );
 }
 
-/** Their last few viewings, as stubs: the film, the day, who was there. */
+/**
+ * What they've watched lately: diary logs as stubs (the film, the day, who was
+ * there) and titles marked watched from a poster, which have no day of their
+ * own — they show the day they were marked (lib/people/lately).
+ */
 function Recent({ userId }: { userId: string }) {
-  const { data } = useSWR(["diary-recent", userId], () => fetchDiary(userId, { limit: 6 }), { revalidateOnFocus: false });
-  const rows = (data ?? []).filter((v) => v.itemName);
+  const { data } = useSWR(["profile-lately", userId], () => fetchLately(userId), { revalidateOnFocus: false });
+  const rows = data ?? [];
   if (!rows.length) return null;
   return (
     <section aria-labelledby="recent">
@@ -278,24 +282,22 @@ function Recent({ userId }: { userId: string }) {
         Lately
       </h2>
       <ol className="grid gap-x-10 divide-y divide-line lg:grid-cols-2 lg:divide-y-0">
-        {rows.map((v) => {
-          const who = v.companions.map((c) => c.username ?? c.name).filter((x): x is string => !!x);
-          return (
-            <li key={v.id}>
-              <Link href={titlePath(v.itemType, v.itemId, v.itemName)} className="-mx-2 flex items-center gap-3.5 rounded-control px-2 py-2.5 transition-colors hover:bg-raised">
-                <img src={getPosterUrl(v.imageUrl, "w92")} alt="" loading="lazy" className="aspect-2/3 w-10 shrink-0 rounded-media bg-hover object-cover" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-display text-base text-ink-0">{v.itemName}</span>
-                  <span className="block truncate text-xs text-ink-500">
-                    <span className="font-mono uppercase tracking-wide">{watchedLabel(v.watchedOn)}</span>
-                    {v.rewatch && " · rewatch"}
-                    {who.length > 0 && ` · with ${names(who)}`}
-                  </span>
+        {rows.map((v) => (
+          <li key={v.kind === "log" ? `log:${v.id}` : `mark:${v.itemType}:${v.itemId}`}>
+            <Link href={titlePath(v.itemType, v.itemId, v.itemName)} className="-mx-2 flex items-center gap-3.5 rounded-control px-2 py-2.5 transition-colors hover:bg-raised">
+              <img src={getPosterUrl(v.imageUrl, "w92")} alt="" loading="lazy" className="aspect-2/3 w-10 shrink-0 rounded-media bg-hover object-cover" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-display text-base text-ink-0">{v.itemName}</span>
+                <span className="block truncate text-xs text-ink-500">
+                  <span className="font-mono uppercase tracking-wide">{watchedLabel(v.day)}</span>
+                  {v.kind === "mark" && (v.itemType === "tv" ? " · finished" : " · marked watched")}
+                  {v.kind === "log" && v.rewatch && " · rewatch"}
+                  {v.kind === "log" && v.who.length > 0 && ` · with ${names(v.who)}`}
                 </span>
-              </Link>
-            </li>
-          );
-        })}
+              </span>
+            </Link>
+          </li>
+        ))}
       </ol>
     </section>
   );

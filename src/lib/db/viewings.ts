@@ -21,6 +21,8 @@ import {
   type ViewingPlace,
 } from "@/utils/viewings";
 
+import { mergeLately, type LatelyEntry, type LatelyLog } from "@/lib/people/lately";
+
 export type { Viewing, ViewingPlace, CompanionInput };
 
 export function fetchMyViewings(userId: string, itemId: string, itemType: "movie" | "tv") {
@@ -29,6 +31,47 @@ export function fetchMyViewings(userId: string, itemId: string, itemType: "movie
 
 export function fetchDiary(userId: string, opts?: { from?: string; to?: string; limit?: number; before?: { day: string; id: number } }) {
   return fetchDiaryWith(supabase, userId, opts);
+}
+
+/**
+ * A profile's *Lately*: the diary's latest logs and the titles most recently
+ * marked watched from a poster (which make no diary entry), merged
+ * (lib/people/lately). Two reads in parallel, under the profile's RLS.
+ */
+export async function fetchLately(userId: string, limit = 6): Promise<LatelyEntry[]> {
+  const [diary, { data: marks }] = await Promise.all([
+    fetchDiaryWith(supabase, userId, { limit: 12 }),
+    supabase
+      .from("user_media_status")
+      .select("item_id, item_type, item_name, image_url, updated_at")
+      .eq("user_id", userId)
+      .eq("status", "watched")
+      .order("updated_at", { ascending: false })
+      .limit(12),
+  ]);
+  const logs: LatelyLog[] = diary.map((v) => ({
+    kind: "log",
+    id: v.id,
+    itemId: v.itemId,
+    itemType: v.itemType,
+    itemName: v.itemName,
+    imageUrl: v.imageUrl,
+    day: v.watchedOn,
+    at: v.createdAt,
+    rewatch: v.rewatch,
+    who: v.companions.map((c) => c.username ?? c.name).filter((x): x is string => !!x),
+  }));
+  return mergeLately(
+    logs,
+    (marks ?? []).map((m) => ({
+      itemId: String(m.item_id),
+      itemType: m.item_type === "tv" ? "tv" : "movie",
+      itemName: m.item_name ?? "",
+      imageUrl: m.image_url ?? null,
+      at: m.updated_at as string,
+    })),
+    limit,
+  );
 }
 
 export function fetchWatchCompanions(userId: string, limit?: number) {
