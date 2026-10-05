@@ -6,6 +6,7 @@ import { getAuthUserId } from "@/utils/apiAuth";
 import { tmdbConfigured } from "@/utils/tmdbClient";
 
 
+import { guard } from "@/lib/limits/guard";
 export type ProfileTvProgressItem = {
   show_id: string;
   show_name: string;
@@ -24,6 +25,8 @@ export type ProfileTvProgressItem = {
 };
 
 export async function GET(req: NextRequest) {
+  const limited = await guard("heavy", req);
+  if (limited) return limited;
   try {
     const supabase = await createClient();
     const userId = req.nextUrl.searchParams.get("userId")?.trim();

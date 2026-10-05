@@ -4,6 +4,7 @@ import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 import { Countrydata } from "@/staticData/countryName";
 import { tmdbConfigured } from "@/utils/tmdbClient";
 
+import { guard } from "@/lib/limits/guard";
 type WatchProvider = {
   provider_id: number;
   provider_name: string;
@@ -85,6 +86,8 @@ function hasAnyOffer(offers: RegionOffers | undefined): boolean {
 }
 
 export async function GET(request: NextRequest) {
+  const limited = await guard("tmdb", request);
+  if (limited) return limited;
   const { searchParams } = new URL(request.url);
   const mediaType = searchParams.get("mediaType");
   const mediaId = searchParams.get("mediaId");

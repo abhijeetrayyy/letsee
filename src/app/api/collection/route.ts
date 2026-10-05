@@ -3,6 +3,7 @@ import { serverFetchJson } from "@/utils/serverFetch";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 import { tmdbConfigured } from "@/utils/tmdbClient";
 
+import { guard } from "@/lib/limits/guard";
 /**
  * The films in a collection, in the order they were released.
  *
@@ -59,6 +60,8 @@ export type CollectionResponse = {
 };
 
 export async function GET(request: NextRequest) {
+  const limited = await guard("tmdb", request);
+  if (limited) return limited;
   if (!tmdbConfigured()) {
     return jsonError("TMDB_READ_TOKEN is missing on the server.", 500);
   }

@@ -4,6 +4,7 @@ import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 import { normalizeQuery, type IndexRow } from "@/utils/searchIndex";
 import { tmdbConfigured } from "@/utils/tmdbClient";
 
+import { guard } from "@/lib/limits/guard";
 /**
  * The public half of the local search index.
  *
@@ -107,6 +108,8 @@ async function buildRows(): Promise<IndexRow[]> {
 }
 
 export async function GET() {
+  const limited = await guard("tmdb");
+  if (limited) return limited;
   if (!tmdbConfigured()) return jsonError("TMDB_READ_TOKEN is missing on the server.", 500);
 
   const rows = await unstable_cache(buildRows, ["search-index-v2"], {

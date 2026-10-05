@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { pageGuard } from "@/lib/limits/page";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
@@ -186,6 +187,9 @@ async function fetchProfileData(username: string | null, currentUserIdInput: Pro
 }
 
 export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  // Fair use: rendered per visit, so a burst of these is real work (lib/limits).
+  const slow = await pageGuard();
+  if (slow) return slow;
   const { id: username } = await params;
   // Read from the token, not asked of the auth server (getAuthUserId → getClaims).
   const currentUserIdPromise = getAuthUserId();

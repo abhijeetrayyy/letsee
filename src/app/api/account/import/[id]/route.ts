@@ -5,6 +5,7 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { resolveTitle } from "@/utils/titleResolver";
 import { GenreList } from "@/staticData/genreList";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -24,6 +25,8 @@ const GENRE_NAME_BY_ID = new Map<number, string>(
  * row and the polling loop doesn't need it — only the final screen does.
  */
 export async function GET(req: NextRequest, ctx: Ctx) {
+  const limited = await guard("importStep", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

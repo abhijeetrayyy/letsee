@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 import { getAuthUserId } from "@/utils/apiAuth";
 
+import { guard } from "@/lib/limits/guard";
 type DisplayItem = {
   position: number;
   item_id: string;
@@ -13,6 +14,8 @@ type DisplayItem = {
 
 /** GET /api/profile/favorite-display?userId=uuid — returns { items: DisplayItem[] } for that profile. Respects profile visibility. */
 export async function GET(request: NextRequest) {
+  const limited = await guard("heavy", request);
+  if (limited) return limited;
   const supabase = await createClient();
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");
@@ -75,6 +78,8 @@ export async function GET(request: NextRequest) {
 
 /** PUT /api/profile/favorite-display — body: { items: { item_id, item_type, image_url?, item_name }[] } (up to 4). Owner only. */
 export async function PUT(request: NextRequest) {
+  const limited = await guard("write", request);
+  if (limited) return limited;
   const supabase = await createClient();
   const userId = await getAuthUserId();
   if (!userId) {

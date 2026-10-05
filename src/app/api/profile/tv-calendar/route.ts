@@ -2,11 +2,14 @@ import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
+import { guard } from "@/lib/limits/guard";
 /**
  * GET /api/profile/tv-calendar?userId=...&year=2024&month=3
  * Returns watched episodes grouped by date for calendar view.
  */
 export async function GET(request: Request) {
+  const limited = await guard("heavy", request);
+  if (limited) return limited;
   const supabase = await createClient();
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");

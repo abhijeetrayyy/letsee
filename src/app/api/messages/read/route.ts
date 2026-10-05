@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
+import { guard } from "@/lib/limits/guard";
 /**
  * Mark a conversation read, on the server, and say how many it changed.
  *
@@ -17,6 +18,8 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
  * that arrived while it was open or that paging never fetched.
  */
 export async function POST(req: NextRequest) {
+  const limited = await guard("write", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

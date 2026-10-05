@@ -13,6 +13,7 @@ import { applyRows, type ApplicableRow } from "@/utils/importApply";
 import { GenreList } from "@/staticData/genreList";
 import type { ImportEpisode } from "@/utils/letterboxd";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
@@ -107,6 +108,8 @@ async function numberEpisodes(
  * closed tab costs at most one chunk, and reopening the page resumes.
  */
 export async function POST(_req: NextRequest, ctx: Ctx) {
+  const limited = await guard("importStep", _req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

@@ -1,4 +1,5 @@
 import RecapHeader from "@components/profile/v2/RecapHeader";
+import { pageGuard } from "@/lib/limits/page";
 import Link from "@components/ui/AppLink";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -28,6 +29,8 @@ export async function generateMetadata(ctx: Ctx): Promise<Metadata> {
 }
 
 export default async function MonthPage(ctx: Ctx) {
+  const slow = await pageGuard();
+  if (slow) return slow;
   const { id: username, month } = await ctx.params;
   const bounds = monthBounds(month);
   if (!bounds) notFound();

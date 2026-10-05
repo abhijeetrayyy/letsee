@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 
 const MIN_YEAR = 2000;
@@ -16,6 +17,8 @@ const MIN_YEAR = 2000;
  * becomes linkable. See 059_year_in_review.sql.
  */
 export async function PUT(req: NextRequest) {
+  const limited = await guard("heavy", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

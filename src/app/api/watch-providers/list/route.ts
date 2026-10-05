@@ -3,6 +3,7 @@ import { serverFetchJson } from "@/utils/serverFetch";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { tmdbConfigured } from "@/utils/tmdbClient";
 
+import { guard } from "@/lib/limits/guard";
 type TmdbProvider = {
   provider_id: number;
   provider_name: string;
@@ -18,6 +19,8 @@ type TmdbResponse = {
  * Returns list of watch providers for use in discover/search "Where to watch" filter.
  */
 export async function GET(request: NextRequest) {
+  const limited = await guard("tmdb", request);
+  if (limited) return limited;
   const { searchParams } = new URL(request.url);
   const mediaType = searchParams.get("mediaType") || "movie";
   const region = searchParams.get("region") || "US";

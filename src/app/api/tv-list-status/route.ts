@@ -4,6 +4,7 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { syncWatchedItem, fetchShowMeta } from "@/utils/tvMediaStatus";
 
+import { guard } from "@/lib/limits/guard";
 const TV_STATUSES = ["watchlist", "watching", "watched", "on_hold", "dropped"] as const;
 export type MediaStatus = (typeof TV_STATUSES)[number];
 
@@ -12,6 +13,8 @@ function isValidStatus(s: unknown): s is MediaStatus {
 }
 
 export async function GET(req: NextRequest) {
+  const limited = await guard("heavy", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 
@@ -55,6 +58,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const limited = await guard("write", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

@@ -5,6 +5,7 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { isPlace, normaliseDate, parseCompanions, recordViewing } from "@/utils/viewings";
 import { writeStatus, type MediaStatus } from "@/utils/mediaStatus";
 
+import { guard } from "@/lib/limits/guard";
 /**
  * Log a viewing: "I watched this, on this day, here, with these people."
  *
@@ -23,6 +24,8 @@ import { writeStatus, type MediaStatus } from "@/utils/mediaStatus";
  * is replaced rather than doubled.
  */
 export async function POST(req: NextRequest) {
+  const limited = await guard("write", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

@@ -4,7 +4,10 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { ensureShowInMediaStatus, autoTransitionStatus } from "@/utils/tvMediaStatus";
 
+import { guard } from "@/lib/limits/guard";
 export async function POST(req: NextRequest) {
+  const limited = await guard("write", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

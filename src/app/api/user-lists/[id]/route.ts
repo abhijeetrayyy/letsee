@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 import { getAuthUserId } from "@/utils/apiAuth";
 
+import { guard } from "@/lib/limits/guard";
 type RouteContext = { params: Promise<{ id: string }> };
 
 /** GET /api/user-lists/[id] — one list (with items count); access by visibility if not owner */
@@ -10,6 +11,8 @@ export async function GET(
   request: NextRequest,
   context: RouteContext
 ) {
+  const limited = await guard("heavy", request);
+  if (limited) return limited;
   const supabase = await createClient();
   // Public lists are readable signed-out — a shared list link is an acquisition
   // path, and 401ing here dead-ends every invitee.
@@ -68,6 +71,8 @@ export async function PATCH(
   request: NextRequest,
   context: RouteContext
 ) {
+  const limited = await guard("write", request);
+  if (limited) return limited;
   const supabase = await createClient();
   const userId = await getAuthUserId();
   if (!userId) {
@@ -137,6 +142,8 @@ export async function DELETE(
   request: NextRequest,
   context: RouteContext
 ) {
+  const limited = await guard("write", request);
+  if (limited) return limited;
   const supabase = await createClient();
   const userId = await getAuthUserId();
   if (!userId) {

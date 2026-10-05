@@ -3,12 +3,15 @@ import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ slug: string }> };
 
 /** GET /api/clubs/[slug] — club, members, and the current pick. */
 export async function GET(_req: NextRequest, ctx: Ctx) {
+  const limited = await guard("heavy", _req);
+  if (limited) return limited;
   const { slug } = await ctx.params;
   const supabase = await createClient();
   const viewerId = await getAuthUserId();

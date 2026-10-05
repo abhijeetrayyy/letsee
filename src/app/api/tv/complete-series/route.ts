@@ -6,6 +6,7 @@ import { getAuthUserId } from "@/utils/apiAuth";
 import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { syncWatchedItem } from "@/utils/tvMediaStatus";
 
+import { guard } from "@/lib/limits/guard";
 /**
  * POST /api/tv/complete-series  { showId }
  *
@@ -18,6 +19,8 @@ import { syncWatchedItem } from "@/utils/tvMediaStatus";
  * empty — Save changes did nothing and there was no way out of "watching".
  */
 export async function POST(req: NextRequest) {
+  const limited = await guard("write", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

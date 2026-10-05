@@ -7,6 +7,7 @@ import { serializeParticipants } from "@/utils/tonightSession";
 import { strangersIn } from "@/lib/people/tonight";
 import { roomedAmong } from "@/utils/tonightRooms";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 
 /** A room bigger than this stops being a decision and starts being a poll. */
@@ -22,6 +23,8 @@ const MAX_PARTICIPANTS = 8;
  * The caller is always a participant, whether or not they list themselves.
  */
 export async function POST(req: NextRequest) {
+  const limited = await guard("write", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

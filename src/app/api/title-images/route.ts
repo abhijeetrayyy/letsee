@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { fetchTmdbJson, tmdbConfigured } from "@/utils/tmdbClient";
 
+import { guard } from "@/lib/limits/guard";
 const TMDB = "https://api.themoviedb.org/3";
 
 /**
@@ -14,6 +15,8 @@ const TMDB = "https://api.themoviedb.org/3";
 type Image = { file_path: string; iso_639_1: string | null; vote_average: number; width: number; height: number };
 
 export async function GET(req: NextRequest) {
+  const limited = await guard("tmdb", req);
+  if (limited) return limited;
   if (!tmdbConfigured()) return jsonError("TMDB is not configured", 500);
 
   const type = req.nextUrl.searchParams.get("type") === "tv" ? "tv" : "movie";

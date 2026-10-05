@@ -2,8 +2,11 @@ import { NextRequest } from "next/server";
 import { getSeasonEpisodes } from "@/utils/tmdbTvShow";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
+import { guard } from "@/lib/limits/guard";
 /** GET /api/tv-season-episodes?showId=123&season=1 — Episode list for a single season. */
 export async function GET(req: NextRequest) {
+  const limited = await guard("tmdb", req);
+  if (limited) return limited;
   const showId = req.nextUrl.searchParams.get("showId");
   const season = req.nextUrl.searchParams.get("season");
   if (!showId?.trim() || !season?.trim()) {

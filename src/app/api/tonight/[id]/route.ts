@@ -5,6 +5,7 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { resolveTonight } from "@/utils/tonight";
 import { loadSession, serializeParticipants } from "@/utils/tonightSession";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -17,6 +18,8 @@ type Ctx = { params: Promise<{ id: string }> };
  * another device, between the session opening and this read.
  */
 export async function GET(_req: NextRequest, ctx: Ctx) {
+  const limited = await guard("heavy", _req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

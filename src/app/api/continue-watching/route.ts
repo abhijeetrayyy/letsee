@@ -5,6 +5,7 @@ import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { tmdbConfigured } from "@/utils/tmdbClient";
 
+import { guard } from "@/lib/limits/guard";
 /**
  * Fetch at most this many, and render at most 8 — the ninth exists so the
  * "View all" tile, which is gated on `items.length > 8`, still appears.
@@ -54,6 +55,8 @@ function shortDate(iso: string): string {
 }
 
 export async function GET(req: NextRequest) {
+  const limited = await guard("heavy", req);
+  if (limited) return limited;
   const supabase = await createClient();
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);

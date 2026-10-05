@@ -5,6 +5,7 @@ import { fetchTmdb, tmdbConfigured } from "@/utils/tmdbClient";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 
+import { guard } from "@/lib/limits/guard";
 type Candidate = {
   id: string;
   itemType: "movie" | "tv";
@@ -24,6 +25,8 @@ type Candidate = {
  * without having to remember what you've already logged.
  */
 export async function GET(req: NextRequest) {
+  const limited = await guard("heavy", req);
+  if (limited) return limited;
   if (!tmdbConfigured()) return jsonError("TMDB_READ_TOKEN is missing", 500);
 
   const userId = await getAuthUserId();

@@ -2,8 +2,11 @@ import { createClient } from "@/utils/supabase/server";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 import { getAuthUserId } from "@/utils/apiAuth";
 
+import { guard } from "@/lib/limits/guard";
 /** GET /api/profile/watched-with-reviews — returns watched items that have review_text (for current user, for pinned review dropdown) */
 export async function GET() {
+  const limited = await guard("heavy");
+  if (limited) return limited;
   const supabase = await createClient();
   const userId = await getAuthUserId();
   if (!userId) {

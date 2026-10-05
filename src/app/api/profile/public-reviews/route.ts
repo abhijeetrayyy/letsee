@@ -3,12 +3,15 @@ import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { publishedReviewText } from "@/utils/publishedReviews";
 
+import { guard } from "@/lib/limits/guard";
 /**
  * GET /api/profile/public-reviews?userId=...&page=1&limit=20
  * Returns all watched items for this user that have a public review (public_review_text IS NOT NULL).
  * Same visibility rules as profile: can view profile + profile_show_public_reviews for visitors.
  */
 export async function GET(request: Request) {
+  const limited = await guard("heavy", request);
+  if (limited) return limited;
   const supabase = await createClient();
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");

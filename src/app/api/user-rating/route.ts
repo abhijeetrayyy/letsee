@@ -4,8 +4,11 @@ import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { setScore, clearScore, NA } from "@/utils/takes";
 
+import { guard } from "@/lib/limits/guard";
 /** GET /api/user-rating?itemId=123&itemType=movie — returns { score: number | null } */
 export async function GET(request: NextRequest) {
+  const limited = await guard("heavy", request);
+  if (limited) return limited;
   const supabase = await createClient();
   const userId = await getAuthUserId();
   if (!userId) {
@@ -42,6 +45,8 @@ export async function GET(request: NextRequest) {
 
 /** POST /api/user-rating — body: { itemId: string, itemType: 'movie'|'tv', score: number } — set/update rating (1-10) */
 export async function POST(request: NextRequest) {
+  const limited = await guard("write", request);
+  if (limited) return limited;
   const supabase = await createClient();
   const userId = await getAuthUserId();
   if (!userId) {
@@ -132,6 +137,8 @@ export async function POST(request: NextRequest) {
 
 /** DELETE /api/user-rating — body: { itemId: string, itemType: 'movie'|'tv' } — remove rating */
 export async function DELETE(request: NextRequest) {
+  const limited = await guard("write", request);
+  if (limited) return limited;
   const supabase = await createClient();
   const userId = await getAuthUserId();
   if (!userId) {

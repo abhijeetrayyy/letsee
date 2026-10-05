@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 import { getAuthUserId } from "@/utils/apiAuth";
 
+import { guard } from "@/lib/limits/guard";
 type ListRow = { id: number; [k: string]: unknown };
 
 /**
@@ -48,6 +49,8 @@ async function enrichLists(
 
 /** GET /api/user-lists — current user's lists. GET /api/user-lists?userId=xxx — lists for profile (respects visibility). Anon can view public lists only. */
 export async function GET(request: NextRequest) {
+  const limited = await guard("heavy", request);
+  if (limited) return limited;
   const supabase = await createClient();
   const viewerId = await getAuthUserId();
 
@@ -157,6 +160,8 @@ export async function GET(request: NextRequest) {
 
 /** POST /api/user-lists — create list. Body: { name: string, description?: string, visibility?: 'public'|'followers'|'private' } */
 export async function POST(request: NextRequest) {
+  const limited = await guard("write", request);
+  if (limited) return limited;
   const supabase = await createClient();
   const userId = await getAuthUserId();
   if (!userId) {

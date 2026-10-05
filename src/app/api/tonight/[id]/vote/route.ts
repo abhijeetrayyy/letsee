@@ -5,6 +5,7 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { resolveTonight } from "@/utils/tonight";
 import { loadSession, serializeParticipants } from "@/utils/tonightSession";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -19,6 +20,8 @@ type Ctx = { params: Promise<{ id: string }> };
  * and it costs the user nothing to give.
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const limited = await guard("write", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 
 /** Guard against a client posting an unbounded array into the table. */
@@ -18,6 +19,8 @@ type ProviderInput = { id: number; name?: string };
  * anything.
  */
 export async function GET() {
+  const limited = await guard("heavy");
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 
@@ -56,6 +59,8 @@ export async function GET() {
  * so a user who skips the picker still gets picks.
  */
 export async function PUT(req: NextRequest) {
+  const limited = await guard("write", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { tmdbConfigured } from "@/utils/tmdbClient";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
@@ -313,6 +314,8 @@ function interpretation(parsed: ParsedQuery): string[] {
 }
 
 export async function GET(request: Request) {
+  const limited = await guard("tmdb", request);
+  if (limited) return limited;
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q");
 

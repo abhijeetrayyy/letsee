@@ -3,6 +3,7 @@ import { parseBrowseParams } from "@/utils/browseUrl";
 import { jsonSuccess } from "@/utils/apiResponse";
 import { loadResults, resolveLabels } from "@/lib/search/browse.server";
 
+import { guard } from "@/lib/limits/guard";
 /**
  * GET /api/browse?type=&genre=&lang=&decade=&sort=&keyword=&company=&network=&collection=&page=
  *
@@ -13,6 +14,8 @@ import { loadResults, resolveLabels } from "@/lib/search/browse.server";
  * every view.
  */
 export async function GET(req: NextRequest) {
+  const limited = await guard("tmdb", req);
+  if (limited) return limited;
   const p = parseBrowseParams(Object.fromEntries(req.nextUrl.searchParams));
   const [labels, { items, totalPages, total }] = await Promise.all([resolveLabels(p), loadResults(p)]);
   return jsonSuccess(

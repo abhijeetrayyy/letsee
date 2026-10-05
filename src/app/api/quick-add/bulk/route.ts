@@ -4,6 +4,7 @@ import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { ensureFirstViewings } from "@/utils/mediaStatus";
 
+import { guard } from "@/lib/limits/guard";
 const VALID_STATUSES = ["watchlist", "watching", "watched"] as const;
 type QuickStatus = (typeof VALID_STATUSES)[number];
 
@@ -29,6 +30,8 @@ const MAX_ENTRIES = 200;
  * endpoint made a fast grid feel slow and hammered the database.
  */
 export async function POST(req: NextRequest) {
+  const limited = await guard("write", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

@@ -4,6 +4,7 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { roomPeople } from "@/utils/tonightRooms";
 import { getBlockedUserIds } from "@/utils/blocks";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 
 /**
@@ -17,6 +18,8 @@ export const dynamic = "force-dynamic";
  * Mutuals sort first — the people you actually watch with.
  */
 export async function GET() {
+  const limited = await guard("heavy");
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

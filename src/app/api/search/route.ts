@@ -3,7 +3,10 @@ import { serverFetchJson } from "@/utils/serverFetch";
 import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 import { tmdbConfigured } from "@/utils/tmdbClient";
 
+import { guard } from "@/lib/limits/guard";
 export async function GET(request: NextRequest) {
+  const limited = await guard("tmdb", request);
+  if (limited) return limited;
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("query") ?? "";
   const mediaType = searchParams.get("media_type") ?? "multi";

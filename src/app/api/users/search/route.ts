@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonSuccess } from "@/utils/apiResponse";
 
+import { guard } from "@/lib/limits/guard";
 type CountStats = {
   watched_count?: number;
   favorites_count?: number;
@@ -34,6 +35,8 @@ function statOf(c: Candidate, key: keyof CountStats): number {
  * mutual-follow fields only populate when signed in.
  */
 export async function GET(req: NextRequest) {
+  const limited = await guard("people", req);
+  if (limited) return limited;
   const supabase = await createClient();
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
   const limit = Math.min(Math.max(Number(req.nextUrl.searchParams.get("limit")) || 24, 1), 60);

@@ -5,6 +5,7 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { loadSession } from "@/utils/tonightSession";
 import { autoTransitionStatus, ensureShowInMediaStatus } from "@/utils/tvMediaStatus";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -23,6 +24,8 @@ type Ctx = { params: Promise<{ id: string }> };
  * needs a consent step first; see SURPASSING_LETTERBOXD.md.
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const limited = await guard("write", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

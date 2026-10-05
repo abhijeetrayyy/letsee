@@ -12,6 +12,7 @@ import JsonLd from "@components/seo/JsonLd";
 import { organisationLd } from "@/utils/structuredData";
 import NavigationProgress from "@components/ui/NavigationProgress";
 import PendingNavigation from "@components/ui/PendingNavigation";
+import FairUseNotice from "@components/ui/FairUseNotice";
 import { Suspense } from "react";
 import { TOKENS } from "@/design/tokens";
 import { THEME_SCRIPT } from "@/lib/theme";
@@ -201,6 +202,8 @@ export default function RootLayout({
                   </main>
                   {/* The next page's shape while a tapped link's page loads. */}
                   <PendingNavigation />
+                  {/* "Slow down" in a sentence when the site asks (lib/limits). */}
+                  <FairUseNotice />
                 </UserPrefrenceProvider>
               </MediaInteractionProvider>
             </SwrProvider>

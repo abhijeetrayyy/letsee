@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 
 function slugify(name: string): string {
@@ -27,6 +28,8 @@ function slugify(name: string): string {
  */
 /** POST /api/clubs — create a club. The creator becomes its owner. */
 export async function POST(req: NextRequest) {
+  const limited = await guard("write", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

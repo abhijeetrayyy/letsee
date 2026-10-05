@@ -4,6 +4,7 @@ import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { writeStatus } from "@/utils/mediaStatus";
 
+import { guard } from "@/lib/limits/guard";
 const VALID_STATUSES = ["watchlist", "watching", "watched", "on_hold", "dropped"] as const;
 type MediaStatus = (typeof VALID_STATUSES)[number];
 
@@ -12,6 +13,8 @@ function isValidStatus(s: unknown): s is MediaStatus {
 }
 
 export async function PUT(req: NextRequest) {
+  const limited = await guard("write", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 
@@ -149,6 +152,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const limited = await guard("write", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 
@@ -284,6 +289,8 @@ export async function DELETE(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const limited = await guard("heavy", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

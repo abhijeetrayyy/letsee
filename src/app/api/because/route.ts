@@ -4,6 +4,7 @@ import { jsonSuccess, jsonError } from "@/utils/apiResponse";
 import { rankBecause, type BecauseCandidate, type BecauseItem } from "@/utils/title/because";
 import { tmdbConfigured } from "@/utils/tmdbClient";
 
+import { guard } from "@/lib/limits/guard";
 /**
  * "Because you love …": titles to watch next from one favourite.
  *
@@ -30,6 +31,8 @@ type TmdbTitle = {
 };
 
 export async function GET(request: NextRequest) {
+  const limited = await guard("tmdb", request);
+  if (limited) return limited;
   if (!tmdbConfigured()) return jsonError("TMDB_READ_TOKEN is missing on the server.", 500);
 
   const params = new URL(request.url).searchParams;

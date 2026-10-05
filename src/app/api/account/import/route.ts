@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { parseLetterboxdExport, type ParseResult } from "@/utils/letterboxd";
+import { guard } from "@/lib/limits/guard";
 import {
   detectSource,
   isImportSource,
@@ -51,6 +52,8 @@ const PARSERS: Record<ImportSource, (bytes: Uint8Array, filename: string) => Par
  * See 058_letterboxd_import.sql.
  */
 export async function POST(req: NextRequest) {
+  const limited = await guard("importStart", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 
@@ -162,6 +165,8 @@ export async function POST(req: NextRequest) {
 
 /** GET /api/account/import — the caller's most recent imports. */
 export async function GET() {
+  const limited = await guard("importStep");
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 
@@ -192,6 +197,8 @@ export async function GET() {
  * of a finished job go with their job.
  */
 export async function DELETE() {
+  const limited = await guard("write");
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

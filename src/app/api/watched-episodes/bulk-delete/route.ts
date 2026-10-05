@@ -3,12 +3,15 @@ import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { autoTransitionStatus } from "@/utils/tvMediaStatus";
 
+import { guard } from "@/lib/limits/guard";
 /**
  * DELETE /api/watched-episodes/bulk-delete
  * Bulk delete multiple watched episodes for a show.
  * Request body: { showId, episodes: [{ season_number, episode_number }] }
  */
 export async function DELETE(request: Request) {
+  const limited = await guard("write", request);
+  if (limited) return limited;
   const supabase = await createClient();
   const userId = await getAuthUserId();
 

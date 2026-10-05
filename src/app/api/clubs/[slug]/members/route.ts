@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ slug: string }> };
@@ -22,6 +23,8 @@ async function clubFromSlug(
 
 /** POST /api/clubs/[slug]/members — join. */
 export async function POST(_req: NextRequest, ctx: Ctx) {
+  const limited = await guard("write", _req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 
@@ -53,6 +56,8 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
 
 /** DELETE /api/clubs/[slug]/members — leave. */
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
+  const limited = await guard("write", _req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

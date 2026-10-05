@@ -5,6 +5,7 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { fetchTmdbJson, tmdbConfigured } from "@/utils/tmdbClient";
 import { applyRows } from "@/utils/importApply";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -31,6 +32,8 @@ type TmdbDetail = {
  *       { rowId, skip: true }         → leave it out of the library for good
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const limited = await guard("importStep", req);
+  if (limited) return limited;
   const userId = await getAuthUserId();
   if (!userId) return jsonError("Not authenticated", 401);
 

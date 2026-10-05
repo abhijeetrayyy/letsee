@@ -1,4 +1,5 @@
 import RecapHeader from "@components/profile/v2/RecapHeader";
+import { pageGuard } from "@/lib/limits/page";
 import Link from "@components/ui/AppLink";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -70,6 +71,8 @@ export async function generateMetadata(ctx: Ctx): Promise<Metadata> {
 }
 
 export default async function YearInReviewPage(ctx: Ctx) {
+  const slow = await pageGuard();
+  if (slow) return slow;
   const { id: username, year: yearParam } = await ctx.params;
 
   const year = Number(yearParam);

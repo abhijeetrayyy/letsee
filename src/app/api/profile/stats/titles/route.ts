@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
+import { guard } from "@/lib/limits/guard";
 export const dynamic = "force-dynamic";
 
 /**
@@ -20,6 +21,8 @@ export const dynamic = "force-dynamic";
  * `limit` returns 100 rows rather than an error.
  */
 export async function GET(request: Request) {
+  const limited = await guard("heavy", request);
+  if (limited) return limited;
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");
 

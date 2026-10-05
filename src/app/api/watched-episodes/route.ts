@@ -4,7 +4,10 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { getAuthUserId } from "@/utils/apiAuth";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 
+import { guard } from "@/lib/limits/guard";
 export async function GET(req: NextRequest) {
+  const limited = await guard("heavy", req);
+  if (limited) return limited;
   const supabase = await createClient();
   const userId = await getAuthUserId();
   if (!userId) {
