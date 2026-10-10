@@ -127,11 +127,18 @@ export async function fetchWatchedPage(
   genre?: string | null,
   itemType?: string | null,
 ): Promise<WatchedPage> {
-  const { data: profile, error: profileError } = await supabase
-    .from("users")
-    .select("visibility, profile_show_ratings, profile_show_public_reviews")
-    .eq("id", ownerId)
-    .maybeSingle();
+  /**
+   * Watched means finished. `watched_items.is_watched` is true for anything
+   * *seen* — Watching, on hold and dropped too (utils/mediaStatus) — so the
+   * grid listed films and series still in progress as watched (owner, 10 Oct
+   * 2026). Those are the Watching row and Series progress; the grid leaves
+   * them out, by type, since a film and a series can share an id. Read in
+   * parallel with the profile; a handful of rows.
+   */
+  const [{ data: profile, error: profileError }, { data: unfinished }] = await Promise.all([
+    supabase.from("users").select("visibility, profile_show_ratings, profile_show_public_reviews").eq("id", ownerId).maybeSingle(),
+    supabase.from("user_media_status").select("item_id, item_type").eq("user_id", ownerId).in("status", ["watching", "on_hold", "dropped"]),
+  ]);
 
   if (profileError || !profile) throw new Error("User not found");
 
@@ -158,6 +165,16 @@ export async function fetchWatchedPage(
     // order, so add a unique tiebreaker before paging over it.
     .order("watched_at", { ascending: false })
     .order("id", { ascending: false });
+
+  const skip = { movie: [] as string[], tv: [] as string[] };
+  for (const r of unfinished ?? []) {
+    const id = String(r.item_id);
+    if (/^\d+$/.test(id)) skip[r.item_type === "tv" ? "tv" : "movie"].push(id);
+  }
+  if (skip.movie.length || skip.tv.length) {
+    const side = (t: "movie" | "tv") => (skip[t].length ? `and(item_type.eq.${t},item_id.not.in.(${skip[t].join(",")}))` : `item_type.eq.${t}`);
+    query = query.or(`${side("movie")},${side("tv")}`);
+  }
 
   if (genre && typeof genre === "string") query = query.overlaps("genres", [genre.trim()]);
   if (itemType === "tv" || itemType === "movie") query = query.eq("item_type", itemType);
