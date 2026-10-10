@@ -151,7 +151,8 @@ async function fetchProfileData(username: string | null, currentUserIdInput: Pro
       ? supabase.from("user_connections").select("id").eq("follower_id", currentUserId).eq("followed_id", profileId).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase.from("user_favorite_display").select("position, item_id, item_type, image_url, item_name").eq("user_id", profileId).order("position", { ascending: true }),
-    supabase.from("user_media_status").select("item_id, item_type, item_name, image_url").eq("user_id", profileId).eq("status", "watching").order("updated_at", { ascending: false }).limit(8),
+    // Watching, On hold and Dropped: the profile's shelf of things started (ProfileV2).
+    supabase.from("user_media_status").select("item_id, item_type, item_name, image_url, status").eq("user_id", profileId).in("status", ["watching", "on_hold", "dropped"]).order("updated_at", { ascending: false }).limit(48),
     supabase.from("viewings").select("id", { count: "exact", head: true }).eq("user_id", profileId).gte("watched_on", monthStart),
   ]);
 

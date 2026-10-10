@@ -44,6 +44,50 @@ export type Mark = {
 
 const stopped = (s: Status) => s === "on_hold" || s === "dropped";
 
+/** The in-progress tile says where it stands: Watching, On hold, or Dropped. */
+const progressLabel = (s: Status) => (s === "on_hold" ? "On hold" : s === "dropped" ? "Dropped" : "Watching");
+
+/**
+ * Where something you've started stands: **Watching · On hold · Dropped**.
+ *
+ * The owner (10 Oct 2026) wanted on hold and dropped back — they'd become one
+ * "Stopped", reachable only as "Stop watching" in a series' menu, and a film
+ * couldn't be paused or dropped at all. They come back as a row under the
+ * marks that appears once you've started something (and only then, so a
+ * first visit still sees four plain choices): one tap moves between them,
+ * with Undo. On hold keeps your place and waits in Up next; Dropped says
+ * you're done, without pretending you never started.
+ */
+export type Stage = "watching" | "on_hold" | "dropped";
+
+export function stagesFor(s: MarkState): { key: Stage; label: string; on: boolean }[] | null {
+  if (s.status !== "watching" && !stopped(s.status)) return null;
+  return [
+    { key: "watching", label: "Watching", on: s.status === "watching" },
+    { key: "on_hold", label: "On hold", on: s.status === "on_hold" },
+    { key: "dropped", label: "Dropped", on: s.status === "dropped" },
+  ];
+}
+
+/** The toast after moving between them. */
+export function saidAfterStage(stage: Stage): string {
+  switch (stage) {
+    case "watching":
+      return "Back to watching";
+    case "on_hold":
+      return "On hold — it keeps your place";
+    case "dropped":
+      return "Dropped";
+  }
+}
+
+/** Where a stage leads next, said under the toast. */
+export function hintAfterStage(stage: Stage, kind: Kind): string | undefined {
+  if (stage === "on_hold") return "It waits for you in Up next.";
+  if (stage === "dropped") return kind === "tv" ? "Your episodes stay marked. Pick it back up any time." : "Pick it back up any time.";
+  return undefined;
+}
+
 export function marksFor(s: MarkState): Mark[] {
   const later: Mark = {
     key: "later",
@@ -60,7 +104,7 @@ export function marksFor(s: MarkState): Mark[] {
     const watching = s.status === "watching" || stopped(s.status);
     return [
       { key: "watched", label: "Watched", on: watched, disabled: null },
-      { key: "watching", label: stopped(s.status) ? "Stopped" : "Watching", on: watching, disabled: null },
+      { key: "watching", label: progressLabel(s.status), on: watching, disabled: null },
       { ...later, disabled: (watched || watching) && !later.on ? (watching ? "You're watching it" : "You've watched it") : null },
       favourite,
     ];
@@ -69,7 +113,7 @@ export function marksFor(s: MarkState): Mark[] {
   const finished = s.status === "watched";
   const watching = s.status === "watching" || stopped(s.status);
   return [
-    { key: "watching", label: stopped(s.status) ? "Stopped" : "Watching", on: watching, disabled: null },
+    { key: "watching", label: progressLabel(s.status), on: watching, disabled: null },
     { key: "finished", label: "Finished", on: finished, disabled: null },
     { ...later, disabled: (watching || finished) && !later.on ? (finished ? "You've finished it" : "You're watching it") : null },
     favourite,
@@ -99,7 +143,7 @@ export function tapOf(s: MarkState, key: MarkKey): Tap {
       if (!mark.on) return { do: "status", status: "watched", dated: false };
       return s.logged ? { do: "logged" } : { do: "status", status: null, dated: false };
     case "watching":
-      // Stopped → back to watching; watching → not watching.
+      // On hold or dropped → back to watching; watching → not watching.
       if (stopped(s.status)) return { do: "status", status: "watching", dated: false };
       return { do: "status", status: mark.on ? null : "watching", dated: false };
     case "finished":

@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
       // Only items that have no user_media_status row (tracked via episodes only)
       filteredIds = Array.from(allIds).filter((id) => !statusMap.has(id));
     } else if (statusFilter) {
-      // One status, or several comma-separated: "Stopped" is on_hold and dropped.
+      // One status, or several comma-separated (on_hold,dropped).
       const wanted = new Set(statusFilter.split(",").map((s) => s.trim()));
       filteredIds = Array.from(allIds).filter((id) => wanted.has(statusMap.get(id) ?? ""));
     } else {

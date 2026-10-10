@@ -28,7 +28,7 @@ export function hasStarted(p: SeriesProgress): boolean {
   return p.episodes_watched > 0 || p.tv_status === "watching";
 }
 
-/** "Next S02 · E03", "Caught up · next airs 12 Mar", "Finished", "Want to watch · 62 episodes" — plus Stopped when it applies. */
+/** "Next S02 · E03", "Caught up · next airs 12 Mar", "Finished", "Want to watch · 62 episodes" — plus On hold or Dropped when it applies. */
 export function seriesLine(p: SeriesProgress): string {
   const word = p.tv_status ? statusWord(p.tv_status as Status) : null;
   if (!hasStarted(p)) return [word ?? "Not started", `${p.total_episodes} ${p.total_episodes === 1 ? "episode" : "episodes"}`].join(" · ");
@@ -41,7 +41,7 @@ export function seriesLine(p: SeriesProgress): string {
       : p.next_season && p.next_episode
         ? `Next ${episodeLabel({ s: p.next_season, e: p.next_episode })}`
         : null;
-  // Watching and Watched are what the line already says; Stopped and Want to watch are not.
+  // Watching and Watched are what the line already says; On hold, Dropped and Want to watch are not.
   return [where, word && word !== "Watching" && word !== "Watched" ? word : null].filter(Boolean).join(" · ");
 }
 

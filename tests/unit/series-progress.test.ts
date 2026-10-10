@@ -17,9 +17,9 @@ describe("a series on a profile", () => {
     expect(seriesLine(base)).toBe("Next S01 · E04");
   });
 
-  it("says Stopped when you stopped, without dropping where you were", () => {
-    expect(seriesLine({ ...base, tv_status: "on_hold" })).toBe("Next S01 · E04 · Stopped");
-    expect(seriesLine({ ...base, tv_status: "dropped" })).toBe("Next S01 · E04 · Stopped");
+  it("says On hold or Dropped, without losing where you were", () => {
+    expect(seriesLine({ ...base, tv_status: "on_hold" })).toBe("Next S01 · E04 · On hold");
+    expect(seriesLine({ ...base, tv_status: "dropped" })).toBe("Next S01 · E04 · Dropped");
   });
 
   it("tells finished from caught up", () => {

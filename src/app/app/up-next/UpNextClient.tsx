@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Check, LoaderCircle, Search, Shuffle } from "lucide-react";
+import { Ban, Check, LoaderCircle, Play, Search, Shuffle } from "lucide-react";
 import Link from "@components/ui/AppLink";
 import Avatar from "@components/ui/Avatar";
 import Faces from "@components/ds/Faces";
 import { LogCheck, useLogIt } from "@components/ds/LogItButton";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import { fetchRoomList, type Pass, type RoomPerson } from "@/lib/db/rooms";
-import { fetchSaves, restorePass, savePass, setPassAside, setPlan } from "@/lib/db/upNext";
+import { fetchOnHold, fetchSaves, restorePass, savePass, setPassAside, setPlan, type OnHold } from "@/lib/db/upNext";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
+import { markToast } from "@components/ds/markToast";
 import { laneOf, pickOne, pickReason, type Save } from "@/lib/people/lanes";
 import { ago } from "@components/rooms/time";
 import { todayIso } from "@/utils/viewings";
@@ -51,6 +53,7 @@ export default function UpNextClient() {
   const { data: episodes, mutate: setEpisodes } = useSWR<{ items: Episode[] }>(me ? "/api/continue-watching" : null, episodesFetcher, {
     revalidateOnFocus: false,
   });
+  const { data: onHold, mutate: refreshOnHold } = useSWR(me ? ["on-hold", me] : null, () => fetchOnHold(me!), { revalidateOnFocus: false });
 
   /** Logged from this page: shown as done until the page is next loaded. */
   const [done, setDone] = useState<Set<string>>(new Set());
@@ -97,7 +100,7 @@ export default function UpNextClient() {
   const saved = new Set(saves.map(key));
   const decideWith = (list?.people ?? []).slice(0, 3).map((p) => p.person);
   const shows = (episodes?.items ?? []).filter((e) => !e.is_caught_up || e.waiting).slice(0, 8);
-  const nothing = !saves.length && !passes.length && !shows.length;
+  const nothing = !saves.length && !passes.length && !shows.length && !onHold?.length;
 
   return (
     <Page>
@@ -168,6 +171,25 @@ export default function UpNextClient() {
           <ul className="divide-y divide-line">
             {linedUp.map((s) => (
               <SaveRow key={key(s)} save={s} done={done.has(key(s))} onDone={(on) => mark(key(s), on)} />
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      {/* Paused, not forgotten: on hold means later, and later needs a place. */}
+      {onHold && onHold.length > 0 && (
+        <Section title="On hold">
+          <ul className="divide-y divide-line">
+            {onHold.map((h) => (
+              <OnHoldRow
+                key={key(h)}
+                item={h}
+                onMoved={() => {
+                  void refreshOnHold();
+                  // A series picked back up rejoins Next episodes.
+                  if (h.itemType === "tv") void setEpisodes();
+                }}
+              />
             ))}
           </ul>
         </Section>
@@ -525,5 +547,74 @@ function Someday({
         </button>
       )}
     </>
+  );
+}
+
+/**
+ * One title on hold: Resume puts it back to Watching (a series rejoins Next
+ * episodes), Drop says you're done with it. Each with Undo, like every mark.
+ */
+function OnHoldRow({ item, onMoved }: { item: OnHold; onMoved: () => void }) {
+  const { setStatus, refreshPreferences } = useContext(UserPrefrenceContext);
+  const [busy, setBusy] = useState<"watching" | "dropped" | null>(null);
+  const href = titlePath(item.itemType, item.itemId, item.itemName);
+  const move = async (to: "watching" | "dropped") => {
+    if (busy) return;
+    setBusy(to);
+    const base = { itemId: item.itemId, mediaType: item.itemType, name: item.itemName, imgUrl: item.imageUrl ?? undefined, keepData: true, dated: false };
+    const r = await setStatus({ ...base, status: to });
+    setBusy(null);
+    if (!r.ok) {
+      toast.error(r.message ?? "That didn't save. Check your connection and try again.");
+      return;
+    }
+    onMoved();
+    markToast({
+      text: to === "watching" ? `Back to watching ${item.itemName}` : `Dropped ${item.itemName}`,
+      undo: async () => {
+        await setStatus({ ...base, status: "on_hold" });
+        await refreshPreferences();
+        onMoved();
+      },
+    });
+  };
+  const since = new Date(item.since).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return (
+    <li className="flex items-center gap-3.5 py-2.5">
+      <Link href={href} aria-label={`Open ${item.itemName}`} className="shrink-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={getPosterUrl(item.imageUrl, "w92")} alt="" loading="lazy" className="aspect-2/3 w-12 rounded-media bg-hover object-cover" />
+      </Link>
+      <div className="min-w-0 flex-1">
+        <Link href={href} className="block truncate font-display text-base text-ink-0 hover:underline">
+          {item.itemName}
+        </Link>
+        <p className="truncate font-mono text-xs uppercase tracking-wide text-ink-500">
+          {item.itemType === "tv" ? "Series" : "Film"} · since {since}
+        </p>
+      </div>
+      {/* A word where there's room, the ▶ alone on a phone so the title keeps its line. */}
+      <button
+        type="button"
+        onClick={() => void move("watching")}
+        disabled={!!busy}
+        aria-label={`Resume ${item.itemName}`}
+        title="Resume"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0 disabled:opacity-60 sm:w-auto sm:px-3.5"
+      >
+        {busy === "watching" ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Play className="size-4" aria-hidden />}
+        <span className="hidden sm:inline">Resume</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => void move("dropped")}
+        disabled={!!busy}
+        aria-label={`Drop ${item.itemName}`}
+        title="Drop it"
+        className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-400 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0 disabled:opacity-60"
+      >
+        {busy === "dropped" ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Ban className="size-4" aria-hidden />}
+      </button>
+    </li>
   );
 }

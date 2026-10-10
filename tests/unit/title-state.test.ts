@@ -7,7 +7,6 @@ import {
   stateLine,
   statusAfterLog,
   statusChoices,
-  menuStatus,
   statusToRestore,
   statusWord,
   type Kind,
@@ -18,13 +17,13 @@ import {
 const TODAY = "2026-10-03";
 const s = (kind: Kind, status: Status, days: string[] = []): TitleState => ({ kind, status, viewings: days.map((watchedOn) => ({ watchedOn })) });
 
-describe("the four words", () => {
+describe("the five words", () => {
   it("reads every status the way a person would", () => {
     expect(statusWord("watchlist")).toBe("Want to watch");
     expect(statusWord("watching")).toBe("Watching");
     expect(statusWord("watched")).toBe("Watched");
-    expect(statusWord("on_hold")).toBe("Stopped");
-    expect(statusWord("dropped")).toBe("Stopped");
+    expect(statusWord("on_hold")).toBe("On hold");
+    expect(statusWord("dropped")).toBe("Dropped");
     expect(statusWord(null)).toBeNull();
   });
 });
@@ -119,7 +118,8 @@ describe("the line that says where you stand", () => {
 
   it("names the status when nothing is logged", () => {
     expect(stateLine(s("movie", "watchlist"), TODAY)).toBe("Want to watch");
-    expect(stateLine(s("tv", "on_hold"), TODAY)).toBe("Stopped");
+    expect(stateLine(s("tv", "on_hold"), TODAY)).toBe("On hold");
+    expect(stateLine(s("movie", "dropped"), TODAY)).toBe("Dropped");
   });
 
   it("says when you watched it, and how often", () => {
@@ -139,21 +139,5 @@ describe("the line that says where you stand", () => {
   it("knows a watched status with no viewing is still watched", () => {
     expect(hasWatched(s("movie", "watched"))).toBe(true);
     expect(stateLine(s("movie", "watched"), TODAY)).toBe("Watched");
-  });
-});
-
-describe("the more menu's one status change", () => {
-  it("offers nothing for a film, whatever its status", () => {
-    for (const st of [null, "watchlist", "watched", "watching"] as const) expect(menuStatus("movie", st)).toBeNull();
-  });
-  it("stops a series you're on, and resumes one you stopped", () => {
-    expect(menuStatus("tv", "watching")).toEqual({ label: "Stop watching", to: "on_hold" });
-    expect(menuStatus("tv", "on_hold")).toEqual({ label: "Resume watching", to: "watching" });
-    expect(menuStatus("tv", "dropped")).toEqual({ label: "Resume watching", to: "watching" });
-  });
-  it("leaves saving and finishing to the bar and the log", () => {
-    expect(menuStatus("tv", null)).toBeNull();
-    expect(menuStatus("tv", "watchlist")).toBeNull();
-    expect(menuStatus("tv", "watched")).toBeNull();
   });
 });

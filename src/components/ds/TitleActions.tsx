@@ -3,7 +3,7 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Check, CirclePause, CirclePlay, ListChecks, LoaderCircle, MoreHorizontal, NotebookPen, Repeat, Share2 } from "lucide-react";
+import { Check, ListChecks, LoaderCircle, MoreHorizontal, NotebookPen, Repeat, Share2 } from "lucide-react";
 import { useDetails } from "@components/ds/LogItButton";
 import { markToast } from "@components/ds/markToast";
 import { dayLabel } from "@components/ds/DayChip";
@@ -14,7 +14,7 @@ import { useAuth } from "@/app/contextAPI/AuthProvider";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { fetchMyViewings } from "@/lib/db/viewings";
 import { viewingsKey } from "@/lib/db/keys";
-import { menuStatus, stateLine, statusWord, type Status } from "@/lib/logging/titleState";
+import { stateLine, statusWord, type Status } from "@/lib/logging/titleState";
 import { todayIso } from "@/utils/viewings";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { episodeLabel, epKey, leadsWithEpisode, nextEpisode, progressOf, type Ep, type SeasonInfo } from "@/lib/logging/episodes";
@@ -26,7 +26,8 @@ import { getPosterUrl } from "@/utils/imageUrl";
  * Favourite**), each one tap on or off (ds/MarkTiles, lib/logging/marks).
  * Under them, **Pass to…** and **⋯**, which holds the rest: when you watched
  * it, who was there, stars and words (ds/LogSheet), another viewing, episodes,
- * stopping a series, sharing. A series you're on leads with its next episode.
+ * sharing. Once started, Watching · On hold · Dropped sit under the marks. A
+ * series you're on leads with its next episode.
  *
  * "Log it" used to come first, alone, and nobody knew what it meant (owner
  * review, 5 Oct 2026). Then "Add to diary" sat beside the marks and the toast
@@ -58,12 +59,11 @@ export default function TitleActions({
 }) {
   const { user, status: authStatus } = useAuth();
   const me = authStatus === "ok" ? user?.id ?? null : null;
-  const { getStatus, setStatus, refreshPreferences } = useContext(UserPrefrenceContext);
+  const { getStatus, refreshPreferences } = useContext(UserPrefrenceContext);
   // The same cache entry as the viewings list under "Your entry", so a log here refreshes it there.
   const { data: viewings, mutate } = useSWR(me ? viewingsKey(itemId, itemType, me) : null, () => fetchMyViewings(me!, itemId, itemType), {
     revalidateOnFocus: false,
   });
-  const [busy, setBusy] = useState(false);
 
   // A series you've started leads with its next episode. Same cache entry as
   // the progress ribbon below, so a tick here fills a cell there.
@@ -91,7 +91,6 @@ export default function TitleActions({
           .join(" · ")
       : stateLine(state, todayIso());
   const imageUrl = posterPath ? getPosterUrl(posterPath, "w342") : null;
-  const base = { itemId, mediaType: itemType, name: itemName, imgUrl: imageUrl ?? undefined, adult, genres };
 
   /** POST toggles an episode; the route also moves the show to Watching (or Watched on the last). */
   const toggleEpisode = async (ep: Ep) =>
@@ -140,20 +139,11 @@ export default function TitleActions({
     });
   };
 
-  const changeStatus = async (next: Status, done: string) => {
-    if (busy) return;
-    setBusy(true);
-    const result = await setStatus({ ...base, status: next, keepData: true });
-    setBusy(false);
-    if (!result.ok) toast.error(result.message ?? "Couldn't change that.");
-    else toast.success(done);
-  };
 
   // When, who, stars and words: ⋯ → the details sheet, on your latest entry
   // if there is one. The list under "Your diary" refreshes from the same key.
   const details = useDetails({ itemId, itemType, itemName, imageUrl, genres, adult }, { onChanged: () => void mutate() });
   const latest = viewings?.[0] ?? null;
-  const menuStatusChange = me ? menuStatus(itemType, status) : null;
 
   const title = { itemId, itemType, itemName, imageUrl, genres, adult };
 
@@ -185,11 +175,6 @@ export default function TitleActions({
                 : { label: "When, who & stars", run: () => details.open(null) }
               : null
           }
-          statusChange={
-            menuStatusChange
-              ? { label: menuStatusChange.label, run: () => changeStatus(menuStatusChange.to, menuStatusChange.to === "watching" ? "Back to watching" : "Stopped") }
-              : null
-          }
           onEpisodes={onEpisodes}
           onShare={onShare}
         />
@@ -210,15 +195,12 @@ const MENU_WIDTH = 240;
 function MoreMenu({
   signedIn,
   diary,
-  statusChange,
   onEpisodes,
   onShare,
 }: {
   signedIn: boolean;
   /** The details sheet: your latest entry (and another viewing), or a first one. */
   diary: { label: string; run: () => void; again?: () => void } | null;
-  /** At most one: stop a series you're on, or resume one you stopped. */
-  statusChange: { label: string; run: () => void } | null;
   onEpisodes?: () => void;
   onShare: () => void;
 }) {
@@ -284,12 +266,6 @@ function MoreMenu({
             <button type="button" role="menuitem" onClick={pick(onEpisodes)} className={item}>
               <ListChecks className="size-4" aria-hidden />
               Mark episodes
-            </button>
-          )}
-          {statusChange && (
-            <button type="button" role="menuitem" onClick={pick(statusChange.run)} className={item}>
-              {statusChange.label === "Stop watching" ? <CirclePause className="size-4" aria-hidden /> : <CirclePlay className="size-4" aria-hidden />}
-              {statusChange.label}
             </button>
           )}
           <button type="button" role="menuitem" onClick={pick(onShare)} className={item}>

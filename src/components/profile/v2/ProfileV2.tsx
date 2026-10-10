@@ -47,7 +47,8 @@ export type ProfileV2Data = {
   canView: boolean;
   isFollowing: boolean;
   four: { position: number; item_id: string; item_type: string; image_url: string | null; item_name: string }[];
-  watching: { item_id: string; item_type: string; item_name: string; image_url: string | null }[];
+  /** Started: watching, on hold, or dropped (the shelf). */
+  watching: { item_id: string; item_type: string; item_name: string; image_url: string | null; status?: string | null }[];
   stats: UserStats;
   /** Diary entries since the first of this month. */
   thisMonth: number;
@@ -71,7 +72,7 @@ export default function ProfileV2({ data }: { data: ProfileV2Data }) {
   const sharesAnything = !!between && (between.together.length > 0 || between.meet.length > 0);
 
   // Their colour: the first of their four, or what they're watching.
-  const bannerSource = data.four[0]?.image_url ?? data.watching[0]?.image_url ?? null;
+  const bannerSource = data.four[0]?.image_url ?? data.watching.find((w) => (w.status ?? "watching") === "watching")?.image_url ?? null;
   const banner = bannerSource ? getPosterUrl(bannerSource, "w342") : null;
   // UTC on the server and in the browser alike, so the link renders the same in both.
   const now = new Date();
@@ -189,31 +190,7 @@ export default function ProfileV2({ data }: { data: ProfileV2Data }) {
           )}
 
 
-          {data.watching.length > 0 && (
-            <section aria-labelledby="watching-now">
-              <h2 id="watching-now" className="mb-4 text-2xl text-ink-0 sm:text-3xl">
-                Watching now
-              </h2>
-              <Rail>
-                <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 sm:scroll-px-6 lg:scroll-px-8 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-                  {data.watching.map((w, n) => (
-                    <li key={`${w.item_type}:${w.item_id}`} className="relative w-32 shrink-0 snap-start sm:w-40">
-                      <Link href={titlePath(w.item_type === "tv" ? "tv" : "movie", w.item_id, w.item_name)} className="block">
-                        <img src={getPosterUrl(w.image_url, "w342")} alt={w.item_name} loading={n < 3 ? "eager" : "lazy"} className="img-fade aspect-2/3 w-full rounded-media bg-hover object-cover" />
-                        <span className="mt-2 block truncate font-display text-base text-ink-0">{w.item_name}</span>
-                      </Link>
-                      {!isOwner && (
-                        <QuickMarkButton
-                          title={{ itemId: String(w.item_id), itemType: w.item_type === "tv" ? "tv" : "movie", itemName: w.item_name, imageUrl: w.image_url }}
-                          className="absolute right-2 top-2"
-                        />
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </Rail>
-            </section>
-          )}
+          <Started items={data.watching} isOwner={isOwner} />
 
           <Recent userId={user.id} markable={!isOwner} />
           <WatchesWith userId={user.id} />
@@ -274,6 +251,86 @@ export default function ProfileV2({ data }: { data: ProfileV2Data }) {
       {user.createdAt && <p className="text-center text-sm text-ink-500">On letsee since {new Date(user.createdAt).getUTCFullYear()}</p>}
       </div>
     </div>
+  );
+}
+
+const SHELVES = [
+  { key: "watching", title: "Watching now", tab: "Watching" },
+  { key: "on_hold", title: "On hold", tab: "On hold" },
+  { key: "dropped", title: "Dropped", tab: "Dropped" },
+] as const;
+
+/**
+ * What they've started, on one shelf: Watching, On hold, Dropped — a tab
+ * for each that has anything (owner, 10 Oct 2026: on hold and dropped were
+ * good, bring them back). Watching comes first and alone when it's all there
+ * is. Dropped posters sit in grey until you point at one: started, set down.
+ * Every poster carries a visitor's own mark, as everywhere on a profile.
+ */
+function Started({ items, isOwner }: { items: ProfileV2Data["watching"]; isOwner: boolean }) {
+  const groups = SHELVES.map((s) => ({ ...s, items: items.filter((i) => (i.status ?? "watching") === s.key) })).filter((g) => g.items.length > 0);
+  const [on, setOn] = useState<string | null>(null);
+  if (!groups.length) return null;
+  const current = groups.find((g) => g.key === on) ?? groups[0];
+  return (
+    <section aria-labelledby="started-shelf">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <h2 id="started-shelf" className="text-2xl text-ink-0 sm:text-3xl">
+          {current.title}
+        </h2>
+        {groups.length > 1 && (
+          <div role="tablist" aria-label="Started" className="flex flex-wrap gap-1.5">
+            {groups.map((g) => (
+              <button
+                key={g.key}
+                type="button"
+                role="tab"
+                aria-selected={g.key === current.key}
+                onClick={() => setOn(g.key)}
+                className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors ${
+                  g.key === current.key ? "bg-ink-0 text-page" : "text-ink-300 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"
+                }`}
+              >
+                {g.tab}
+                <span className="font-mono text-xs tabular-nums opacity-70">{g.items.length}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <Rail>
+        <ul key={current.key} className="no-scrollbar -mx-4 flex animate-fade-in snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:scroll-px-6 sm:px-6 lg:-mx-8 lg:scroll-px-8 lg:px-8">
+          {current.items.map((w, n) => (
+            <li key={`${w.item_type}:${w.item_id}`} className="group relative w-32 shrink-0 snap-start sm:w-40">
+              <Link href={titlePath(w.item_type === "tv" ? "tv" : "movie", w.item_id, w.item_name)} className="block">
+                <img
+                  src={getPosterUrl(w.image_url, "w342")}
+                  alt={w.item_name}
+                  loading={n < 3 ? "eager" : "lazy"}
+                  className={`img-fade aspect-2/3 w-full rounded-media bg-hover object-cover ${current.key === "dropped" ? "grayscale transition group-hover:grayscale-0 motion-reduce:transition-none" : ""}`}
+                />
+                <span className="mt-2 block truncate font-display text-base text-ink-0">{w.item_name}</span>
+              </Link>
+              {!isOwner && (
+                <QuickMarkButton
+                  title={{ itemId: String(w.item_id), itemType: w.item_type === "tv" ? "tv" : "movie", itemName: w.item_name, imageUrl: w.image_url }}
+                  className="absolute right-2 top-2"
+                />
+              )}
+            </li>
+          ))}
+        </ul>
+      </Rail>
+      {isOwner && current.key === "on_hold" && (
+        <p className="mt-3 text-sm text-ink-500">
+          They wait for you in{" "}
+          <Link href="/app/up-next" className="font-medium text-accent underline decoration-line-input underline-offset-4 hover:text-accent-soft">
+            Up next
+          </Link>
+          , one tap to pick back up.
+        </p>
+      )}
+    </section>
   );
 }
 

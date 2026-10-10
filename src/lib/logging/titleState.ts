@@ -17,8 +17,10 @@
  *    server keeps the status, and so does this model.
  * 4. **Undo puts back exactly what was there.**
  *
- * The words people see are the four in RETHINK.md: *Want to watch*,
- * *Watching*, *Watched*, *Stopped* (on hold and dropped both read Stopped).
+ * The words people see: *Want to watch*, *Watching*, *Watched*, *On hold*,
+ * *Dropped*. On hold and dropped used to share one word, "Stopped"; they
+ * mean different things — coming back to it, and done with it — and the
+ * owner wanted both back as choices (10 Oct 2026, lib/logging/marks).
  */
 export type Kind = "movie" | "tv";
 export type Status = "watchlist" | "watching" | "watched" | "on_hold" | "dropped" | null;
@@ -39,8 +41,9 @@ export function statusWord(status: Status): string | null {
     case "watched":
       return "Watched";
     case "on_hold":
+      return "On hold";
     case "dropped":
-      return "Stopped";
+      return "Dropped";
     default:
       return null;
   }
@@ -74,19 +77,6 @@ export function saveAction(s: TitleState): { show: boolean; saved: boolean } {
  */
 export function statusChoices(kind: Kind): Exclude<Status, "watched" | "dropped" | null>[] {
   return kind === "tv" ? ["watchlist", "watching", "on_hold"] : ["watchlist"];
-}
-
-/**
- * The one status change the title's "more" menu offers, if any. Everything
- * else already has a home: wanting to watch is the Save button, watched comes
- * from a log, and a series starts by ticking an episode. What's left is a
- * series you're on (stop it) or one you stopped (pick it back up).
- */
-export function menuStatus(kind: Kind, status: Status): { label: string; to: Exclude<Status, null> } | null {
-  if (kind !== "tv") return null;
-  if (status === "watching") return { label: "Stop watching", to: "on_hold" };
-  if (status === "on_hold" || status === "dropped") return { label: "Resume watching", to: "watching" };
-  return null;
 }
 
 /** What a log does to the status — the same rule `/api/viewings` applies. */
@@ -131,7 +121,7 @@ export function dayWords(day: string, today: string): string {
 /**
  * One quiet line under the actions saying where you stand: "Watched
  * yesterday", "Watched 3 times · last Fri 14 Mar", "Watching", "Want to
- * watch", "Stopped". Nothing when there is nothing.
+ * watch", "On hold", "Dropped". Nothing when there is nothing.
  */
 export function stateLine(s: TitleState, today: string): string | null {
   if (s.viewings.length > 0) {

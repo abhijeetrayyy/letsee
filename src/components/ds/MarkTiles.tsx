@@ -5,11 +5,11 @@ import { mutate as mutateSWR } from "swr";
 import { usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import { DETAILS_HINT, markToast } from "@components/ds/markToast";
-import { Check, CheckCheck, Clock, Heart, LoaderCircle, Play } from "lucide-react";
+import { Ban, Check, CheckCheck, Clock, Heart, LoaderCircle, Pause, Play } from "lucide-react";
 import Link from "@components/ui/AppLink";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
-import { marksFor, saidAfter, tapOf, type MarkKey } from "@/lib/logging/marks";
+import { hintAfterStage, marksFor, saidAfter, saidAfterStage, stagesFor, tapOf, type MarkKey, type Stage } from "@/lib/logging/marks";
 import type { Status } from "@/lib/logging/titleState";
 import type { LogTitle } from "@components/ds/LogItButton";
 import { hasDiaryEntry } from "@/lib/db/viewings";
@@ -186,14 +186,50 @@ export function useMarks(
     const seen = on && (key === "watched" || key === "finished" || promoted);
     markToast({
       id: `marks-${itemType}-${itemId}`,
-      text: promoted ? `Added to favourites, and marked ${itemType === "tv" ? "finished" : "watched"}` : saidAfter(key, on, itemType),
+      text: promoted
+        ? `Added to favourites, and marked ${itemType === "tv" ? "finished" : "watched"}`
+        : key === "watching" && on && (previous === "on_hold" || previous === "dropped")
+          ? "Back to watching"
+          : saidAfter(key, on, itemType),
       hint: seen ? DETAILS_HINT[where] : undefined,
       undo: () => void undo(),
     });
   };
 
-  return { signedIn: !!user, marks, tap, busy, status, favourite, loading };
+  /** Watching · On hold · Dropped, once you've started it (lib/logging/marks). */
+  const stages = stagesFor(state);
+  const tapStage = async (stage: Stage) => {
+    if (!user || busy || status === stage) return;
+    if (loading) {
+      toast("One moment — still loading your marks.", { id: "marks-loading", duration: 2000 });
+      return;
+    }
+    const previous = status;
+    setBusy("watching");
+    const r = await writeStatus(stage);
+    setBusy(null);
+    if (!r.ok) {
+      toast.error(r.message ?? "That didn't save. Check your connection and try again.");
+      return;
+    }
+    onDone?.();
+    markToast({
+      id: `marks-${itemType}-${itemId}`,
+      text: saidAfterStage(stage),
+      hint: hintAfterStage(stage, itemType),
+      undo: () => void writeStatus(previous).then(() => refreshPreferences()),
+    });
+  };
+
+  return { signedIn: !!user, marks, tap, busy, status, favourite, loading, stages, tapStage };
 }
+
+/** The in-progress tile's icon follows where it stands. */
+function progressIcon(status: Status): typeof Check {
+  return status === "on_hold" ? Pause : status === "dropped" ? Ban : Play;
+}
+
+const STAGE_ICONS: Record<Stage, typeof Check> = { watching: Play, on_hold: Pause, dropped: Ban };
 
 const ICONS: Record<MarkKey, typeof Check> = {
   watched: Check,
@@ -218,7 +254,7 @@ export default function MarkTiles({
   where?: "here" | "elsewhere";
   size?: "lg" | "md";
 }) {
-  const { signedIn, marks, tap, busy } = useMarks(title, { logged, onLoggedTap, onDone, where });
+  const { signedIn, marks, tap, busy, status, stages, tapStage } = useMarks(title, { logged, onLoggedTap, onDone, where });
   const pathname = usePathname() ?? "/app";
   const cols = marks.length === 4 ? "grid-cols-4" : "grid-cols-3";
   const height = size === "lg" ? "h-16" : "h-14";
@@ -246,37 +282,62 @@ export default function MarkTiles({
   }
 
   return (
-    <div role="group" aria-label="Mark this title" className={`grid ${cols} gap-2`}>
-      {marks.map((m) => {
-        const Icon = ICONS[m.key];
-        const working = busy === m.key;
-        return (
-          <button
-            key={m.key}
-            type="button"
-            onClick={() => void tap(m.key)}
-            aria-pressed={m.on}
-            aria-disabled={!!m.disabled || undefined}
-            disabled={working}
-            title={m.disabled ?? undefined}
-            className={`flex ${height} min-w-0 flex-col items-center justify-center gap-1 rounded-card px-1 ${text} font-medium transition-colors ${
-              m.on
-                ? "bg-action text-on-action hover:bg-action-hover"
-                : m.disabled
-                  ? "cursor-not-allowed text-ink-500 ring-1 ring-inset ring-line"
-                  : "text-ink-100 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"
-            }`}
-          >
-            {working ? (
-              <LoaderCircle className="size-5 animate-spin" aria-hidden />
-            ) : (
-              <Icon className={`size-5 ${m.on && (m.key === "favourite" || m.key === "watching") ? "fill-current" : ""}`} aria-hidden />
-            )}
-            <span className="max-w-full truncate">{m.label}</span>
-            {m.disabled && <span className="sr-only">: {m.disabled}</span>}
-          </button>
-        );
-      })}
+    <div className="grid gap-2">
+      <div role="group" aria-label="Mark this title" className={`grid ${cols} gap-2`}>
+        {marks.map((m) => {
+          const Icon = m.key === "watching" ? progressIcon(status) : ICONS[m.key];
+          const working = busy === m.key;
+          return (
+            <button
+              key={m.key}
+              type="button"
+              onClick={() => void tap(m.key)}
+              aria-pressed={m.on}
+              aria-disabled={!!m.disabled || undefined}
+              disabled={working}
+              title={m.disabled ?? undefined}
+              className={`flex ${height} min-w-0 flex-col items-center justify-center gap-1 rounded-card px-1 ${text} font-medium transition-colors ${
+                m.on
+                  ? "bg-action text-on-action hover:bg-action-hover"
+                  : m.disabled
+                    ? "cursor-not-allowed text-ink-500 ring-1 ring-inset ring-line"
+                    : "text-ink-100 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"
+              }`}
+            >
+              {working ? (
+                <LoaderCircle className="size-5 animate-spin" aria-hidden />
+              ) : (
+                <Icon className={`size-5 ${m.on && (m.key === "favourite" || m.key === "watching") ? "fill-current" : ""}`} aria-hidden />
+              )}
+              <span className="max-w-full truncate">{m.label}</span>
+              {m.disabled && <span className="sr-only">: {m.disabled}</span>}
+            </button>
+          );
+        })}
+      </div>
+      {stages && (
+        <div role="radiogroup" aria-label="Where you are with it" className="flex animate-fade-in flex-wrap items-center gap-1.5">
+          {stages.map((st) => {
+            const Icon = STAGE_ICONS[st.key];
+            return (
+              <button
+                key={st.key}
+                type="button"
+                role="radio"
+                aria-checked={st.on}
+                disabled={!!busy}
+                onClick={() => void tapStage(st.key)}
+                className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors disabled:opacity-60 ${
+                  st.on ? "bg-ink-0 text-page" : "text-ink-300 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"
+                }`}
+              >
+                <Icon className="size-3.5" aria-hidden />
+                {st.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

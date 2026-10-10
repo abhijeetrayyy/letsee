@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { marksFor, saidAfter, tapOf, type MarkState } from "@/lib/logging/marks";
+import { hintAfterStage, marksFor, saidAfter, saidAfterStage, stagesFor, tapOf, type MarkState } from "@/lib/logging/marks";
 
 const film = (over: Partial<MarkState> = {}): MarkState => ({ kind: "movie", status: null, favourite: false, logged: false, ...over });
 const show = (over: Partial<MarkState> = {}): MarkState => ({ kind: "tv", status: null, favourite: false, logged: false, ...over });
@@ -46,7 +46,8 @@ describe("marks for a series", () => {
   it("are Watching, Finished, Watch later and Favourite", () => {
     expect(labels(show())).toEqual(["Watching", "Finished", "Watch later", "Favourite"]);
     expect(labels(show({ status: "watching" }))).toEqual(["Watching*", "Finished", "Watch later(x)", "Favourite"]);
-    expect(labels(show({ status: "on_hold" }))).toEqual(["Stopped*", "Finished", "Watch later(x)", "Favourite"]);
+    expect(labels(show({ status: "on_hold" }))).toEqual(["On hold*", "Finished", "Watch later(x)", "Favourite"]);
+    expect(labels(show({ status: "dropped" }))).toEqual(["Dropped*", "Finished", "Watch later(x)", "Favourite"]);
     expect(labels(show({ status: "watched" }))).toEqual(["Watching", "Finished*", "Watch later(x)", "Favourite"]);
   });
 
@@ -61,5 +62,35 @@ describe("marks for a series", () => {
   it("says what happened", () => {
     expect(saidAfter("finished", true, "tv")).toMatch(/every episode/);
     expect(saidAfter("later", true, "movie")).toBe("Added to Watch later");
+  });
+});
+
+describe("where something you've started stands", () => {
+  const row = (st: MarkState) => stagesFor(st)?.map((x) => `${x.label}${x.on ? "*" : ""}`) ?? null;
+
+  it("appears only once you've started it — a first visit sees four plain marks", () => {
+    expect(row(film())).toBeNull();
+    expect(row(film({ status: "watchlist" }))).toBeNull();
+    expect(row(film({ status: "watched" }))).toBeNull();
+    expect(row(show({ status: "watched" }))).toBeNull();
+  });
+
+  it("is Watching, On hold and Dropped, for a film and a series alike", () => {
+    expect(row(film({ status: "watching" }))).toEqual(["Watching*", "On hold", "Dropped"]);
+    expect(row(film({ status: "on_hold" }))).toEqual(["Watching", "On hold*", "Dropped"]);
+    expect(row(show({ status: "dropped" }))).toEqual(["Watching", "On hold", "Dropped*"]);
+  });
+
+  it("names the film's in-progress tile by where it stands", () => {
+    expect(labels(film({ status: "on_hold" }))).toEqual(["Watched", "On hold*", "Watch later(x)", "Favourite"]);
+    expect(labels(film({ status: "dropped" }))).toEqual(["Watched", "Dropped*", "Watch later(x)", "Favourite"]);
+  });
+
+  it("says what happened, and where it goes next", () => {
+    expect(saidAfterStage("on_hold")).toMatch(/keeps your place/);
+    expect(hintAfterStage("on_hold", "movie")).toMatch(/Up next/);
+    expect(hintAfterStage("dropped", "tv")).toMatch(/episodes stay marked/);
+    expect(saidAfterStage("watching")).toBe("Back to watching");
+    expect(hintAfterStage("watching", "tv")).toBeUndefined();
   });
 });

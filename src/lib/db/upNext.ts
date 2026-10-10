@@ -147,3 +147,30 @@ export async function setPlan(
   // Nothing matched: it was logged or removed somewhere else meanwhile.
   return data?.length ? null : "That's no longer saved. Refresh to see your list.";
 }
+
+export type OnHold = { itemId: string; itemType: "movie" | "tv"; itemName: string; imageUrl: string | null; since: string };
+
+/**
+ * What you put on hold, most recent first: Up next keeps it in sight with a
+ * one-tap Resume, because "on hold" means "later", and later needs a place.
+ */
+export async function fetchOnHold(me: string): Promise<OnHold[]> {
+  const { data, error } = await supabase
+    .from("user_media_status")
+    .select("item_id, item_type, item_name, image_url, updated_at")
+    .eq("user_id", me)
+    .eq("status", "on_hold")
+    .order("updated_at", { ascending: false })
+    .limit(24);
+  if (error) {
+    console.error("fetchOnHold:", error);
+    return [];
+  }
+  return (data ?? []).map((r) => ({
+    itemId: String(r.item_id),
+    itemType: r.item_type === "tv" ? "tv" : "movie",
+    itemName: r.item_name ?? "",
+    imageUrl: r.image_url ?? null,
+    since: r.updated_at as string,
+  }));
+}
