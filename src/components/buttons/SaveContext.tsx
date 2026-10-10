@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bookmark, CalendarClock, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { supabase } from "@/utils/supabase/client";
@@ -62,6 +62,8 @@ export default function SaveContext({
   const [saveFor, setSaveFor] = useState<SaveFor | null>(null);
   const [forDate, setForDate] = useState("");
   const [who, setWho] = useState<PickedPerson[]>([]);
+  /** What's saved, so Cancel puts the form back instead of showing edits as if they'd saved. */
+  const saved = useRef<{ note: string; saveFor: SaveFor | null; forDate: string; who: PickedPerson[] }>({ note: "", saveFor: null, forDate: "", who: [] });
 
   useEffect(() => {
     if (!userId) return;
@@ -86,11 +88,19 @@ export default function SaveContext({
           .eq("id", row.save_with_user_id)
           .maybeSingle();
         if (!cancelled && u?.username) {
-          setWho([{ kind: "user", userId: row.save_with_user_id, username: u.username, avatarUrl: u.avatar_url ?? null }]);
+          const person: PickedPerson = { kind: "user", userId: row.save_with_user_id, username: u.username, avatarUrl: u.avatar_url ?? null };
+          setWho([person]);
+          saved.current.who = [person];
         }
       } else if (row?.save_with_name) {
         setWho([{ kind: "name", name: row.save_with_name }]);
       }
+      saved.current = {
+        note: row?.save_note ?? "",
+        saveFor: (row?.save_for as SaveFor | null) ?? null,
+        forDate: row?.save_for_date ?? "",
+        who: row?.save_with_name ? [{ kind: "name", name: row.save_with_name }] : [],
+      };
       setLoaded(true);
     })();
     return () => {
@@ -111,8 +121,18 @@ export default function SaveContext({
     return parts.join(" · ");
   })();
 
+  const cancel = () => {
+    setNote(saved.current.note);
+    setSaveFor(saved.current.saveFor);
+    setForDate(saved.current.forDate);
+    setWho(saved.current.who);
+    setOpen(false);
+  };
+
   const save = async () => {
     setBusy(true);
+    // "A date" with no date picked is no date: saved as nothing, shown as nothing.
+    const forWhen = saveFor === "date" && !forDate ? null : saveFor;
     try {
       const person = who[0] ?? null;
       const res = await fetch("/api/user-media-status", {
@@ -126,13 +146,15 @@ export default function SaveContext({
           imgUrl: imageUrl ?? "",
           genres: genres ?? [],
           saveNote: note,
-          saveFor: saveFor,
-          saveForDate: saveFor === "date" ? forDate : "",
+          saveFor: forWhen,
+          saveForDate: forWhen === "date" ? forDate : "",
           saveWithUserId: person?.kind === "user" ? person.userId : "",
           saveWithName: person?.kind === "name" ? person.name : "",
         }),
       });
       if (!res.ok) throw new Error("Couldn't save that.");
+      setSaveFor(forWhen);
+      saved.current = { note, saveFor: forWhen, forDate: forWhen === "date" ? forDate : "", who };
       setOpen(false);
       toast.success("Saved");
     } catch (e) {
@@ -199,7 +221,7 @@ export default function SaveContext({
           <div className="flex items-center justify-end gap-2">
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={cancel}
               disabled={busy}
               className="rounded-full px-3 py-1.5 text-xs text-ink-400 transition hover:text-ink-0 disabled:opacity-50"
             >

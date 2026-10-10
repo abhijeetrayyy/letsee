@@ -168,7 +168,7 @@ function Body({ onClose }: { onClose: () => void }) {
           )}
           {!shows.length && !lined.length && (
             <p className="text-sm leading-relaxed text-ink-500">
-              Type the name of anything you&apos;ve watched, want to watch, or love — and tap its mark. To add it to your diary with a date and stars, open it.
+              Type the name of anything you&apos;ve watched, are watching, want to watch, or love — and tap its mark. That&apos;s it: when, who and stars can wait for ⋯ on its page.
             </p>
           )}
         </>

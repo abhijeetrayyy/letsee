@@ -138,6 +138,7 @@ export function toLegacyPreferences(snapshot: MediaStateSnapshot): LegacyPrefere
     watched: bucket("watched"),
     favorite: [...snapshot.favorites].map((key) => ({
       item_id: key.slice(key.indexOf(":") + 1),
+      item_type: key.slice(0, key.indexOf(":")),
     })),
     watchlater: bucket("watchlist"),
     watching: bucket("watching"),

@@ -34,6 +34,8 @@ export default function LazyFold({
 }) {
   const [opened, setOpened] = useState(defaultOpen);
   const ref = useRef<HTMLDetailsElement>(null);
+  /** A fold open from the start fires one toggle as it mounts: that one isn't someone opening it. */
+  const mountToggle = useRef(defaultOpen);
 
   useEffect(() => {
     if (!id) return;
@@ -59,6 +61,10 @@ export default function LazyFold({
       onToggle={(e) => {
         const isOpen = (e.currentTarget as HTMLDetailsElement).open;
         if (isOpen) setOpened(true);
+        if (mountToggle.current) {
+          mountToggle.current = false;
+          if (isOpen) return;
+        }
         if (!id) return;
         const here = window.location.hash === `#${id}`;
         // `null` state: Next's patched replaceState then records the new URL in

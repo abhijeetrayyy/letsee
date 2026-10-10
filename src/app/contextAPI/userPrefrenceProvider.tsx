@@ -74,7 +74,14 @@ function applyUpdate(
   // clear watched/watching/watchlist here, which made "loved it" silently
   // erase "I watched it" until the next refresh corrected it.
   if (funcType === "favorite") {
-    next.favorite = currentState ? removeFrom(next.favorite) : addTo(next.favorite);
+    // By type as well as id: a film and a series can share a TMDB id.
+    const type = payload.mediaType === "tv" ? "tv" : "movie";
+    const same = (item: PreferenceItem) => item.item_id === key && (!item.item_type || item.item_type === type);
+    next.favorite = currentState
+      ? next.favorite.filter((item) => !same(item))
+      : next.favorite.some(same)
+        ? next.favorite
+        : [...next.favorite, { item_id: key, item_type: type }];
     return next;
   }
 
@@ -194,8 +201,15 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
    * two providers can no longer disagree about what is favourited, which they
    * previously could for as long as one had refreshed and the other had not.
    */
+  /**
+   * `loading` is the first load only. Every successful write refreshes, and
+   * each refresh used to set `loading` again — so a second tap made while the
+   * first one's refresh was in flight (Watched, then Favourite) was refused
+   * with "Preferences are still loading."
+   */
+  const loadedRef = useRef(false);
   const refreshPreferences = useCallback(async () => {
-    setLoading(true);
+    if (!loadedRef.current) setLoading(true);
     try {
       const {
         data: { session },
@@ -210,10 +224,16 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUserPrefrence(toLegacyPreferences(await fetchMediaState(userId)));
       setUser(true);
+      loadedRef.current = true;
     } catch (error) {
       console.error("Failed to refresh preferences:", error);
-      setUserPrefrence(defaultPreferenceState);
-      setUser(false);
+      // A refresh that fails after a good load keeps what's there: wiping it
+      // turned every mark off on a flaky connection, and the next tap then
+      // wrote over the real status (Watch later on a watched film).
+      if (!loadedRef.current) {
+        setUserPrefrence(defaultPreferenceState);
+        setUser(false);
+      }
     } finally {
       setLoading(false);
     }
@@ -227,6 +247,7 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
     if (isAuthenticated) {
       refreshPreferences();
     } else {
+      loadedRef.current = false;
       setUserPrefrence(defaultPreferenceState);
       setUser(false);
       setLoading(false);
@@ -241,9 +262,11 @@ const UserPrefrenceProvider = ({ children }: { children: React.ReactNode }) => {
     [userPrefrence.watched],
   );
   const hasFavorite = useCallback(
-    (itemId: number | string) =>
+    (itemId: number | string, itemType?: string) =>
       userPrefrence.favorite.some(
-        (item) => item.item_id === normalizeId(itemId),
+        (item) =>
+          item.item_id === normalizeId(itemId) &&
+          (!itemType || !item.item_type || item.item_type === (itemType === "tv" ? "tv" : "movie")),
       ),
     [userPrefrence.favorite],
   );

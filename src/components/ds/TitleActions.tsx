@@ -3,8 +3,10 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Check, CirclePause, CirclePlay, ListChecks, LoaderCircle, MoreHorizontal, NotebookPen, Share2 } from "lucide-react";
-import { useLogIt } from "@components/ds/LogItButton";
+import { Check, CirclePause, CirclePlay, ListChecks, LoaderCircle, MoreHorizontal, NotebookPen, Repeat, Share2 } from "lucide-react";
+import { useDetails } from "@components/ds/LogItButton";
+import { markToast } from "@components/ds/markToast";
+import { dayLabel } from "@components/ds/DayChip";
 import MarkTiles from "@components/ds/MarkTiles";
 import PassToButton from "@components/ds/PassToButton";
 import SaveContext from "@components/buttons/SaveContext";
@@ -19,16 +21,17 @@ import { episodeLabel, epKey, leadsWithEpisode, nextEpisode, progressOf, type Ep
 import { getPosterUrl } from "@/utils/imageUrl";
 
 /**
- * A title's actions. First, the marks everyone knows — **Watched · Watch later
- * · Favourite** (a series: **Watching · Finished · Watch later · Favourite**),
- * each one tap on or off (ds/MarkTiles, lib/logging/marks). Under them,
- * **Add to diary** (a day, stars, who was there, your words — the effort you
- * choose to make), **Pass to…**, and a menu for the rest. A series you're
- * on leads with its next episode, one tap.
+ * A title's actions. First, the marks everyone knows — **Watched · Watching ·
+ * Watch later · Favourite** (a series: **Watching · Finished · Watch later ·
+ * Favourite**), each one tap on or off (ds/MarkTiles, lib/logging/marks).
+ * Under them, **Pass to…** and **⋯**, which holds the rest: when you watched
+ * it, who was there, stars and words (ds/LogSheet), another viewing, episodes,
+ * stopping a series, sharing. A series you're on leads with its next episode.
  *
- * "Log it" used to come first, alone, and nobody knew what it meant; Watch
- * later was "Save", and Favourite lived in the menu (owner review, 5 Oct
- * 2026). A mark has no date; a diary entry does.
+ * "Log it" used to come first, alone, and nobody knew what it meant (owner
+ * review, 5 Oct 2026). Then "Add to diary" sat beside the marks and the toast
+ * after Watched offered "Add date" — asking every time (owner, 10 Oct 2026).
+ * Now a tap registers, and the details wait in ⋯ until someone wants them.
  */
 export default function TitleActions({
   itemId,
@@ -98,11 +101,25 @@ export default function TitleActions({
       body: JSON.stringify({ showId: itemId, seasonNumber: ep.s, episodeNumber: ep.e }),
     }).then((r) => r.ok, () => false);
 
+  /**
+   * Marks, never toggles: the episode route flips whatever it's given, so a
+   * button still showing an episode that was marked meanwhile (Finished, the
+   * tracker, another tab) un-marked it while the toast said "Marked".
+   */
+  const markEpisode = async (ep: Ep) =>
+    fetch("/api/watched-episodes-bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showId: itemId, episodes: [{ season_number: ep.s, episode_number: ep.e }], action: "mark" }),
+    }).then((r) => r.ok, () => false);
+
   const markNext = async () => {
     if (!next || marking) return;
     const ep = next;
+    // Undo only takes back what this tap added.
+    const already = watchedEps.has(epKey(ep.s, ep.e));
     setMarking(true);
-    const ok = await toggleEpisode(ep);
+    const ok = await markEpisode(ep);
     if (!ok) {
       setMarking(false);
       toast.error("That didn't save. Check your connection.");
@@ -112,25 +129,15 @@ export default function TitleActions({
     // second tap on the old label would unmark what was just marked.
     await Promise.all([refreshEpisodes(), refreshPreferences()]).catch(() => {});
     setMarking(false);
-    toast(
-      (t) => (
-        <span className="flex items-center gap-3">
-          Marked {episodeLabel(ep)}
-          <button
-            type="button"
-            className="rounded-full px-3 py-1 font-medium ring-1 ring-inset ring-line-input"
-            onClick={async () => {
-              toast.dismiss(t.id);
-              if (await toggleEpisode(ep)) await Promise.all([refreshEpisodes(), refreshPreferences()]).catch(() => {});
-              else toast.error("Couldn't undo that.");
-            }}
-          >
-            Undo
-          </button>
-        </span>
-      ),
-      { duration: 6000 },
-    );
+    markToast({
+      text: `Marked ${episodeLabel(ep)}`,
+      undo: already
+        ? undefined
+        : async () => {
+            if (await toggleEpisode(ep)) await Promise.all([refreshEpisodes(), refreshPreferences()]).catch(() => {});
+            else toast.error("Couldn't undo that.");
+          },
+    });
   };
 
   const changeStatus = async (next: Status, done: string) => {
@@ -142,15 +149,13 @@ export default function TitleActions({
     else toast.success(done);
   };
 
-  // The diary: "Add to diary" under the marks, and "Add date" after marking watched.
-  const diary = useLogIt(
-    { itemId, itemType, itemName, imageUrl, genres, adult },
-    { onLogged: () => void mutate(), onUndone: () => void mutate() },
-  );
+  // When, who, stars and words: ⋯ → the details sheet, on your latest entry
+  // if there is one. The list under "Your diary" refreshes from the same key.
+  const details = useDetails({ itemId, itemType, itemName, imageUrl, genres, adult }, { onChanged: () => void mutate() });
+  const latest = viewings?.[0] ?? null;
   const menuStatusChange = me ? menuStatus(itemType, status) : null;
 
   const title = { itemId, itemType, itemName, imageUrl, genres, adult };
-  const openDiary = () => (diary.logged ? diary.openDetails() : void diary.log({ details: true }));
 
   return (
     // The target of the hero's "Skip to Log it" link (TitleChrome): focusable
@@ -168,22 +173,18 @@ export default function TitleActions({
           Watched <span className="font-mono text-sm tracking-wide">{episodeLabel(next)}</span>
         </button>
       )}
-      <MarkTiles title={title} logged={(viewings?.length ?? 0) > 0} onDiary={me ? openDiary : undefined} />
+      <MarkTiles title={title} logged={(viewings?.length ?? 0) > 0} onLoggedTap={() => details.open(latest)} where="here" />
       <div className="flex flex-wrap items-center gap-2">
-        {me && (
-          <button
-            type="button"
-            onClick={openDiary}
-            disabled={diary.busy}
-            className="inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm font-medium text-ink-0 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover disabled:opacity-60"
-          >
-            {diary.busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <NotebookPen className="size-4" aria-hidden />}
-            {diary.logged ? "Edit today's entry" : "Add to diary"}
-          </button>
-        )}
         <PassToButton title={{ itemId, itemType, itemName, imageUrl: posterPath }} />
         <MoreMenu
           signedIn={!!me}
+          diary={
+            me
+              ? latest
+                ? { label: `Your diary entry · ${dayLabel(latest.watchedOn)}`, run: () => details.open(latest), again: () => details.open(null, { again: true }) }
+                : { label: "When, who & stars", run: () => details.open(null) }
+              : null
+          }
           statusChange={
             menuStatusChange
               ? { label: menuStatusChange.label, run: () => changeStatus(menuStatusChange.to, menuStatusChange.to === "watching" ? "Back to watching" : "Stopped") }
@@ -193,7 +194,7 @@ export default function TitleActions({
           onShare={onShare}
         />
       </div>
-      {diary.sheet}
+      {details.sheet}
       {/* When it's for later, the plan box below already says so. */}
       {line && !later && <p className="text-sm text-ink-400">{line}</p>}
       {later && (
@@ -208,11 +209,14 @@ const MENU_WIDTH = 240;
 
 function MoreMenu({
   signedIn,
+  diary,
   statusChange,
   onEpisodes,
   onShare,
 }: {
   signedIn: boolean;
+  /** The details sheet: your latest entry (and another viewing), or a first one. */
+  diary: { label: string; run: () => void; again?: () => void } | null;
   /** At most one: stop a series you're on, or resume one you stopped. */
   statusChange: { label: string; run: () => void } | null;
   onEpisodes?: () => void;
@@ -257,13 +261,25 @@ function MoreMenu({
         }}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="More"
+        aria-label="More: when you watched it, who was there, stars, sharing"
         className="flex size-11 items-center justify-center rounded-full text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0"
       >
         <MoreHorizontal className="size-5" aria-hidden />
       </button>
       {open && (
         <div role="menu" className={`absolute top-full z-30 mt-2 w-60 rounded-card border border-line-strong bg-overlay p-1.5 shadow-2xl ${align === "left" ? "left-0" : "right-0"}`}>
+          {diary && (
+            <button type="button" role="menuitem" onClick={pick(diary.run)} className={item}>
+              <NotebookPen className="size-4" aria-hidden />
+              {diary.label}
+            </button>
+          )}
+          {diary?.again && (
+            <button type="button" role="menuitem" onClick={pick(diary.again)} className={item}>
+              <Repeat className="size-4" aria-hidden />
+              Watched it again
+            </button>
+          )}
           {onEpisodes && signedIn && (
             <button type="button" role="menuitem" onClick={pick(onEpisodes)} className={item}>
               <ListChecks className="size-4" aria-hidden />

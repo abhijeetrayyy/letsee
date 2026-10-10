@@ -3,6 +3,8 @@ import { createContext } from "react";
 /** Single list item; item_id normalized to string in state. */
 export type PreferenceItem = {
   item_id: string;
+  /** Favourites carry their type: a film and a series can share a TMDB id. */
+  item_type?: string;
 };
 
 export type UserPreferenceState = {
@@ -110,7 +112,8 @@ export type UserPreferenceContextValue = {
   getStatus: (itemId: number | string, itemType?: string) => MediaStatus | null;
   /** Helpers so consumers don't duplicate list checks. */
   hasWatched: (itemId: number | string) => boolean;
-  hasFavorite: (itemId: number | string) => boolean;
+  /** With `itemType`, only that film or series — ids are shared between the two. */
+  hasFavorite: (itemId: number | string, itemType?: string) => boolean;
   hasWatchLater: (itemId: number | string) => boolean;
   hasWatching: (itemId: number | string) => boolean;
 };

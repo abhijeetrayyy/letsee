@@ -2,7 +2,8 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { CalendarDays, Loader2, Plus, Users, X } from "lucide-react";
+import { CalendarDays, Loader2, Pencil, Plus, Users, X } from "lucide-react";
+import { useDetails } from "@components/ds/LogItButton";
 import toast from "react-hot-toast";
 import PersonPicker, { type PickedPerson } from "@components/ui/PersonPicker";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
@@ -21,11 +22,10 @@ import { todayIso } from "@/utils/viewings";
 /**
  * The dated half of the diary: when you watched it, where, and who was there.
  *
- * Sits above the composer on a title page. A one-tap "Watched" elsewhere in
- * the app already creates the first viewing, dated today, so most people will
- * meet this as a line — "Watched 10 Sep · at home · with Priya" — rather than
- * a form. The form is for the two things a tap cannot say: it was a different
- * day, or it was a rewatch.
+ * Sits above the composer on a title page, as a line — "Watched 10 Sep · at
+ * home · with Priya" — once something is in your diary. Each entry has Edit:
+ * its day, where, who was there, or Remove (ds/LogSheet, the same sheet as ⋯
+ * above). A one-tap Watched writes no entry; ⋯ → "When, who & stars" does.
  *
  * Companions are the point. A viewing with a name on it is a memory; a viewing
  * without one is a row. When a Tonight room decided on this title in the last
@@ -178,6 +178,16 @@ export default function LogViewing({
     [viewerId, mutate],
   );
 
+  const details = useDetails(
+    { itemId, itemType, itemName: itemName ?? "", imageUrl: imageUrl ?? null, genres: genres ?? [] },
+    {
+      onChanged: () => {
+        void mutate();
+        void onLogged?.();
+      },
+    },
+  );
+
   const latest = viewings?.[0] ?? null;
   const summary = useMemo(() => {
     if (!latest) return null;
@@ -190,125 +200,149 @@ export default function LogViewing({
   if (!viewerId) return null;
 
   // Without its own button this is only the list of your viewings, so with none it says nothing.
-  if (!withLogButton && !open && !isLoading && !(viewings && viewings.length)) return null;
+  const hidden = !withLogButton && !open && !isLoading && !(viewings && viewings.length);
 
+  // The sheet sits first and always, in one place: it stays open (and the
+  // same sheet) when removing the last entry empties the list beneath it.
   return (
-    <div className="mb-3 rounded-2xl border border-line bg-raised/40 px-4 py-3">
-      {/* ── The line ─────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <CalendarDays className="size-4 shrink-0 text-ink-500" />
-        {isLoading ? (
-          <span className="text-sm text-ink-500">…</span>
-        ) : latest ? (
-          <span className="text-sm text-ink-200">
-            {summary}
-            {viewings && viewings.length > 1 && (
-              <span className="text-ink-500"> · {viewings.length} viewings</span>
+    <>
+      {details.sheet}
+      {!hidden && (
+        <div className="mb-3 rounded-2xl border border-line bg-raised/40 px-4 py-3">
+          {/* ── The line ─────────────────────────────────────────────────── */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <CalendarDays className="size-4 shrink-0 text-ink-500" />
+            {isLoading ? (
+              <span className="text-sm text-ink-500">…</span>
+            ) : latest ? (
+              <span className="text-sm text-ink-200">
+                {summary}
+                {viewings && viewings.length > 1 && (
+                  <span className="text-ink-500"> · {viewings.length} viewings</span>
+                )}
+              </span>
+            ) : (
+              <span className="text-sm text-ink-400">Not logged yet.</span>
             )}
-          </span>
-        ) : (
-          <span className="text-sm text-ink-400">Not logged yet.</span>
-        )}
-        {!open && withLogButton && (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-line-strong px-3 py-1.5 text-xs text-ink-300 transition hover:border-line-input hover:text-ink-0"
-          >
-            <Plus className="size-3" /> {latest ? "Add another viewing" : "Add to diary"}
-          </button>
-        )}
-      </div>
-
-      {/* ── Every viewing, when there is more than one ───────────────── */}
-      {viewings && viewings.length > 1 && !open && (
-        <ul className="mt-2 space-y-1 border-t border-line pt-2">
-          {viewings.map((v) => (
-            <li key={v.id} className="flex items-center gap-2 text-xs text-ink-400">
-              <span className="w-20 shrink-0 tabular-nums text-ink-300">{shortDate(v.watchedOn)}</span>
-              <span>{v.rewatch ? "rewatch" : "first time"}</span>
-              <span className="text-ink-600">·</span>
-              <span>{placeLabel(v.place)}</span>
-              {companionsLine(v) && (
-                <>
-                  <span className="text-ink-600">·</span>
-                  <span>{companionsLine(v)}</span>
-                </>
-              )}
+            {latest && !open && (
               <button
                 type="button"
-                onClick={() => remove(v.id)}
-                aria-label="Remove this viewing"
-                className="ml-auto rounded-full p-1 text-ink-600 transition hover:text-danger"
+                onClick={() => details.open(latest)}
+                className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-ink-300 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0"
               >
-                <X className="size-3" />
+                <Pencil className="size-3" aria-hidden /> Edit
               </button>
-            </li>
-          ))}
-        </ul>
-      )}
+            )}
+            {!open && withLogButton && (
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-line-strong px-3 py-1.5 text-xs text-ink-300 transition hover:border-line-input hover:text-ink-0"
+              >
+                <Plus className="size-3" /> {latest ? "Add another viewing" : "Add to diary"}
+              </button>
+            )}
+          </div>
 
-      {/* ── The form ─────────────────────────────────────────────────── */}
-      {open && (
-        <div className="mt-3 space-y-3 border-t border-line pt-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 text-xs text-ink-400">
-              <span>When</span>
-              <input
-                type="date"
-                value={date}
-                max={todayIso()}
-                onChange={(e) => setDate(e.target.value)}
-                className="rounded-lg border border-line-strong bg-page px-2 py-1.5 text-sm text-ink-0 focus:border-accent-strong focus:outline-none"
-              />
-            </label>
-            <div role="radiogroup" aria-label="Where" className="flex flex-wrap gap-1.5">
-              {PLACES.map((p) => (
-                <button
-                  key={p.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={place === p.value}
-                  onClick={() => setPlace(p.value)}
-                  className={`rounded-full border px-3 py-1.5 text-xs transition ${
-                    place === p.value
-                      ? "border-accent-strong/60 bg-action/10 text-accent-soft"
-                      : "border-line-strong text-ink-400 hover:border-line-input hover:text-ink-0"
-                  }`}
-                >
-                  {p.label}
-                </button>
+          {/* ── Every viewing, when there is more than one ───────────────── */}
+          {viewings && viewings.length > 1 && !open && (
+            <ul className="mt-2 space-y-1 border-t border-line pt-2">
+              {viewings.map((v) => (
+                <li key={v.id} className="flex items-center gap-2 text-xs text-ink-400">
+                  <span className="w-20 shrink-0 tabular-nums text-ink-300">{shortDate(v.watchedOn)}</span>
+                  <span>{v.rewatch ? "rewatch" : "first time"}</span>
+                  <span className="text-ink-600">·</span>
+                  <span>{placeLabel(v.place)}</span>
+                  {companionsLine(v) && (
+                    <>
+                      <span className="text-ink-600">·</span>
+                      <span>{companionsLine(v)}</span>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => details.open(v)}
+                    aria-label={`Edit the viewing on ${shortDate(v.watchedOn)}`}
+                    className="ml-auto rounded-full p-1 text-ink-500 transition hover:text-ink-0"
+                  >
+                    <Pencil className="size-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => remove(v.id)}
+                    aria-label="Remove this viewing"
+                    className="rounded-full p-1 text-ink-600 transition hover:text-danger"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          )}
 
-          <div>
-            <div className="mb-1.5 flex items-center gap-2 text-xs text-ink-400">
-              <Users className="size-3.5" /> Who was there
-            </div>
-            <PersonPicker value={people} onChange={setPeople} />
-          </div>
+          {/* ── The form ─────────────────────────────────────────────────── */}
+          {open && (
+            <div className="mt-3 space-y-3 border-t border-line pt-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-2 text-xs text-ink-400">
+                  <span>When</span>
+                  <input
+                    type="date"
+                    value={date}
+                    max={todayIso()}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="rounded-lg border border-line-strong bg-page px-2 py-1.5 text-sm text-ink-0 focus:border-accent-strong focus:outline-none"
+                  />
+                </label>
+                <div role="radiogroup" aria-label="Where" className="flex flex-wrap gap-1.5">
+                  {PLACES.map((p) => (
+                    <button
+                      key={p.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={place === p.value}
+                      onClick={() => setPlace(p.value)}
+                      className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                        place === p.value
+                          ? "border-accent-strong/60 bg-action/10 text-accent-soft"
+                          : "border-line-strong text-ink-400 hover:border-line-input hover:text-ink-0"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              disabled={busy}
-              className="rounded-full px-3 py-1.5 text-xs text-ink-400 transition hover:text-ink-0 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={submit}
-              disabled={busy}
-              className="btn-primary rounded-full px-4 py-1.5 text-xs disabled:opacity-50"
-            >
-              {busy ? <Loader2 className="size-3.5 animate-spin" /> : "Add to diary"}
-            </button>
-          </div>
+              <div>
+                <div className="mb-1.5 flex items-center gap-2 text-xs text-ink-400">
+                  <Users className="size-3.5" /> Who was there
+                </div>
+                <PersonPicker value={people} onChange={setPeople} />
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  disabled={busy}
+                  className="rounded-full px-3 py-1.5 text-xs text-ink-400 transition hover:text-ink-0 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={busy}
+                  className="btn-primary rounded-full px-4 py-1.5 text-xs disabled:opacity-50"
+                >
+                  {busy ? <Loader2 className="size-3.5 animate-spin" /> : "Add to diary"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
-    </div>
+    </>
   );
 }

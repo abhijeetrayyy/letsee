@@ -27,6 +27,7 @@ import { getPosterUrl } from "@/utils/imageUrl";
 import { titlePath } from "@/utils/urls";
 
 import Rail from "@components/ds/Rail";
+import { QuickMarkButton } from "@components/ds/QuickMarks";
 /**
  * A profile under `ui=v2` (docs/design/PAGES.md §6).
  *
@@ -196,11 +197,17 @@ export default function ProfileV2({ data }: { data: ProfileV2Data }) {
               <Rail>
                 <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 sm:scroll-px-6 lg:scroll-px-8 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
                   {data.watching.map((w, n) => (
-                    <li key={`${w.item_type}:${w.item_id}`} className="w-32 shrink-0 snap-start sm:w-40">
+                    <li key={`${w.item_type}:${w.item_id}`} className="relative w-32 shrink-0 snap-start sm:w-40">
                       <Link href={titlePath(w.item_type === "tv" ? "tv" : "movie", w.item_id, w.item_name)} className="block">
                         <img src={getPosterUrl(w.image_url, "w342")} alt={w.item_name} loading={n < 3 ? "eager" : "lazy"} className="img-fade aspect-2/3 w-full rounded-media bg-hover object-cover" />
                         <span className="mt-2 block truncate font-display text-base text-ink-0">{w.item_name}</span>
                       </Link>
+                      {!isOwner && (
+                        <QuickMarkButton
+                          title={{ itemId: String(w.item_id), itemType: w.item_type === "tv" ? "tv" : "movie", itemName: w.item_name, imageUrl: w.image_url }}
+                          className="absolute right-2 top-2"
+                        />
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -208,7 +215,7 @@ export default function ProfileV2({ data }: { data: ProfileV2Data }) {
             </section>
           )}
 
-          <Recent userId={user.id} />
+          <Recent userId={user.id} markable={!isOwner} />
           <WatchesWith userId={user.id} />
 
           <div className="flex items-center gap-4 rounded-card border border-line-strong px-4 py-4">
@@ -231,11 +238,14 @@ export default function ProfileV2({ data }: { data: ProfileV2Data }) {
                 <span className="text-sm font-normal text-ink-500">{data.stats.watchlistCount ? "Your queue" : "Nothing saved yet"}</span>
               </Link>
             )}
+            {/* Open from the start (owner, 10 Oct 2026): what someone has
+                watched is the first thing you came for, and each poster
+                can be marked for yourself from here. A dozen, then all. */}
+            <LazyFold id="watched" title="Watched" hint="Films and series" defaultOpen>
+              <WatchedGrid userId={user.id} isOwner={isOwner} preview={12} />
+            </LazyFold>
             <LazyFold id="diary" title="Diary" hint="Every viewing, by date">
               <ProfileDiary userId={user.id} isOwner={isOwner} />
-            </LazyFold>
-            <LazyFold id="watched" title="Watched" hint="Everything, films and series">
-              <WatchedGrid userId={user.id} isOwner={isOwner} />
             </LazyFold>
             <LazyFold id="series" title="Series progress" hint="Where they are in each show">
               <ProfileTvProgress userId={user.id} isOwner={isOwner} />
@@ -272,7 +282,7 @@ export default function ProfileV2({ data }: { data: ProfileV2Data }) {
  * there) and titles marked watched from a poster, which have no day of their
  * own — they show the day they were marked (lib/people/lately).
  */
-function Recent({ userId }: { userId: string }) {
+function Recent({ userId, markable }: { userId: string; markable: boolean }) {
   const { data } = useSWR(["profile-lately", userId], () => fetchLately(userId), { revalidateOnFocus: false });
   const rows = data ?? [];
   if (!rows.length) return null;
@@ -283,8 +293,8 @@ function Recent({ userId }: { userId: string }) {
       </h2>
       <ol className="grid gap-x-10 divide-y divide-line lg:grid-cols-2 lg:divide-y-0">
         {rows.map((v) => (
-          <li key={v.kind === "log" ? `log:${v.id}` : `mark:${v.itemType}:${v.itemId}`}>
-            <Link href={titlePath(v.itemType, v.itemId, v.itemName)} className="-mx-2 flex items-center gap-3.5 rounded-control px-2 py-2.5 transition-colors hover:bg-raised">
+          <li key={v.kind === "log" ? `log:${v.id}` : `mark:${v.itemType}:${v.itemId}`} className="flex items-center gap-2">
+            <Link href={titlePath(v.itemType, v.itemId, v.itemName)} className="-mx-2 flex min-w-0 flex-1 items-center gap-3.5 rounded-control px-2 py-2.5 transition-colors hover:bg-raised">
               <img src={getPosterUrl(v.imageUrl, "w92")} alt="" loading="lazy" className="aspect-2/3 w-10 shrink-0 rounded-media bg-hover object-cover" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-display text-base text-ink-0">{v.itemName}</span>
@@ -296,6 +306,8 @@ function Recent({ userId }: { userId: string }) {
                 </span>
               </span>
             </Link>
+            {/* Theirs, marked as yours in a tap: how most people fill a library. */}
+            {markable && <QuickMarkButton title={{ itemId: v.itemId, itemType: v.itemType, itemName: v.itemName, imageUrl: v.imageUrl }} className="shrink-0" />}
           </li>
         ))}
       </ol>

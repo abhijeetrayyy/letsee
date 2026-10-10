@@ -53,8 +53,8 @@ export async function POST(req: NextRequest) {
   const statusRows: Record<string, unknown>[] = [];
   const watchedRows: Record<string, unknown>[] = [];
   const favoriteRows: Record<string, unknown>[] = [];
-  const removeIds: string[] = [];
-  const removeTypes = new Set<string>();
+  /** Ids to remove, per type: a film and a series can share an id. */
+  const removals = new Map<"movie" | "tv", string[]>();
 
   for (const e of entries) {
     const itemId = e.itemId != null ? String(e.itemId) : null;
@@ -63,8 +63,8 @@ export async function POST(req: NextRequest) {
     // Un-ticking a poster after its batch already went out has to undo the
     // write, or the grid would show it unpicked while the row stayed saved.
     if (e.remove) {
-      removeIds.push(itemId);
-      removeTypes.add(e.itemType === "tv" ? "tv" : "movie");
+      const t = e.itemType === "tv" ? "tv" : "movie";
+      removals.set(t, [...(removals.get(t) ?? []), itemId]);
       continue;
     }
     const itemType = e.itemType === "tv" ? "tv" : "movie";
@@ -100,16 +100,16 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (removeIds.length > 0) {
-    // Quick-add only ever created these rows, so removing them here is safe.
-    await Promise.all([
-      // Quick-add is a film-and-series grid, so these have to name the type
-      // or un-ticking a film would also remove the series sharing its id.
-      supabase.from("user_media_status").delete().eq("user_id", userId).in("item_id", removeIds).in("item_type", [...removeTypes]),
-      supabase.from("favorite_items").delete().eq("user_id", userId).in("item_id", removeIds).in("item_type", [...removeTypes]),
-      supabase.from("watched_items").delete().eq("user_id", userId).in("item_id", removeIds).in("item_type", [...removeTypes]),
-    ]);
-  }
+  // Quick-add only ever created these rows, so removing them here is safe.
+  // Quick-add is a film-and-series grid, so each delete names its type: ids
+  // crossed with types (in ids, in types) also took the film's twin series.
+  await Promise.all(
+    [...removals].flatMap(([t, ids]) => [
+      supabase.from("user_media_status").delete().eq("user_id", userId).eq("item_type", t).in("item_id", ids),
+      supabase.from("favorite_items").delete().eq("user_id", userId).eq("item_type", t).in("item_id", ids),
+      supabase.from("watched_items").delete().eq("user_id", userId).eq("item_type", t).in("item_id", ids),
+    ]),
+  );
 
   if (statusRows.length > 0) {
     const { error } = await supabase

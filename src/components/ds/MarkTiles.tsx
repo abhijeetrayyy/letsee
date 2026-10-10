@@ -1,8 +1,10 @@
 "use client";
 
 import { useContext, useState } from "react";
+import { mutate as mutateSWR } from "swr";
 import { usePathname } from "next/navigation";
 import toast from "react-hot-toast";
+import { DETAILS_HINT, markToast } from "@components/ds/markToast";
 import { Check, CheckCheck, Clock, Heart, LoaderCircle, Play } from "lucide-react";
 import Link from "@components/ui/AppLink";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
@@ -10,23 +12,65 @@ import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { marksFor, saidAfter, tapOf, type MarkKey } from "@/lib/logging/marks";
 import type { Status } from "@/lib/logging/titleState";
 import type { LogTitle } from "@components/ds/LogItButton";
+import { hasDiaryEntry } from "@/lib/db/viewings";
+import { supabase } from "@/utils/supabase/client";
+
+/** A Watch later row's plan, in the shape the status route takes back. */
+async function readPlan(userId: string, itemId: string, itemType: "movie" | "tv") {
+  const { data } = await supabase
+    .from("user_media_status")
+    .select("save_note, save_for, save_for_date, save_with_user_id, save_with_name")
+    .eq("user_id", userId)
+    .eq("item_id", itemId)
+    .eq("item_type", itemType)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    saveNote: data.save_note ?? "",
+    saveFor: data.save_for ?? null,
+    saveForDate: data.save_for_date ?? "",
+    saveWithUserId: data.save_with_user_id ?? "",
+    saveWithName: data.save_with_user_id ? "" : (data.save_with_name ?? ""),
+  };
+}
 
 /**
- * Watched · Watch later · Favourite (a series: Watching · Finished · Watch
- * later · Favourite) — the first thing on every title, and the same on any
- * poster's quick sheet (ds/QuickMarks). The rules are lib/logging/marks.ts.
+ * Watched · Watching · Watch later · Favourite (a series: Watching · Finished ·
+ * Watch later · Favourite) — the first thing on every title, and the same on
+ * any poster's quick sheet (ds/QuickMarks). The rules are lib/logging/marks.ts.
  *
- * Each is one tap, on or off, saved at once with Undo in the toast. Nothing
- * here asks for a date: a mark is "I've seen it", "I want to", "I love it".
- * The date, stars and who was there are "Add to diary", beside these.
+ * Each is one tap, on or off, saved at once: a short toast says so, with Undo,
+ * and where the details live (⋯). Nothing here asks for a date or offers the
+ * diary — the owner (10 Oct 2026): "it should register watched without asking
+ * every time". When, who, stars and words are in ⋯ (ds/LogSheet), any time.
+ *
+ * A tap that can't do anything says why instead of doing nothing: Watch later
+ * on something you've seen, or Watched off on a title that's in your diary
+ * (that opens the entry, where Remove from diary is).
  */
-export function useMarks(title: LogTitle, { logged = false, onDiary }: { logged?: boolean; onDiary?: () => void } = {}) {
+export function useMarks(
+  title: LogTitle,
+  {
+    logged = false,
+    onLoggedTap,
+    onDone,
+    where = "elsewhere",
+  }: {
+    logged?: boolean;
+    /** Watched tapped while the diary has it: open the entry instead. */
+    onLoggedTap?: () => void;
+    /** After any tap that saved (a poster's sheet closes itself). */
+    onDone?: () => void;
+    /** Whether ⋯ is on this page (a title) or on the title's page. */
+    where?: keyof typeof DETAILS_HINT;
+  } = {},
+) {
   const { user } = useAuth();
-  const { getStatus, setStatus, togglePreference, hasFavorite, refreshPreferences } = useContext(UserPrefrenceContext);
+  const { getStatus, setStatus, togglePreference, hasFavorite, refreshPreferences, loading } = useContext(UserPrefrenceContext);
   const [busy, setBusy] = useState<MarkKey | null>(null);
   const { itemId, itemType, itemName, imageUrl, genres, adult } = title;
   const status = (getStatus(itemId, itemType) ?? null) as Status;
-  const favourite = hasFavorite(itemId);
+  const favourite = hasFavorite(itemId, itemType);
   const state = { kind: itemType, status, favourite, logged };
   const marks = marksFor(state);
   const base = { itemId, mediaType: itemType, name: itemName, imgUrl: imageUrl ?? undefined, adult, genres };
@@ -37,11 +81,30 @@ export function useMarks(title: LogTitle, { logged = false, onDiary }: { logged?
 
   const tap = async (key: MarkKey) => {
     if (!user || busy) return;
-    const action = tapOf(state, key);
+    // Until your library has loaded, every mark reads "off": a tap then would
+    // write over what's really there (Watch later on a film you've watched).
+    if (loading) {
+      toast("One moment — still loading your marks.", { id: "marks-loading", duration: 2000 });
+      return;
+    }
+    const mark = marks.find((m) => m.key === key);
+    if (mark?.disabled) {
+      toast(`${mark.disabled} — Watch later is for what you haven't seen.`, { id: "marks-disabled", duration: 3000 });
+      return;
+    }
+    let action = tapOf(state, key);
     if (action.do === "nothing") return;
+    // Watched off where the diary wasn't loaded (search rows, posters): ask it first.
+    if (key === "watched" && action.do === "status" && action.status === null && !logged) {
+      setBusy(key);
+      const inDiary = await hasDiaryEntry(user.id, itemId, itemType);
+      setBusy(null);
+      if (inDiary) action = { do: "logged" };
+    }
     if (action.do === "logged") {
-      // It's in the diary: that's a record, not a switch. Say where it lives.
-      toast(onDiary ? "It's in your diary. Add another viewing, or remove one from your diary." : "It's in your diary — remove viewings there to unmark it.", { id: "marks-logged" });
+      // It's in the diary: that's a record, not a switch. Show the entry.
+      if (onLoggedTap) onLoggedTap();
+      else toast("It's in your diary. Open its page to change or remove the entry.", { id: "marks-logged", duration: 3000 });
       return;
     }
     const previous = status;
@@ -49,6 +112,10 @@ export function useMarks(title: LogTitle, { logged = false, onDiary }: { logged?
     setBusy(key);
     let ok = true;
     let message: string | undefined;
+    /** Episodes Finished ticked that weren't before: what its Undo takes back. */
+    let added: { season_number: number; episode_number: number }[] = [];
+    /** Watch later's plan (why, when, with whom): taking it off deletes the row, so Undo puts the plan back too. */
+    const plan = key === "later" && previous === "watchlist" ? await readPlan(user.id, itemId, itemType) : null;
     if (action.do === "status") {
       const r = await writeStatus(action.status);
       ok = r.ok;
@@ -60,7 +127,10 @@ export function useMarks(title: LogTitle, { logged = false, onDiary }: { logged?
         body: JSON.stringify({ showId: itemId, dated: false }),
       }).catch(() => null);
       ok = !!r?.ok;
-      if (ok) await refreshPreferences();
+      if (ok) added = ((await r!.json().catch(() => null)) as { added?: typeof added } | null)?.added ?? [];
+      // Every episode is marked now: the title's next-episode button and
+      // progress read this key, and would otherwise offer one already marked.
+      if (ok) await Promise.all([refreshPreferences(), mutateSWR(`/api/watched-episodes?showId=${itemId}`)]);
     } else {
       const r = await flipFavourite(action.on);
       ok = r.ok;
@@ -71,55 +141,58 @@ export function useMarks(title: LogTitle, { logged = false, onDiary }: { logged?
       toast.error(message ?? "That didn't save. Check your connection and try again.");
       return;
     }
+    onDone?.();
 
     const on = action.do === "favourite" ? action.on : action.do === "finish" ? true : marksFor({ ...state, status: action.status }).find((m) => m.key === key)?.on ?? false;
+    const episodesKey = `/api/watched-episodes?showId=${itemId}`;
     const undo = async () => {
       // Back to exactly what was there: the status, and the favourite.
+      if (action.do === "finish") {
+        if (added.length) {
+          await fetch("/api/watched-episodes-bulk", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ showId: itemId, episodes: added, action: "unmark" }),
+          }).catch(() => null);
+        }
+        await writeStatus(previous);
+        if (wasFavourite) await flipFavourite(true);
+        await Promise.all([refreshPreferences(), mutateSWR(episodesKey)]);
+        return;
+      }
+      if (plan) {
+        await fetch("/api/user-media-status", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ itemId, itemType, status: "watchlist", name: itemName, imgUrl: imageUrl ?? "", genres: genres ?? [], adult: !!adult, ...plan }),
+        }).catch(() => null);
+        await refreshPreferences();
+        return;
+      }
       if (action.do === "favourite") {
         await flipFavourite(!action.on);
         if (action.on && previous !== "watched") await writeStatus(previous);
       } else {
         await writeStatus(previous);
-        if (wasFavourite !== hasFavorite(itemId)) await flipFavourite(wasFavourite);
+        // Clearing a status also clears its favourite (api/user-media-status
+        // DELETE), so a favourite there before is put back. Adding is add-only:
+        // one that survived isn't toggled away.
+        if (wasFavourite) await flipFavourite(true);
       }
       await refreshPreferences();
     };
-    toast.custom(
-      (t) => (
-        <div role="status" className="pointer-events-auto flex w-[min(92vw,26rem)] items-center gap-3 rounded-card border border-line-strong bg-overlay px-4 py-3 text-sm text-ink-0 shadow-2xl">
-          <Check className="size-4 shrink-0" aria-hidden />
-          <span className="min-w-0 flex-1">{saidAfter(key, on, itemType)}</span>
-          {on && key === "watched" && onDiary && (
-            <button
-              type="button"
-              className="shrink-0 rounded-full px-3 py-1.5 font-medium text-ink-0 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover"
-              onClick={() => {
-                toast.dismiss(t.id);
-                onDiary();
-              }}
-            >
-              Add date
-            </button>
-          )}
-          {action.do !== "finish" && (
-            <button
-              type="button"
-              className="shrink-0 rounded-full px-3 py-1.5 font-medium text-ink-400 transition-colors hover:bg-hover hover:text-ink-0"
-              onClick={() => {
-                toast.dismiss(t.id);
-                void undo();
-              }}
-            >
-              Undo
-            </button>
-          )}
-        </div>
-      ),
-      { id: `marks-${itemType}-${itemId}`, duration: 6000 },
-    );
+    // Favouriting something unmarked (or only saved for later) marks it watched too (api/favoriteButton).
+    const promoted = key === "favourite" && on && (previous === null || previous === "watchlist");
+    const seen = on && (key === "watched" || key === "finished" || promoted);
+    markToast({
+      id: `marks-${itemType}-${itemId}`,
+      text: promoted ? `Added to favourites, and marked ${itemType === "tv" ? "finished" : "watched"}` : saidAfter(key, on, itemType),
+      hint: seen ? DETAILS_HINT[where] : undefined,
+      undo: () => void undo(),
+    });
   };
 
-  return { signedIn: !!user, marks, tap, busy, status, favourite };
+  return { signedIn: !!user, marks, tap, busy, status, favourite, loading };
 }
 
 const ICONS: Record<MarkKey, typeof Check> = {
@@ -133,16 +206,19 @@ const ICONS: Record<MarkKey, typeof Check> = {
 export default function MarkTiles({
   title,
   logged = false,
-  onDiary,
+  onLoggedTap,
+  onDone,
+  where = "elsewhere",
   size = "lg",
 }: {
   title: LogTitle;
   logged?: boolean;
-  /** Opens the diary sheet (date, stars, who, words), offered after marking watched. */
-  onDiary?: () => void;
+  onLoggedTap?: () => void;
+  onDone?: () => void;
+  where?: "here" | "elsewhere";
   size?: "lg" | "md";
 }) {
-  const { signedIn, marks, tap, busy } = useMarks(title, { logged, onDiary });
+  const { signedIn, marks, tap, busy } = useMarks(title, { logged, onLoggedTap, onDone, where });
   const pathname = usePathname() ?? "/app";
   const cols = marks.length === 4 ? "grid-cols-4" : "grid-cols-3";
   const height = size === "lg" ? "h-16" : "h-14";

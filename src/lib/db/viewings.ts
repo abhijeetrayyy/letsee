@@ -22,6 +22,7 @@ import {
 } from "@/utils/viewings";
 
 import { mergeLately, type LatelyEntry, type LatelyLog } from "@/lib/people/lately";
+import { todayIso } from "@/utils/viewings";
 
 export type { Viewing, ViewingPlace, CompanionInput };
 
@@ -74,6 +75,21 @@ export async function fetchLately(userId: string, limit = 6): Promise<LatelyEntr
   );
 }
 
+/**
+ * Is it in my diary at all? One count, no rows — for a mark tapped where the
+ * entries weren't loaded (a search row), before Watched is switched off.
+ */
+export async function hasDiaryEntry(userId: string, itemId: string, itemType: "movie" | "tv"): Promise<boolean> {
+  const { count, error } = await supabase
+    .from("viewings")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("item_id", itemId)
+    .eq("item_type", itemType);
+  // Unknown is treated as yes: refusing to unmark is recoverable, unmarking a logged film isn't.
+  return error ? true : (count ?? 0) > 0;
+}
+
 export function fetchWatchCompanions(userId: string, limit?: number) {
   return fetchWatchCompanionsWith(supabase, userId, limit);
 }
@@ -103,12 +119,16 @@ export type LogViewingInput = {
   companions?: CompanionInput[];
 };
 
-/** Log a viewing. Marks the title watched if it was not already. */
+/**
+ * Log a viewing. Marks the title watched if it was not already. "Today" is
+ * this device's today: left to the server it was UTC's, so an evening in New
+ * York or the small hours in Delhi were logged on the wrong day.
+ */
 export async function logViewing(input: LogViewingInput): Promise<{ viewing: Viewing | null; error: string | null }> {
   const res = await fetch("/api/viewings", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, watchedOn: input.watchedOn ?? todayIso() }),
   });
   const body = (await res.json().catch(() => null)) as
     | { viewing?: Viewing; error?: string }

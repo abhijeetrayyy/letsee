@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { Calendar } from "lucide-react";
+import DayChip from "@components/ds/DayChip";
 import Sheet from "@components/ds/Sheet";
 import TitlePicker, { type PickedTitle } from "@components/ds/TitlePicker";
 import { logViewing } from "@/lib/db/viewings";
@@ -132,11 +132,13 @@ export default function LogTogetherSheet({
                 <button type="button" className={chip(day === yesterdayIso())} aria-pressed={day === yesterdayIso()} onClick={() => setDay(yesterdayIso())}>
                   Last night
                 </button>
-                <label className={chip(day !== todayIso() && day !== yesterdayIso())}>
-                  <Calendar className="size-4" aria-hidden />
-                  <span>{day !== todayIso() && day !== yesterdayIso() ? day : "Pick a day"}</span>
-                  <input type="date" className="sr-only" max={todayIso()} value={day} onChange={(e) => e.target.value && setDay(e.target.value)} />
-                </label>
+                <DayChip
+                  value={day}
+                  max={todayIso()}
+                  on={day !== todayIso() && day !== yesterdayIso()}
+                  className={chip(day !== todayIso() && day !== yesterdayIso())}
+                  onPick={setDay}
+                />
               </div>
             </fieldset>
             <div className="grid gap-1.5">

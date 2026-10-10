@@ -73,22 +73,25 @@ export async function POST(req: NextRequest) {
       { action: "marked", count: uniqueEpisodes.length },
       { status: 200 },
     );
-  } else {
-    // Unmark (delete)
-    // Supabase doesn't support bulk delete with compound keys efficiently in one query clause strictly?
-    // We can use an `or` filter with structure like `and(season_number.eq.X,episode_number.eq.Y),...`
-    // Or just loop. Since standard bulk might be ~20 items, looping isn't terrible but not ideal.
-    // Better: Filter by show_id and user_id, and use .in() for seasons? No, pairs.
-    // The most robust way for arbitrary pairs is a loop or RPC.
-    // For "Mark Season", we can delete by season_number.
-
-    // For simplicity in this iteration, we loop deletions or use a custom filter string.
-    // Let's assume the use case is small bulk (previous episodes) or whole season.
-
-    // Note: User request currently focuses on "Mark all previous" (insert).
-    // "Unmark" isn't explicitly requested in Phase 3.2.
-    // I'll leave unmark unimplemented for now or basic loop.
-
-    return jsonError("Unmark action not fully implemented yet", 501);
   }
+
+  // Unmark: one delete per season (pairs can't be matched in one filter), so
+  // Finished — and anything else that marked a batch — can be undone exactly.
+  const bySeason = new Map<number, number[]>();
+  for (const e of uniqueEpisodes) bySeason.set(e.season_number, [...(bySeason.get(e.season_number) ?? []), e.episode_number]);
+  for (const [season, eps] of bySeason) {
+    const { error } = await supabase
+      .from("watched_episodes")
+      .delete()
+      .eq("user_id", userId)
+      .eq("show_id", showId)
+      .eq("season_number", season)
+      .in("episode_number", eps);
+    if (error) {
+      console.error("bulk-unmark-episodes delete:", error);
+      return jsonError("Failed to unmark episodes", 500);
+    }
+  }
+  await autoTransitionStatus(supabase, userId, showId);
+  return NextResponse.json({ action: "unmarked", count: uniqueEpisodes.length }, { status: 200 });
 }

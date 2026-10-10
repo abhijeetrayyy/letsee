@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useContext, useState } from "react";
 import toast from "react-hot-toast";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
+import { markToast } from "@components/ds/markToast";
 import { Check, LoaderCircle } from "lucide-react";
 import Link from "@components/ui/AppLink";
 import { LogCheck } from "@components/ds/LogItButton";
@@ -79,6 +81,7 @@ export function EpisodeRow({
   onSaved?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const { refreshPreferences } = useContext(UserPrefrenceContext);
   const next = episode.up_next?.[0];
   const href = titlePath("tv", episode.show_id, episode.show_name);
 
@@ -106,6 +109,23 @@ export function EpisodeRow({
       return;
     }
     onSaved?.();
+    // The last episode finishes the series: the marks everywhere follow.
+    void refreshPreferences();
+    const ep = { season_number: next.s, episode_number: next.e };
+    markToast({
+      text: `Marked ${episode.show_name} S${String(next.s).padStart(2, "0")} · E${String(next.e).padStart(2, "0")}`,
+      // A small target in a list: a mis-tap costs one Undo, as on a title.
+      undo: async () => {
+        const back = await fetch("/api/watched-episodes-bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ showId: episode.show_id, episodes: [ep], action: "unmark" }),
+        }).catch(() => null);
+        if (!back?.ok) toast.error("Couldn't undo that.");
+        onSaved?.();
+        void refreshPreferences();
+      },
+    });
   };
 
   const label = episode.is_caught_up

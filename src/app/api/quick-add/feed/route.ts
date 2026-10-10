@@ -94,9 +94,10 @@ export async function GET(req: NextRequest) {
 
   // Skip anything already tracked or favourited.
   const [{ data: tracked }, { data: favs }] = await Promise.all([
-    supabase.from("user_media_status").select("item_id").eq("user_id", userId),
-    supabase.from("favorite_items").select("item_id").eq("user_id", userId),
+    supabase.from("user_media_status").select("item_id").eq("user_id", userId).eq("item_type", type),
+    supabase.from("favorite_items").select("item_id").eq("user_id", userId).eq("item_type", type),
   ]);
+  // This grid's type only: a film you've marked mustn't hide the series that shares its id.
   const seen = new Set<string>([
     ...(tracked ?? []).map((r) => String(r.item_id)),
     ...(favs ?? []).map((r) => String(r.item_id)),

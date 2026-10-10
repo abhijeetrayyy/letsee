@@ -19,6 +19,9 @@ type Candidate = {
   genres: string[];
 };
 
+/** Marks are kept per film or series: the two share TMDB ids. */
+const keyOf = (i: Candidate) => `${i.itemType}:${i.id}`;
+
 /**
  * One tap marks a title seen, a second marks it a favourite, a third clears it.
  * The previous version had a mode switch at the top of the page and secondary
@@ -134,8 +137,8 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
       const res = await fetch(buildUrl(page + 1), { credentials: "include", cache: "no-store" });
       const d = await res.json();
       setItems((prev) => {
-        const seen = new Set(prev.map((i) => i.id));
-        return [...prev, ...(d.items ?? []).filter((i: Candidate) => !seen.has(i.id))];
+        const seen = new Set(prev.map(keyOf));
+        return [...prev, ...(d.items ?? []).filter((i: Candidate) => !seen.has(keyOf(i)))];
       });
       setPage((p) => p + 1);
     } finally {
@@ -168,8 +171,8 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
       });
       if (!res.ok) throw new Error(String(res.status));
       for (const { item, mark } of batch) {
-        if (mark === null) flushedRef.current.delete(item.id);
-        else flushedRef.current.add(item.id);
+        if (mark === null) flushedRef.current.delete(keyOf(item));
+        else flushedRef.current.add(keyOf(item));
       }
     } catch {
       toast.error("Some marks didn't save. Check your connection.");
@@ -194,18 +197,18 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
   const commit = useCallback(
     (item: Candidate, next: Mark | null, remember = true) => {
       const current = pickedRef.current;
-      if (remember) historyRef.current.push({ item, previous: current.get(item.id) });
+      if (remember) historyRef.current.push({ item, previous: current.get(keyOf(item)) });
 
       const map = new Map(current);
-      if (next === null) map.delete(item.id);
-      else map.set(item.id, next);
+      if (next === null) map.delete(keyOf(item));
+      else map.set(keyOf(item), next);
 
       pickedRef.current = map;
       setPicked(map);
       setTotal(map.size);
 
-      if (next === null && !flushedRef.current.has(item.id)) pendingRef.current.delete(item.id);
-      else pendingRef.current.set(item.id, { item, mark: next });
+      if (next === null && !flushedRef.current.has(keyOf(item))) pendingRef.current.delete(keyOf(item));
+      else pendingRef.current.set(keyOf(item), { item, mark: next });
 
       const hit = MILESTONES.find((m) => m === map.size);
       if (hit && hit > milestoneRef.current) {
@@ -220,7 +223,7 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
   /** seen -> loved -> clear. */
   const cycle = useCallback(
     (item: Candidate) => {
-      const now = pickedRef.current.get(item.id);
+      const now = pickedRef.current.get(keyOf(item));
       commit(item, now === undefined ? "seen" : now === "seen" ? "loved" : null);
     },
     [commit],
@@ -263,7 +266,7 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
   };
 
   const runProgress = useMemo(
-    () => items.filter((i) => picked.has(i.id)).length,
+    () => items.filter((i) => picked.has(keyOf(i))).length,
     [items, picked],
   );
 
@@ -395,7 +398,7 @@ export default function QuickAddClient({ initialType = "movie" }: { initialType?
                 <Tile
                   key={`${item.itemType}-${item.id}`}
                   item={item}
-                  mark={picked.get(item.id)}
+                  mark={picked.get(keyOf(item))}
                   onActivate={() => cycle(item)}
                 />
               ))}

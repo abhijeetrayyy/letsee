@@ -3,7 +3,7 @@
 import { formatStars } from "@/utils/ratingScale";
 import TitleCard from "@components/ds/TitleCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWRInfinite from "swr/infinite";
 import { fetchWatchedPage, type WatchedPage } from "@/lib/db/profileGrid";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
@@ -59,10 +59,14 @@ const genreList = [
 export default function WatchedGrid({
   userId,
   isOwner = false,
+  preview,
 }: {
   userId: string;
   isOwner?: boolean;
+  /** Show this many first, with "Show all" for the rest (the profile, open by default). */
+  preview?: number;
 }) {
+  const [expanded, setExpanded] = useState(!preview);
   const { user } = useAuth();
   const viewerId = user?.id ?? null;
   const [genreFilter, setGenreFilter] = useState<string | null>(null);
@@ -87,7 +91,13 @@ export default function WatchedGrid({
       return fetchWatchedPage(ownerId, viewerId, page, genre, itemType);
     });
 
+  // Back to one page when a filter changes — not on mount, where it only
+  // fetched page one a second time. The grid is open on every profile visit
+  // now, so that duplicate would be paid on every one.
+  const lastFilter = useRef({ genreFilter, activeType });
   useEffect(() => {
+    if (lastFilter.current.genreFilter === genreFilter && lastFilter.current.activeType === activeType) return;
+    lastFilter.current = { genreFilter, activeType };
     setSize(1);
   }, [genreFilter, activeType, setSize]);
 
@@ -96,9 +106,11 @@ export default function WatchedGrid({
     [data],
   );
   const totalItems = data?.[0]?.totalItems ?? 0;
+  const shown = expanded || !preview ? memoizedMovies : memoizedMovies.slice(0, preview);
   const loading = isLoading;
   const loadingMore = isValidating && size > 1;
-  const hasMore = memoizedMovies.length < totalItems;
+  const hasMore = expanded && memoizedMovies.length < totalItems;
+  const clipped = !expanded && !!preview && totalItems > preview;
 
   const handlePageChange = useCallback(() => {
     if (hasMore && !loadingMore) {
@@ -195,7 +207,7 @@ export default function WatchedGrid({
         </div>
       ) : !loading && !error ? (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-          {memoizedMovies.map((item: any) => {
+          {shown.map((item: any) => {
             const tvStatusLabels: Record<string, string> = {
               watchlist: "Watchlist",
               watching: "Watching",
@@ -208,7 +220,9 @@ export default function WatchedGrid({
                 ? (tvStatusLabels[item.tv_status] ?? item.tv_status)
                 : null;
             // One quiet line: when, your stars, and for a series where it stands
-            // if it isn't simply finished. Every card here is watched, so no mark.
+            // if it isn't simply finished. On your own profile every card is
+            // watched, so no mark; on someone else's, each poster carries
+            // yours — seeing what they've watched is how you log your own.
             const line = [
               item.watched_at ? formatWatchedDate(item.watched_at) : null,
               item.score != null ? formatStars(item.score) : null,
@@ -218,7 +232,7 @@ export default function WatchedGrid({
               .join(" · ");
             return (
               <TitleCard
-                key={item.item_id}
+                key={`${item.item_type}:${item.item_id}`}
                 id={item.item_id}
                 title={item.item_name}
                 mediaType={item.item_type}
@@ -231,13 +245,22 @@ export default function WatchedGrid({
                 }
                 adult={item.item_adult}
                 role={line || null}
-                hideState
+                hideState={isOwner}
               />
             );
           })}
 
         </div>
       ) : null}
+      {clipped && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="inline-flex h-10 w-full items-center justify-center rounded-full text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0"
+        >
+          Show all {totalItems}
+        </button>
+      )}
       {hasMore && (
         <button
           type="button"

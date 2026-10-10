@@ -47,16 +47,28 @@ export async function POST(req: NextRequest) {
     episode_number: number;
   }[] = [];
 
+  // Aired episodes only. Marking every listed episode ticked ones that hadn't
+  // aired, so a new episode arrived already "watched" and Up next called the
+  // show caught up for good. Nothing aired yet, nothing to tick.
+  const last = (show as { last_episode_to_air?: { season_number?: number; episode_number?: number } | null }).last_episode_to_air;
+  const lastSeason = Number(last?.season_number ?? 0);
+  const lastEpisode = Number(last?.episode_number ?? 0);
   for (const season of seasons) {
     const sn = Number(season?.season_number);
     // Season 0 is specials; TMDB leaves them out of number_of_episodes, so
     // including them here would push progress past 100%.
-    if (!Number.isFinite(sn) || sn <= 0) continue;
-    const count = Math.max(0, Number(season?.episode_count ?? 0));
+    if (!Number.isFinite(sn) || sn <= 0 || sn > lastSeason) continue;
+    const listed = Math.max(0, Number(season?.episode_count ?? 0));
+    const count = sn === lastSeason ? Math.min(listed, lastEpisode) : listed;
     for (let ep = 1; ep <= count; ep += 1) {
       rows.push({ user_id: userId, show_id: showId, season_number: sn, episode_number: ep });
     }
   }
+
+  // What this call adds, so Undo can take back exactly that and no more.
+  const { data: had } = await supabase.from("watched_episodes").select("season_number, episode_number").eq("user_id", userId).eq("show_id", showId);
+  const already = new Set((had ?? []).map((r) => `${r.season_number}:${r.episode_number}`));
+  const added = rows.filter((r) => !already.has(`${r.season_number}:${r.episode_number}`)).map((r) => ({ season_number: r.season_number, episode_number: r.episode_number }));
 
   if (rows.length > 0) {
     const { error: epError } = await supabase
@@ -110,5 +122,5 @@ export async function POST(req: NextRequest) {
   // already recounted inside its own transaction. An explicit recount here is a
   // second cross-region round trip for a number that is already correct.
 
-  return jsonSuccess({ ok: true, episodesMarked: rows.length });
+  return jsonSuccess({ ok: true, episodesMarked: rows.length, added });
 }

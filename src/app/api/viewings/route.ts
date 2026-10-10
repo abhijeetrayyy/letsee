@@ -66,6 +66,15 @@ export async function POST(req: NextRequest) {
     itemType === "tv" && existing && ["watching", "on_hold"].includes(existing.status as string);
 
   const status: MediaStatus = keepStatus ? (existing!.status as MediaStatus) : "watched";
+  /**
+   * `dated: false`: this request writes the viewing itself, just below.
+   *
+   * It used to let writeStatus add a viewing dated today and then delete
+   * "today's first-time viewing at home" to make room for this one. For a
+   * series kept at Watching that delete ran on every log, so logging it twice
+   * in a day removed the first entry, people and all; and "today" was the
+   * server's UTC date, not the person's.
+   */
   const statusError = await writeStatus(supabase, userId, {
     itemId,
     itemType,
@@ -74,26 +83,9 @@ export async function POST(req: NextRequest) {
     imageUrl,
     adult,
     genres,
+    dated: false,
   });
   if (statusError) return jsonError("Couldn't log that.", 500);
-
-  /**
-   * writeStatus may have just inserted a viewing dated today for a title that
-   * had none. If the person is logging that same title with a date, that
-   * auto row is this viewing, not a separate one: drop it so the log carries
-   * the date and companions they chose, and `rewatch` is decided honestly.
-   */
-  if (!(existing && existing.status === "watched")) {
-    await supabase
-      .from("viewings")
-      .delete()
-      .eq("user_id", userId)
-      .eq("item_id", itemId)
-      .eq("item_type", itemType)
-      .eq("watched_on", new Date().toISOString().slice(0, 10))
-      .eq("rewatch", false)
-      .eq("place", "home");
-  }
 
   const { viewing, error } = await recordViewing(supabase, userId, {
     itemId,

@@ -3,6 +3,7 @@
 import { useContext, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Plus, Check, LoaderCircle } from "lucide-react";
+import { DETAILS_HINT, markToast } from "@components/ds/markToast";
 import toast from "react-hot-toast";
 import Link from "@components/ui/AppLink";
 import LogSheet, { type LoggedViewing } from "@components/ds/LogSheet";
@@ -12,12 +13,13 @@ import { deleteMyViewing, logViewing } from "@/lib/db/viewings";
 
 /**
  * Log it: one tap, saved for today, with Undo (docs/design/RETHINK.md §8,
- * "Mark as watched"; research/05 recommendation c).
+ * "Mark as watched"; research/05 recommendation c). Up next's ✓ — something
+ * you lined up, just watched.
  *
  * The tap saves straight away — no form stands between watching something and
- * it being in the diary. The toast that follows offers *Add details* (when,
- * who was there, a rating, your words) and *Undo*. Undo removes the viewing
- * and puts the title's status back the way it was.
+ * it being in the diary. The toast says so briefly, with Undo, and that the
+ * day and who was there can be changed from ⋯ (owner, 10 Oct 2026: register,
+ * don't ask). Undo removes the viewing and puts the title's status back.
  */
 export type LogTitle = {
   itemId: string;
@@ -36,7 +38,7 @@ export function useLogIt(title: LogTitle, { onLogged, onUndone }: Callbacks = {}
   const { getStatus, setStatus, refreshPreferences } = useContext(UserPrefrenceContext);
   const [busy, setBusy] = useState(false);
   const [logged, setLogged] = useState<LoggedViewing | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const details = useDetails(title);
   const { itemId, itemType, itemName, imageUrl, genres, adult } = title;
 
   const undo = async (viewing: LoggedViewing, previous: ReturnType<typeof getStatus>) => {
@@ -56,11 +58,7 @@ export function useLogIt(title: LogTitle, { onLogged, onUndone }: Callbacks = {}
     toast.success("Taken out of your diary");
   };
 
-  /**
-   * `details`: straight into the sheet (when, stars, who, words) — the
-   * "Add to diary" under the marks — rather than the toast offering it.
-   */
-  const log = async ({ details = false }: { details?: boolean } = {}) => {
+  const log = async () => {
     if (busy || !user) return;
     setBusy(true);
     const previous = getStatus(itemId, itemType);
@@ -70,65 +68,47 @@ export function useLogIt(title: LogTitle, { onLogged, onUndone }: Callbacks = {}
       toast.error(error ?? "Couldn't log that.");
       return;
     }
-    const saved: LoggedViewing = { id: viewing.id, watchedOn: viewing.watchedOn };
+    const saved: LoggedViewing = { id: viewing.id, watchedOn: viewing.watchedOn, place: viewing.place, companions: viewing.companions };
     setLogged(saved);
     onLogged?.(saved);
     void refreshPreferences();
-    if (details) {
-      setSheetOpen(true);
-      return;
-    }
-    toast.custom(
-      (t) => (
-        <div
-          role="status"
-          className="pointer-events-auto flex w-[min(92vw,26rem)] items-center gap-3 rounded-card border border-line-strong bg-overlay px-4 py-3 text-sm text-ink-0 shadow-2xl"
-        >
-          <Check className="size-4 shrink-0" aria-hidden />
-          <span className="min-w-0 flex-1 truncate">
-            In your diary <span className="text-ink-500">· today</span>
-          </span>
-          <button
-            type="button"
-            className="rounded-full px-3 py-1.5 font-medium text-ink-0 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover"
-            onClick={() => {
-              toast.dismiss(t.id);
-              setSheetOpen(true);
-            }}
-          >
-            Add details
-          </button>
-          <button
-            type="button"
-            className="rounded-full px-3 py-1.5 font-medium text-ink-400 transition-colors hover:bg-hover hover:text-ink-0"
-            onClick={() => {
-              toast.dismiss(t.id);
-              void undo(saved, previous);
-            }}
-          >
-            Undo
-          </button>
-        </div>
-      ),
-      { duration: 7000 },
-    );
+    markToast({
+      text: "Watched today — it's in your diary",
+      hint: DETAILS_HINT.elsewhere,
+      undo: () => void undo(saved, previous),
+    });
   };
 
+  return { signedIn: !!user, busy, logged, log, openDetails: () => details.open(logged), sheet: details.sheet };
+}
+
+/**
+ * The details sheet (ds/LogSheet) for one title: open it on an entry, on
+ * nothing yet, or for another viewing. Opening writes nothing — the sheet adds
+ * to the diary only once you give it a day. The entry it opens with is held
+ * here, fixed until it closes, so a list refetching underneath can't reset it.
+ */
+export function useDetails(title: LogTitle, { onChanged }: { onChanged?: (entry: LoggedViewing | null) => void } = {}) {
+  const { user } = useAuth();
+  const [state, setState] = useState<{ open: boolean; viewing: LoggedViewing | null; again: boolean }>({ open: false, viewing: null, again: false });
+  const open = (viewing: LoggedViewing | null = null, { again = false }: { again?: boolean } = {}) => setState({ open: true, viewing, again });
   const sheet = user ? (
     <LogSheet
-      open={sheetOpen}
-      onClose={() => setSheetOpen(false)}
+      open={state.open}
+      onClose={() => setState((s) => ({ ...s, open: false }))}
       userId={user.id}
-      viewing={logged}
-      itemId={itemId}
-      itemType={itemType}
-      itemName={itemName}
-      imageUrl={imageUrl}
-      genres={genres}
+      viewing={state.viewing}
+      again={state.again}
+      itemId={title.itemId}
+      itemType={title.itemType}
+      itemName={title.itemName}
+      imageUrl={title.imageUrl}
+      genres={title.genres}
+      adult={title.adult}
+      onChanged={onChanged}
     />
   ) : null;
-
-  return { signedIn: !!user, busy, logged, log, openDetails: () => setSheetOpen(true), sheet };
+  return { open, sheet };
 }
 
 export default function LogItButton({

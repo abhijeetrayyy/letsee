@@ -75,7 +75,7 @@ export default function StarRating({
   return (
     <span
       className={`relative inline-flex items-center ${dims.gap}`}
-      onMouseLeave={() => setHover(null)}
+      onPointerLeave={() => setHover(null)}
     >
       {[1, 2, 3, 4, 5].map((i) => (
         <span key={i} className="relative inline-flex">
@@ -89,9 +89,16 @@ export default function StarRating({
                 key={half}
                 type="button"
                 disabled={disabled}
-                onClick={() => onChange(clears ? null : score)}
-                onMouseEnter={() => setHover(score)}
-                onFocus={() => setHover(score)}
+                onClick={() => {
+                  setHover(null);
+                  onChange(clears ? null : score);
+                }}
+                // A preview for a mouse and the keyboard only. A tap on a phone
+                // fires enter and focus too, and the preview then stayed lit
+                // over the real value until you tapped elsewhere — clearing a
+                // rating looked like it hadn't worked.
+                onPointerEnter={(e) => e.pointerType === "mouse" && setHover(score)}
+                onFocus={(e) => e.currentTarget.matches(":focus-visible") && setHover(score)}
                 onBlur={() => setHover(null)}
                 aria-label={
                   clears

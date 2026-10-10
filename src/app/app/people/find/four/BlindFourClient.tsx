@@ -144,7 +144,7 @@ function Card({
 }) {
   const { getStatus, hasFavorite } = useContext(UserPrefrenceContext);
   const seen = card.four.filter((f) => getStatus(f.itemId, f.itemType) === "watched").length;
-  const bothLove = card.four.filter((f) => hasFavorite(f.itemId));
+  const bothLove = card.four.filter((f) => hasFavorite(f.itemId, f.itemType));
   const match = seen >= 2 || bothLove.length >= 1;
 
   return (
