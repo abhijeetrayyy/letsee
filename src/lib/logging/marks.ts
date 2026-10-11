@@ -53,20 +53,26 @@ const progressLabel = (s: Status) => (s === "on_hold" ? "On hold" : s === "dropp
  * The owner (10 Oct 2026) wanted on hold and dropped back — they'd become one
  * "Stopped", reachable only as "Stop watching" in a series' menu, and a film
  * couldn't be paused or dropped at all. They come back as a row under the
- * marks that appears once you've started something (and only then, so a
- * first visit still sees four plain choices): one tap moves between them,
- * with Undo. On hold keeps your place and waits in Up next; Dropped says
- * you're done, without pretending you never started.
+ * marks: On hold and Dropped from the start (something you gave up on years
+ * ago is still worth saying), and Watching joins them once you've begun. One
+ * tap moves between them, with Undo. On hold keeps your place and waits in
+ * Up next; Dropped says you're done, without pretending you never started.
  */
 export type Stage = "watching" | "on_hold" | "dropped";
 
 export function stagesFor(s: MarkState): { key: Stage; label: string; on: boolean }[] | null {
-  if (s.status !== "watching" && !stopped(s.status)) return null;
-  return [
-    { key: "watching", label: "Watching", on: s.status === "watching" },
-    { key: "on_hold", label: "On hold", on: s.status === "on_hold" },
-    { key: "dropped", label: "Dropped", on: s.status === "dropped" },
+  // Finished: nothing to pause or drop (un-finish first; the tile does that).
+  if (s.status === "watched" || (s.kind === "movie" && s.logged)) return null;
+  const started = s.status === "watching" || stopped(s.status);
+  const all = [
+    { key: "watching" as const, label: "Watching", on: s.status === "watching" },
+    { key: "on_hold" as const, label: "On hold", on: s.status === "on_hold" },
+    { key: "dropped" as const, label: "Dropped", on: s.status === "dropped" },
   ];
+  // Before you've started, Watching is the tile above; the row offers the two
+  // things a tile can't say — you set it down once, or gave up on it (owner,
+  // 11 Oct 2026: "he dropped it; he just wants to state that").
+  return started ? all : all.filter((x) => x.key !== "watching");
 }
 
 /** The toast after moving between them. */

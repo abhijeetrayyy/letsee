@@ -7,6 +7,7 @@ import { Check, ListChecks, LoaderCircle, MoreHorizontal, NotebookPen, Repeat, S
 import { useDetails } from "@components/ds/LogItButton";
 import { markToast } from "@components/ds/markToast";
 import { dayLabel } from "@components/ds/DayChip";
+import SeriesPosition from "@components/ds/SeriesPosition";
 import MarkTiles from "@components/ds/MarkTiles";
 import PassToButton from "@components/ds/PassToButton";
 import SaveContext from "@components/buttons/SaveContext";
@@ -164,6 +165,9 @@ export default function TitleActions({
         </button>
       )}
       <MarkTiles title={title} logged={(viewings?.length ?? 0) > 0} onLoggedTap={() => details.open(latest)} where="here" />
+      {/* A series: where you are, one tap (ds/SeriesPosition). Its own line
+          says how far; the status line below is for films. */}
+      {me && series && episodes && <SeriesPosition showId={itemId} seasons={series.seasons} lastAired={series.lastAired} watched={watchedEps} onChanged={() => refreshEpisodes()} />}
       <div className="flex flex-wrap items-center gap-2">
         <PassToButton title={{ itemId, itemType, itemName, imageUrl: posterPath }} />
         <MoreMenu
@@ -181,7 +185,7 @@ export default function TitleActions({
       </div>
       {details.sheet}
       {/* When it's for later, the plan box below already says so. */}
-      {line && !later && <p className="text-sm text-ink-400">{line}</p>}
+      {line && !later && !(me && series && episodes) && <p className="text-sm text-ink-400">{line}</p>}
       {later && (
         <SaveContext itemId={itemId} itemType={itemType} itemName={itemName} imageUrl={imageUrl} genres={genres} />
       )}

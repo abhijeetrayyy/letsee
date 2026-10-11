@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { earlierUnwatched, episodeLabel, epKey, isOut, leadsWithEpisode, nextEpisode, notOutYet, progressOf, rangeLabel, type SeasonInfo } from "@/lib/logging/episodes";
+import { earlierUnwatched, episodeLabel, epKey, isOut, leadsWithEpisode, nextEpisode, notOutYet, positionOf, progressOf, rangeLabel, seasonsOf, upTo, type SeasonInfo } from "@/lib/logging/episodes";
 
 const seasons: SeasonInfo[] = [
   { season_number: 0, episode_count: 3 }, // specials
@@ -110,5 +110,36 @@ describe("specials and undated episodes", () => {
     expect(isOut({ s: 2, e: 2 }, null, null, today)).toBe(false);
     expect(isOut({ s: 2, e: 2 }, "2026-10-01", null, today)).toBe(true);
     expect(isOut({ s: 2, e: 2 }, "2026-10-09", { s: 3, e: 1 }, today)).toBe(false);
+  });
+});
+
+describe("where you are", () => {
+  const seasons = [
+    { season_number: 0, episode_count: 2 },
+    { season_number: 1, episode_count: 3 },
+    { season_number: 2, episode_count: 4 },
+    { season_number: 3, episode_count: 6 },
+  ];
+  const last = { s: 3, e: 2 };
+  const set = (...keys: string[]) => new Set(keys);
+
+  it("through here means every aired episode up to it, and no further", () => {
+    expect(upTo(seasons, { s: 2, e: 2 }, last).map((e) => `${e.s}:${e.e}`)).toEqual(["1:1", "1:2", "1:3", "2:1", "2:2"]);
+    expect(upTo(seasons, { s: 3, e: 6 }, last).length).toBe(9);
+  });
+
+  it("is the furthest episode you've marked, even across a gap", () => {
+    expect(positionOf(seasons, set("1:1", "1:2", "2:1"), last)).toEqual({ s: 2, e: 1 });
+    expect(positionOf(seasons, set("1:1", "2:4"), last)).toEqual({ s: 2, e: 4 });
+    expect(positionOf(seasons, set("0:1"), last)).toBeNull();
+    expect(positionOf(seasons, set(), last)).toBeNull();
+  });
+
+  it("knows each season's share, aired and seen, leaving specials out", () => {
+    expect(seasonsOf(seasons, set("1:1", "1:2", "1:3", "3:1"), last)).toEqual([
+      { s: 1, listed: 3, aired: 3, seen: 3 },
+      { s: 2, listed: 4, aired: 4, seen: 0 },
+      { s: 3, listed: 6, aired: 2, seen: 1 },
+    ]);
   });
 });

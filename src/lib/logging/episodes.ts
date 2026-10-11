@@ -101,3 +101,35 @@ export function notOutYet(airDate: string | null | undefined, today: { y: number
 export function leadsWithEpisode(watched: Set<string>, status: string | null, next: Ep | null): boolean {
   return !!next && (watched.size > 0 || status === "watching");
 }
+
+/**
+ * Where you are: the control under a series' marks (ds/SeriesPosition). The
+ * owner (11 Oct 2026): "I've watched this much" had to be said one episode
+ * at a time, or in a modal three steps away; it should be one step. So a
+ * season, a number, done — and the number means *through here*: every aired
+ * episode up to it is watched, nothing past it is.
+ */
+
+/** Every aired regular episode up to and including `pos`. */
+export function upTo(seasons: SeasonInfo[], pos: Ep, lastAired: Ep | null): Ep[] {
+  return aired(seasons, lastAired).filter((ep) => !after(ep, pos));
+}
+
+/** The furthest aired episode you've marked, in order — or nothing. */
+export function positionOf(seasons: SeasonInfo[], watched: Set<string>, lastAired: Ep | null): Ep | null {
+  const list = aired(seasons, lastAired);
+  for (let i = list.length - 1; i >= 0; i--) if (watched.has(epKey(list[i].s, list[i].e))) return list[i];
+  return null;
+}
+
+/** Each regular season with how much of it is out and how much you've seen. */
+export function seasonsOf(seasons: SeasonInfo[], watched: Set<string>, lastAired: Ep | null): { s: number; listed: number; aired: number; seen: number }[] {
+  const out = aired(seasons, lastAired);
+  return [...seasons]
+    .filter((x) => x.season_number > 0 && x.episode_count > 0)
+    .sort((a, b) => a.season_number - b.season_number)
+    .map((x) => {
+      const mine = out.filter((ep) => ep.s === x.season_number);
+      return { s: x.season_number, listed: x.episode_count, aired: mine.length, seen: mine.filter((ep) => watched.has(epKey(ep.s, ep.e))).length };
+    });
+}

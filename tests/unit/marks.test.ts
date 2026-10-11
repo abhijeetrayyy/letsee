@@ -68,10 +68,15 @@ describe("marks for a series", () => {
 describe("where something you've started stands", () => {
   const row = (st: MarkState) => stagesFor(st)?.map((x) => `${x.label}${x.on ? "*" : ""}`) ?? null;
 
-  it("appears only once you've started it — a first visit sees four plain marks", () => {
-    expect(row(film())).toBeNull();
-    expect(row(film({ status: "watchlist" }))).toBeNull();
+  it("offers On hold and Dropped before you've started — Watching is the tile", () => {
+    expect(row(film())).toEqual(["On hold", "Dropped"]);
+    expect(row(film({ status: "watchlist" }))).toEqual(["On hold", "Dropped"]);
+    expect(row(show())).toEqual(["On hold", "Dropped"]);
+  });
+
+  it("has nothing to say about something finished", () => {
     expect(row(film({ status: "watched" }))).toBeNull();
+    expect(row(film({ logged: true }))).toBeNull();
     expect(row(show({ status: "watched" }))).toBeNull();
   });
 
