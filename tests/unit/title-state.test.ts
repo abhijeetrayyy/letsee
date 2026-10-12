@@ -19,7 +19,7 @@ const s = (kind: Kind, status: Status, days: string[] = []): TitleState => ({ ki
 
 describe("the five words", () => {
   it("reads every status the way a person would", () => {
-    expect(statusWord("watchlist")).toBe("Want to watch");
+    expect(statusWord("watchlist")).toBe("Watch later");
     expect(statusWord("watching")).toBe("Watching");
     expect(statusWord("watched")).toBe("Watched");
     expect(statusWord("on_hold")).toBe("On hold");
@@ -117,7 +117,7 @@ describe("the line that says where you stand", () => {
   });
 
   it("names the status when nothing is logged", () => {
-    expect(stateLine(s("movie", "watchlist"), TODAY)).toBe("Want to watch");
+    expect(stateLine(s("movie", "watchlist"), TODAY)).toBe("Watch later");
     expect(stateLine(s("tv", "on_hold"), TODAY)).toBe("On hold");
     expect(stateLine(s("movie", "dropped"), TODAY)).toBe("Dropped");
   });

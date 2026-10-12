@@ -17,7 +17,9 @@ import { titlePath } from "@/utils/urls";
  * would have (Duolingo's own data; Mogavi et al. 2022). A calendar keeps the
  * benefit — you can see that you show up — without creating an asset you can
  * lose. So: fifty-two weeks of days, shaded by how many viewings landed on
- * each, and no consecutive-day count anywhere on the page. Never a
+ * each, and no consecutive-day count anywhere on the page. A night with
+ * someone there is lit in the accent — the year's company, at a glance
+ * (docs/IDEAS_2026-10.md §2.2). Never a
  * notification about a gap, either; that rule lives in the cron.
  *
  * Read from `viewings` under RLS, so a visitor sees exactly what the profile's
@@ -56,11 +58,16 @@ export default function DiaryCalendar({ userId, isOwner }: { userId: string; isO
   );
 
   const byDay = useMemo(() => {
-    const m = new Map<string, { count: number; names: string[]; first: { itemId: string; itemType: "movie" | "tv"; name: string } | null }>();
+    const m = new Map<string, { count: number; names: string[]; with: string[]; first: { itemId: string; itemType: "movie" | "tv"; name: string } | null }>();
     for (const v of data ?? []) {
-      const e = m.get(v.watchedOn) ?? { count: 0, names: [], first: null };
+      const e = m.get(v.watchedOn) ?? { count: 0, names: [], with: [], first: null };
       e.count += 1;
       if (v.itemName && e.names.length < 3) e.names.push(v.itemName);
+      // Who was there: a night with someone is lit in the accent, not the ink.
+      for (const c of v.companions) {
+        const who = c.username ?? c.name;
+        if (who && !e.with.includes(who)) e.with.push(who);
+      }
       e.first ??= { itemId: v.itemId, itemType: v.itemType, name: v.itemName };
       m.set(v.watchedOn, e);
     }
@@ -72,6 +79,8 @@ export default function DiaryCalendar({ userId, isOwner }: { userId: string; isO
 
   const total = data.length;
   const daysWith = byDay.size;
+  const nightsWith = [...byDay.values()].filter((e) => e.with.length > 0).length;
+  const accent = isDarkTheme() ? TOKENS_DARK.accent : TOKENS.accent;
   const max = Math.max(1, ...[...byDay.values()].map((e) => e.count));
   const shade = (n: number) => {
     // The day's square in the ink of whichever theme is showing.
@@ -94,8 +103,14 @@ export default function DiaryCalendar({ userId, isOwner }: { userId: string; isO
         The last year
       </h2>
       <p className="mb-4 text-xs text-ink-500">
-        {total} {total === 1 ? "viewing" : "viewings"} on {daysWith} {daysWith === 1 ? "day" : "days"}.
-        {isOwner ? " Days you watched something, shaded by how much." : ""}
+        {total} {total === 1 ? "viewing" : "viewings"} on {daysWith} {daysWith === 1 ? "day" : "days"}
+        {nightsWith > 0 ? `, ${nightsWith} of them with someone` : ""}.
+        {nightsWith > 0 && (
+          <span className="ml-2 inline-flex items-center gap-1.5">
+            <span aria-hidden className="inline-block size-2.5 rounded-xs" style={{ background: accent }} />
+            with someone
+          </span>
+        )}
       </p>
       <div className="overflow-x-auto pb-2">
         <div className="relative min-w-180">
@@ -122,12 +137,12 @@ export default function DiaryCalendar({ userId, isOwner }: { userId: string; isO
               const e = byDay.get(key);
               const n = e?.count ?? 0;
               const title = n
-                ? `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}: ${e!.names.join(", ")}${n > e!.names.length ? ` +${n - e!.names.length}` : ""}`
+                ? `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}: ${e!.names.join(", ")}${n > e!.names.length ? ` +${n - e!.names.length}` : ""}${e!.with.length ? ` — with ${e!.with.slice(0, 3).join(", ")}` : ""}`
                 : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
               const cell = (
                 <span
                   className="block h-2.75 w-full rounded-xs"
-                  style={{ background: shade(n) }}
+                  style={{ background: e?.with.length ? accent : shade(n) }}
                   title={title}
                   aria-label={title}
                 />

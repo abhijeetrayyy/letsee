@@ -1,6 +1,7 @@
 "use client";
 
 import { formatStars } from "@/utils/ratingScale";
+import Link from "@components/ui/AppLink";
 import TitleCard from "@components/ds/TitleCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -202,14 +203,29 @@ export default function WatchedGrid({
         </div>
       )}
       {!loading && !error && memoizedMovies.length === 0 ? (
-        <div className="w-full p-10">
-          <p className="m-auto w-fit text-ink-400">No items yet.</p>
+        <div className="w-full py-6">
+          {isOwner && !genreFilter && !activeType ? (
+            // Empty, yours: the two ways it fills, as taps (docs/IDEAS_2026-10.md §1.4).
+            <div className="grid gap-3 text-sm text-ink-400">
+              <p>Nothing watched yet. Tap + on any poster and choose Watched — seen it years ago counts.</p>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/app/search" className="inline-flex h-10 items-center rounded-full bg-action px-4 text-sm font-semibold text-on-action hover:bg-action-hover">
+                  Find something you&apos;ve seen
+                </Link>
+                <Link href="/app/import" className="inline-flex h-10 items-center rounded-full px-4 text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0">
+                  Bring your history in
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <p className="m-auto w-fit text-ink-400">Nothing here yet.</p>
+          )}
         </div>
       ) : !loading && !error ? (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
           {shown.map((item: any) => {
             const tvStatusLabels: Record<string, string> = {
-              watchlist: "Watchlist",
+              watchlist: "Watch later",
               watching: "Watching",
               watched: "Watched",
               on_hold: "On hold",

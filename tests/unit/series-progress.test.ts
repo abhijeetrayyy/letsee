@@ -31,7 +31,7 @@ describe("a series on a profile", () => {
   it("does not offer an episode for a show you haven't begun", () => {
     const saved = { ...base, episodes_watched: 0, tv_status: "watchlist", total_episodes: 62 };
     expect(hasStarted(saved)).toBe(false);
-    expect(seriesLine(saved)).toBe("Want to watch · 62 episodes");
+    expect(seriesLine(saved)).toBe("Watch later · 62 episodes");
     expect(offersNextCheck(saved, true)).toBe(false);
   });
 

@@ -77,7 +77,16 @@ export default function ProfileDiary({ userId, isOwner }: { userId: string; isOw
     );
   }
   if (!entries.length) {
-    return <p className="text-sm text-ink-500">{isOwner ? "Nothing logged yet. Log something you watched and it starts here." : "Nothing here yet."}</p>;
+    return isOwner ? (
+      <p className="text-sm leading-relaxed text-ink-500">
+        Nothing in your diary yet. Marking something watched doesn&apos;t need a day — when you want one, it&apos;s ⋯ → <span className="text-ink-300">When, who &amp; stars</span> on its page.{" "}
+        <Link href="/app/up-next" className="font-medium text-ink-300 underline decoration-line-input underline-offset-4 hover:text-ink-0">
+          Start with what you&apos;re watching
+        </Link>
+      </p>
+    ) : (
+      <p className="text-sm text-ink-500">Nothing here yet.</p>
+    );
   }
 
   const months: { label: string; items: Entry[] }[] = [];

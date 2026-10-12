@@ -137,7 +137,7 @@ export default function ShareModal({
       if (error) throw error;
 
       toast.success(
-        picked.length === 1 ? `Sent to ${picked[0].username}` : `Sent to ${picked.length} people`,
+        picked.length === 1 ? `Passed to ${picked[0].username}` : `Passed to ${picked.length} people`,
       );
       onClose();
     } catch {
@@ -277,10 +277,10 @@ export default function ShareModal({
             >
               <Send className="size-4" />
               {sending
-                ? "Sending…"
+                ? "Passing…"
                 : picked.length === 1
-                  ? `Send to ${picked[0].username}`
-                  : `Send to ${picked.length} people`}
+                  ? `Pass to ${picked[0].username}`
+                  : `Pass to ${picked.length} people`}
             </button>
           </div>
         )}

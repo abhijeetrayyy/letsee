@@ -20,6 +20,9 @@ import { swrFetcher } from "@/utils/swrFetcher";
 import { fetchHousehold, setHousehold } from "@/lib/db/households";
 import { epKey, episodeLabel, reached } from "@/lib/logging/episodes";
 import { parseAbout, reactionOf, type EpisodeRef } from "@/lib/people/reactions";
+import { pickRoomMonth, roomMonthLine } from "@/lib/people/ourMonth";
+import OurMonthPicture from "@components/ds/OurMonthPicture";
+import { todayIso } from "@/utils/viewings";
 import { fetchHidden, hideEvent, unhideAll, unhideEvent } from "@/lib/db/roomHidden";
 import { eventRef, hiddenKey, withoutHidden } from "@/lib/rooms/hidden";
 
@@ -155,6 +158,11 @@ function Room({
     }
     toast.success(on ? `You live with ${person.username}. Logging will suggest them, and series show where they are.` : "Noted — not living together.");
   };
+  // Our month (docs/IDEAS_2026-10.md §3.3): from what the room already read.
+  const ourMonth = useMemo(() => pickRoomMonth(together, passes, todayIso()), [together, passes]);
+  const [monthPicture, setMonthPicture] = useState(false);
+  const { user: authUser } = useAuth();
+  const myName = authUser?.username ?? "you";
   // After the credits: a title you've both watched this week, apart.
   const { data: credits } = useSWR(["both-watched", me, person.id, together.length], () => fetchBothWatched(me, person.id, together), { revalidateOnFocus: false });
   const [creditsGone, setCreditsGone] = useState(false);
@@ -305,7 +313,7 @@ function Room({
             onClick={() => void toggleHousehold()}
             aria-pressed={livesHere}
             title="Only you see this"
-            className={livesHere ? "inline-flex h-9 items-center gap-1.5 rounded-full bg-ink-0 px-4 text-sm font-medium text-page" : quiet}
+            className={livesHere ? "inline-flex h-9 items-center gap-1.5 rounded-full bg-ink-0 px-4 text-sm font-medium text-page" : `${quiet} gap-1.5`}
           >
             <Home className="size-3.5" aria-hidden />
             {livesHere ? "You live together" : "We live together"}
@@ -327,6 +335,17 @@ function Room({
       />
       <LogTogetherSheet open={sheet === "log"} onClose={() => setSheet(null)} person={person} onLogged={refresh} />
 
+      {ourMonth && (
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-line-strong bg-raised px-4 py-3">
+          <span className="min-w-0 flex-1 text-sm text-ink-400">
+            <span className="font-medium text-ink-0">{ourMonth.label.split(" ")[0]} with {person.username}</span> · {roomMonthLine(ourMonth)}
+          </span>
+          <button type="button" onClick={() => setMonthPicture(true)} className="inline-flex h-9 items-center rounded-full px-3.5 text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0">
+            Picture
+          </button>
+          <OurMonthPicture open={monthPicture} onClose={() => setMonthPicture(false)} month={ourMonth} me={myName} them={person.username} />
+        </div>
+      )}
       {(together.length > 0 || openPasses.length > 0 || meet.length > 0) && (
         <BetweenYou name={person.username} together={together} open={openPasses} meet={meet} />
       )}

@@ -147,3 +147,23 @@ export function reached(watched: Set<string>, s: number, e: number): boolean {
   }
   return false;
 }
+
+/**
+ * When a paused series comes back: "S3 returns 14 Nov" for a new season,
+ * "Next episode 14 Nov" mid-season, "Ended" when it has. Nothing when TMDB
+ * doesn't know.
+ */
+export function returnLabel(show: { next: { s: number; e: number; airDate: string } | null; status: string | null }, today: string): string | null {
+  if (show.next && show.next.airDate >= today) {
+    const [y, m, d] = show.next.airDate.split("-").map(Number);
+    const when = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-GB", {
+      timeZone: "UTC",
+      day: "numeric",
+      month: "short",
+      ...(show.next.airDate.slice(0, 4) !== today.slice(0, 4) ? { year: "numeric" } : {}),
+    });
+    return show.next.e === 1 ? `S${show.next.s} returns ${when}` : `Next episode ${when}`;
+  }
+  if (show.status === "Ended" || show.status === "Canceled") return show.status === "Ended" ? "Ended" : "Cancelled";
+  return null;
+}

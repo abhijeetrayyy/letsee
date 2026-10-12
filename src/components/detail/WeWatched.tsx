@@ -167,7 +167,7 @@ export default function WeWatched({
             disabled={capturing}
             className="inline-flex items-center gap-1.5 rounded-full border border-line-strong px-3 py-1.5 text-xs text-ink-300 transition hover:border-line-input hover:text-ink-0 disabled:opacity-50"
           >
-            <Download className="size-3.5" /> Card
+            <Download className="size-3.5" /> Picture
           </button>
         </div>
       </div>

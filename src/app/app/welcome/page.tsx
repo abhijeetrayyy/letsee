@@ -17,6 +17,7 @@ import { fetchMyNeighbours } from "@/lib/db/taste";
 import { useSearchIndex } from "@components/header/useSearchIndex";
 import { inviteSomeone } from "@components/home/v2/parts";
 import { fetchRecipients, type Recipients } from "@/lib/db/recipients";
+import LogTogetherSheet from "@components/ds/LogTogetherSheet";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { safeNext } from "@/lib/auth/next";
 import { USERNAME_MAX, cleanUsername, usernameProblem, usernameSaveProblem } from "@/lib/people/username";
@@ -664,10 +665,20 @@ function StepPeople({ username, onFinish, leaving }: { username: string | null; 
   }, [me, q]);
 
   const people = q.length >= 2 && found ? [...found.connections, ...found.others].slice(0, 6) : [];
+  /**
+   * The thesis question, asked where people already are (docs/IDEAS_2026-10.md
+   * §1.3): who you watch with. Find them, follow them, and log one film you
+   * watched together — the first night in your diary, and the first room.
+   * Optional, in the step that was already here; no new step.
+   */
+  const [together, setTogether] = useState<{ id: string; username: string; avatarUrl: string | null } | null>(null);
 
   return (
     <section>
-      <Heading title="Know anyone here?" lead="Follow people to see what they watch and love. No one yet? That's fine — skip this, and find people any time from People." />
+      <Heading
+        title="Who do you watch with?"
+        lead="Find them here, follow them, and log one film you watched together — that's your first night in letsee. No one here yet? Send them your link, or skip this."
+      />
 
       <InvitedBy />
 
@@ -697,6 +708,13 @@ function StepPeople({ username, onFinish, leaving }: { username: string | null; 
               <li key={p.id} className="flex items-center gap-3 py-2.5">
                 <Avatar src={p.avatarUrl} name={p.username} size={36} />
                 <span className="min-w-0 flex-1 truncate text-base text-ink-0">{p.username}</span>
+                <button
+                  type="button"
+                  onClick={() => setTogether({ id: p.id, username: p.username, avatarUrl: p.avatarUrl })}
+                  className="inline-flex h-9 shrink-0 items-center rounded-full px-3 text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"
+                >
+                  Log one together
+                </button>
                 <FollowButton targetUserId={p.id} currentUserId={me} initialStatus={"following" in p && p.following ? "following" : "follow"} size="sm" />
               </li>
             ))}
@@ -737,6 +755,8 @@ function StepPeople({ username, onFinish, leaving }: { username: string | null; 
       <p className="mt-4 text-center text-sm text-ink-500">
         Once you&apos;re in: mark what you&apos;ve seen in a minute with fast mode (the + Add button, top right), or bring your history from Letterboxd, Trakt, TV Time, IMDb or Netflix.
       </p>
+      {/* The sheet says "Logged with …" itself; closing it is all that's left. */}
+      {together && <LogTogetherSheet open onClose={() => setTogether(null)} person={together} onLogged={() => setTogether(null)} />}
     </section>
   );
 }

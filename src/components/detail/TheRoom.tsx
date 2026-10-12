@@ -40,7 +40,7 @@ const STATUS_LABEL: Record<Status, string> = {
   watching: "Watching",
   on_hold: "On hold",
   dropped: "Dropped",
-  watchlist: "Watchlist",
+  watchlist: "Watch later",
 };
 
 /**

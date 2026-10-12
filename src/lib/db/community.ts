@@ -12,6 +12,7 @@
 import { supabase } from "@/utils/supabase/client";
 import { getBlockedUserIds } from "@/utils/blocks";
 import type { RoomPerson } from "@/lib/db/rooms";
+import { cinemaShelf } from "@/lib/people/cinema";
 
 export type CommunityLog = {
   id: number;
@@ -32,21 +33,28 @@ export type CommunityTitle = {
   people: RoomPerson[];
 };
 
-export async function fetchCommunity(me: string | null): Promise<{ lately: CommunityLog[]; popular: CommunityTitle[] }> {
+/**
+ * `cinema` (docs/IDEAS_2026-10.md §6.3): titles people logged *at the cinema*
+ * in the last thirty days — near you when your region is set (people whose
+ * own watch region is yours), anywhere otherwise. From the same rows as the
+ * rest: two more columns, no more requests. letsee keeps no city, and needs
+ * none for "what's on that people actually went to see".
+ */
+export async function fetchCommunity(me: string | null, region?: string | null): Promise<{ lately: CommunityLog[]; popular: CommunityTitle[]; cinema: CommunityTitle[] }> {
   // Ninety days, not seven: letsee is small, and a week can hold one log. The
   // newest come first either way, so a busy week still shows only that week.
   const since = new Date(Date.now() - 90 * 864e5).toISOString();
   const [{ data: rows }, blocked] = await Promise.all([
-    supabase.from("viewings").select("id, user_id, item_id, item_type, watched_on, created_at").gte("created_at", since).order("created_at", { ascending: false }).limit(300),
+    supabase.from("viewings").select("id, user_id, item_id, item_type, watched_on, created_at, place").gte("created_at", since).order("created_at", { ascending: false }).limit(300),
     getBlockedUserIds(supabase, me),
   ]);
   const viewings = (rows ?? []).filter((v) => v.user_id !== me && !blocked.has(v.user_id));
-  if (!viewings.length) return { lately: [], popular: [] };
+  if (!viewings.length) return { lately: [], popular: [], cinema: [] };
 
   const userIds = [...new Set(viewings.map((v) => v.user_id))];
   const itemIds = [...new Set(viewings.map((v) => v.item_id))];
   const [{ data: users }, { data: meta }] = await Promise.all([
-    supabase.from("users").select("id, username, avatar_url").in("id", userIds).is("deleted_at", null),
+    supabase.from("users").select("id, username, avatar_url, watch_region").in("id", userIds).is("deleted_at", null),
     supabase.from("user_media_status").select("user_id, item_id, item_type, item_name, image_url").in("user_id", userIds).in("item_id", itemIds).limit(2000),
   ]);
   const people = new Map((users ?? []).filter((u) => u.username).map((u) => [u.id, { id: u.id, username: u.username as string, avatarUrl: u.avatar_url as string | null }]));
@@ -75,6 +83,10 @@ export async function fetchCommunity(me: string | null): Promise<{ lately: Commu
     byTitle.set(key, entry);
   }
 
+  // At the cinema, lately, near you (lib/people/cinema): from these same rows.
+  const regionOf = new Map((users ?? []).map((u) => [u.id as string, ((u.watch_region as string | null) ?? "").toUpperCase()]));
+  const cinema = cinemaShelf(viewings, people, titles, regionOf, (region ?? "").toUpperCase(), new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10));
+
   // Popular means several different people, not one person's binge.
   const popular = [...byTitle.values()].filter((t) => t.people.length > 1).sort((a, b) => b.people.length - a.people.length).slice(0, 16);
   // A person shows up at most twice in a row of the feed, so one busy account can't fill it.
@@ -84,5 +96,5 @@ export async function fetchCommunity(me: string | null): Promise<{ lately: Commu
     perPerson.set(l.person.id, n);
     return n <= 2;
   });
-  return { lately: spread.slice(0, 18), popular };
+  return { lately: spread.slice(0, 18), popular, cinema };
 }

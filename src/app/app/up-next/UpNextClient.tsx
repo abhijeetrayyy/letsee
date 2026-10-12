@@ -22,6 +22,11 @@ import ThanksSheet from "./ThanksSheet";
 import { tonightHref } from "@/lib/people/tonight";
 import YourAsks from "@components/rooms/YourAsks";
 import { EpisodeRow, SaveRow, episodesFetcher, type Episode } from "@components/ds/UpNextRows";
+import { swrFetcher } from "@/utils/swrFetcher";
+import { useSearchIndex } from "@components/header/useSearchIndex";
+import TitleCard from "@components/ds/TitleCard";
+import { returnLabel } from "@/lib/logging/episodes";
+import type { ShowNext } from "@/app/api/show-next/route";
 
 /**
  * Up next (docs/design/PAGES.md §3): choose what to watch next.
@@ -210,6 +215,7 @@ export default function UpNextClient() {
           <Link href="/app/search" className={`${quiet} mt-5`}>
             Find something
           </Link>
+          <TryThese />
         </div>
       )}
     </Page>
@@ -579,6 +585,9 @@ function OnHoldRow({ item, onMoved }: { item: OnHold; onMoved: () => void }) {
     });
   };
   const since = new Date(item.since).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  // A paused series with a date to come back to (api/show-next, cached for everyone).
+  const { data: show } = useSWR<ShowNext>(item.itemType === "tv" ? `/api/show-next?id=${item.itemId}` : null, swrFetcher, { revalidateOnFocus: false });
+  const returns = show ? returnLabel(show, todayIso()) : null;
   return (
     <li className="flex items-center gap-3.5 py-2.5">
       <Link href={href} aria-label={`Open ${item.itemName}`} className="shrink-0">
@@ -591,6 +600,7 @@ function OnHoldRow({ item, onMoved }: { item: OnHold; onMoved: () => void }) {
         </Link>
         <p className="truncate font-mono text-xs uppercase tracking-wide text-ink-500">
           {item.itemType === "tv" ? "Series" : "Film"} · since {since}
+          {returns && <span className="text-accent"> · {returns}</span>}
         </p>
       </div>
       {/* A word where there's room, the ▶ alone on a phone so the title keeps its line. */}
@@ -616,5 +626,32 @@ function OnHoldRow({ item, onMoved }: { item: OnHold; onMoved: () => void }) {
         {busy === "dropped" ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Ban className="size-4" aria-hidden />}
       </button>
     </li>
+  );
+}
+
+/**
+ * An empty Up next does the thing instead of describing it
+ * (docs/IDEAS_2026-10.md §1.4): six of what's popular, each with its own +,
+ * and "Watch later" on any of them puts it right here. The catalog is the one
+ * Search already caches, loaded only when Up next is empty.
+ */
+function TryThese() {
+  const index = useSearchIndex(true);
+  const rows = (index?.rows ?? []).filter((r) => !r.lib && (r.t === "movie" || r.t === "tv") && r.p).slice(0, 6);
+  if (!rows.length) return null;
+  return (
+    <div className="mt-6 border-t border-line pt-5">
+      <p className="text-sm text-ink-400">Or start here: tap + on any of these, then Watch later.</p>
+      <ul className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-6">
+        {rows.map((r) => {
+          const [type, id] = r.k.split(":");
+          return (
+            <li key={r.k} className="min-w-0">
+              <TitleCard id={id} title={r.n} mediaType={type === "tv" ? "tv" : "movie"} imageUrl={getPosterUrl(r.p ?? null, "w185")} year={r.y ? String(r.y) : null} />
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

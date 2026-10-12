@@ -165,12 +165,12 @@ export default function StatsSection({
       {stats && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatTile label="Watched" value={String(stats.watchedCount)} />
-          <StatTile label="This Year" value={String(stats.watchedThisYear)} />
+          <StatTile label="This year" value={String(stats.watchedThisYear)} />
           <StatTile label="Films" value={String(stats.movieCount)} />
-          <StatTile label="TV Shows" value={String(stats.tvCount)} />
+          <StatTile label="Series" value={String(stats.tvCount)} />
           <StatTile label="Episodes" value={String(stats.episodesCount)} />
-          <StatTile label="Favorites" value={String(stats.favoriteCount)} />
-          <StatTile label="Watchlist" value={String(stats.watchlistCount)} />
+          <StatTile label="Favourites" value={String(stats.favoriteCount)} />
+          <StatTile label="Watch later" value={String(stats.watchlistCount)} />
           <StatTile label="Watching" value={String(stats.watchingCount)} />
         </div>
       )}

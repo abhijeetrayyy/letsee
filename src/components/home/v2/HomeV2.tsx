@@ -86,7 +86,8 @@ export default function HomeV2() {
     revalidateOnFocus: false,
   });
   // The wider room: what everyone on letsee has been watching this week.
-  const { data: community } = useSWR(me ? ["community", me] : null, () => fetchCommunity(me), { revalidateOnFocus: false });
+  const region = user?.watch_region ?? null;
+  const { data: community } = useSWR(me ? ["community", me, region] : null, () => fetchCommunity(me, region), { revalidateOnFocus: false });
   // The cached catalog Search already loads; trending costs no extra request.
   const index = useSearchIndex(!!me);
   /**
@@ -314,6 +315,16 @@ export default function HomeV2() {
                 <span id="popular-here">Popular on letsee</span>
               </SectionTitle>
               <PopularHere titles={current || lastNight || tonight ? popular : popular.slice(1)} />
+            </section>
+          )}
+
+          {/* What people near you actually went out to see (IDEAS_2026-10 §6.3) — from the rows above, no more reads. */}
+          {(community?.cinema.length ?? 0) >= 2 && (
+            <section aria-labelledby="at-the-cinema">
+              <SectionTitle>
+                <span id="at-the-cinema">{region ? "Seen at the cinema near you" : "Seen at the cinema lately"}</span>
+              </SectionTitle>
+              <PopularHere titles={community!.cinema} />
             </section>
           )}
 

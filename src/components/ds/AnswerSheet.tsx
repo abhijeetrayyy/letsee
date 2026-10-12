@@ -25,7 +25,7 @@ export default function AnswerSheet({ ask, onClose, onAnswered }: { ask: AskForM
     const result = await answerAsk(ask.id, picked, words);
     setBusy(false);
     if (result === "answered") {
-      toast.success(`Sent to ${ask.by.username}`);
+      toast.success(`Passed to ${ask.by.username}`);
       onAnswered?.();
       close();
       return;
@@ -59,7 +59,7 @@ export default function AnswerSheet({ ask, onClose, onAnswered }: { ask: AskForM
               className="w-full resize-none rounded-control bg-raised px-3.5 py-3 font-display text-base italic text-ink-0 ring-1 ring-inset ring-line-input placeholder:not-italic placeholder:text-ink-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
             />
             <button type="button" onClick={() => void answer()} disabled={busy} className="inline-flex h-11 items-center justify-center rounded-full bg-action font-semibold text-on-action hover:bg-action-hover disabled:opacity-60">
-              {busy ? "Sending…" : `Send it to ${ask?.by.username}`}
+              {busy ? "Passing…" : `Pass it to ${ask?.by.username}`}
             </button>
           </>
         )}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { earlierUnwatched, episodeLabel, epKey, isOut, leadsWithEpisode, nextEpisode, notOutYet, positionOf, progressOf, rangeLabel, seasonsOf, upTo, type SeasonInfo } from "@/lib/logging/episodes";
+import { earlierUnwatched, episodeLabel, epKey, isOut, leadsWithEpisode, nextEpisode, notOutYet, positionOf, progressOf, rangeLabel, returnLabel, seasonsOf, upTo, type SeasonInfo } from "@/lib/logging/episodes";
 
 const seasons: SeasonInfo[] = [
   { season_number: 0, episode_count: 3 }, // specials
@@ -141,5 +141,21 @@ describe("where you are", () => {
       { s: 2, listed: 4, aired: 4, seen: 0 },
       { s: 3, listed: 6, aired: 2, seen: 1 },
     ]);
+  });
+});
+
+describe("when a paused series comes back", () => {
+  const today = "2026-10-13";
+  it("names a new season and its day, or the next episode", () => {
+    expect(returnLabel({ next: { s: 3, e: 1, airDate: "2026-11-14" }, status: "Returning Series" }, today)).toBe("S3 returns 14 Nov");
+    expect(returnLabel({ next: { s: 2, e: 6, airDate: "2026-10-20" }, status: "Returning Series" }, today)).toBe("Next episode 20 Oct");
+    expect(returnLabel({ next: { s: 4, e: 1, airDate: "2027-02-01" }, status: "Returning Series" }, today)).toBe("S4 returns 1 Feb 2027");
+  });
+
+  it("says when it's over, and nothing when nobody knows", () => {
+    expect(returnLabel({ next: null, status: "Ended" }, today)).toBe("Ended");
+    expect(returnLabel({ next: null, status: "Canceled" }, today)).toBe("Cancelled");
+    expect(returnLabel({ next: null, status: "Returning Series" }, today)).toBeNull();
+    expect(returnLabel({ next: { s: 2, e: 6, airDate: "2026-01-01" }, status: "Returning Series" }, today)).toBeNull();
   });
 });

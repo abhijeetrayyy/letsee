@@ -1,6 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
+import toast from "react-hot-toast";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
+import { markToast } from "@components/ds/markToast";
 import useSWRInfinite from "swr/infinite";
 import { Clapperboard, Heart, ListVideo, Play, Sparkles, Star } from "lucide-react";
 import Link from "@components/ui/AppLink";
@@ -203,9 +206,60 @@ function RunRow({ run, me }: { run: ActivityRun; me: string | null }) {
           </div>
         )}
         {many && <PosterStrip events={run.events} />}
+        {!many && first.title && me && run.person.id !== me && <Kudos event={first} person={run.person} />}
       </div>
       {!many && first.title && <Poster event={first} />}
     </li>
+  );
+}
+
+/**
+ * Kudos that do something (docs/IDEAS_2026-10.md §2.3) — no count, no ranking,
+ * nothing tallied on anyone's profile. *Want this* saves it to your Watch
+ * later "on the word of" them (the plan the status route already keeps), so
+ * Up next says who it came from; *Say something* opens your room with what
+ * they said, or the title, quoted. Want this goes once you've marked it.
+ */
+function Kudos({ event, person }: { event: ActivityEvent; person: ActivityRun["person"] }) {
+  const { getStatus, setStatus, refreshPreferences } = useContext(UserPrefrenceContext);
+  const [busy, setBusy] = useState(false);
+  const t = event.title!;
+  const marked = !!getStatus(t.itemId, t.itemType);
+  const want = async () => {
+    if (busy) return;
+    setBusy(true);
+    const r = await fetch("/api/user-media-status", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemId: t.itemId, itemType: t.itemType, status: "watchlist", name: t.name, imgUrl: t.imageUrl ?? "", saveWithUserId: person.id }),
+    }).catch(() => null);
+    await refreshPreferences();
+    setBusy(false);
+    if (!r?.ok) {
+      toast.error("That didn't save. Check your connection and try again.");
+      return;
+    }
+    markToast({
+      text: `Saved ${t.name} — on ${person.username}'s word`,
+      hint: "It's in Up next, with their name on it.",
+      undo: async () => {
+        await setStatus({ itemId: t.itemId, mediaType: t.itemType, name: t.name, status: null, keepData: true });
+        await refreshPreferences();
+      },
+    });
+  };
+  const quote = event.words?.trim() || t.name;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+      {!marked && (
+        <button type="button" onClick={() => void want()} disabled={busy} className="font-medium text-ink-300 underline decoration-line-input underline-offset-4 hover:text-ink-0 disabled:opacity-60">
+          Want this
+        </button>
+      )}
+      <Link href={`/app/people/${encodeURIComponent(person.username)}?quote=${encodeURIComponent(quote.slice(0, 280))}`} className="font-medium text-ink-300 underline decoration-line-input underline-offset-4 hover:text-ink-0">
+        Say something
+      </Link>
+    </div>
   );
 }
 

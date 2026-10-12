@@ -141,7 +141,7 @@ export default function PassSheet({
                 className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-full font-semibold disabled:opacity-60 ${chosen.length > 0 ? "text-ink-200 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0" : "bg-action text-on-action hover:bg-action-hover"}`}
               >
                 <Link2 className="size-4" aria-hidden />
-                {linking ? "Making the link…" : "Send as a link — for anyone"}
+                {linking ? "Making the link…" : "Pass by link — for anyone"}
               </button>
             )}
           </>

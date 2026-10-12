@@ -16,7 +16,7 @@ import { offersNextCheck, seriesLine } from "@/lib/logging/seriesProgress";
  * Series progress on a profile: every show someone is inside of, as rows —
  * where they are, how far through, and (on your own profile) one check for
  * the next episode, with Undo. Filters are the words the rest of the app
- * uses (Watching · Watched · On hold · Dropped · Want to watch), not the database
+ * uses (Watching · Watched · On hold · Dropped · Watch later), not the database
  * states. Read through `/api/profile/tv-progress`, which checks visibility
  * before it reads anything.
  *
@@ -48,7 +48,7 @@ const FILTERS: { key: string; label: string }[] = [
   { key: "watched", label: "Watched" },
   { key: "on_hold", label: "On hold" },
   { key: "dropped", label: "Dropped" },
-  { key: "watchlist", label: "Want to watch" },
+  { key: "watchlist", label: "Watch later" },
 ];
 
 export default function ProfileTvProgress({ userId, isOwner = false }: { userId: string; isOwner?: boolean }) {
@@ -168,7 +168,7 @@ export default function ProfileTvProgress({ userId, isOwner = false }: { userId:
           {filter
             ? `Nothing under ${FILTERS.find((f) => f.key === filter)?.label ?? "that"}.`
             : isOwner
-              ? "No series yet. Tick an episode on any series page and it shows up here."
+              ? "No series yet. On any series, “Where are you?” — tap the episode you're up to and it shows up here."
               : "No series yet."}
         </p>
       ) : (

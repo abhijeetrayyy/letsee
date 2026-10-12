@@ -17,7 +17,7 @@
  *    server keeps the status, and so does this model.
  * 4. **Undo puts back exactly what was there.**
  *
- * The words people see: *Want to watch*, *Watching*, *Watched*, *On hold*,
+ * The words people see: *Watch later*, *Watching*, *Watched*, *On hold*,
  * *Dropped*. On hold and dropped used to share one word, "Stopped"; they
  * mean different things — coming back to it, and done with it — and the
  * owner wanted both back as choices (10 Oct 2026, lib/logging/marks).
@@ -35,7 +35,7 @@ export type TitleState = {
 export function statusWord(status: Status): string | null {
   switch (status) {
     case "watchlist":
-      return "Want to watch";
+      return "Watch later";
     case "watching":
       return "Watching";
     case "watched":
