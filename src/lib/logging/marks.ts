@@ -172,3 +172,27 @@ export function saidAfter(key: MarkKey, on: boolean, kind: Kind): string {
       return on ? "Added to favourites" : "Removed from favourites";
   }
 }
+
+/**
+ * What a mark does, said the first time you use it (docs/IDEAS_2026-10.md
+ * §7.3) — under the toast, once per mark, then never again. The cheapest
+ * tutorial is the one that arrives with the question.
+ */
+export function firstTimeNote(key: MarkKey | Stage, kind: Kind): string {
+  switch (key) {
+    case "watched":
+      return "Watched means seen — no date needed.";
+    case "watching":
+      return kind === "tv" ? "It's on your Watching shelf, and its next episode waits in Up next." : "It's on your Watching shelf until you mark it watched.";
+    case "finished":
+      return "Every aired episode is marked. New ones will show up when they air.";
+    case "later":
+      return "It waits in Up next. Add why, when or with whom from its page.";
+    case "favourite":
+      return "Favourites show on your profile — and you can pick four to stand for you.";
+    case "on_hold":
+      return "On hold keeps your place, and waits in Up next.";
+    case "dropped":
+      return "Dropped stays in your history, on the Dropped shelf. Pick it back up any time.";
+  }
+}

@@ -28,6 +28,7 @@ import { titlePath } from "@/utils/urls";
 
 import Rail from "@components/ds/Rail";
 import { QuickMarkButton } from "@components/ds/QuickMarks";
+import ProfileSets from "@components/profile/ProfileSets";
 /**
  * A profile under `ui=v2` (docs/design/PAGES.md §6).
  *
@@ -191,6 +192,8 @@ export default function ProfileV2({ data }: { data: ProfileV2Data }) {
 
 
           <Started items={data.watching} isOwner={isOwner} />
+
+          <ProfileSets userId={user.id} username={user.username} isOwner={isOwner} />
 
           <Recent userId={user.id} markable={!isOwner} />
           <WatchesWith userId={user.id} />

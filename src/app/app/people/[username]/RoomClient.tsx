@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { ArrowLeft, ArrowUp, ChevronDown, EyeOff, LoaderCircle } from "lucide-react";
+import { ArrowLeft, ArrowUp, ChevronDown, EyeOff, Home, LoaderCircle, Lock, Tv, X } from "lucide-react";
 import toast from "react-hot-toast";
 import Link from "@components/ui/AppLink";
 import Avatar from "@components/ui/Avatar";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
-import { fetchListsMeet, fetchRoom, findPerson, type MeetMoment, type Pass, type RoomPerson, type Together } from "@/lib/db/rooms";
+import { fetchBothWatched, fetchListsMeet, fetchRoom, findPerson, type BothWatched, type MeetMoment, type Pass, type RoomPerson, type Together } from "@/lib/db/rooms";
 import PassSheet from "@components/ds/PassSheet";
 import LogTogetherSheet from "@components/ds/LogTogetherSheet";
 import { stars, type ListMeet } from "@/lib/people/moments";
@@ -16,6 +16,10 @@ import { useThread, type Message } from "@components/rooms/useThread";
 import { dayLabel, sinceLabel, watchedLabel } from "@components/rooms/time";
 import { getPosterUrl } from "@/utils/imageUrl";
 import { titlePath } from "@/utils/urls";
+import { swrFetcher } from "@/utils/swrFetcher";
+import { fetchHousehold, setHousehold } from "@/lib/db/households";
+import { epKey, episodeLabel, reached } from "@/lib/logging/episodes";
+import { parseAbout, reactionOf, type EpisodeRef } from "@/lib/people/reactions";
 import { fetchHidden, hideEvent, unhideAll, unhideEvent } from "@/lib/db/roomHidden";
 import { eventRef, hiddenKey, withoutHidden } from "@/lib/rooms/hidden";
 
@@ -123,9 +127,37 @@ function Room({
     return quote ? `“${quote}”\n\n` : "";
   });
   const [sheet, setSheet] = useState<"pass" | "log" | null>(null);
+  /**
+   * Arriving from a series' "React to S02·E04", the next message is a
+   * reaction to that episode (lib/people/reactions): it stays closed for
+   * them until they've watched it.
+   */
+  const [about, setAbout] = useState<EpisodeRef | null>(() => (typeof window === "undefined" ? null : parseAbout(new URLSearchParams(window.location.search))));
+  const dropAbout = () => {
+    setAbout(null);
+    const url = new URL(window.location.href);
+    ["about", "title", "poster"].forEach((k) => url.searchParams.delete(k));
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  };
   const input = useRef<HTMLTextAreaElement>(null);
   const settled = useRef(false);
   const { data: meetLists } = useSWR(["lists-meet", me, person.id], () => fetchListsMeet(me, person.id), { revalidateOnFocus: false });
+  // We live together (migration 124): yours to set, seen by nobody else.
+  const { data: household, mutate: mutateHousehold } = useSWR(["household", me], () => fetchHousehold(me), { revalidateOnFocus: false });
+  const livesHere = !!household?.some((h) => h.id === person.id);
+  const toggleHousehold = async () => {
+    const on = !livesHere;
+    void mutateHousehold((cur) => (on ? [...(cur ?? []), person] : (cur ?? []).filter((h) => h.id !== person.id)), { revalidate: false });
+    if (!(await setHousehold(me, person.id, on))) {
+      toast.error("That didn't save. Try again.");
+      void mutateHousehold();
+      return;
+    }
+    toast.success(on ? `You live with ${person.username}. Logging will suggest them, and series show where they are.` : "Noted — not living together.");
+  };
+  // After the credits: a title you've both watched this week, apart.
+  const { data: credits } = useSWR(["both-watched", me, person.id, together.length], () => fetchBothWatched(me, person.id, together), { revalidateOnFocus: false });
+  const [creditsGone, setCreditsGone] = useState(false);
   const lastCount = useRef(0);
 
   // "Not for me" is the receiver's alone: a pass you sent that they set aside still reads as open to you.
@@ -224,10 +256,14 @@ function Room({
     lastCount.current = messages.length;
   }, [loading, messages.length]);
 
-  const submit = async (text = draft, replaceId?: string) => {
+  const submit = async (text = draft, replaceId?: string, retryAbout?: EpisodeRef | null) => {
     if (!text.trim() || sending) return;
-    if (!replaceId) setDraft("");
-    await send(text, replaceId);
+    const tag = replaceId ? retryAbout ?? null : about;
+    if (!replaceId) {
+      setDraft("");
+      if (about) dropAbout();
+    }
+    await send(text, replaceId, tag);
     requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" }));
     input.current?.focus();
   };
@@ -263,6 +299,17 @@ function Room({
           <Link href={tonightHref([person.username])} className={quiet}>
             Decide tonight
           </Link>
+          {/* Only you see this. It makes logging suggest them, and series show where they are. */}
+          <button
+            type="button"
+            onClick={() => void toggleHousehold()}
+            aria-pressed={livesHere}
+            title="Only you see this"
+            className={livesHere ? "inline-flex h-9 items-center gap-1.5 rounded-full bg-ink-0 px-4 text-sm font-medium text-page" : quiet}
+          >
+            <Home className="size-3.5" aria-hidden />
+            {livesHere ? "You live together" : "We live together"}
+          </button>
         </div>
         {meetLists && meetLists.length > 0 && <ListsMeet name={person.username} items={meetLists} />}
       </header>
@@ -360,7 +407,15 @@ function Room({
                   {item.kind === "message" && item.message.message_type === "cardmix" && item.message.metadata?.media_id ? (
                     <PassEvent pass={cardAsPass(item.message, me, passForCard.get(item.message.id))} name={person.username} withState={passForCard.has(item.message.id)} />
                   ) : item.kind === "message" ? (
-                    <Bubble message={item.message} mine={item.message.sender_id === me} showTime={runEnds} onRetry={(m) => void submit(m.content ?? "", m.id)} />
+                    <Bubble
+                      message={item.message}
+                      mine={item.message.sender_id === me}
+                      showTime={runEnds}
+                      onRetry={(m) => {
+                        const r = reactionOf(m.metadata);
+                        void submit(r ? r.text : m.content ?? "", m.id, r);
+                      }}
+                    />
                   ) : item.kind === "together" ? (
                     <TogetherEvent together={item.together} name={person.username} />
                   ) : (
@@ -374,6 +429,23 @@ function Room({
         )}
       </section>
 
+      {credits && !creditsGone && !seenCredits(person.id, credits) && (
+        <AfterTheCredits
+          title={credits}
+          name={person.username}
+          onSay={() => {
+            setDraft((d) => d || `${credits.itemName} — `);
+            requestAnimationFrame(() => input.current?.focus());
+            forgetCredits(person.id, credits);
+            setCreditsGone(true);
+          }}
+          onDismiss={() => {
+            forgetCredits(person.id, credits);
+            setCreditsGone(true);
+          }}
+        />
+      )}
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -382,8 +454,19 @@ function Room({
         className="room-composer sticky bottom-0 -mx-4 flex items-end gap-2 border-t border-line bg-page px-4 pt-3"
       >
         <label htmlFor="room-draft" className="sr-only">
-          Message {person.username}
+          {about ? `Your reaction to ${about.show_name} ${episodeLabel(about)}` : `Message ${person.username}`}
         </label>
+        {about && (
+          <div className="absolute inset-x-4 bottom-full mb-2 flex items-center gap-2 rounded-card bg-raised px-3 py-2 text-xs text-ink-400 ring-1 ring-inset ring-line-strong">
+            <Tv className="size-3.5 shrink-0 text-accent" aria-hidden />
+            <span className="min-w-0 flex-1">
+              <span className="font-medium text-ink-0">About {about.show_name} {episodeLabel(about)}</span> · it stays closed for {person.username} until they&apos;ve watched it
+            </span>
+            <button type="button" onClick={dropAbout} aria-label="Not about an episode" className="-mr-1 flex size-7 shrink-0 items-center justify-center rounded-full text-ink-500 hover:bg-hover hover:text-ink-0">
+              <X className="size-3.5" aria-hidden />
+            </button>
+          </div>
+        )}
         <textarea
           id="room-draft"
           ref={input}
@@ -397,7 +480,7 @@ function Room({
               void submit();
             }
           }}
-          placeholder={`Message ${person.username}`}
+          placeholder={about ? `Your reaction to ${episodeLabel(about)}` : `Message ${person.username}`}
           className="max-h-32 min-h-11 flex-1 resize-none rounded-card bg-raised px-4 py-2.5 text-base text-ink-0 ring-1 ring-inset ring-line-input placeholder:text-ink-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         />
         <button
@@ -521,6 +604,8 @@ function ListsMeet({ name, items }: { name: string; items: ListMeet[] }) {
 }
 
 function Bubble({ message, mine, showTime, onRetry }: { message: Message; mine: boolean; showTime: boolean; onRetry: (m: Message) => void }) {
+  const reaction = reactionOf(message.metadata);
+  if (reaction) return <ReactionBubble message={message} mine={mine} reaction={reaction} showTime={showTime} onRetry={onRetry} />;
   const card = message.message_type === "cardmix" ? message.metadata : null;
   const cardType = card?.media_type === "tv" ? "tv" : "movie";
   return (
@@ -550,6 +635,117 @@ function Bubble({ message, mine, showTime, onRetry }: { message: Message; mine: 
           {mine && message.is_read && " · Read"}
         </span>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * An episode reaction (lib/people/reactions): yours, open; theirs, closed
+ * until you've reached that episode — your own ticks decide, read from the
+ * same cache as the series page — with an honest "Show anyway". Closed while
+ * your episodes load, so it never flashes open.
+ */
+function ReactionBubble({
+  message,
+  mine,
+  reaction,
+  showTime,
+  onRetry,
+}: {
+  message: Message;
+  mine: boolean;
+  reaction: EpisodeRef & { text: string };
+  showTime: boolean;
+  onRetry: (m: Message) => void;
+}) {
+  const { data } = useSWR<{ episodes?: { season_number: number; episode_number: number }[] }>(mine ? null : `/api/watched-episodes?showId=${reaction.show_id}`, swrFetcher, {
+    revalidateOnFocus: false,
+  });
+  const [peek, setPeek] = useState(false);
+  const watched = new Set((data?.episodes ?? []).map((r) => epKey(r.season_number, r.episode_number)));
+  const open = mine || peek || (!!data && reached(watched, reaction.s, reaction.e));
+  const ep = episodeLabel(reaction);
+  return (
+    <div className={`flex flex-col ${mine ? "items-end pl-12 sm:pl-24" : "items-start pr-12 sm:pr-24"}`}>
+      <div
+        className={`rounded-card px-3.5 py-2 text-base leading-relaxed ${mine ? "bg-active text-ink-0" : "bg-raised text-ink-300 ring-1 ring-inset ring-line"} ${message.pending ? "opacity-70" : ""} ${
+          message.failed ? "ring-1 ring-danger" : ""
+        }`}
+      >
+        <Link href={titlePath("tv", reaction.show_id, reaction.show_name)} className="mb-1 flex items-center gap-1.5 font-mono text-xs uppercase tracking-wide text-ink-500 hover:text-ink-0">
+          <Tv className="size-3.5" aria-hidden />
+          {reaction.show_name} · {ep}
+        </Link>
+        {open ? (
+          <p className="whitespace-pre-wrap break-words">{reaction.text}</p>
+        ) : (
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-500">
+            <Lock className="size-3.5 shrink-0" aria-hidden />
+            Opens when you&apos;ve watched {ep}.
+            <button type="button" onClick={() => setPeek(true)} className="font-medium text-ink-300 underline decoration-line-input underline-offset-4 hover:text-ink-0">
+              Show anyway
+            </button>
+          </p>
+        )}
+      </div>
+      {message.failed ? (
+        <button type="button" onClick={() => onRetry(message)} className="mt-1 px-1 text-xs text-danger underline underline-offset-2">
+          Not sent. Try again
+        </button>
+      ) : message.pending ? (
+        <span className="mt-1 px-1 text-xs text-ink-600">Sending…</span>
+      ) : showTime ? (
+        <span className="mb-2 mt-1 px-1 text-xs text-ink-600">
+          {new Date(message.created_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+          {mine && message.is_read && " · Read"}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/** Per device: a prompt you answered or closed doesn't come back. */
+const CREDITS_SEEN = "letsee:after-the-credits";
+function creditsKey(other: string, t: BothWatched) {
+  return `${other}:${t.itemType}:${t.itemId}`;
+}
+function seenCredits(other: string, t: BothWatched): boolean {
+  try {
+    return (JSON.parse(window.localStorage.getItem(CREDITS_SEEN) ?? "[]") as string[]).includes(creditsKey(other, t));
+  } catch {
+    return false;
+  }
+}
+function forgetCredits(other: string, t: BothWatched) {
+  try {
+    const seen = JSON.parse(window.localStorage.getItem(CREDITS_SEEN) ?? "[]") as string[];
+    window.localStorage.setItem(CREDITS_SEEN, JSON.stringify([creditsKey(other, t), ...seen].slice(0, 200)));
+  } catch {
+    // Shown again next visit; nothing lost.
+  }
+}
+
+/**
+ * After the credits (docs/IDEAS_2026-10.md §4.2): you both watched something
+ * this week, apart. One line offering the conversation — found when you open
+ * the room, never pushed — and gone once you answer or close it.
+ */
+function AfterTheCredits({ title, name, onSay, onDismiss }: { title: BothWatched; name: string; onSay: () => void; onDismiss: () => void }) {
+  return (
+    <div className="mb-3 flex items-start gap-3 rounded-card border border-line-strong bg-raised px-3 py-2.5">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={getPosterUrl(title.imageUrl, "w92")} alt="" loading="lazy" className="aspect-2/3 w-10 shrink-0 rounded-media bg-hover object-cover" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-ink-400">
+          You and {name} both watched <em className="font-display text-base not-italic text-ink-0">{title.itemName}</em> this week.
+        </p>
+        <button type="button" onClick={onSay} className="mt-2 inline-flex h-9 items-center rounded-full bg-action px-3.5 text-sm font-semibold text-on-action hover:bg-action-hover">
+          Say something
+        </button>
+      </div>
+      <button type="button" onClick={onDismiss} aria-label="Not now" className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-500 hover:bg-hover hover:text-ink-0">
+        <X className="size-3.5" aria-hidden />
+      </button>
     </div>
   );
 }

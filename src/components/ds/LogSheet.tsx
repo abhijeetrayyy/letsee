@@ -1,13 +1,16 @@
 "use client";
 
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import useSWR from "swr";
+import { Home, Image as ImageIcon, LoaderCircle } from "lucide-react";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
-import { LoaderCircle } from "lucide-react";
+import { fetchHousehold } from "@/lib/db/households";
+import StubPicture from "@components/ds/StubPicture";
 import toast from "react-hot-toast";
 import Sheet from "@components/ds/Sheet";
 import DayChip from "@components/ds/DayChip";
 import StarRating from "@components/ui/StarRating";
-import PersonPicker, { type PickedPerson } from "@components/ui/PersonPicker";
+import PersonPicker, { pickedLabel, type PickedPerson } from "@components/ui/PersonPicker";
 import { deleteMyViewing, logViewing, setViewingCompanions, updateMyViewing, type CompanionInput, type ViewingPlace } from "@/lib/db/viewings";
 import { deleteMyTake, fetchMyTake, saveMyTake } from "@/lib/db/takes";
 import { NA } from "@/utils/takes";
@@ -101,6 +104,8 @@ export default function LogSheet({
   const [place, setPlace] = useState<ViewingPlace>("home");
   const [people, setPeople] = useState<PickedPerson[]>([]);
   const [adding, setAdding] = useState(false);
+  /** The entry as a picture (ds/StubPicture), opened over this sheet. */
+  const [picture, setPicture] = useState(false);
   const [score, setScore] = useState<number | null>(null);
   const [words, setWords] = useState("");
   const [audience, setAudience] = useState<Audience>("me");
@@ -169,6 +174,13 @@ export default function LogSheet({
 
   /** Someone on letsee was there, so there is an "us" to write to. */
   const withSomeone = people.some((p) => p.kind === "user");
+  /**
+   * Who you live with (migration 124), offered as who was there — a
+   * suggestion, one tap; nothing is written until you take it, and they
+   * still confirm "I was there too" like anyone you name.
+   */
+  const { data: household } = useSWR(open ? ["household", userId] : null, () => fetchHousehold(userId), { revalidateOnFocus: false });
+  const suggested = (household ?? []).filter((h) => !people.some((p) => p.kind === "user" && p.userId === h.id));
 
   const fail = (message: string | null) => {
     if (message) toast.error(message);
@@ -352,6 +364,22 @@ export default function LogSheet({
         <div className="grid gap-2">
           <p className="text-xs font-medium text-ink-500">Who was there</p>
           <PersonPicker value={people} onChange={savePeople} placeholder="A friend on letsee, or just a name" />
+          {suggested.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {suggested.map((h) => (
+                <button
+                  key={h.id}
+                  type="button"
+                  disabled={adding}
+                  onClick={() => savePeople([...people, { kind: "user", userId: h.id, username: h.username, avatarUrl: h.avatarUrl }])}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0 disabled:opacity-60"
+                >
+                  <Home className="size-3.5" aria-hidden />
+                  With {h.username}?
+                </button>
+              ))}
+            </div>
+          )}
           {!entry && !adding && <p className="text-xs text-ink-500">Naming someone adds it to your diary for today. Change the day above.</p>}
           {withSomeone && (
             <p className="text-xs text-ink-500">They’ll be asked whether they were there too. Nothing is added to their diary unless they say yes.</p>
@@ -451,11 +479,37 @@ export default function LogSheet({
           ) : (
             <span />
           )}
-          <button type="button" onClick={onClose} className="inline-flex h-11 items-center rounded-full bg-ink-0 px-6 text-sm font-semibold text-page transition-colors hover:opacity-90">
-            Done
-          </button>
+          <span className="flex items-center gap-2">
+            {entry && (
+              <button
+                type="button"
+                onClick={() => setPicture(true)}
+                className="inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover hover:text-ink-0"
+              >
+                <ImageIcon className="size-4" aria-hidden />
+                Picture
+              </button>
+            )}
+            <button type="button" onClick={onClose} className="inline-flex h-11 items-center rounded-full bg-ink-0 px-6 text-sm font-semibold text-page transition-colors hover:opacity-90">
+              Done
+            </button>
+          </span>
         </div>
       </div>
+      {entry && (
+        <StubPicture
+          open={picture}
+          onClose={() => setPicture(false)}
+          itemName={itemName}
+          imageUrl={imageUrl}
+          day={entry.watchedOn}
+          place={place}
+          people={people.map(pickedLabel)}
+          score={score}
+          words={words}
+          wordsPublic={audience === "shelf"}
+        />
+      )}
     </Sheet>
   );
 }

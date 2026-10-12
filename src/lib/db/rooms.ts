@@ -26,7 +26,15 @@ import { listsMeet, pickMoments, type ListMeet, type ListTitle, type Moment, typ
 export type RoomPerson = { id: string; username: string; avatarUrl: string | null };
 
 /** A title card's metadata, as `sendCard` and `sendPass` write it. */
-export type CardMeta = { media_type?: string; media_id?: string; media_name?: string; media_image?: string };
+export type CardMeta = {
+  media_type?: string;
+  media_id?: string;
+  media_name?: string;
+  media_image?: string;
+  /** An episode reaction (lib/people/reactions): the episode, and the words — `content` holds only a safe line. */
+  episode?: { show_id: string; show_name: string; show_image: string | null; s: number; e: number };
+  text?: string;
+};
 
 export type Message = {
   id: string;
@@ -498,6 +506,42 @@ export async function fetchRoom(
     meet,
     blocked: blocked.has(other),
   };
+}
+
+/** A title you and they have both watched lately, apart — the room's "after the credits". */
+export type BothWatched = { itemId: string; itemType: "movie" | "tv"; itemName: string; imageUrl: string | null; at: string };
+
+/**
+ * After the credits (docs/IDEAS_2026-10.md §4.2): the most recent title you
+ * and they both marked watched in the last week, each on your own — not one
+ * you logged together, which the room already shows. A status row's
+ * `updated_at` moves on a mark and on a log alike, so one read each covers
+ * both; theirs reads under their profile's visibility, as the rest of a room.
+ */
+export async function fetchBothWatched(me: string, other: string, together: Together[], days = 7): Promise<BothWatched | null> {
+  const since = new Date(Date.now() - days * 864e5).toISOString();
+  const recent = (id: string) =>
+    supabase
+      .from("user_media_status")
+      .select("item_id, item_type, item_name, image_url, updated_at")
+      .eq("user_id", id)
+      .eq("status", "watched")
+      .gte("updated_at", since)
+      .order("updated_at", { ascending: false })
+      .limit(60)
+      .then(({ data }) => (data ?? []) as (ListRow & { updated_at: string })[]);
+  const [mine, theirs] = await Promise.all([recent(me), recent(other)]);
+  const shared = new Set(together.map((t) => `${t.itemType}:${t.itemId}`));
+  const theirsAt = new Map(theirs.map((r) => [`${r.item_type}:${r.item_id}`, r.updated_at]));
+  let best: BothWatched | null = null;
+  for (const r of mine) {
+    const key = `${r.item_type}:${r.item_id}`;
+    const at = theirsAt.get(key);
+    if (!at || shared.has(key) || !r.item_name) continue;
+    const latest = at > r.updated_at ? at : r.updated_at;
+    if (!best || latest > best.at) best = { ...asTitle(r), at: latest };
+  }
+  return best;
 }
 
 type ListRow = { item_id: string; item_type: string; item_name: string | null; image_url: string | null };

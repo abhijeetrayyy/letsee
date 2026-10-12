@@ -4,6 +4,7 @@ import { useContext } from "react";
 import useSWR from "swr";
 import Link from "@components/ui/AppLink";
 import TitleCard from "@components/ds/TitleCard";
+import KeepSet from "@components/sets/KeepSet";
 import Rail from "@components/ds/Rail";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
@@ -93,6 +94,13 @@ export default function MoreFrom({
         </div>
       )}
 
+      <KeepSet
+        setRef={{ kind: "person", refId: String(person.id), role }}
+        name={person.name}
+        imageUrl={person.profilePath ?? null}
+        label={role === "director" ? "Keep their films as a set" : role === "creator" ? "Keep their series as a set" : "Keep their roles as a set"}
+        className="mb-5"
+      />
       <Rail>
         <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:scroll-px-6 sm:px-6 lg:-mx-8 lg:scroll-px-8 lg:px-8">
           {others.map((i) => (

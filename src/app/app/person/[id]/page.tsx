@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import TitleCard from "@components/ds/TitleCard";
 import PersonHero from "@components/person/PersonHero";
 import PersonWork from "@components/person/PersonWork";
+import PersonSet from "@components/sets/PersonSet";
 import RecurringRoles from "@components/person/RecurringRoles";
 import AsThemselves from "@components/person/AsThemselves";
 import PersonPortraits from "@components/person/PersonPortraits";
@@ -185,6 +186,8 @@ export default async function PersonPage({ params }: PageProps) {
         )}
 
         <Section title="The work">
+          {/* Keep their work as a set: progress, and your people on it too. */}
+          <PersonSet personId={person.id} name={person.name} profilePath={person.profile_path ?? null} department={kfd} />
           <PersonWork credits={credits} knownForDepartment={kfd} />
         </Section>
 

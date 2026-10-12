@@ -20,7 +20,7 @@ export default function AsksForYou({ me }: { me: string }) {
 
   return (
     <section aria-labelledby="asks-for-you">
-      <h2 id="asks-for-you" className="mb-4 text-2xl text-ink-0 sm:text-3xl">
+      <h2 id="asks-for-you" className="mb-4 scroll-mt-24 text-2xl text-ink-0 sm:text-3xl">
         Your people are asking
       </h2>
       <ul className="flex flex-col gap-3">

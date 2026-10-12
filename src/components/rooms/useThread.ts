@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/utils/supabase/client";
 import type { Message } from "@/lib/db/rooms";
+import { reactionPreview, type EpisodeRef } from "@/lib/people/reactions";
 
 export type { Message, CardMeta } from "@/lib/db/rooms";
 
@@ -105,9 +106,12 @@ export function useThread(myId: string | null, otherId: string | null) {
   }, [myId, otherId]);
 
   const send = useCallback(
-    async (body: string, replaceId?: string): Promise<boolean> => {
+    async (body: string, replaceId?: string, about?: EpisodeRef | null): Promise<boolean> => {
       const text = body.trim();
       if (!text || !myId || !otherId) return false;
+      // A reaction to an episode: the words go in metadata, a safe line in content.
+      const content = about ? reactionPreview(about) : text;
+      const metadata = about ? { episode: about, text } : null;
       const optimisticId = `pending-${Date.now()}`;
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== replaceId),
@@ -115,9 +119,9 @@ export function useThread(myId: string | null, otherId: string | null) {
           id: optimisticId,
           sender_id: myId,
           recipient_id: otherId,
-          content: text,
+          content,
           message_type: "text",
-          metadata: null,
+          metadata,
           is_read: false,
           created_at: new Date().toISOString(),
           pending: true,
@@ -126,7 +130,7 @@ export function useThread(myId: string | null, otherId: string | null) {
       setSending(true);
       const { data: saved, error } = await supabase
         .from("messages")
-        .insert({ sender_id: myId, recipient_id: otherId, content: text, message_type: "text" })
+        .insert({ sender_id: myId, recipient_id: otherId, content, message_type: "text", ...(metadata ? { metadata } : {}) })
         .select(COLUMNS)
         .single();
       setSending(false);

@@ -3,11 +3,13 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Check, ListChecks, LoaderCircle, MoreHorizontal, NotebookPen, Repeat, Share2 } from "lucide-react";
+import { Check, ListChecks, LoaderCircle, MessageCircle, MoreHorizontal, NotebookPen, Repeat, Share2 } from "lucide-react";
 import { useDetails } from "@components/ds/LogItButton";
 import { markToast } from "@components/ds/markToast";
 import { dayLabel } from "@components/ds/DayChip";
 import SeriesPosition from "@components/ds/SeriesPosition";
+import ReactSheet from "@components/ds/ReactSheet";
+import HouseholdPositions from "@components/ds/HouseholdPositions";
 import MarkTiles from "@components/ds/MarkTiles";
 import PassToButton from "@components/ds/PassToButton";
 import SaveContext from "@components/buttons/SaveContext";
@@ -18,7 +20,7 @@ import { viewingsKey } from "@/lib/db/keys";
 import { stateLine, statusWord, type Status } from "@/lib/logging/titleState";
 import { todayIso } from "@/utils/viewings";
 import { swrFetcher } from "@/utils/swrFetcher";
-import { episodeLabel, epKey, leadsWithEpisode, nextEpisode, progressOf, type Ep, type SeasonInfo } from "@/lib/logging/episodes";
+import { episodeLabel, epKey, leadsWithEpisode, nextEpisode, progressOf, type Ep, type SeasonInfo, positionOf } from "@/lib/logging/episodes";
 import { getPosterUrl } from "@/utils/imageUrl";
 
 /**
@@ -75,6 +77,9 @@ export default function TitleActions({
   const watchedEps = new Set((episodes?.episodes ?? []).map((r) => epKey(r.season_number, r.episode_number)));
   const next = series ? nextEpisode(series.seasons, watchedEps, series.lastAired) : null;
   const [marking, setMarking] = useState(false);
+  /** Where you are, for "React to S02·E04" (ds/ReactSheet). */
+  const position = series && episodes ? positionOf(series.seasons, watchedEps, series.lastAired) : null;
+  const [reacting, setReacting] = useState(false);
 
   const status = getStatus(itemId, itemType) as Status;
   const state = { kind: itemType, status, viewings: viewings ?? [] };
@@ -168,8 +173,19 @@ export default function TitleActions({
       {/* A series: where you are, one tap (ds/SeriesPosition). Its own line
           says how far; the status line below is for films. */}
       {me && series && episodes && <SeriesPosition showId={itemId} seasons={series.seasons} lastAired={series.lastAired} watched={watchedEps} onChanged={() => refreshEpisodes()} />}
+      {me && series && episodes && <HouseholdPositions me={me} showId={itemId} seasons={series.seasons} lastAired={series.lastAired} mine={position} />}
       <div className="flex flex-wrap items-center gap-2">
         <PassToButton title={{ itemId, itemType, itemName, imageUrl: posterPath }} />
+        {me && position && (
+          <button
+            type="button"
+            onClick={() => setReacting(true)}
+            className="inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm font-medium text-ink-0 ring-1 ring-inset ring-line-input transition-colors hover:bg-hover"
+          >
+            <MessageCircle className="size-4" aria-hidden />
+            React to <span className="font-mono text-xs tracking-wide">{episodeLabel(position)}</span>
+          </button>
+        )}
         <MoreMenu
           signedIn={!!me}
           diary={
@@ -184,6 +200,9 @@ export default function TitleActions({
         />
       </div>
       {details.sheet}
+      {position && (
+        <ReactSheet open={reacting} onClose={() => setReacting(false)} episode={{ show_id: itemId, show_name: itemName, show_image: posterPath, s: position.s, e: position.e }} />
+      )}
       {/* When it's for later, the plan box below already says so. */}
       {line && !later && !(me && series && episodes) && <p className="text-sm text-ink-400">{line}</p>}
       {later && (

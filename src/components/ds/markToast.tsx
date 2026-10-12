@@ -37,7 +37,8 @@ export function markToast({ id, text, hint, undo }: { id?: string; text: string;
       </div>
     ),
     // Long enough to read a line and reach Undo; short enough to be out of the way.
-    { id, duration: hint ? 4000 : 3000 },
+    // A first-time note makes the hint longer, and it gets a moment more.
+    { id, duration: !hint ? 3000 : hint.length > 70 ? 5000 : 4000 },
   );
 }
 

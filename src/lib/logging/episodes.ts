@@ -133,3 +133,17 @@ export function seasonsOf(seasons: SeasonInfo[], watched: Set<string>, lastAired
       return { s: x.season_number, listed: x.episode_count, aired: mine.length, seen: mine.filter((ep) => watched.has(epKey(ep.s, ep.e))).length };
     });
 }
+
+/**
+ * Whether you've reached an episode: it's marked, or something later is.
+ * A reaction to it opens then (lib/people/reactions) — "as you catch up",
+ * not only on the exact tick, so skipping an episode doesn't lock you out.
+ */
+export function reached(watched: Set<string>, s: number, e: number): boolean {
+  if (watched.has(epKey(s, e))) return true;
+  for (const k of watched) {
+    const [ws, we] = k.split(":").map(Number);
+    if (ws > 0 && (ws > s || (ws === s && we > e))) return true;
+  }
+  return false;
+}

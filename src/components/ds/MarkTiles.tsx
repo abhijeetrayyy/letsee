@@ -9,11 +9,27 @@ import { Ban, Check, CheckCheck, Clock, Heart, LoaderCircle, Pause, Play } from 
 import Link from "@components/ui/AppLink";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
 import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
-import { hintAfterStage, marksFor, saidAfter, saidAfterStage, stagesFor, tapOf, type MarkKey, type Stage } from "@/lib/logging/marks";
+import { firstTimeNote, hintAfterStage, marksFor, saidAfter, saidAfterStage, stagesFor, tapOf, type MarkKey, type Stage } from "@/lib/logging/marks";
 import type { Status } from "@/lib/logging/titleState";
 import type { LogTitle } from "@components/ds/LogItButton";
 import { hasDiaryEntry } from "@/lib/db/viewings";
 import { supabase } from "@/utils/supabase/client";
+
+/**
+ * Each mark explains itself the first time it's used (lib/logging/marks
+ * `firstTimeNote`), on this device, then never again.
+ */
+const EXPLAINED = "letsee:marks-explained";
+function firstTime(key: string): boolean {
+  try {
+    const seen = JSON.parse(window.localStorage.getItem(EXPLAINED) ?? "[]") as string[];
+    if (seen.includes(key)) return false;
+    window.localStorage.setItem(EXPLAINED, JSON.stringify([...seen, key]));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** A Watch later row's plan, in the shape the status route takes back. */
 async function readPlan(userId: string, itemId: string, itemType: "movie" | "tv") {
@@ -184,6 +200,8 @@ export function useMarks(
     // Favouriting something unmarked (or only saved for later) marks it watched too (api/favoriteButton).
     const promoted = key === "favourite" && on && (previous === null || previous === "watchlist");
     const seen = on && (key === "watched" || key === "finished" || promoted);
+    // The first time each mark is turned on, it says what it did.
+    const note = on && firstTime(key) ? firstTimeNote(key, itemType) : null;
     markToast({
       id: `marks-${itemType}-${itemId}`,
       text: promoted
@@ -191,7 +209,7 @@ export function useMarks(
         : key === "watching" && on && (previous === "on_hold" || previous === "dropped")
           ? "Back to watching"
           : saidAfter(key, on, itemType),
-      hint: seen ? DETAILS_HINT[where] : undefined,
+      hint: [note, seen ? DETAILS_HINT[where] : null].filter(Boolean).join(" ") || undefined,
       undo: () => void undo(),
     });
   };
@@ -213,10 +231,11 @@ export function useMarks(
       return;
     }
     onDone?.();
+    const note = firstTime(stage) ? firstTimeNote(stage, itemType) : null;
     markToast({
       id: `marks-${itemType}-${itemId}`,
       text: saidAfterStage(stage),
-      hint: hintAfterStage(stage, itemType),
+      hint: note ?? hintAfterStage(stage, itemType),
       undo: () => void writeStatus(previous).then(() => refreshPreferences()),
     });
   };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hintAfterStage, marksFor, saidAfter, saidAfterStage, stagesFor, tapOf, type MarkState } from "@/lib/logging/marks";
+import { firstTimeNote, hintAfterStage, marksFor, saidAfter, saidAfterStage, stagesFor, tapOf, type MarkState } from "@/lib/logging/marks";
 
 const film = (over: Partial<MarkState> = {}): MarkState => ({ kind: "movie", status: null, favourite: false, logged: false, ...over });
 const show = (over: Partial<MarkState> = {}): MarkState => ({ kind: "tv", status: null, favourite: false, logged: false, ...over });
@@ -97,5 +97,17 @@ describe("where something you've started stands", () => {
     expect(hintAfterStage("dropped", "tv")).toMatch(/episodes stay marked/);
     expect(saidAfterStage("watching")).toBe("Back to watching");
     expect(hintAfterStage("watching", "tv")).toBeUndefined();
+  });
+});
+
+describe("a mark, the first time", () => {
+  it("says what it did, in one line, for every mark", () => {
+    for (const key of ["watched", "watching", "finished", "later", "favourite", "on_hold", "dropped"] as const) {
+      const note = firstTimeNote(key, key === "finished" ? "tv" : "movie");
+      expect(note.length).toBeGreaterThan(10);
+      expect(note.length).toBeLessThan(90);
+    }
+    expect(firstTimeNote("watched", "movie")).toMatch(/no date/);
+    expect(firstTimeNote("watching", "tv")).toMatch(/Up next/);
   });
 });

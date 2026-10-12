@@ -26,6 +26,7 @@ import Discover from "@components/rooms/Discover";
 import AsksForYou from "@components/rooms/AsksForYou";
 import TitleCard from "@components/ds/TitleCard";
 import BecauseYouLove from "./BecauseYouLove";
+import WaitingForYou from "./WaitingForYou";
 import NewOnYourServices from "@components/home/NewOnYourServices";
 import { useSearchIndex } from "@components/header/useSearchIndex";
 import Rail from "@components/ds/Rail";
@@ -127,6 +128,9 @@ export default function HomeV2() {
   }
   const leadWaiting = !lastNight && !tonight ? waiting[0] : null;
   const restWaiting = waiting.filter((w) => w !== leadWaiting && !(tonight?.kind === "pass" && w.kind === "pass" && w.pass.id === tonight.pass.id)).slice(0, 3);
+  // What's answerable on this page, so the sentence at the top can point down to it.
+  const waitKey = (w: Waiting) => (w.kind === "request" ? (w.request.kind === "follow" ? `f${w.request.id}` : `w${w.request.viewingId}`) : `p${w.pass.id}`);
+  const onPage = new Set([...(leadWaiting ? [leadWaiting] : []), ...restWaiting].map(waitKey));
 
   const passedYou = (id: string) => list.passesToMe.filter((p) => p.person.id === id);
   const row = people.slice(0, 8).map((room) => ({
@@ -180,6 +184,7 @@ export default function HomeV2() {
   return (
     <div className="flex w-full flex-col pb-16">
       <h1 className="sr-only">Home</h1>
+      {me && <WaitingForYou me={me} list={list} onPage={onPage} />}
 
       {/* The first thing on Home is always a film, full bleed. */}
       {lastNight ? (
@@ -230,7 +235,7 @@ export default function HomeV2() {
       <div className="mx-auto grid w-full max-w-app gap-12 px-4 pt-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-16 lg:px-8">
         <div className="flex min-w-0 flex-col gap-14">
           {leadWaiting && (lastNight || tonight || current || popular[0]) ? (
-            <section aria-labelledby="waiting-first">
+            <section id="waiting-list" aria-labelledby="waiting-first" className="scroll-mt-24">
               <SectionTitle>
                 <span id="waiting-first">Waiting on you</span>
               </SectionTitle>
@@ -238,9 +243,13 @@ export default function HomeV2() {
             </section>
           ) : (
             <>
-              {leadWaiting && waitingList([leadWaiting])}
+              {leadWaiting && (
+                <div id="waiting-list" className="scroll-mt-24">
+                  {waitingList([leadWaiting])}
+                </div>
+              )}
               {restWaiting.length > 0 && (
-                <section aria-labelledby="waiting">
+                <section id={leadWaiting ? undefined : "waiting-list"} aria-labelledby="waiting" className="scroll-mt-24">
                   <SectionTitle>
                     <span id="waiting">Waiting on you</span>
                   </SectionTitle>
@@ -429,6 +438,9 @@ function FirstWeek({
           Find people you know
         </Link>
       </div>
+      <Link href="/app/how" className="w-fit text-sm text-ink-400 underline decoration-line-input underline-offset-4 hover:text-ink-0">
+        New here? How letsee works, in five verbs
+      </Link>
       {named.length > 0 && (
         <div className="rounded-card border border-line-strong px-4 py-3">
           <p className="text-xs font-medium text-ink-500">Names you’ve watched with</p>

@@ -87,6 +87,8 @@ export async function POST(req: NextRequest) {
     statusRows.push({
       user_id: userId, item_id: itemId, item_type: itemType, item_name: itemName,
       ...(imageUrl ? { image_url: imageUrl } : {}),
+      // Saved for later now: Up next orders its lanes by when a title went on.
+      ...(status === "watchlist" ? { saved_at: now } : {}),
       genres, status, updated_at: now,
     });
 

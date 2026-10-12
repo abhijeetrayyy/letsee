@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { ArrowLeft, Plus, Search, Share2, X } from "lucide-react";
+import { ArrowLeft, Clock, LoaderCircle, Plus, Search, Share2, X } from "lucide-react";
 import Link from "@components/ui/AppLink";
 import Avatar from "@components/ui/Avatar";
 import Mosaic from "@components/ds/Mosaic";
@@ -13,7 +13,12 @@ import { QuickMarkButton } from "@components/ds/QuickMarks";
 import LikeButton from "@components/reactions/LikeButton";
 import ListPeople from "@components/profile/ListPeople";
 import SeenOf from "@components/ui/SeenOf";
+import KeepSet from "@components/sets/KeepSet";
+import SetProgress from "@components/sets/SetProgress";
+import { useKeptSet } from "@components/sets/useKeptSet";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
+import UserPrefrenceContext from "@/app/contextAPI/userPrefrence";
+import { markToast } from "@components/ds/markToast";
 import { supabase } from "@/utils/supabase/client";
 import { getPosterUrl } from "@/utils/imageUrl";
 import { listPath, titlePath } from "@/utils/urls";
@@ -104,6 +109,12 @@ export type ListData = NonNullable<Awaited<ReturnType<typeof fetchList>>>;
 
 /** The list itself, given its data. */
 export function ListBody({ data, refresh }: { data: ListData; refresh: () => void }) {
+  const { user } = useAuth();
+  const { getStatus, hasFavorite, refreshPreferences } = useContext(UserPrefrenceContext);
+  const [savingAll, setSavingAll] = useState(false);
+  const listSet = { kind: "list" as const, refId: String(data.list.id), role: null };
+  const { kept: keptHere } = useKeptSet(listSet, data.list.name, data.items[0]?.image_url ?? null);
+  const setItems = data.items.map((i) => ({ id: String(i.item_id), type: (i.item_type === "tv" ? "tv" : "movie") as "movie" | "tv" }));
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Sort>("list");
   const [adding, setAdding] = useState(false);
@@ -179,6 +190,41 @@ export function ListBody({ data, refresh }: { data: ListData; refresh: () => voi
     );
   };
 
+  /**
+   * "Save all to Watch later" (docs/IDEAS_2026-10.md §3.4): someone sent a list
+   * of twelve — one tap instead of twelve. Only what you haven't marked or
+   * favourited, so nothing you've seen is moved; one request (the bulk route);
+   * Undo takes back exactly those.
+   */
+  const unmarked = items
+    .filter((i) => !getStatus(i.item_id, i.item_type === "tv" ? "tv" : "movie") && !hasFavorite(i.item_id, i.item_type))
+    .slice(0, 200);
+  const bulk = (entries: Record<string, unknown>[]) =>
+    fetch("/api/quick-add/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ entries }) }).then(
+      (r) => r.ok,
+      () => false,
+    );
+  const saveAll = async () => {
+    if (savingAll || !unmarked.length) return;
+    const picked = unmarked.map((i) => ({ itemId: i.item_id, itemType: i.item_type === "tv" ? "tv" : "movie", name: i.item_name, imgUrl: i.image_url ? getPosterUrl(i.image_url, "w342") : null }));
+    setSavingAll(true);
+    const ok = await bulk(picked.map((p) => ({ ...p, status: "watchlist" })));
+    await refreshPreferences();
+    setSavingAll(false);
+    if (!ok) {
+      toast.error("That didn't save. Check your connection and try again.");
+      return;
+    }
+    markToast({
+      text: `Saved ${picked.length} to Watch later`,
+      hint: "They're in Up next, under Someday.",
+      undo: async () => {
+        if (!(await bulk(picked.map((p) => ({ ...p, remove: true }))))) toast.error("Couldn't undo that.");
+        await refreshPreferences();
+      },
+    });
+  };
+
   const visibility = list.visibility === "public" ? "Anyone with the link" : list.visibility === "followers" ? "Followers" : "Only you and its keepers";
 
   return (
@@ -208,10 +254,27 @@ export function ListBody({ data, refresh }: { data: ListData; refresh: () => voi
 
       <div className="flex flex-col gap-3">
         <ListPeople listId={list.id} listName={list.name} isOwner={isOwner} visibility={list.visibility} showShare={false} />
-        <SeenOf items={items.map((i) => ({ id: i.item_id, type: i.item_type }))} noun="on this list" />
+        {/* Kept as a set: its progress; otherwise the quiet "Seen N of M". */}
+        {keptHere ? (
+          <SetProgress setRef={listSet} name={list.name} imageUrl={items[0]?.image_url ?? null} items={setItems} />
+        ) : (
+          <SeenOf items={items.map((i) => ({ id: i.item_id, type: i.item_type }))} noun="on this list" />
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {user && unmarked.length > 0 && (
+          <button
+            type="button"
+            onClick={() => void saveAll()}
+            disabled={savingAll}
+            className="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium text-ink-0 ring-1 ring-inset ring-line-input hover:bg-hover disabled:opacity-60"
+          >
+            {savingAll ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Clock className="size-4" aria-hidden />}
+            Save {unmarked.length === items.length ? "all" : unmarked.length} to Watch later
+          </button>
+        )}
+        {items.length > 1 && <KeepSet setRef={listSet} name={list.name} imageUrl={items[0]?.image_url ?? null} />}
         <LikeButton targetType="list" targetId={list.id} />
         <button type="button" onClick={share} className="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium text-ink-200 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0">
           <Share2 className="size-4" aria-hidden />
