@@ -18,7 +18,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 
   const { data: club } = await supabase
     .from("clubs")
-    .select("id, slug, name, description, image_url, member_count, created_by, created_at, join_policy")
+    .select("id, slug, name, description, image_url, member_count, created_by, created_at, join_policy, series_id, series_name, series_image")
     .eq("slug", slug)
     .maybeSingle();
 

@@ -27,6 +27,9 @@ export type CommentRow = {
   id: number;
   user_id: string;
   body: string;
+  /** About one episode (migration 126): closed in a series room until the reader gets there. */
+  season?: number | null;
+  episode?: number | null;
   created_at: string;
   parent_id: number | null;
   users: { username: string | null; avatar_url: string | null } | null;
@@ -43,7 +46,7 @@ export async function fetchComments(
     supabase
       .from("comments")
       .select(
-        "id, user_id, body, created_at, parent_id, users!comments_user_id_fkey(username, avatar_url)",
+        "id, user_id, body, created_at, parent_id, season, episode, users!comments_user_id_fkey(username, avatar_url)",
       )
       .eq("item_id", itemId)
       .eq("item_type", itemType)
@@ -95,6 +98,8 @@ export async function postComment(
   itemType: string,
   body: string,
   parentId?: number | null,
+  /** About one episode: stays closed for each reader until they've reached it. */
+  about?: { s: number; e: number } | null,
 ): Promise<string | null> {
   const text = body.trim();
   if (!text) return "Write something first.";
@@ -111,6 +116,7 @@ export async function postComment(
     item_type: itemType,
     body: text,
     parent_id: parentId ?? null,
+    ...(about ? { season: about.s, episode: about.e } : {}),
   });
 
   if (error) {

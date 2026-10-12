@@ -8,6 +8,7 @@ import Link from "@components/ui/AppLink";
 import Avatar from "@components/ui/Avatar";
 import Faces from "@components/ds/Faces";
 import Comments from "@components/social/Comments";
+import SeriesTogether from "@components/rooms/SeriesTogether";
 import { WeekList } from "@components/home/v2/parts";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
@@ -26,7 +27,7 @@ import { titlePath } from "@/utils/urls";
 type Member = { userId: string; username: string; avatarUrl: string | null; role: string };
 type Pick = { id: number; item_id: string; item_type: string; title: string; image_url: string | null; note: string | null; ends_at: string };
 type GroupData = {
-  club: { id: number; slug: string; name: string; description: string | null; member_count: number };
+  club: { id: number; slug: string; name: string; description: string | null; member_count: number; series_id?: string | null; series_name?: string | null; series_image?: string | null };
   members: Member[];
   pick: Pick | null;
   isMember: boolean;
@@ -105,6 +106,7 @@ export default function GroupRoomPage({ params }: { params: Promise<{ slug: stri
   }
 
   const { club, pick, isMember } = data;
+  const series = club.series_id && club.series_name ? { id: club.series_id, name: club.series_name, image: club.series_image ?? null } : null;
   const pending = data.membership === "pending";
   const faces = members.map((m) => ({ username: m.username, avatarUrl: m.avatarUrl }));
   const primary = "inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-semibold text-on-action transition-colors hover:bg-action-hover disabled:opacity-60";
@@ -166,6 +168,11 @@ export default function GroupRoomPage({ params }: { params: Promise<{ slug: stri
 
       <div className="mx-auto grid w-full max-w-app gap-12 px-4 pt-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-16 lg:px-8">
         <div className="flex min-w-0 flex-col gap-12">
+          {/* A room for a series (migration 126): where everyone is, and talk that waits for you. */}
+          {(isMember || series) && (
+            <SeriesTogether clubId={club.id} series={series} members={members} isAdmin={data.isAdmin && isMember} onChanged={() => void mutate()} />
+          )}
+
           <section aria-labelledby="pick">
             <h2 id="pick" className="mb-4 text-2xl text-ink-0 sm:text-3xl">
               This week&apos;s pick
@@ -201,7 +208,7 @@ export default function GroupRoomPage({ params }: { params: Promise<{ slug: stri
             <h2 id="talk" className="mb-4 text-2xl text-ink-0 sm:text-3xl">
               Talk
             </h2>
-            <Comments itemId={String(club.id)} itemType="club" />
+            <Comments itemId={String(club.id)} itemType="club" series={series ? { showId: series.id, name: series.name } : null} />
           </section>
         </div>
 

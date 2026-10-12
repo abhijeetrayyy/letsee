@@ -5,8 +5,8 @@ import { tmdbConfigured } from "@/utils/tmdbClient";
 import { guard } from "@/lib/limits/guard";
 
 /**
- * GET /api/show-next?id=  — a series' next episode to air, and whether it's
- * still going. For "S3 returns 14 Nov" on a show you put on hold
+ * GET /api/show-next?id=  — a series' next episode to air, whether it's
+ * still going, and its seasons (for where everyone is in a series room). For "S3 returns 14 Nov" on a show you put on hold
  * (docs/IDEAS_2026-10.md §5.2): a paused show with a date is one you keep,
  * not one you drop.
  *
@@ -17,12 +17,17 @@ import { guard } from "@/lib/limits/guard";
 type Show = {
   status?: string;
   next_episode_to_air?: { season_number?: number; episode_number?: number; air_date?: string | null } | null;
+  last_episode_to_air?: { season_number?: number; episode_number?: number } | null;
+  seasons?: { season_number?: number; episode_count?: number }[];
 };
 
 export type ShowNext = {
   next: { s: number; e: number; airDate: string } | null;
   /** TMDB's "Returning Series", "Ended", "Canceled", "In Production"… */
   status: string | null;
+  /** The seasons and the last aired episode — where everyone is in a series room (rooms/SeriesTogether). */
+  seasons: { season_number: number; episode_count: number }[];
+  lastAired: { s: number; e: number } | null;
 };
 
 export async function GET(request: NextRequest) {
@@ -41,9 +46,12 @@ export async function GET(request: NextRequest) {
   }
 
   const n = data.next_episode_to_air;
+  const l = data.last_episode_to_air;
   const body: ShowNext = {
     next: n?.air_date && n.season_number && n.episode_number ? { s: n.season_number, e: n.episode_number, airDate: n.air_date } : null,
     status: data.status ?? null,
+    seasons: (data.seasons ?? []).map((x) => ({ season_number: Number(x.season_number ?? 0), episode_count: Number(x.episode_count ?? 0) })),
+    lastAired: l?.season_number && l.episode_number ? { s: l.season_number, e: l.episode_number } : null,
   };
   return jsonSuccess(body, { maxAge: 43200, staleWhileRevalidate: 86400 });
 }

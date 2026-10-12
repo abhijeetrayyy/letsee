@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import useSWR from "swr";
 import Link from "@components/ui/AppLink";
 import { useMediaInteraction } from "@/app/contextAPI/MediaInteractionProvider";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
-import { MessageCircle, Send, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { MessageCircle, Send, Trash2, ChevronDown, ChevronUp, Lock, Tv } from "lucide-react";
+import { swrFetcher } from "@/utils/swrFetcher";
+import { episodeLabel, reached } from "@/lib/logging/episodes";
 import toast from "react-hot-toast";
 import LikeButton from "@components/reactions/LikeButton";
 import Avatar from "@components/ui/Avatar";
@@ -25,7 +28,21 @@ type Comment = CommentRow;
  * wrapper already says "Discussion", and rendering both printed the word
  * twice, one line apart.
  */
-export default function Comments({ itemId, itemType, showHeading = true }: { itemId: string; itemType: string; showHeading?: boolean }) {
+export default function Comments({
+  itemId,
+  itemType,
+  showHeading = true,
+  series,
+}: {
+  itemId: string;
+  itemType: string;
+  showHeading?: boolean;
+  /**
+   * A series room (docs/IDEAS_2026-10.md §6.1): talk can be about one episode
+   * of this show, and stays closed for each reader until they've reached it.
+   */
+  series?: { showId: string; name: string } | null;
+}) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [body, setBody] = useState("");
@@ -33,6 +50,13 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
   const [replyTo, setReplyTo] = useState<number|null>(null);
   const [showAll, setShowAll] = useState(false);
   const [participating, setParticipating] = useState(false);
+  // In a series room: your episodes of it decide what's open, and where "about" points.
+  const { data: mine } = useSWR<{ episodes?: { season_number: number; episode_number: number }[] }>(series ? `/api/watched-episodes?showId=${series.showId}` : null, swrFetcher, { revalidateOnFocus: false });
+  const myEps = new Set((mine?.episodes ?? []).filter((r) => r.season_number > 0).map((r) => `${r.season_number}:${r.episode_number}`));
+  const myPlace = [...myEps].map((k) => k.split(":").map(Number)).sort((a, b) => b[0] - a[0] || b[1] - a[1])[0];
+  const [aboutOn, setAboutOn] = useState(false);
+  const about = series && aboutOn && myPlace ? { s: myPlace[0], e: myPlace[1] } : null;
+  const [peeked, setPeeked] = useState<Set<number>>(new Set());
   const { ref, inView } = useInView<HTMLDivElement>();
   const { isAuthenticated } = useMediaInteraction();
   const { user: authUser } = useAuth();
@@ -88,7 +112,7 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
     if (!authUserId) return;
     setSubmitting(true);
     try {
-      const message = await postComment(authUserId, itemId, itemType, body, replyTo);
+      const message = await postComment(authUserId, itemId, itemType, body, replyTo, about);
       if (message) {
         toast.error(message);
         return;
@@ -137,6 +161,18 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
         </div>
       )}
 
+      {isAuthenticated && series && myPlace && (
+        <button
+          type="button"
+          onClick={() => setAboutOn((v) => !v)}
+          aria-pressed={aboutOn}
+          className={`mb-2 inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${aboutOn ? "bg-ink-0 text-page" : "text-ink-300 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"}`}
+        >
+          <Tv className="size-3.5" aria-hidden />
+          About {series.name} {episodeLabel({ s: myPlace[0], e: myPlace[1] })}
+          {aboutOn && <span className="font-normal opacity-80">· closed until each of them gets there</span>}
+        </button>
+      )}
       {isAuthenticated && (
         <form onSubmit={submit} className="flex gap-2 mb-4">
           <input value={body} onChange={e=>setBody(e.target.value)} placeholder={replyTo ? "Write a reply..." : "Share your thoughts..."} className="flex-1 bg-overlay/60 border border-line-strong/50 rounded-xl px-4 py-2.5 text-sm text-ink-0 placeholder-ink-500 focus:outline-none focus:ring-2 focus:ring-focus/30" maxLength={2000} />
@@ -169,7 +205,16 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
                 <span className="text-xs text-ink-500">{timeAgo(c.created_at)}</span>
               </div>
               {c.users?.username ? (
-                <p className="text-sm text-ink-300 mt-0.5 leading-relaxed">{c.body}</p>
+                c.season && c.episode ? (
+                  <EpisodeTalk
+                    body={c.body}
+                    ep={{ s: c.season, e: c.episode }}
+                    open={c.user_id === authUserId || peeked.has(c.id) || (!!mine && reached(myEps, c.season, c.episode))}
+                    onPeek={() => setPeeked((p) => new Set(p).add(c.id))}
+                  />
+                ) : (
+                  <p className="text-sm text-ink-300 mt-0.5 leading-relaxed">{c.body}</p>
+                )
               ) : (
                 <p className="text-sm italic text-ink-500 mt-0.5">This comment was deleted.</p>
               )}
@@ -196,7 +241,17 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
                   </Link>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5"><Link href={`/app/profile/${r.users.username}`} className="text-xs font-semibold text-ink-0">@{r.users.username}</Link><span className="text-xs text-ink-500">{timeAgo(r.created_at)}</span></div>
-                    <p className="text-xs text-ink-400 mt-0.5">{r.body}</p>
+                    {r.season && r.episode ? (
+                      <EpisodeTalk
+                        body={r.body}
+                        ep={{ s: r.season, e: r.episode }}
+                        open={r.user_id === authUserId || peeked.has(r.id) || (!!mine && reached(myEps, r.season, r.episode))}
+                        onPeek={() => setPeeked((p) => new Set(p).add(r.id))}
+                        small
+                      />
+                    ) : (
+                      <p className="text-xs text-ink-400 mt-0.5">{r.body}</p>
+                    )}
                     <LikeButton targetType="comment" targetId={r.id} initialCount={r.reaction_count} initialLiked={r.viewer_liked} size="sm" />
                   </div>
                 </div>
@@ -214,6 +269,32 @@ export default function Comments({ itemId, itemType, showHeading = true }: { ite
         </button>
       )}
       {!isAuthenticated && <p className="text-xs text-ink-500 text-center py-2"><Link href="/login" className="font-medium text-accent underline decoration-line-input underline-offset-4">Sign in</Link> to join.</p>}
+    </div>
+  );
+}
+
+/**
+ * Talk about one episode (migration 126): the episode on top; the words once
+ * you've reached it (yours always), or when you choose "Show anyway".
+ */
+function EpisodeTalk({ body, ep, open, onPeek, small = false }: { body: string; ep: { s: number; e: number }; open: boolean; onPeek: () => void; small?: boolean }) {
+  return (
+    <div className="mt-0.5">
+      <span className="inline-flex items-center gap-1 font-mono text-xs uppercase tracking-wide text-ink-500">
+        <Tv className="size-3" aria-hidden />
+        About {episodeLabel(ep)}
+      </span>
+      {open ? (
+        <p className={small ? "text-xs text-ink-400 mt-0.5" : "text-sm text-ink-300 mt-0.5 leading-relaxed"}>{body}</p>
+      ) : (
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-500">
+          <Lock className="size-3" aria-hidden />
+          Opens when you&apos;ve watched {episodeLabel(ep)}.
+          <button type="button" onClick={onPeek} className="font-medium text-ink-300 underline decoration-line-input underline-offset-4 hover:text-ink-0">
+            Show anyway
+          </button>
+        </p>
+      )}
     </div>
   );
 }
