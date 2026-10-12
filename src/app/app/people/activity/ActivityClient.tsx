@@ -40,7 +40,10 @@ const FILTERS: { key: Filter; label: string; kinds: ActivityKind[] }[] = [
 export default function ActivityClient() {
   const { user, status } = useAuth();
   const me = status === "ok" ? user?.id ?? null : null;
-  const [scope, setScope] = useState<ActivityScope>("everyone");
+  // `?scope=people` (Home's "the rest of the week") opens on the people you follow.
+  const [scope, setScope] = useState<ActivityScope>(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("scope") === "people" ? "people" : "everyone",
+  );
   const [filter, setFilter] = useState<Filter>("all");
 
   const { data, size, setSize, isLoading, isValidating } = useSWRInfinite(
@@ -97,7 +100,7 @@ export default function ActivityClient() {
           ))}
         </div>
 
-        {isLoading && !data ? (
+        {(status === "loading" || isLoading) && !data ? (
           <FeedSkeleton />
         ) : days.length === 0 ? (
           <div className="mt-10 rounded-card bg-raised p-6 ring-1 ring-inset ring-line-strong">

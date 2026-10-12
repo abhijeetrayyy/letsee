@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { earlierUnwatched, episodeLabel, epKey, isOut, leadsWithEpisode, nextEpisode, notOutYet, positionOf, progressOf, rangeLabel, returnLabel, seasonsOf, upTo, type SeasonInfo } from "@/lib/logging/episodes";
+import { earlierUnwatched, episodeLabel, epKey, isOut, leadsWithEpisode, nextEpisode, notOutYet, positionOf, progressOf, rangeLabel, returnLabel, seasonsOf, upTo, whereLabel, type SeasonInfo } from "@/lib/logging/episodes";
 
 const seasons: SeasonInfo[] = [
   { season_number: 0, episode_count: 3 }, // specials
@@ -157,5 +157,34 @@ describe("when a paused series comes back", () => {
     expect(returnLabel({ next: null, status: "Canceled" }, today)).toBe("Cancelled");
     expect(returnLabel({ next: null, status: "Returning Series" }, today)).toBeNull();
     expect(returnLabel({ next: { s: 2, e: 6, airDate: "2026-01-01" }, status: "Returning Series" }, today)).toBeNull();
+  });
+});
+
+describe("where you are in a show, on Home", () => {
+  const today = "2026-10-13";
+  const seasons: SeasonInfo[] = [
+    { season_number: 1, episode_count: 3 },
+    { season_number: 2, episode_count: 4 },
+  ];
+  const show = { seasons, lastAired: { s: 2, e: 4 }, next: null, status: "Returning Series" };
+
+  it("names the episode after the furthest one you've marked", () => {
+    expect(whereLabel(show, new Set(["1:1", "1:2", "1:3", "2:1"]), today)).toBe("S02 · E02 next");
+    // A gap behind you doesn't pull the label back.
+    expect(whereLabel(show, new Set(["1:3"]), today)).toBe("S02 · E01 next");
+    expect(whereLabel(show, new Set(), today)).toBe("S01 · E01 next");
+  });
+
+  it("only offers what's out", () => {
+    const airing = { ...show, lastAired: { s: 2, e: 2 }, next: { s: 2, e: 3, airDate: "2026-10-20" } };
+    expect(whereLabel(airing, new Set(["1:1", "1:2", "1:3", "2:1"]), today)).toBe("S02 · E02 next");
+    expect(whereLabel(airing, new Set(["1:1", "1:2", "1:3", "2:1", "2:2"]), today)).toBe("Next episode 20 Oct");
+  });
+
+  it("once you're through it all: when it's back, that it ended, or nothing", () => {
+    const all = new Set(["1:1", "1:2", "1:3", "2:1", "2:2", "2:3", "2:4"]);
+    expect(whereLabel({ ...show, next: { s: 3, e: 1, airDate: "2026-11-14" } }, all, today)).toBe("S3 returns 14 Nov");
+    expect(whereLabel({ ...show, status: "Ended" }, all, today)).toBe("Ended");
+    expect(whereLabel(show, all, today)).toBeNull();
   });
 });

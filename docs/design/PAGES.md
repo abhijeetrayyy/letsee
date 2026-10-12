@@ -60,6 +60,7 @@ Phone heights are at 375 × 812 with every fold closed; a "screen" is 812 px.
   7. **One next step** — pass something on, invite someone, or bring your history.
 - **New order (first week, fewer than three people):** *Your first people* (invite link, find by username, names you've watched with who aren't here yet) → *Bring your history* (if the diary is empty) → what you're watching → *Logged this week by people in your region*, labelled as strangers.
 - **Folded or moved:** carousel removed; trending, genres, strangers' reviews, new on your services → Search; airing soon → Up next; people you may know → Search.
+- **Built (13 Oct 2026, IDEAS_2026-10 §7.2):** after the first card, three questions in order — **What you're watching** (the rest of it, each show with its next episode or when it's back, from `/api/show-next` at the edge and one read of your episodes) → **Waiting on you** and the asks → **Your people** and **This week** (six; the rest in Activity, opened on the people you follow) → a memory. Then one line, *Something new to watch*, and beneath it popular, at the cinema, lately, because you love, new on your services, trending.
 - **Done when:** the feed ends; no carousel, no count, no trending; a person or something addressed to you is on the first screen whenever one exists; the evening and morning cards appear only at their hours and only with something real behind them.
 
 ---

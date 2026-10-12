@@ -167,3 +167,21 @@ export function returnLabel(show: { next: { s: number; e: number; airDate: strin
   if (show.status === "Ended" || show.status === "Canceled") return show.status === "Ended" ? "Ended" : "Cancelled";
   return null;
 }
+
+/**
+ * Where you are in a show, in a few words — Home's "What you're watching"
+ * (docs/IDEAS_2026-10.md §7.2). The aired episode after the furthest one
+ * you've marked ("S02 · E05 next"); once you're through everything out, when
+ * it comes back, or that it ended. Nothing when there's nothing to say.
+ */
+export function whereLabel(
+  show: { seasons: SeasonInfo[]; lastAired: Ep | null; next: { s: number; e: number; airDate: string } | null; status: string | null },
+  watched: Set<string>,
+  today: string,
+): string | null {
+  const list = aired(show.seasons, show.lastAired);
+  const at = positionOf(show.seasons, watched, show.lastAired);
+  const next = at ? list.find((ep) => after(ep, at)) : list[0];
+  if (next) return `${episodeLabel(next)} next`;
+  return returnLabel(show, today);
+}

@@ -27,6 +27,7 @@ import AsksForYou from "@components/rooms/AsksForYou";
 import TitleCard from "@components/ds/TitleCard";
 import BecauseYouLove from "./BecauseYouLove";
 import WaitingForYou from "./WaitingForYou";
+import WatchingRail from "./WatchingRail";
 import NewOnYourServices from "@components/home/NewOnYourServices";
 import { useSearchIndex } from "@components/header/useSearchIndex";
 import Rail from "@components/ds/Rail";
@@ -51,9 +52,12 @@ import {
  * Home under `ui=v2` (docs/design/RETHINK.md §3, PAGES.md §1).
  *
  * The top answers the question a person has at that hour — the evening's
- * film, last night's log, or whoever is waiting on you — and the rest is your
- * people: what is waiting on you, who they are, what they watched this week,
- * and a memory. It ends. No trending, no genres, no strangers, no counts.
+ * film, last night's log, or whoever is waiting on you. Then three questions,
+ * in order (docs/IDEAS_2026-10.md §7.2): what are you on (what you're
+ * watching, each show with its next episode), who's waiting (requests,
+ * passes, asks), and what's new here (your people, and the first six of their
+ * week). A memory, when there is one. Everything else — titles to find — sits
+ * beneath one line, and the page ends. No counts.
  *
  * Everything is read in the browser under the viewer's own RLS and the
  * device's clock decides the first card, so the cached page around it is the
@@ -138,7 +142,10 @@ export default function HomeV2() {
     room,
     line: activity ? personLine(room.person.id, activity.viewings, activity.watching, passedYou(room.person.id)) : null,
   }));
-  const week = activity ? groupWeek(activity.viewings).slice(0, 12) : [];
+  // The first six of the week; the rest are a tap away in Activity.
+  const wholeWeek = activity ? groupWeek(activity.viewings) : [];
+  const week = wholeWeek.slice(0, 6);
+  const weekMore = wholeWeek.length > week.length;
   const memory = (memories ?? []).find((m) => !hidden.includes(m.id));
   const decideWith = people.slice(0, 3).map((p) => p.person);
 
@@ -181,6 +188,10 @@ export default function HomeV2() {
   const lately = allLately.slice(0, allLately.length >= 4 ? Math.min(12, Math.floor(allLately.length / 4) * 4) : allLately.length);
   const known = new Set(people.map((p) => p.person.id));
   const trending = (index?.rows ?? []).filter((r) => !r.lib && (r.t === "movie" || r.t === "tv")).slice(0, 18);
+  const beneath = popular.length > 0 || lately.length > 0 || trending.length > 0 || (community?.cinema.length ?? 0) >= 2;
+
+  // What you're watching, not counting the one the hero already shows.
+  const onRail = (watching ?? []).slice(current && !lastNight && !tonight ? 1 : 0, 12);
 
   return (
     <div className="flex w-full flex-col pb-16">
@@ -235,6 +246,10 @@ export default function HomeV2() {
 
       <div className="mx-auto grid w-full max-w-app gap-12 px-4 pt-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-16 lg:px-8">
         <div className="flex min-w-0 flex-col gap-14">
+          {/* What are you on? The rest of what you're watching, each show with where you are in it. */}
+          {me && onRail.length > 0 && <WatchingRail me={me} items={onRail} />}
+
+          {/* Who's waiting? */}
           {leadWaiting && (lastNight || tonight || current || popular[0]) ? (
             <section id="waiting-list" aria-labelledby="waiting-first" className="scroll-mt-24">
               <SectionTitle>
@@ -267,6 +282,7 @@ export default function HomeV2() {
 
           {me && <AsksForYou me={me} />}
 
+          {/* What's new here? Your people, and what they watched this week. */}
           {firstWeek ? (
             <FirstWeek username={user?.username ?? null} named={list.named} people={people.map((p) => p.person)} />
           ) : (
@@ -283,30 +299,23 @@ export default function HomeV2() {
               <SectionTitle>
                 <span id="this-week">This week</span>
               </SectionTitle>
-              <WeekList groups={week} people={peopleById} />
+              <WeekList groups={week} people={peopleById} end={weekMore ? null : undefined} />
+              {weekMore && (
+                <Link href="/app/people/activity?scope=people" className="mt-4 inline-block text-sm text-ink-400 underline decoration-line-input underline-offset-4 hover:text-ink-0">
+                  The rest of the week, in Activity
+                </Link>
+              )}
             </section>
           )}
 
-          {(watching ?? []).length > (current && !lastNight && !tonight ? 1 : 0) && (
-            <section aria-labelledby="watching">
-              <SectionTitle>
-                <span id="watching">What you’re watching</span>
-              </SectionTitle>
-              <Rail>
-                <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 sm:scroll-px-6 lg:scroll-px-8 gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-                  {/* Not the one the hero already shows. */}
-                  {(watching ?? []).slice(current && !lastNight && !tonight ? 1 : 0, 12).map((w) => (
-                    <li key={`${w.item_type}:${w.item_id}`} className="w-36 shrink-0 snap-start sm:w-44">
-                      <Link href={titlePath(w.item_type === "tv" ? "tv" : "movie", w.item_id, w.item_name)} className="group block">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={getPosterUrl(w.image_url, "w342")} alt="" loading="lazy" className="img-fade aspect-2/3 w-full rounded-media bg-raised object-cover ring-1 ring-inset ring-line transition-opacity group-hover:opacity-90" />
-                        <span className="mt-2 block truncate font-display text-base text-ink-0">{w.item_name}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </Rail>
-            </section>
+          {memory && <MemoryCard memory={memory} onHide={() => hideMemory(memory.id)} />}
+
+          {/* Everything else folds beneath the three: titles to find, from letsee and beyond it. */}
+          {beneath && (
+            <div className="-mb-4 flex items-center gap-4">
+              <span className="font-mono text-xs uppercase tracking-wider text-ink-500">Something new to watch</span>
+              <span aria-hidden className="h-px flex-1 bg-line-strong" />
+            </div>
           )}
 
           {popular.length > (current || lastNight || tonight ? 0 : 1) && (
@@ -367,8 +376,6 @@ export default function HomeV2() {
               </Rail>
             </section>
           )}
-
-          {memory && <MemoryCard memory={memory} onHide={() => hideMemory(memory.id)} />}
         </div>
 
         <aside className="flex flex-col gap-10 lg:pt-1">
