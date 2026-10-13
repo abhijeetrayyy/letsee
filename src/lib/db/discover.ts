@@ -54,8 +54,12 @@ export async function followedByYourPeople(me: string, exclude: Set<string>, lim
     .slice(0, limit);
 }
 
-/** The newest people here: someone who joined this week is easy to say hello to. */
-export async function newOnLetsee(me: string, exclude: Set<string>, limit = 6): Promise<Candidate[]> {
+/**
+ * Everyone on letsee, newest first, a page at a time — Find people before you
+ * type (People → Find). People you follow are in it too: it's everyone, and
+ * their row says so. Someone who joined this week is easy to say hello to.
+ */
+export async function everyoneNewest(me: string, from: number, size = 20): Promise<{ people: Candidate[]; more: boolean }> {
   const [{ data: users }, blocked] = await Promise.all([
     supabase
       .from("users")
@@ -64,13 +68,19 @@ export async function newOnLetsee(me: string, exclude: Set<string>, limit = 6): 
       .is("deleted_at", null)
       .neq("id", me)
       .order("created_at", { ascending: false })
-      .limit(limit + exclude.size + 6),
+      .order("id")
+      // One past the page, to know whether there's another.
+      .range(from, from + size),
     getBlockedUserIds(supabase, me),
   ]);
-  return (users ?? [])
-    .filter((u) => !exclude.has(u.id) && !blocked.has(u.id))
-    .slice(0, limit)
-    .map((u) => ({ id: u.id, username: u.username as string, avatarUrl: u.avatar_url ?? null, reason: joined(u.created_at as string | null) }));
+  const rows = users ?? [];
+  return {
+    people: rows
+      .slice(0, size)
+      .filter((u) => !blocked.has(u.id))
+      .map((u) => ({ id: u.id, username: u.username as string, avatarUrl: u.avatar_url ?? null, reason: joined(u.created_at as string | null) })),
+    more: rows.length > size,
+  };
 }
 
 function joined(at: string | null, now = Date.now()): string | null {
@@ -87,6 +97,8 @@ export type Details = {
   visibility: string;
   /** The four on their profile, when it's public: what they love, at a glance. */
   four: { image: string; name: string }[];
+  /** Whether they show their ratings — a "you both loved" line needs them. */
+  showsRatings: boolean;
 };
 
 /** A line and the four for everyone on screen, in two reads. */
@@ -94,7 +106,7 @@ export async function detailsFor(ids: string[]): Promise<Map<string, Details>> {
   const out = new Map<string, Details>();
   if (!ids.length) return out;
   const [{ data: users }, { data: four }] = await Promise.all([
-    supabase.from("users").select("id, tagline, visibility").in("id", ids),
+    supabase.from("users").select("id, tagline, visibility, profile_show_ratings").in("id", ids),
     supabase.from("user_favorite_display").select("user_id, position, image_url, item_name").in("user_id", ids).order("position", { ascending: true }),
   ]);
   for (const u of users ?? []) {
@@ -102,6 +114,7 @@ export async function detailsFor(ids: string[]): Promise<Map<string, Details>> {
       tagline: (u.tagline as string | null)?.trim() || null,
       visibility: String(u.visibility ?? "public").toLowerCase(),
       four: [],
+      showsRatings: u.profile_show_ratings !== false,
     });
   }
   for (const f of four ?? []) {

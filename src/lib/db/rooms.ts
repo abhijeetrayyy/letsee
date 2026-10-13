@@ -110,6 +110,8 @@ export type RoomList = {
   diaryEmpty: boolean;
   /** Everyone you follow, so suggestions never offer to follow them again. */
   following: string[];
+  /** Everyone who follows you — "Follows you" on Find people. */
+  followers: string[];
 };
 
 /** Someone asking something of you that a room cannot answer yet. */
@@ -410,7 +412,7 @@ export async function fetchRoomList(me: string): Promise<RoomList> {
     .map((r) => ({ ...toPass(r, me), person: byId.get(r.from_user_id) }))
     .filter((p): p is Pass & { person: RoomPerson } => !!p.person);
 
-  return { rooms, requests, people: yourPeople, passesToMe, named: diary.named, diaryEmpty: diary.empty, following: [...following] };
+  return { rooms, requests, people: yourPeople, passesToMe, named: diary.named, diaryEmpty: diary.empty, following: [...following], followers: connections.filter((c) => c.followed_id === me).map((c) => c.follower_id) };
 }
 
 export type MeetMoment = Moment & { itemId: string; itemType: "movie" | "tv"; itemName: string };
