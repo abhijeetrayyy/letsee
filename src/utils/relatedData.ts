@@ -1,6 +1,5 @@
 import { unstable_cache } from "next/cache";
 import { tmdbFetchJson } from "@/utils/tmdb";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import {
   buildPool,
   rankRelated,
@@ -153,71 +152,6 @@ const collectionPartsFor = unstable_cache(
   { revalidate: FILMOGRAPHY_TTL },
 );
 
-/**
- * The community half — the one signal a TMDB-backed competitor cannot copy.
- *
- * Depends on `related_by_audience`, added by migration `066`. That migration
- * is **written but not applied**, so in practice this returns `undefined`
- * today and the ranking renormalises the term away. That is the designed
- * behaviour rather than a failure path: D5's second acceptance criterion is
- * that the section degrades without an empty state, and this is how.
- *
- * Any error is swallowed for the same reason. A missing function, a permission
- * problem or an empty community are all the same thing to the caller — no
- * signal — and none of them should cost the page its related section.
- */
-async function communityFor(
-  seedId: number,
-  mediaType: MediaType,
-): Promise<RelatedEvidence["community"]> {
-  try {
-    /**
-     * A bare anon client — no cookies, no session — and this is the single most
-     * expensive line in the codebase to have got wrong.
-     *
-     * `createClient()` reads cookies, and reading cookies opts the entire route
-     * into per-request rendering. Every movie, series, person and cast page was
-     * therefore re-rendered from scratch for every visitor, including every
-     * crawler, because of one call buried two components deep behind a Suspense
-     * boundary.
-     *
-     * The session was never used. `related_by_audience` takes an item id, a
-     * type and a limit, and aggregates over everybody — the answer is identical
-     * whoever asks. Verified against the live database with the anon key: same
-     * 200, same rows.
-     *
-     * This is the same fault, and the same fix, as `sitemap.ts` — where the
-     * cookie-reading client silently forced a dynamic render and the catch
-     * swallowed the resulting error. Twice in one codebase makes it a pattern
-     * worth naming: a server client that reads a session you do not need is not
-     * a neutral default, it is a caching opt-out with no visible symptom.
-     */
-    const supabase = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY)!,
-      { auth: { persistSession: false, autoRefreshToken: false } },
-    );
-    const { data, error } = await supabase.rpc("related_by_audience", {
-      p_item_id: String(seedId),
-      p_item_type: mediaType,
-      p_limit: 200,
-    });
-    if (error || !Array.isArray(data) || data.length === 0) return undefined;
-
-    const byId = new Map<number, number>();
-    let seedWatchers = 0;
-    for (const row of data as { item_id: string; co_watchers: number; seed_watchers: number }[]) {
-      const id = Number(row.item_id);
-      if (Number.isInteger(id)) byId.set(id, Number(row.co_watchers) || 0);
-      seedWatchers = Number(row.seed_watchers) || seedWatchers;
-    }
-    return seedWatchers > 0 ? { seedWatchers, byId } : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 export type RelatedInput = {
   id: number;
   mediaType: MediaType;
@@ -261,20 +195,23 @@ export async function getRelated(input: RelatedInput): Promise<RelatedItem[]> {
   // A piece that failed is unknown (null), and left out of the evidence — so it's
   // renormalised away, rather than counting as a known zero against a candidate.
   const settle = <T,>(p: Promise<T>): Promise<T | null> => p.catch(() => null);
-  const [keywordPairs, filmography, collectionParts, community] = await Promise.all([
+  // TMDB evidence only. The community signal ("watched by 2 of the 7 people
+  // here") is read in the browser by the related row (utils/related
+  // communityFrom): asked for here, it held every uncached film and series page
+  // for ~0.7s — a database round trip from the TMDB region — almost always to
+  // learn there was nothing yet.
+  const [keywordPairs, filmography, collectionParts] = await Promise.all([
     Promise.all(
       considered.map(async (c) => [c.id, await settle(keywordsFor(c.mediaType, c.id))] as const),
     ),
     seed.peopleIds.length > 0 ? settle(filmographyFor(seed.mediaType, seed.peopleIds)) : Promise.resolve(null),
     seed.collectionId != null ? settle(collectionPartsFor(seed.collectionId)) : Promise.resolve(null),
-    communityFor(seed.id, seed.mediaType),
   ]);
 
   const evidence: RelatedEvidence = {
     keywordIds: new Map(keywordPairs.filter((p): p is readonly [number, number[]] => p[1] !== null)),
     filmographyIds: filmography ? new Set(filmography) : undefined,
     collectionPartIds: collectionParts ? new Set(collectionParts) : undefined,
-    community,
   };
 
   return rankRelated(seed, considered, evidence, SHOW);

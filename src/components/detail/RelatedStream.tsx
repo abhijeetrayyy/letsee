@@ -15,5 +15,5 @@ import { getRelated } from "@/utils/relatedData";
 export default async function RelatedStream(args: Parameters<typeof getRelated>[0]) {
   const items = await getRelated(args);
   if (!items?.length) return null;
-  return <RelatedSection items={items} />;
+  return <RelatedSection items={items} seed={{ id: args.id, mediaType: args.mediaType, title: args.title }} />;
 }

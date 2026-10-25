@@ -262,8 +262,7 @@ export function buildRelatedReason(
         ? `Part of the ${seed.collectionName}.`
         : `In the same collection as ${seed.title}.`;
     case "community":
-      // A count, not a rate. "2 of the 7 people" is checkable; "29%" is not.
-      return `Watched by ${coWatchers} of the ${seedWatchers} people here who saw ${seed.title}.`;
+      return communityReason(seed.title, coWatchers, seedWatchers);
     default:
       return `TMDB lists this alongside ${seed.title}.`;
   }
@@ -344,4 +343,30 @@ export function buildPool(
 
   for (const item of out) item.poolSize = out.length;
   return out;
+}
+
+/**
+ * The community signal from `related_by_audience` (migration 066): who here
+ * watched the seed, and how many of them watched each candidate. Nothing when
+ * nobody has — the term is then renormalised away, not counted as a zero.
+ *
+ * Read in the browser by the related row (detail/RelatedSection), not in the
+ * page build: from the TMDB region the call cost ~0.7s on every uncached film
+ * and series page, almost always to learn there was nothing yet (25 Oct 2026).
+ */
+export function communityFrom(rows: { item_id: string; co_watchers: number; seed_watchers: number }[] | null | undefined): RelatedEvidence["community"] {
+  if (!Array.isArray(rows) || rows.length === 0) return undefined;
+  const byId = new Map<number, number>();
+  let seedWatchers = 0;
+  for (const row of rows) {
+    const id = Number(row.item_id);
+    if (Number.isInteger(id)) byId.set(id, Number(row.co_watchers) || 0);
+    seedWatchers = Number(row.seed_watchers) || seedWatchers;
+  }
+  return seedWatchers > 0 ? { seedWatchers, byId } : undefined;
+}
+
+/** A count, not a rate. "2 of the 7 people" is checkable; "29%" is not. */
+export function communityReason(seedTitle: string, coWatchers: number, seedWatchers: number): string {
+  return `Watched by ${coWatchers} of the ${seedWatchers} people here who saw ${seedTitle}.`;
 }

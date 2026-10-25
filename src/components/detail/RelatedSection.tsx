@@ -1,7 +1,10 @@
 "use client";
 
+import useSWR from "swr";
 import TitleCard from "@components/ds/TitleCard";
-import type { RelatedItem } from "@/utils/related";
+import { useInView } from "@/hooks/useInView";
+import { supabase } from "@/utils/supabase/client";
+import { communityFrom, communityReason, type RelatedItem } from "@/utils/related";
 
 import Rail from "@components/ds/Rail";
 /**
@@ -16,20 +19,38 @@ import Rail from "@components/ds/Rail";
  * carries a sentence. In a fixed-width rail those sentences wrap to five or six
  * lines at different heights and the row goes ragged; in a grid they have room,
  * and the reason is the whole point of the section.
+ *
+ * The community line — "Watched by 2 of the 7 people here who saw Inception" —
+ * is asked for here, in the browser, once the row is near: the order is the
+ * page's (TMDB evidence), and a card whose film people here watched too says so
+ * instead of its TMDB reason. Nothing moves. In the page build the same read
+ * held every uncached film and series page for ~0.7s.
  */
 export default function RelatedSection({
   items,
   heading = "Related",
+  seed,
 }: {
   items: RelatedItem[];
   heading?: string;
+  /** The title this row is related to, for the community line. */
+  seed?: { id: number; mediaType: "movie" | "tv"; title: string };
 }) {
+  const { ref, inView } = useInView<HTMLElement>();
+  const { data: community } = useSWR(
+    seed && inView ? ["related-audience", seed.mediaType, seed.id] : null,
+    async () => {
+      const { data } = await supabase.rpc("related_by_audience", { p_item_id: String(seed!.id), p_item_type: seed!.mediaType, p_limit: 200 });
+      return communityFrom(data) ?? null;
+    },
+    { revalidateOnFocus: false },
+  );
   if (items.length === 0) return null;
   // A shelf on phones (at most 12, native scroll), the grid from md up. SYSTEM.md §3, shelves.
   const shown = items.slice(0, 12);
 
   return (
-    <section className="mx-auto w-full max-w-app px-4 pb-16 sm:px-6 lg:px-8">
+    <section ref={ref} className="mx-auto w-full max-w-app px-4 pb-16 sm:px-6 lg:px-8">
 
       <h2 className="mb-4 text-xl text-ink-0">{heading}</h2>
 
@@ -50,7 +71,7 @@ export default function RelatedSection({
               {/* Why it's here, under the card: one more line, clamped. Passing a
                   film to someone now lives on its page (Pass to…), not on every card. */}
               <p className="mt-1.5 line-clamp-2 text-xs leading-snug text-ink-500">
-                {item.reason}
+                {seed && community?.byId.get(item.id) ? communityReason(seed.title, community.byId.get(item.id)!, community.seedWatchers) : item.reason}
               </p>
             </div>
           ))}
