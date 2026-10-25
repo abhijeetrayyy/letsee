@@ -534,6 +534,6 @@ Everything below passes `tsc`, `eslint`, the 117-test suite and `next build`, an
 | **9** New on your services, leaving soon | Daily catalog snapshots per held service; a "new this week" shelf on home; "leaves X on the 30th" on the watchlist when a dated source is configured | `refresh-watchlist`, `NewOnYourServices.tsx`, `migrations/099`, `app/watchlist/page.tsx` |
 | **10** Identity and return | Four people, a comfort watch, a hill to die on; a chosen poster for the four favourites; a welcome-back greeting after 30 days that shows the last three things loved and never the gap | `migrations/100`, `IdentitySlots.tsx`, `EditTasteInFour.tsx`, `/api/title-images`, `HomeGreeting.tsx` |
 | **11** Portability and the empty room | `/app/data` with export as JSON and as a Letterboxd-readable CSV, the importers, and a plain statement; "Your data" in every menu; `regional_watching` behind a floor of three in the feed's empty state | `app/data/page.tsx`, `api/account/export/letterboxd`, `migrations/102`, `RegionalWatching.tsx` |
-| **12** A supporter tier | Not built, by design | — |
+| **12** A supporter tier | Pre-selling: pledges open at `/app/support` (25 Oct 2026). No payments; nothing behind it built yet | `127` |
 
 **Not built, and why:** the weekly email (no email provider in the stack); Tonight's "leaves on the 30th" reason (the expiry data only exists with a paid key, and the watchlist already shows it).

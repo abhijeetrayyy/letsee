@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Compass, Database, Link2, ListVideo, Moon, Pencil, Settings, Sun, Upload } from "lucide-react";
+import { Compass, Database, HeartHandshake, Link2, ListVideo, Moon, Pencil, Settings, Sun, Upload } from "lucide-react";
 import { currentTheme, setTheme, type Theme } from "@/lib/theme";
 import Link from "@components/ui/AppLink";
 import Avatar from "@components/ui/Avatar";
@@ -105,6 +105,10 @@ function AccountLinks({ user, onPick }: { user: AuthUser | null; onPick: () => v
         <Link href="/app/how" onClick={onPick} className={row}>
           <Compass className={icon} aria-hidden />
           How letsee works
+        </Link>
+        <Link href="/app/support" onClick={onPick} className={row}>
+          <HeartHandshake className={icon} aria-hidden />
+          Support letsee
         </Link>
       </nav>
       <div className="my-1.5 border-t border-line" />

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Download, LoaderCircle, Share } from "lucide-react";
+import Link from "@components/ui/AppLink";
 import Sheet from "@components/ds/Sheet";
 import FitCard, { nextPaint } from "@components/ds/FitCard";
 import { useAuth } from "@/app/contextAPI/AuthProvider";
@@ -165,6 +166,10 @@ export default function StubPicture({
         )}
 
         <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* Where the mark matters: one quiet line, never a prompt (IDEAS_2026-10 §6.2). */}
+          <Link href="/app/support" className="mr-auto text-xs text-ink-500 underline decoration-line-input underline-offset-4 hover:text-ink-0">
+            Pictures without the mark are coming for supporters
+          </Link>
           <button type="button" onClick={onClose} className="inline-flex h-11 items-center rounded-full px-4 text-sm font-medium text-ink-300 hover:bg-hover hover:text-ink-0">
             Close
           </button>

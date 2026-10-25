@@ -62,6 +62,7 @@ export const ROUTES: Record<string, RouteEntry> = {
 
   "/app/welcome": { family: "focus", step: 9, status: "S" },
   "/app/how": { family: "focus", step: 9, status: "S" },
+  "/app/support": { family: "focus", step: 9, status: "S" },
   "/app/settings": { family: "task", step: 9, status: "S" },
   "/app/import": { family: "task", step: 9, status: "V" },
   "/app/quick-add": { family: "task", step: 9, status: "S" },
