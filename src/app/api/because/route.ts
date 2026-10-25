@@ -5,12 +5,6 @@ import { rankBecause, type BecauseCandidate, type BecauseItem } from "@/utils/ti
 import { tmdbConfigured } from "@/utils/tmdbClient";
 
 import { guard } from "@/lib/limits/guard";
-
-/**
- * Runs in Washington, next to TMDB, not in Seoul with the database (vercel.json):
- * this is TMDB work, and a TMDB call from Seoul measured ~0.5s (25 Oct 2026).
- */
-export const preferredRegion = "iad1";
 /**
  * "Because you love …": titles to watch next from one favourite.
  *

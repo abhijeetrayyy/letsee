@@ -4,12 +4,6 @@ import { jsonSuccess } from "@/utils/apiResponse";
 import { loadResults, resolveLabels } from "@/lib/search/browse.server";
 
 import { guard } from "@/lib/limits/guard";
-
-/**
- * Runs in Washington, next to TMDB, not in Seoul with the database (vercel.json):
- * this is TMDB work, and a TMDB call from Seoul measured ~0.5s (25 Oct 2026).
- */
-export const preferredRegion = "iad1";
 /**
  * GET /api/browse?type=&genre=&lang=&decade=&sort=&keyword=&company=&network=&collection=&page=
  *

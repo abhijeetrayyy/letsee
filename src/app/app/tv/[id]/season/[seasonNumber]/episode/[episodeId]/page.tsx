@@ -18,12 +18,6 @@ import type { Metadata } from "next";
 import JsonLd from "@components/seo/JsonLd";
 import { tvEpisodeLd, breadcrumbLd } from "@/utils/structuredData";
 
-/**
- * Runs in Washington, next to TMDB, not in Seoul with the database (vercel.json):
- * this is TMDB work, and a TMDB call from Seoul measured ~0.5s (25 Oct 2026).
- */
-export const preferredRegion = "iad1";
-
 interface EpisodeDetails {
   id: number;
   episode_number: number;

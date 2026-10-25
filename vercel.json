@@ -2,6 +2,73 @@
   "regions": [
     "icn1"
   ],
+  "functions": {
+    "src/app/app/movie/**/page.tsx": {
+      "regions": [
+        "iad1"
+      ]
+    },
+    "src/app/app/tv/**/page.tsx": {
+      "regions": [
+        "iad1"
+      ]
+    },
+    "src/app/app/person/**/page.tsx": {
+      "regions": [
+        "iad1"
+      ]
+    },
+    "src/app/api/search/**/route.ts": {
+      "regions": [
+        "iad1"
+      ]
+    },
+    "src/app/api/watch-providers/**/route.ts": {
+      "regions": [
+        "iad1"
+      ]
+    },
+    "src/app/api/because/route.ts": {
+      "regions": [
+        "iad1"
+      ]
+    },
+    "src/app/api/browse/route.ts": {
+      "regions": [
+        "iad1"
+      ]
+    },
+    "src/app/api/collection/route.ts": {
+      "regions": [
+        "iad1"
+      ]
+    },
+    "src/app/api/person-work/route.ts": {
+      "regions": [
+        "iad1"
+      ]
+    },
+    "src/app/api/show-next/route.ts": {
+      "regions": [
+        "iad1"
+      ]
+    },
+    "src/app/api/title-images/route.ts": {
+      "regions": [
+        "iad1"
+      ]
+    },
+    "src/app/api/tv-season-episodes/route.ts": {
+      "regions": [
+        "iad1"
+      ]
+    },
+    "src/app/api/tv-seasons/route.ts": {
+      "regions": [
+        "iad1"
+      ]
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/purge-deleted",

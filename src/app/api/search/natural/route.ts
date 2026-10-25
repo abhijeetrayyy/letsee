@@ -5,12 +5,6 @@ import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 import { tmdbConfigured } from "@/utils/tmdbClient";
 
 import { guard } from "@/lib/limits/guard";
-
-/**
- * Runs in Washington, next to TMDB, not in Seoul with the database (vercel.json):
- * this is TMDB work, and a TMDB call from Seoul measured ~0.5s (25 Oct 2026).
- */
-export const preferredRegion = "iad1";
 export const dynamic = "force-dynamic";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";

@@ -16,12 +16,6 @@ import { seasonPath, titlePath } from "@/utils/urls";
 import { getPosterUrl } from "@/utils/imageUrl";
 
 /**
- * Runs in Washington, next to TMDB, not in Seoul with the database (vercel.json):
- * this is TMDB work, and a TMDB call from Seoul measured ~0.5s (25 Oct 2026).
- */
-export const preferredRegion = "iad1";
-
-/**
  * ── This page was on the incident's "still rendered per request" list ──────
  *
  * `docs/incident-2026-08-23-deployment-paused.md` records it at 439

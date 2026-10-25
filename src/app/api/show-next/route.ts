@@ -5,12 +5,6 @@ import { tmdbConfigured } from "@/utils/tmdbClient";
 import { guard } from "@/lib/limits/guard";
 
 /**
- * Runs in Washington, next to TMDB, not in Seoul with the database (vercel.json):
- * this is TMDB work, and a TMDB call from Seoul measured ~0.5s (25 Oct 2026).
- */
-export const preferredRegion = "iad1";
-
-/**
  * GET /api/show-next?id=  — a series' next episode to air, whether it's
  * still going, and its seasons (for where everyone is in a series room). For "S3 returns 14 Nov" on a show you put on hold
  * (docs/IDEAS_2026-10.md §5.2): a paused show with a date is one you keep,

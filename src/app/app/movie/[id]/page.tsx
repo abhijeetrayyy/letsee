@@ -14,12 +14,6 @@ import { movieLd, breadcrumbLd } from "@/utils/structuredData";
 import { shareImage } from "@/utils/shareImage";
 
 /**
- * Runs in Washington, next to TMDB, not in Seoul with the database (vercel.json):
- * this is TMDB work, and a TMDB call from Seoul measured ~0.5s (25 Oct 2026).
- */
-export const preferredRegion = "iad1";
-
-/**
  * Cached, not re-rendered for every visitor.
  *
  * This page reads nothing about who is asking — every byte it renders comes
