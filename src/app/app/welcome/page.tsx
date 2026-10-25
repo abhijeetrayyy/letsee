@@ -502,26 +502,41 @@ function StepPicks({ userId, onDone }: { userId: string | null; onDone: () => vo
     <section>
       <Heading title="Pick a few films you love" lead="They go on your profile, so people see your taste at a glance. Up to four — or skip this for now." />
 
-      <div className="mt-7 grid grid-cols-4 gap-3" aria-label={`${picks.length} of ${PICKS_MAX} picked`}>
+      <ol className="mt-7 grid grid-cols-4 gap-3" aria-label={`${picks.length} of ${PICKS_MAX} picked`}>
         {Array.from({ length: PICKS_MAX }).map((_, i) => {
           const p = picks[i];
-          return p ? (
-            <button
-              key={p.itemId}
-              type="button"
-              onClick={() => setPicks((prev) => prev.filter((x) => x.itemId !== p.itemId))}
-              aria-label={`Remove ${p.name}`}
-              className="group relative aspect-2/3 overflow-hidden rounded-media ring-1 ring-inset ring-line-strong"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={getPosterUrl(p.posterPath, "w185")} alt="" className="h-full w-full object-cover" />
-              <span className="absolute inset-x-0 bottom-0 bg-page/85 py-1 text-center text-xs font-medium text-ink-0">Remove</span>
-            </button>
-          ) : (
-            <div key={`empty-${i}`} className="aspect-2/3 rounded-media border border-dashed border-line-input bg-raised/40" />
+          // The next film you tap lands here: say so on the slot itself.
+          const next = !p && i === picks.length;
+          return (
+            <li key={p ? p.itemId : `empty-${i}`} className="min-w-0">
+              {p ? (
+                <button
+                  type="button"
+                  onClick={() => setPicks((prev) => prev.filter((x) => x.itemId !== p.itemId))}
+                  aria-label={`Number ${i + 1}: ${p.name}. Tap to take it out.`}
+                  className="group relative block w-full aspect-2/3 overflow-hidden rounded-media ring-1 ring-inset ring-line-strong"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={getPosterUrl(p.posterPath, "w185")} alt="" className="h-full w-full object-cover" />
+                  <span aria-hidden className="absolute left-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-action font-mono text-xs font-semibold text-on-action">
+                    {i + 1}
+                  </span>
+                  <span className="absolute inset-x-0 bottom-0 bg-page/85 py-1 text-center text-xs font-medium text-ink-0">Remove</span>
+                </button>
+              ) : (
+                <div
+                  className={`relative flex aspect-2/3 items-center justify-center rounded-media text-xs font-medium ${next ? "bg-action/10 text-ink-0 ring-2 ring-action" : "border border-dashed border-line-input bg-raised/40 text-ink-500"}`}
+                >
+                  <span aria-hidden className="absolute left-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-page/85 font-mono text-xs font-semibold text-ink-0">
+                    {i + 1}
+                  </span>
+                  {next ? "Next" : ""}
+                </div>
+              )}
+            </li>
           );
         })}
-      </div>
+      </ol>
 
       <div className="relative mt-6">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500" aria-hidden />
@@ -538,20 +553,32 @@ function StepPicks({ userId, onDone }: { userId: string | null; onDone: () => vo
 
       {results.length > 0 && (
         <ul className="mt-2 divide-y divide-line overflow-hidden rounded-xl bg-raised ring-1 ring-inset ring-line-strong">
-          {results.map((r) => (
-            <li key={`${r.media_type}-${r.id}`}>
-              <button
-                type="button"
-                onClick={() => toggle(r)}
-                disabled={picks.length >= PICKS_MAX}
-                className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-hover disabled:opacity-40"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img loading="lazy" decoding="async" src={getPosterUrl(r.poster_path ?? null, "w92")} alt="" className="aspect-2/3 w-8 rounded object-cover" />
-                <span className="truncate text-sm text-ink-200">{r.title || r.name}</span>
-              </button>
-            </li>
-          ))}
+          {results.map((r) => {
+            const at = picks.findIndex((p) => p.itemId === String(r.id));
+            return (
+              <li key={`${r.media_type}-${r.id}`}>
+                <button
+                  type="button"
+                  onClick={() => toggle(r)}
+                  disabled={at < 0 && picks.length >= PICKS_MAX}
+                  aria-pressed={at >= 0}
+                  className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-hover disabled:opacity-40"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img loading="lazy" decoding="async" src={getPosterUrl(r.poster_path ?? null, "w92")} alt="" className="aspect-2/3 w-8 rounded object-cover" />
+                  <span className={`min-w-0 flex-1 truncate text-sm ${at >= 0 ? "font-medium text-ink-0" : "text-ink-200"}`}>{r.title || r.name}</span>
+                  {at >= 0 && (
+                    <span className="flex shrink-0 items-center gap-2 text-xs text-ink-400">
+                      Your {at + 1}
+                      <span aria-hidden className="flex size-6 items-center justify-center rounded-full bg-action font-mono text-xs font-semibold text-on-action">
+                        {at + 1}
+                      </span>
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -572,7 +599,8 @@ function StepPicks({ userId, onDone }: { userId: string | null; onDone: () => vo
           <ul className="grid grid-cols-4 gap-2 sm:grid-cols-6">
             {suggestions.map((r) => {
               const id = r.k.split(":")[1];
-              const on = picks.some((p) => p.itemId === id);
+              const at = picks.findIndex((p) => p.itemId === id);
+              const on = at >= 0;
               return (
                 <li key={r.k}>
                   <button
@@ -580,16 +608,14 @@ function StepPicks({ userId, onDone }: { userId: string | null; onDone: () => vo
                     onClick={() => toggle({ id: Number(id), media_type: r.t, title: r.n, poster_path: r.p ?? null })}
                     disabled={!on && picks.length >= PICKS_MAX}
                     aria-pressed={on}
-                    aria-label={r.n}
+                    aria-label={on ? `${r.n} — number ${at + 1}. Tap to take it out.` : r.n}
                     className="relative block w-full overflow-hidden rounded-media ring-1 ring-inset ring-line-strong transition-opacity disabled:opacity-40"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={getPosterUrl(r.p ?? null, "w185")} alt="" loading="lazy" decoding="async" className="aspect-2/3 w-full bg-hover object-cover" />
                     {on && (
-                      <span className="absolute inset-0 flex items-center justify-center bg-page/50">
-                        <span className="flex size-8 items-center justify-center rounded-full bg-action text-on-action">
-                          <Check className="size-4" aria-hidden />
-                        </span>
+                      <span className="absolute inset-0 flex items-center justify-center bg-page/50 ring-2 ring-inset ring-action">
+                        <span className="flex size-9 items-center justify-center rounded-full bg-action font-mono text-base font-semibold text-on-action">{at + 1}</span>
                       </span>
                     )}
                   </button>

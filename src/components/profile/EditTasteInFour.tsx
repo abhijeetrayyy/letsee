@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect, useImperativeHandle, useRef } from "react";
+import { useState, useEffect, useImperativeHandle, useRef } from "react";
+import toast from "react-hot-toast";
+import { X } from "lucide-react";
 import { lockScroll } from "@/lib/ui/scrollLock";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -107,37 +109,26 @@ export default function EditTasteInFour({
     setPostersFor(null);
   };
 
-  const loadPickable = useCallback(async () => {
-    if (loaded) return;
+  /** Which list couldn't be read, so it can say so and offer to try again. */
+  const [failed, setFailed] = useState<{ watched: boolean; favorites: boolean }>({ watched: false, favorites: false });
+
+  const loadPickable = async (again = false) => {
+    if (loaded && !again) return;
     setLoaded(true);
     setFetching(true);
-    try {
-      // This picker only ever opens on your own profile, so the viewer and the
-      // owner are the same person — but it is passed explicitly rather than
-      // assumed, because `fetchWatchedPage` decides whether to include the
-      // private diary column on exactly that comparison.
-      const [wData, fData] = await Promise.all([
-        fetchWatchedPage(profileId, profileId, 1),
-        fetchFavoritesPage(profileId, profileId, 1, 100),
-      ]);
-      setWatched((wData.data ?? []).map((d: any) => ({
-        item_id: String(d.item_id),
-        item_name: d.item_name ?? "",
-        item_type: d.item_type ?? "movie",
-        image_url: d.image_url,
-      })));
-      setFavorites((fData.data ?? []).map((d: any) => ({
-        item_id: String(d.item_id),
-        item_name: d.item_name ?? "",
-        item_type: d.item_type ?? "movie",
-        image_url: d.image_url,
-      })));
-    } catch {
-      setLoaded(false);
-    } finally {
-      setFetching(false);
-    }
-  }, [profileId, loaded]);
+    // This picker only ever opens on your own profile, so the viewer and the
+    // owner are the same person — but it is passed explicitly rather than
+    // assumed, because `fetchWatchedPage` decides whether to include the
+    // private diary column on exactly that comparison. Each list stands on
+    // its own: one that fails doesn't hide the other.
+    const toPickable = (rows: any[] | null | undefined): PickableItem[] =>
+      (rows ?? []).map((d: any) => ({ item_id: String(d.item_id), item_name: d.item_name ?? "", item_type: d.item_type ?? "movie", image_url: d.image_url }));
+    const [w, f] = await Promise.allSettled([fetchWatchedPage(profileId, profileId, 1), fetchFavoritesPage(profileId, profileId, 1, 100)]);
+    if (w.status === "fulfilled") setWatched(toPickable(w.value.data));
+    if (f.status === "fulfilled") setFavorites(toPickable(f.value.data));
+    setFailed({ watched: w.status === "rejected", favorites: f.status === "rejected" });
+    setFetching(false);
+  };
 
   const openModal = () => {
     const arr: (PickableItem | null)[] = [null, null, null, null];
@@ -146,9 +137,13 @@ export default function EditTasteInFour({
     });
     setSlots(arr);
     setSelectedSlot(null);
+    setPlaced(null);
+    setSaid("");
+    setPosters(null);
+    setPostersFor(null);
     setPickerTab("favorites");
     setOpen(true);
-    loadPickable();
+    void loadPickable();
   };
 
   useImperativeHandle(handle, () => ({
@@ -158,37 +153,64 @@ export default function EditTasteInFour({
     },
   }));
 
-  const assignToSlot = useCallback((item: PickableItem, slotIndex: number) => {
-    setSlots((prev) => prev.map((it, i) =>
-      i === slotIndex ? item : (it && it.item_id === item.item_id && it.item_type === item.item_type ? null : it)
-    ));
+  /** A slot that just took a film, lit for a moment so you see where it went. */
+  const [placed, setPlaced] = useState<number | null>(null);
+  /** Said to screen readers: where a pick went, or that it came out. */
+  const [said, setSaid] = useState("");
+  useEffect(() => {
+    if (placed === null) return;
+    const t = setTimeout(() => setPlaced(null), 1600);
+    return () => clearTimeout(t);
+  }, [placed]);
+
+  const same = (a: PickableItem | null, b: PickableItem) => !!a && a.item_id === b.item_id && a.item_type === b.item_type;
+  const slotOf = (item: PickableItem) => slots.findIndex((s) => same(s, item));
+  // Where the next tap goes: the slot you chose, else the first empty one. Null when all four are full.
+  const firstEmpty = slots.findIndex((s) => !s);
+  const target = selectedSlot ?? (firstEmpty >= 0 ? firstEmpty : null);
+
+  /**
+   * A tap on a film. In your four already: out it comes — or, with another
+   * slot chosen, the two swap places. Otherwise it goes where `target` says,
+   * and that slot lights up. All four full and none chosen: say how to change one.
+   */
+  const handlePickItem = (item: PickableItem): boolean => {
+    const at = slotOf(item);
+    if (at >= 0 && (selectedSlot === null || selectedSlot === at)) {
+      setSlots((prev) => prev.map((it, i) => (i === at ? null : it)));
+      setSelectedSlot(null);
+      setSaid(`${item.item_name} is out of your four.`);
+      return false;
+    }
+    if (target === null) {
+      toast("Your four are full — tap one of them to swap it, or × to take it out.", { id: "four-full" });
+      return false;
+    }
+    setSlots((prev) => prev.map((it, i) => (i === target ? item : i === at ? prev[target] : it)));
     setSelectedSlot(null);
-  }, []);
-
-  const addToFirstEmpty = useCallback((item: PickableItem) => {
-    setSlots((prev) => {
-      const idx = prev.findIndex((s) => !s);
-      if (idx < 0) return prev;
-      return prev.map((it, i) =>
-        i === idx ? item : (it && it.item_id === item.item_id && it.item_type === item.item_type ? null : it)
-      );
-    });
-  }, []);
-
-  const handlePickItem = (item: PickableItem) => {
-    if (selectedSlot !== null) assignToSlot(item, selectedSlot);
-    else addToFirstEmpty(item);
+    setPlaced(target);
+    setSaid(`${item.item_name} is number ${target + 1} of your four.`);
+    return true;
   };
 
   const clearSlot = (idx: number) => {
-    setSlots((prev) => prev.map((it, i) => (i === idx ? null : it)));
+    const it = slots[idx];
+    setSlots((prev) => prev.map((x, i) => (i === idx ? null : x)));
     if (selectedSlot === idx) setSelectedSlot(null);
+    if (postersFor === idx) {
+      setPosters(null);
+      setPostersFor(null);
+    }
+    if (it) setSaid(`${it.item_name} is out of your four.`);
   };
 
   const save = async () => {
     const toSave = slots.filter((s): s is PickableItem => !!s);
     setSaving(true);
     try {
+      // Anything picked from search is a favourite before it's displayed.
+      await Promise.all(favouriting.current);
+      favouriting.current = [];
       const res = await fetch("/api/profile/favorite-display", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -203,7 +225,7 @@ export default function EditTasteInFour({
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(err?.error || "Failed to save");
+        toast.error(err?.error || "Your four didn't save. Try again.");
         return;
       }
       setOpen(false);
@@ -269,21 +291,32 @@ export default function EditTasteInFour({
     };
   }, [q]);
 
-  /** A title from search has to become a favourite before it can be displayed. */
-  const pickRemote = async (it: PickableItem) => {
-    await fetch("/api/favoriteButton", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        itemId: it.item_id,
-        name: it.item_name,
-        mediaType: it.item_type,
-        imgUrl: it.image_url ? getPosterUrl(it.image_url) : null,
-        genres: [],
-      }),
-    }).catch(() => {});
+  /**
+   * A title from search has to become a favourite before it can be displayed.
+   * It goes into your four at once — the tap answers straight away — and the
+   * favourite is saved behind it; Save waits for that before it writes.
+   */
+  const favouriting = useRef<Promise<unknown>[]>([]);
+  const pickRemote = (it: PickableItem) => {
+    if (!handlePickItem(it)) return;
     setFavorites((cur) => (cur.some((f) => f.item_id === it.item_id && f.item_type === it.item_type) ? cur : [it, ...cur]));
-    handlePickItem(it);
+    favouriting.current.push(
+      fetch("/api/favoriteButton", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemId: it.item_id,
+          name: it.item_name,
+          mediaType: it.item_type,
+          imgUrl: it.image_url ? getPosterUrl(it.image_url) : null,
+          genres: [],
+          // Favourite it, never un-favourite: the route toggles. And seen, but
+          // not today — a film you love isn't one you watched this evening.
+          add: true,
+          dated: false,
+        }),
+      }).catch(() => {}),
+    );
   };
 
   return (
@@ -313,79 +346,83 @@ export default function EditTasteInFour({
             {/* Header — fixed, never shrinks */}
             <div className="shrink-0 p-5 border-b border-line-strong">
               <h2 id="edit-four-title" className="text-xl font-medium text-ink-0">Your four</h2>
-              <p className="text-ink-400 text-sm mt-1">
-                Tap a slot to select it, then pick a title below. Or tap a title to add to the next empty slot.
-              </p>
+              <p className="text-ink-400 text-sm mt-1">The four films that say the most about you — the first thing people see on your profile.</p>
             </div>
 
-            {/* Single scrollable area: Your 4 + Choose from — Cancel/Save stay fixed below */}
+            {/* One scrolling area; the four stay pinned at its top, so every pick lands where you can see it. */}
             <div className="flex-1 min-h-0 overflow-y-auto">
-              {/* Your 4 */}
-              <div className="p-5 border-b border-line-strong">
-                <p className="text-xs font-semibold text-ink-500 uppercase tracking-wider mb-3">Your 4</p>
-                <div className="grid grid-cols-4 gap-3">
+              <div className="sticky top-0 z-10 border-b border-line-strong bg-raised px-5 pb-4 pt-4">
+                <ol className="mx-auto grid max-w-80 grid-cols-4 gap-3" aria-label="Your four, in order">
                   {[0, 1, 2, 3].map((idx) => {
                     const it = slots[idx];
-                    const isSelected = selectedSlot === idx;
+                    const isTarget = target === idx;
+                    const lit = isTarget || placed === idx;
                     return (
-                      <div
-                        key={idx}
-                        className="flex flex-col items-center"
-                      >
+                      <li key={idx} className="relative min-w-0">
                         <button
                           type="button"
-                          onClick={() => setSelectedSlot(isSelected ? null : idx)}
-                          className={`relative w-full aspect-2/3 rounded-xl overflow-hidden border-2 transition-all ${
-                            isSelected
-                              ? "border-line-input ring-2 ring-focus/50"
-                              : it
-                                ? "border-line-input hover:border-line-bold"
-                                : "border-dashed border-line-input bg-overlay/50 hover:border-line-bold"
-                          }`}
+                          onClick={() => setSelectedSlot(selectedSlot === idx ? null : idx)}
+                          aria-pressed={selectedSlot === idx}
+                          aria-label={it ? `Number ${idx + 1}: ${it.item_name}. ${selectedSlot === idx ? "Chosen — the next film you tap goes here." : "Choose this slot to change it."}` : `Number ${idx + 1}: empty.${isTarget ? " The next film you tap goes here." : ""}`}
+                          className={`relative block w-full aspect-2/3 overflow-hidden rounded-media transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
+                            lit ? "ring-2 ring-action ring-offset-2 ring-offset-raised" : it ? "ring-1 ring-inset ring-line-strong" : ""
+                          } ${it ? "" : isTarget ? "bg-action/10" : "border border-dashed border-line-input bg-page/40"}`}
                         >
                           {it ? (
-                            <>
-                              <img loading="lazy" decoding="async"
-                                src={getPosterUrl(it.image_url)}
-                                alt={it.item_name}
-                                className="w-full h-full object-cover"
-                              />
-                              <span className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 active:opacity-100 transition-opacity touch-manipulation" aria-hidden />
-                            </>
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img loading="lazy" decoding="async" src={getPosterUrl(it.image_url)} alt="" className={`h-full w-full object-cover transition-opacity ${selectedSlot !== null && selectedSlot !== idx ? "opacity-60" : ""}`} />
                           ) : (
-                            <span className="flex items-center justify-center h-full text-ink-500 text-3xl font-light">+</span>
+                            <span className={`flex h-full items-center justify-center text-xs font-medium ${isTarget ? "text-ink-0" : "text-ink-500"}`}>{isTarget ? "Next" : "Empty"}</span>
                           )}
+                          <span
+                            aria-hidden
+                            className={`absolute left-1.5 top-1.5 flex size-6 items-center justify-center rounded-full font-mono text-xs font-semibold ${lit ? "bg-action text-on-action" : "bg-page/85 text-ink-0"}`}
+                          >
+                            {idx + 1}
+                          </span>
                         </button>
-                        <p className="text-xs font-medium text-ink-400 mt-1.5 w-full truncate text-center">
-                          {it ? it.item_name : `Slot ${idx + 1}`}
-                        </p>
-                        {/* Stacked, not side by side: four slots across a phone are
-                            about 70px each, and "Poster" and "Remove" in one row ran
-                            into each other (and into the next slot). */}
                         {it && (
-                          <div className="mt-1 flex w-full flex-col items-stretch gap-1">
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); void loadPosters(idx); }}
-                              aria-label={`Choose a poster for ${it.item_name}`}
-                              className="h-7 rounded-full text-xs font-medium text-ink-300 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"
-                            >
-                              Poster
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); clearSlot(idx); }}
-                              aria-label={`Take ${it.item_name} out of your four`}
-                              className="h-7 rounded-full text-xs font-medium text-danger hover:bg-danger/10"
-                            >
-                              Remove
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => clearSlot(idx)}
+                            aria-label={`Take ${it.item_name} out of your four`}
+                            className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-page/85 text-ink-200 ring-1 ring-inset ring-line-input transition-colors hover:text-ink-0"
+                          >
+                            <X className="size-3.5" aria-hidden />
+                          </button>
                         )}
-                      </div>
+                        <p className="mt-1.5 truncate text-center text-xs text-ink-400">{it ? it.item_name : "\u00a0"}</p>
+                      </li>
                     );
                   })}
+                </ol>
+
+                {/* Where the next tap goes, always in words. */}
+                <div className="mt-3 flex min-h-8 flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-center text-sm text-ink-300" aria-live="polite">
+                  {selectedSlot !== null && slots[selectedSlot] ? (
+                    <>
+                      <span className="min-w-0">
+                        Tap a film to put it at <span className="font-semibold text-ink-0">{selectedSlot + 1}</span> instead of {slots[selectedSlot]!.item_name}.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void loadPosters(selectedSlot)}
+                        className="h-8 rounded-full px-3 text-xs font-medium text-ink-200 ring-1 ring-inset ring-line-input hover:bg-hover hover:text-ink-0"
+                      >
+                        Choose its poster
+                      </button>
+                    </>
+                  ) : target !== null ? (
+                    <span>
+                      Tap a film to put it at <span className="font-semibold text-ink-0">{target + 1}</span>.{selectedSlot === null && slots.some(Boolean) ? " Tap one of your four to change it." : ""}
+                    </span>
+                  ) : (
+                    <span>All four chosen. Tap one to change it or choose its poster, or × to take it out.</span>
+                  )}
                 </div>
+                <p className="sr-only" aria-live="assertive">
+                  {said}
+                </p>
               </div>
 
               {postersFor !== null && (
@@ -468,6 +505,17 @@ export default function EditTasteInFour({
                       <LoadingSpinner size="md" className="border-t-white shrink-0" />
                       <p className="text-ink-500 text-sm animate-pulse">Loading…</p>
                     </div>
+                  ) : failed[pickerTab] ? (
+                    <div className="py-10 text-center">
+                      <p className="text-sm text-ink-400">Couldn&apos;t load your {pickerTab === "watched" ? "watched films" : "favourites"}. You can still search for any film above.</p>
+                      <button
+                        type="button"
+                        onClick={() => void loadPickable(true)}
+                        className="mt-3 h-9 rounded-full px-4 text-sm font-medium text-ink-0 ring-1 ring-inset ring-line-input hover:bg-hover"
+                      >
+                        Try again
+                      </button>
+                    </div>
                   ) : pickerList.length === 0 ? (
                     <p className="text-ink-500 text-sm py-12 text-center">
                       {pickerTab === "watched" ? "No watched titles yet." : "No favourites yet. Heart a title on its page."}
@@ -475,23 +523,7 @@ export default function EditTasteInFour({
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                       {pickerList.map((it) => (
-                        <button
-                          key={`${it.item_type}-${it.item_id}`}
-                          type="button"
-                          onClick={() => handlePickItem(it)}
-                          className="text-left rounded-xl overflow-hidden border-2 border-line-input bg-overlay hover:border-ink-0/60 hover:bg-hover transition-all group"
-                        >
-                          <div className="aspect-2/3 bg-hover overflow-hidden">
-                            <img loading="lazy" decoding="async"
-                              src={getPosterUrl(it.image_url)}
-                              alt={it.item_name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                            />
-                          </div>
-                          <p className="p-3 text-sm font-medium text-ink-0 truncate" title={it.item_name}>
-                            {it.item_name}
-                          </p>
-                        </button>
+                        <Tile key={`${it.item_type}-${it.item_id}`} item={it} slot={slotOf(it)} onPick={() => handlePickItem(it)} />
                       ))}
                     </div>
                   )}
@@ -506,23 +538,7 @@ export default function EditTasteInFour({
                       </p>
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                         {remote.map((it) => (
-                          <button
-                            key={`r-${it.item_type}-${it.item_id}`}
-                            type="button"
-                            onClick={() => void pickRemote(it)}
-                            className="text-left rounded-xl overflow-hidden border-2 border-line-input bg-overlay hover:border-ink-0/60 hover:bg-hover transition-all group"
-                          >
-                            <div className="aspect-2/3 bg-hover overflow-hidden">
-                              <img loading="lazy" decoding="async"
-                                src={getPosterUrl(it.image_url)}
-                                alt={it.item_name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                              />
-                            </div>
-                            <p className="p-3 text-sm font-medium text-ink-0 truncate" title={it.item_name}>
-                              {it.item_name}
-                            </p>
-                          </button>
+                          <Tile key={`r-${it.item_type}-${it.item_id}`} item={it} slot={slotOf(it)} onPick={() => pickRemote(it)} />
                         ))}
                       </div>
                     </div>
@@ -561,5 +577,38 @@ export default function EditTasteInFour({
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * A film to choose. In your four, it says so where you look — its number on
+ * the poster, ringed — and a second tap takes it out.
+ */
+function Tile({ item, slot, onPick }: { item: PickableItem; slot: number; onPick: () => void }) {
+  const chosen = slot >= 0;
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      aria-pressed={chosen}
+      aria-label={chosen ? `${item.item_name} — number ${slot + 1} of your four. Tap to take it out.` : item.item_name}
+      className={`group text-left rounded-xl overflow-hidden bg-overlay transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
+        chosen ? "ring-2 ring-action" : "ring-1 ring-inset ring-line-input hover:ring-line-bold"
+      }`}
+    >
+      <div className="relative aspect-2/3 bg-hover overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img loading="lazy" decoding="async" src={getPosterUrl(item.image_url ?? null)} alt="" className={`h-full w-full object-cover transition-opacity ${chosen ? "opacity-70" : "group-hover:opacity-90"}`} />
+        {chosen && (
+          <span aria-hidden className="absolute left-2 top-2 flex size-8 items-center justify-center rounded-full bg-action font-mono text-sm font-semibold text-on-action">
+            {slot + 1}
+          </span>
+        )}
+      </div>
+      <p className={`px-3 pt-2.5 text-sm font-medium truncate ${chosen ? "text-ink-0" : "text-ink-200"}`} title={item.item_name}>
+        {item.item_name}
+      </p>
+      <p className="px-3 pb-2.5 text-xs text-ink-500">{chosen ? `In your four · ${slot + 1}` : "\u00a0"}</p>
+    </button>
   );
 }
