@@ -106,20 +106,3 @@ export const getTitleGraph = (mediaType: "movie" | "tv", id: number) =>
     ["person-title-graph", mediaType, String(id)],
     { revalidate: WEEK, tags: [`title-graph-${mediaType}-${id}`] },
   )();
-
-/**
- * Issue the fan-out in bounded waves.
- *
- * A bare `Promise.all` is wrong here for a subtle reason: `waitForSlot()` reads
- * `inFlight` before the caller increments it, so a simultaneous batch all
- * observes zero in flight and takes the fast path — a 142-call batch measured
- * peak concurrency 142 against a nominal cap of 8. Explicit waves are correct
- * under that bug and stay correct if it is ever fixed.
- */
-export async function inWaves<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const out: R[] = [];
-  for (let i = 0; i < items.length; i += size) {
-    out.push(...(await Promise.all(items.slice(i, i + size).map(fn))));
-  }
-  return out;
-}

@@ -17,6 +17,12 @@ import { tvSeriesLd, breadcrumbLd } from "@/utils/structuredData";
 import { shareImage } from "@/utils/shareImage";
 import { seriesRuntime } from "@/utils/title/seriesRuntime";
 
+/**
+ * Runs in Washington, next to TMDB, not in Seoul with the database (vercel.json):
+ * this is TMDB work, and a TMDB call from Seoul measured ~0.5s (25 Oct 2026).
+ */
+export const preferredRegion = "iad1";
+
 /** Impersonal HTML; see the movie page for why this is cached. */
 /**
  * A day, not an hour.

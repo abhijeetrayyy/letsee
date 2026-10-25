@@ -1,6 +1,6 @@
 import Collaborators from "@components/person/Collaborators";
 import VideoShelf from "@components/detail/VideoShelf";
-import { getTitleGraph, inWaves, type TitleGraph } from "@/utils/person/fetch";
+import { getTitleGraph, type TitleGraph } from "@/utils/person/fetch";
 import { collaborators } from "@/utils/person/collaborators";
 import type { Credit } from "@/utils/person/model";
 
@@ -24,9 +24,10 @@ export default async function PersonExtras({
 }) {
   if (seeds.length === 0) return null;
 
-  const graphs = (
-    await inWaves(seeds, 6, (c) => getTitleGraph(c.mediaType, c.id).catch(() => null))
-  ).filter(Boolean) as TitleGraph[];
+  // One batch: the TMDB throttle keeps it to eight at a time (utils/tmdbClient). It
+  // went out in waves of six while the throttle let a whole batch through at
+  // once; the throttle holds now, and the waves only added a round trip each.
+  const graphs = (await Promise.all(seeds.map((c) => getTitleGraph(c.mediaType, c.id).catch(() => null)))).filter(Boolean) as TitleGraph[];
 
   if (graphs.length === 0) return null;
 

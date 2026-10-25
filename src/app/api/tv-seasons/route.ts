@@ -3,6 +3,12 @@ import { getTvShowWithSeasons } from "@/utils/tmdbTvShow";
 import { jsonError, jsonSuccess } from "@/utils/apiResponse";
 
 import { guard } from "@/lib/limits/guard";
+
+/**
+ * Runs in Washington, next to TMDB, not in Seoul with the database (vercel.json):
+ * this is TMDB work, and a TMDB call from Seoul measured ~0.5s (25 Oct 2026).
+ */
+export const preferredRegion = "iad1";
 /** GET /api/tv-seasons?showId=123 — Returns seasons list for EpisodeManagementModal (profile/cards). */
 export async function GET(req: NextRequest) {
   const limited = await guard("tmdb", req);

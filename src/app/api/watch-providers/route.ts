@@ -5,6 +5,12 @@ import { Countrydata } from "@/staticData/countryName";
 import { tmdbConfigured } from "@/utils/tmdbClient";
 
 import { guard } from "@/lib/limits/guard";
+
+/**
+ * Runs in Washington, next to TMDB, not in Seoul with the database (vercel.json):
+ * this is TMDB work, and a TMDB call from Seoul measured ~0.5s (25 Oct 2026).
+ */
+export const preferredRegion = "iad1";
 type WatchProvider = {
   provider_id: number;
   provider_name: string;
