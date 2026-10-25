@@ -9,6 +9,7 @@ import { useToday } from "@/hooks/useToday";
 import { swrFetcher } from "@/utils/swrFetcher";
 import { buildBrowseUrl } from "@/utils/browseUrl";
 import type { CollectionResponse } from "@/app/api/collection/route";
+import type { SeriesRuntimeResponse } from "@/app/api/series-runtime/route";
 import {
   basedOnGlance,
   collectionGlance,
@@ -55,7 +56,9 @@ export function GlancePanel({ items, keywords, mediaType }: { items: Glance[]; k
                 {g.href && <ChevronRight className="size-3.5" aria-hidden />}
               </dt>
               <dd className="mt-1.5 font-display text-2xl leading-tight text-ink-0 tabular-nums">
-                {g.href ? (
+                {g.loading ? (
+                  <span className="inline-block h-7 w-20 rounded bg-hover align-middle" role="status" aria-label="Working it out" />
+                ) : g.href ? (
                   // The link is the answer; its ::after stretches over the
                   // whole tile, so the tile is the target without an <a>
                   // where a `dl` may only hold `dt` and `dd`.
@@ -167,14 +170,22 @@ type Show = {
 export function SeriesGlance({
   show,
   keywords = [],
-  runtimes,
   countryNames = [],
 }: {
   show: Show;
   keywords?: Keyword[];
-  runtimes: SeasonRuntime[] | null;
   countryNames?: string[];
 }) {
+  /**
+   * How long it runs, summed over every season: asked for here rather than in
+   * the page build, which waited on a TMDB call per season. Only for a show
+   * the sum is made for (something aired, at most thirty seasons — see
+   * seriesRuntime); its tile holds its place until the answer comes.
+   */
+  const seasonCount = show.number_of_seasons ?? 0;
+  const sums = !!show.last_episode_to_air && seasonCount > 0 && seasonCount <= 30;
+  const { data: rt } = useSWR<SeriesRuntimeResponse>(sums ? `/api/series-runtime?id=${show.id}` : null, swrFetcher, { revalidateOnFocus: false });
+  const runtimes: SeasonRuntime[] | null = rt?.runtimes ?? null;
   const today = useToday();
   const { user, status } = useAuth();
   const me = status === "ok" ? (user?.id ?? null) : null;
@@ -200,7 +211,7 @@ export function SeriesGlance({
     }),
     ratingGlance(show.vote_average, show.vote_count),
     seriesSizeGlance(show.number_of_seasons, show.number_of_episodes, runtimes),
-    seriesTimeGlance(runtimes, watched),
+    sums && !rt ? { key: "time", label: "To watch it all", lead: "", loading: true } : seriesTimeGlance(runtimes, watched),
     languageGlance(show.original_language, show.spoken_languages, countryNames),
     basedOnGlance(keywords),
   ].filter((g): g is Glance => g != null);

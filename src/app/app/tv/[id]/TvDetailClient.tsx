@@ -65,7 +65,6 @@ export default function TvDetailClient({
   createdBy = [],
   countryNames = [],
   reviews = [],
-  runtimes = null,
 }: any) {
   const { isAuthenticated } = useMediaInteraction();
 
@@ -207,7 +206,7 @@ export default function TvDetailClient({
           and your entry; reference material folds in place.
         */}
         <div className="max-w-app mx-auto px-4 pt-8 sm:px-6 sm:pt-10 lg:px-8 pb-16 space-y-10">
-          <SeriesGlance show={show} keywords={keywords} runtimes={runtimes} countryNames={countryNames} />
+          <SeriesGlance show={show} keywords={keywords} countryNames={countryNames} />
 
           {/* Side by side from `lg`: the ribbon is a narrow grid, and alone it
               left most of a full-width card empty. Before you start there is

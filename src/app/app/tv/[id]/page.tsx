@@ -15,7 +15,6 @@ import { titlePath } from "@/utils/urls";
 import JsonLd from "@components/seo/JsonLd";
 import { tvSeriesLd, breadcrumbLd } from "@/utils/structuredData";
 import { shareImage } from "@/utils/shareImage";
-import { seriesRuntime } from "@/utils/title/seriesRuntime";
 
 /** Impersonal HTML; see the movie page for why this is cached. */
 /**
@@ -175,12 +174,9 @@ export default async function TvPage({ params }: PageProps) {
   const trailer = videos.find((v: any) => v.type === "Trailer" && v.site === "YouTube")
     ?? videos.find((v: any) => v.site === "YouTube");
 
-  // "49 hours to watch it all": every aired episode's own runtime, from the
-  // season payloads the season browser already caches. See seriesRuntime.
-  const lastAired = show.last_episode_to_air
-    ? { s: show.last_episode_to_air.season_number, e: show.last_episode_to_air.episode_number }
-    : null;
-  const runtimes = await seriesRuntime(String(numericId), seasons, lastAired);
+  // "49 hours to watch it all" is read by the at-a-glance tiles in the browser
+  // (/api/series-runtime): summing it here was a TMDB call per season, and the
+  // build waited for the slowest (up to ~1s on a long series).
 
   /**
    * Every appended blob is already extracted into a prop of its own above, so
@@ -246,7 +242,6 @@ export default async function TvPage({ params }: PageProps) {
         createdBy={createdBy}
         countryNames={countryNames}
         reviews={reviews}
-        runtimes={runtimes}
       />
 
       {/* Streamed: getRelated is 2.1–5.4s cold and sits at the bottom

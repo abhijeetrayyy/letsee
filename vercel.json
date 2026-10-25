@@ -67,6 +67,11 @@
       "regions": [
         "iad1"
       ]
+    },
+    "src/app/api/series-runtime/route.ts": {
+      "regions": [
+        "iad1"
+      ]
     }
   },
   "crons": [

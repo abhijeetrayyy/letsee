@@ -28,6 +28,8 @@ export type Glance = {
   unit?: string;
   /** One plain line saying what the lead means. */
   note?: string | null;
+  /** Still being worked out: the tile holds its place, so nothing moves when it arrives. */
+  loading?: boolean;
   /** Where to go for more ("#collection"). */
   href?: string;
 };
