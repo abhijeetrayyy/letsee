@@ -46,10 +46,24 @@ function withoutApiKey(url: string): string {
 
 /** Throttle: max concurrent TMDB requests (stay under ~40/s per IP) */
 const MAX_CONCURRENT = 8;
-/** Min ms between starting new requests to smooth bursts */
-const MIN_GAP_MS = 120;
-const DEFAULT_TIMEOUT_MS = 12000;
+/**
+ * Min ms between starting new requests, to smooth bursts: at most 40 starts a
+ * second, under TMDB's ~50 per IP. It was 120ms, paid before every request —
+ * Data Cache hits included — which alone held a person page's fifteen calls
+ * for nearly two seconds (measured 25 Oct 2026: uncached person and title
+ * pages took 2.4–3.9s to build).
+ */
+const MIN_GAP_MS = 25;
+/**
+ * Fail fast. A page waits on these, and a stalled TMDB request used to hold
+ * it for up to ~38s (12s × 3 attempts, plus backoff). Now a dropped
+ * connection — quick to find out, and common (ECONNRESET) — still gets three
+ * tries, but a second timeout ends it: at most ~12.5s for a page's main call.
+ * Optional sections pass shorter limits of their own.
+ */
+const DEFAULT_TIMEOUT_MS = 6000;
 const DEFAULT_MAX_ATTEMPTS = 3;
+const MAX_TIMEOUTS = 2;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -58,39 +72,54 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let inFlight = 0;
 let lastStartTime = 0;
 const waitQueue: Array<() => void> = [];
+let timer: ReturnType<typeof setTimeout> | null = null;
 
-function scheduleNext(): void {
-  if (waitQueue.length === 0 || inFlight >= MAX_CONCURRENT) return;
-  const now = Date.now();
-  const elapsed = now - lastStartTime;
-  if (elapsed < MIN_GAP_MS) {
-    setTimeout(scheduleNext, MIN_GAP_MS - elapsed);
-    return;
+/**
+ * Take a slot if one is free and the gap has passed: counts the request as
+ * started. Otherwise, when only the gap is in the way, come back once it has.
+ */
+function grant(): boolean {
+  if (inFlight >= MAX_CONCURRENT) return false;
+  const wait = MIN_GAP_MS - (Date.now() - lastStartTime);
+  if (wait > 0) {
+    if (!timer) timer = setTimeout(() => {
+      timer = null;
+      drain();
+    }, wait);
+    return false;
   }
-  const next = waitQueue.shift();
-  if (next) next();
+  inFlight++;
+  lastStartTime = Date.now();
+  return true;
 }
 
-/** Wait for a throttle slot before starting a TMDB request */
+/**
+ * Let waiting requests start, as many as the throttle allows, and keep going.
+ * The old scheduler released one waiter and then stopped until some request
+ * finished — so a burst meant to run eight at a time ran nearly one by one.
+ */
+function drain(): void {
+  while (waitQueue.length > 0 && grant()) waitQueue.shift()!();
+}
+
+/** Wait for a throttle slot before starting a TMDB request. The slot is taken when this resolves. */
 function waitForSlot(): Promise<void> {
-  if (inFlight < MAX_CONCURRENT && (lastStartTime === 0 || Date.now() - lastStartTime >= MIN_GAP_MS)) {
-    return Promise.resolve();
-  }
+  if (waitQueue.length === 0 && grant()) return Promise.resolve();
   return new Promise<void>((resolve) => {
     waitQueue.push(resolve);
-    scheduleNext();
+    drain();
   });
 }
 
 function releaseSlot(): void {
   inFlight = Math.max(0, inFlight - 1);
-  scheduleNext();
+  drain();
 }
 
 export type TmdbClientOptions = RequestInit & {
-  /** Request timeout in ms. Default 12000 */
+  /** Request timeout in ms. Default 6000 */
   timeoutMs?: number;
-  /** Max retry attempts (including first). Default 3 */
+  /** Max attempts (including the first). Default 3; a second timeout stops it sooner. */
   maxAttempts?: number;
   /** Next.js revalidate in seconds (ISR). Omit for API routes. */
   revalidate?: number;
@@ -151,11 +180,10 @@ export async function fetchTmdb(
         : { cache: "force-cache" as RequestCache };
 
   let lastError: Error | null = null;
+  let timeouts = 0;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     await waitForSlot();
-    inFlight++;
-    lastStartTime = Date.now();
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -189,7 +217,9 @@ export async function fetchTmdb(
       clearTimeout(timeout);
       releaseSlot();
       lastError = err as Error;
-      if (attempt < maxAttempts) {
+      // A timeout has already cost its full wait: a second one ends it.
+      if (lastError.name === "AbortError") timeouts++;
+      if (attempt < maxAttempts && timeouts < MAX_TIMEOUTS) {
         await sleep(attempt * 500);
         continue;
       }

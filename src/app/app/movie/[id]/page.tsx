@@ -1,9 +1,9 @@
 import { Metadata } from "next";
-import { tmdbFetchJson } from "@/utils/tmdb";
+import { tmdbFetchJson, tmdbMissing } from "@/utils/tmdb";
 import { notFound } from "next/navigation";
 import MovieDetailClient from "./MovieDetailClient";
 import { Countrydata } from "@/staticData/countryName";
-import { Suspense } from "react";
+import { Suspense, cache } from "react";
 import RelatedStream from "@components/detail/RelatedStream";
 import { parseRouteId } from "@/utils/urls";
 import { pickLogoEntry } from "@/utils/title/logo";
@@ -93,7 +93,8 @@ type PageProps = { params: Promise<{ id: string }> };
  * language's logo under that key with no `include_image_language` parameter,
  * which is why the hero can print a film's own wordmark without a second call.
  */
-async function getMovie(id: string) {
+// React.cache'd: generateMetadata and the page share one request and one throttle slot.
+const getMovie = cache(async (id: string) => {
   return tmdbFetchJson<any>(
     `https://api.themoviedb.org/3/movie/${id}?append_to_response=credits,videos,images,recommendations,similar,keywords,release_dates,reviews`,
     "Movie detail",
@@ -105,7 +106,7 @@ async function getMovie(id: string) {
       revalidate: 86400,
     }
   );
-}
+});
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
@@ -155,12 +156,11 @@ export default async function MoviePage({ params }: PageProps) {
 
   const result = await getMovie(numericId);
   const movie = result.data;
+  // Not found only when TMDB says so; anything passing throws, so it isn't
+  // cached and the next visit tries again (this used to cache "unavailable").
   if (!movie) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-page text-ink-300 p-4">
-        <p>Movie data unavailable. Try refreshing.</p>
-      </div>
-    );
+    if (tmdbMissing(result)) return notFound();
+    throw new Error(result.error ?? "TMDB didn't answer");
   }
 
   /**

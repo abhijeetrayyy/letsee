@@ -16,7 +16,7 @@
  *
  * Always returns an absolute origin with no trailing slash.
  */
-const FALLBACK = "https://letsee-dusky.vercel.app";
+const FALLBACK = "https://letsee-zeta.vercel.app";
 
 export function siteUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();

@@ -11,6 +11,7 @@ import PersonPortraits from "@components/person/PersonPortraits";
 import LifeSection from "@components/person/LifeSection";
 import PersonExtras from "./PersonExtras";
 import { getPerson } from "@/utils/person/fetch";
+import { tmdbMissing } from "@/utils/tmdb";
 import { buildCredits, recurringRoles } from "@/utils/person/model";
 import { definingWork, careerLine } from "@/utils/person/rank";
 import { personLife } from "@/utils/person/dates";
@@ -68,7 +69,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!n) return { title: "Person" };
   // `getPerson` is React.cache'd, so this shares the page's single request
   // rather than paying a second throttle slot and a second parse.
-  const p = await getPerson(n);
+  const p = (await getPerson(n)).data;
   if (!p?.name) return { title: "Person" };
 
   const bio = typeof p.biography === "string" ? p.biography.trim() : "";
@@ -107,11 +108,16 @@ export default async function PersonPage({ params }: PageProps) {
   const n = numericId(id);
   if (!n) return notFound();
 
-  const person = await getPerson(n);
-  // An explicit data check, not a string match on the fetch error — the old
-  // route tested `message.includes("404")`, so "Person full: 500 Internal
-  // Server Error" reached the user as body text.
-  if (!person?.name) return notFound();
+  const result = await getPerson(n);
+  const person = result.data;
+  // Not found only when TMDB says so. A timeout or a 5xx throws instead: a
+  // thrown render isn't cached, so the next visit tries again — where a
+  // "not found" here used to be kept for days after one bad moment at TMDB.
+  if (!person) {
+    if (tmdbMissing(result)) return notFound();
+    throw new Error(result.error ?? "TMDB didn't answer");
+  }
+  if (!person.name) return notFound();
 
   const credits = buildCredits(person.combined_credits?.cast ?? [], person.combined_credits?.crew ?? []);
   const life = personLife(person);

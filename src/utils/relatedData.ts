@@ -19,7 +19,7 @@ import { tmdbConfigured } from "@/utils/tmdbClient";
  *
  * Everything here is wrapped in `unstable_cache`, and that is not an
  * optimisation. `fetchTmdb` calls `waitForSlot()` *before* every request, so
- * its 120ms rate-limit gap is paid whether or not Next serves the response
+ * its rate-limit gap (25ms; 120ms until 25 Oct 2026) is paid whether or not Next serves the response
  * from the Data Cache — the same pathology that pinned `/api/search/catalog` at
  * a flat 3.95s until the whole function was cached. Enriching a pool means
  * ~20 calls, so uncached this would be seconds of throttle on every render,
@@ -44,6 +44,12 @@ const BASE = "https://api.themoviedb.org/3";
  * away while a known zero counts against the score.
  */
 const ENRICH = 12;
+/**
+ * The related row is optional and at the bottom of the page: three seconds
+ * and one attempt per call. A stalled TMDB call drops one piece of evidence;
+ * it no longer holds the page for the full retry ladder.
+ */
+const OPTIONAL = { timeoutMs: 3000, maxAttempts: 1 } as const;
 const SHOW = 12;
 
 /** Keywords change about never. */
@@ -61,11 +67,13 @@ type Raw = Record<string, unknown>;
 const keywordsFor = unstable_cache(
   async (mediaType: MediaType, id: number): Promise<number[]> => {
     if (!tmdbConfigured()) return [];
-    const { data } = await tmdbFetchJson<Raw>(
+    const { data, error } = await tmdbFetchJson<Raw>(
       `${BASE}/${mediaType}/${id}/keywords`,
       "related:keywords",
-      { revalidate: KEYWORD_TTL },
+      { revalidate: KEYWORD_TTL, ...OPTIONAL },
     );
+    // Thrown, not cached: a failed read is "unknown", never "no keywords" for a day.
+    if (!data) throw new Error(error);
     // TMDB spells the container differently for film and TV, which is a real
     // difference and not defensive coding: `keywords` on movie, `results` on tv.
     const list = (data?.keywords ?? data?.results) as { id?: number }[] | undefined;
@@ -96,20 +104,22 @@ const filmographyFor = unstable_cache(
     await Promise.all(
       personIds.slice(0, 2).map(async (personId) => {
         if (mediaType === "movie") {
-          const { data } = await tmdbFetchJson<Raw>(
+          const { data, error } = await tmdbFetchJson<Raw>(
             `${BASE}/discover/movie?with_crew=${personId}&sort_by=popularity.desc`,
             "related:filmography",
-            { revalidate: FILMOGRAPHY_TTL },
+            { revalidate: FILMOGRAPHY_TTL, ...OPTIONAL },
           );
+          if (!data) throw new Error(error);
           for (const r of (data?.results ?? []) as { id?: number }[]) {
             if (Number.isInteger(r.id)) ids.add(Number(r.id));
           }
         } else {
-          const { data } = await tmdbFetchJson<Raw>(
+          const { data, error } = await tmdbFetchJson<Raw>(
             `${BASE}/person/${personId}/tv_credits`,
             "related:tv-credits",
-            { revalidate: FILMOGRAPHY_TTL },
+            { revalidate: FILMOGRAPHY_TTL, ...OPTIONAL },
           );
+          if (!data) throw new Error(error);
           for (const r of [
             ...((data?.crew ?? []) as { id?: number }[]),
             ...((data?.cast ?? []) as { id?: number }[]),
@@ -129,11 +139,12 @@ const filmographyFor = unstable_cache(
 const collectionPartsFor = unstable_cache(
   async (collectionId: number): Promise<number[]> => {
     if (!tmdbConfigured()) return [];
-    const { data } = await tmdbFetchJson<Raw>(
+    const { data, error } = await tmdbFetchJson<Raw>(
       `${BASE}/collection/${collectionId}`,
       "related:collection",
-      { revalidate: FILMOGRAPHY_TTL },
+      { revalidate: FILMOGRAPHY_TTL, ...OPTIONAL },
     );
+    if (!data) throw new Error(error);
     return ((data?.parts ?? []) as { id?: number }[])
       .map((p) => Number(p.id))
       .filter(Number.isInteger);
@@ -247,19 +258,22 @@ export async function getRelated(input: RelatedInput): Promise<RelatedItem[]> {
   // counts against the score.
   const considered: RelatedCandidate[] = pool.slice(0, ENRICH);
 
+  // A piece that failed is unknown (null), and left out of the evidence — so it's
+  // renormalised away, rather than counting as a known zero against a candidate.
+  const settle = <T,>(p: Promise<T>): Promise<T | null> => p.catch(() => null);
   const [keywordPairs, filmography, collectionParts, community] = await Promise.all([
     Promise.all(
-      considered.map(async (c) => [c.id, await keywordsFor(c.mediaType, c.id)] as const),
+      considered.map(async (c) => [c.id, await settle(keywordsFor(c.mediaType, c.id))] as const),
     ),
-    seed.peopleIds.length > 0 ? filmographyFor(seed.mediaType, seed.peopleIds) : Promise.resolve([]),
-    seed.collectionId != null ? collectionPartsFor(seed.collectionId) : Promise.resolve([]),
+    seed.peopleIds.length > 0 ? settle(filmographyFor(seed.mediaType, seed.peopleIds)) : Promise.resolve(null),
+    seed.collectionId != null ? settle(collectionPartsFor(seed.collectionId)) : Promise.resolve(null),
     communityFor(seed.id, seed.mediaType),
   ]);
 
   const evidence: RelatedEvidence = {
-    keywordIds: new Map(keywordPairs),
-    filmographyIds: seed.peopleIds.length > 0 ? new Set(filmography) : undefined,
-    collectionPartIds: seed.collectionId != null ? new Set(collectionParts) : undefined,
+    keywordIds: new Map(keywordPairs.filter((p): p is readonly [number, number[]] => p[1] !== null)),
+    filmographyIds: filmography ? new Set(filmography) : undefined,
+    collectionPartIds: collectionParts ? new Set(collectionParts) : undefined,
     community,
   };
 

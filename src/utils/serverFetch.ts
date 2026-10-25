@@ -23,9 +23,10 @@ export async function serverFetch(
 ): Promise<Response> {
   // Route all TMDB requests through central client (throttle + retry)
   if (isTmdbUrl(url)) {
+    // The client's fail-fast defaults (6s; three tries, two timeouts at most) unless the caller asks otherwise.
     return fetchTmdb(url, {
-      timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-      maxAttempts: (options.retries ?? DEFAULT_RETRIES) + 1,
+      timeoutMs: options.timeoutMs,
+      maxAttempts: options.retries != null ? options.retries + 1 : undefined,
       cache: "no-store",
     });
   }

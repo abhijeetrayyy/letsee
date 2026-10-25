@@ -8,16 +8,28 @@ import { fetchTmdb, tmdbConfigured } from "@/utils/tmdbClient";
 export type TmdbResult<T> = {
   data: T | null;
   error?: string;
+  /** TMDB's HTTP status when it answered with an error; absent on a timeout or network failure. */
+  status?: number;
 };
+
+/**
+ * Whether TMDB said the thing doesn't exist — the one failure a page may show
+ * as "not found" and let be cached. Anything else (a timeout, a 5xx, a 429)
+ * is passing, and a page should throw on it: Next caches neither a thrown
+ * render nor its error page, so the next visit simply tries again.
+ */
+export function tmdbMissing(result: TmdbResult<unknown>): boolean {
+  return result.status === 404;
+}
 
 export type TmdbFetchOptions = RequestInit & {
   /** Next.js revalidate in seconds (ISR). Ignored if cache is "no-store". */
   revalidate?: number;
   /** "force-cache" (default) or "no-store". */
   cache?: "force-cache" | "no-store";
-  /** Request timeout in ms. Default 12000. */
+  /** Request timeout in ms. Default 6000 (tmdbClient). */
   timeoutMs?: number;
-  /** Max retry attempts (including first). Default 3 (via tmdbClient). */
+  /** Max attempts (including the first). Default 3, and a second timeout ends it (tmdbClient). */
   maxAttempts?: number;
 };
 
@@ -35,14 +47,15 @@ export async function tmdbFetchJson<T>(
       ...init,
       revalidate: init?.revalidate,
       cache: init?.cache,
-      timeoutMs: init?.timeoutMs ?? 12000,
-      maxAttempts: init?.maxAttempts ?? 3,
+      timeoutMs: init?.timeoutMs,
+      maxAttempts: init?.maxAttempts,
     });
 
     if (!response.ok) {
       return {
         data: null,
         error: `${label}: ${response.status} ${response.statusText}`,
+        status: response.status,
       };
     }
 

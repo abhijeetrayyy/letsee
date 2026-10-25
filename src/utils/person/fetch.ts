@@ -6,7 +6,7 @@ import { tmdbFetchJson } from "@/utils/tmdb";
  * Two calls, and the second one is optional.
  *
  * The throttle dictates the shape. `fetchTmdb` awaits `waitForSlot()` BEFORE
- * every request regardless of cache state, so the 120ms gap is paid even on a
+ * every request regardless of cache state, so its gap (25ms; 120ms until 25 Oct 2026) is paid even on a
  * warm Data Cache hit. That makes a wide fan-out expensive in a way that
  * caching the *response* does not fix — only caching the whole computation
  * does.
@@ -28,14 +28,15 @@ const WEEK = 604800;
  * nothing. `tagged_images` (posters only, broken paging) and `changes`/`latest`
  * (empty or silently ignored) are likewise omitted.
  */
-export const getPerson = cache(async (id: string) => {
-  const res = await tmdbFetchJson<Record<string, any>>(
+export const getPerson = cache(async (id: string) =>
+  // The whole result, not just the data: a page shows "not found" only when
+  // TMDB says so, and throws on anything passing so it isn't cached (tmdbMissing).
+  tmdbFetchJson<Record<string, any>>(
     `https://api.themoviedb.org/3/person/${id}?language=en-US&append_to_response=external_ids,combined_credits,images`,
     "Person",
     { revalidate: DAY },
-  );
-  return res.data ?? null;
-});
+  ),
+);
 
 export type TitleGraph = {
   id: number;
@@ -75,9 +76,11 @@ export const getTitleGraph = (mediaType: "movie" | "tv", id: number) =>
             // and the extra is every guest star in every season.
             `https://api.themoviedb.org/3/tv/${id}?append_to_response=credits,videos`;
 
-      const res = await tmdbFetchJson<any>(url, "Title graph", { revalidate: WEEK });
+      // Optional (the collaborators row): three seconds, one attempt. And thrown,
+      // not returned as null — a null would be cached for the week.
+      const res = await tmdbFetchJson<any>(url, "Title graph", { revalidate: WEEK, timeoutMs: 3000, maxAttempts: 1 });
       const d = res.data;
-      if (!d) return null;
+      if (!d) throw new Error(res.error);
 
       const vids: any[] = d.videos?.results ?? [];
       const yt = vids.filter((v) => v.site === "YouTube" && v.key);

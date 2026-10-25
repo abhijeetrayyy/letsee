@@ -1,8 +1,8 @@
 import { Metadata } from "next";
-import { tmdbFetchJson } from "@/utils/tmdb";
+import { tmdbFetchJson, tmdbMissing } from "@/utils/tmdb";
 import { notFound } from "next/navigation";
 import TvDetailClient from "./TvDetailClient";
-import { Suspense } from "react";
+import { Suspense, cache } from "react";
 import RelatedStream from "@components/detail/RelatedStream";
 import { seriesCast } from "@/utils/title/tvCast";
 import { seriesCrew } from "@/utils/title/tvCrew";
@@ -75,7 +75,8 @@ type PageProps = { params: Promise<{ id: string }> };
  * its own in `getPeople`. Without it the largest show measured is 125KB.
  * `images` carries the logo artwork the hero prints as its heading.
  */
-async function getShow(id: string) {
+// React.cache'd: generateMetadata and the page share one request and one throttle slot.
+const getShow = cache(async (id: string) => {
   return tmdbFetchJson<any>(
     `https://api.themoviedb.org/3/tv/${id}?append_to_response=credits,videos,images,recommendations,similar,keywords,content_ratings,reviews,external_ids`,
     "TV detail",
@@ -87,7 +88,7 @@ async function getShow(id: string) {
       revalidate: 21600,
     }
   );
-}
+});
 
 /** Twenty cast and eight crew per department, on the same six hours as `getShow`. */
 async function getPeople(id: string) {
@@ -138,12 +139,11 @@ export default async function TvPage({ params }: PageProps) {
 
   const [result, people] = await Promise.all([getShow(numericId), getPeople(numericId)]);
   const show = result.data;
+  // Not found only when TMDB says so; anything passing throws, so it isn't
+  // cached and the next visit tries again (this used to cache "unavailable").
   if (!show) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-page text-ink-300 p-4">
-        <p>TV show data unavailable. Try refreshing.</p>
-      </div>
-    );
+    if (tmdbMissing(result)) return notFound();
+    throw new Error(result.error ?? "TMDB didn't answer");
   }
 
   const credits = show.credits ?? { cast: [], crew: [] };
