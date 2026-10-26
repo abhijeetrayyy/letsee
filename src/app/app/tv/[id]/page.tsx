@@ -1,5 +1,7 @@
 import { Metadata } from "next";
 import { tmdbFetchJson, tmdbMissing } from "@/utils/tmdb";
+import { POSTERS_SHOWN, STILLS_SHOWN, trimReviews, trimVideos } from "@/utils/title/trim";
+import { crewForSummaries } from "@components/detail/CrewBlock";
 import { notFound } from "next/navigation";
 import TvDetailClient from "./TvDetailClient";
 import { Suspense, cache } from "react";
@@ -155,15 +157,16 @@ export default async function TvPage({ params }: PageProps) {
   // in aggregate_credits, which is why the Crew section used to be missing
   // entirely on the longest-running show tested.
   const crew = people.data?.crew.length ? people.data.crew : seriesCrew(undefined, credits.crew);
-  const videos = show.videos?.results ?? [];
+  // Only what the components read, and only as many as they show (utils/title/trim).
+  const videos = trimVideos(show.videos?.results);
   // Same trim as the movie page: MediaGallery reads `file_path` and nothing
   // else, and TMDB ships seven other fields per image.
   const justPath = (i: any) => ({ file_path: i.file_path });
-  const backdrops = (show.images?.backdrops ?? []).map(justPath);
-  const posters = (show.images?.posters ?? []).map(justPath);
+  const backdrops = (show.images?.backdrops ?? []).slice(0, STILLS_SHOWN).map(justPath);
+  const posters = (show.images?.posters ?? []).slice(0, POSTERS_SHOWN).map(justPath);
   const keywords = show.keywords?.results ?? show.keywords?.keywords ?? [];
   const contentRatings = show.content_ratings?.results ?? [];
-  const reviews = show.reviews?.results ?? [];
+  const reviews = trimReviews(show.reviews?.results);
 
   const createdBy = show.created_by ?? [];
   const seasons = (show.seasons ?? []).filter((s: any) => s.name !== "Specials");
@@ -230,7 +233,7 @@ export default async function TvPage({ params }: PageProps) {
     <div className="bg-page min-h-screen">
       <TvDetailClient
         show={showForClient}
-        credits={{ crew }}
+        credits={{ crew: crewForSummaries(crew) }}
         cast={cast}
         trailer={trailer}
         videos={videos}

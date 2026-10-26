@@ -85,6 +85,29 @@ const JOB_RANK = [
   "Editor",
 ];
 
+/**
+ * The crew a title page actually sends to the browser: everyone the summaries
+ * below can show, and nobody else.
+ *
+ * `groupCrew` keeps the first six people of each listed department, `keyCrew`
+ * and the "Directed by · Written by" line read only the ranked jobs. So those
+ * are kept — the ranked jobs, and every credit of each department's first six
+ * — and the rest of the crew stays on the server. Inception's full crew was
+ * most of the page's 85KB of credits; both summaries come out the same.
+ */
+export function crewForSummaries<T extends CrewMember>(crew?: T[], maxPerDepartment = 6): T[] {
+  if (!Array.isArray(crew)) return [];
+  const firstPeople = new Map<string, Set<number>>();
+  for (const m of crew) {
+    const dept = m.department ?? "";
+    if (!DEPARTMENT_ORDER.includes(dept) || !m.id || !m.name) continue;
+    const people = firstPeople.get(dept) ?? new Set<number>();
+    if (people.size < maxPerDepartment) people.add(m.id);
+    firstPeople.set(dept, people);
+  }
+  return crew.filter((m) => JOB_RANK.includes(m.job ?? "") || (firstPeople.get(m.department ?? "")?.has(m.id) ?? false));
+}
+
 export type KeyCrewMember = {
   id: number;
   name: string;

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import TitleCard from "@components/ds/TitleCard";
 import SeenOf from "@components/ui/SeenOf";
-import type { Credit } from "@/utils/person/model";
+import type { WorkCredit } from "@/utils/person/model";
 import { Search } from "lucide-react";
 
 /**
@@ -46,16 +46,16 @@ import { Search } from "lucide-react";
  * every keystroke or scroll.
  */
 
-function roleText(c: Credit, mode: "screen" | "behind"): string | null {
-  if (mode === "behind") return c.jobs.length ? c.jobs.join(", ") : null;
-  if (c.characters.length) {
+function roleText(c: WorkCredit, mode: "screen" | "behind"): string | null {
+  if (mode === "behind") return c.jobs?.length ? c.jobs.join(", ") : null;
+  if (c.characters?.length) {
     const chars = c.characters.slice(0, 2).join(" / ");
-    return c.episodeCount > 1 ? `${chars} · ${c.episodeCount} eps` : chars;
+    return (c.episodeCount ?? 0) > 1 ? `${chars} · ${c.episodeCount} eps` : chars;
   }
   return null;
 }
 
-function CreditGrid({ credits, mode, primary }: { credits: Credit[]; mode: "screen" | "behind"; primary: boolean }) {
+function CreditGrid({ credits, mode, primary }: { credits: WorkCredit[]; mode: "screen" | "behind"; primary: boolean }) {
   const PAGE_SIZE = 32;
   // Only the first filmography section belongs in the initial response. The
   // second can be hundreds of cards below the fold; it fills itself before the
@@ -86,7 +86,7 @@ function CreditGrid({ credits, mode, primary }: { credits: Credit[]; mode: "scre
       <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 sm:gap-4 lg:grid-cols-6 xl:grid-cols-8">
         {visible.map((c) => (
           <TitleCard
-            key={c.key}
+            key={`${c.mediaType}-${c.id}`}
             id={c.id}
             title={c.title}
             mediaType={c.mediaType}
@@ -125,9 +125,13 @@ function Heading({ title, count }: { title: string; count: number }) {
 
 export default function PersonWork({
   credits,
+  otherTitles = [],
   knownForDepartment,
 }: {
-  credits: Credit[];
+  /** The acting and presenting work, as the grid reads it (toWorkCredits). */
+  credits: WorkCredit[];
+  /** Every other title of theirs, for "how much you've seen". */
+  otherTitles?: { id: number; mediaType: "movie" | "tv" }[];
   knownForDepartment: string | null;
 }) {
   const [query, setQuery] = useState("");
@@ -136,13 +140,13 @@ export default function PersonWork({
 
   const { screen, behind } = useMemo(() => {
     const needle = query.trim().toLowerCase();
+    // Acting and presenting only: the server sends nothing else (toWorkCredits).
     const work = credits.filter((c) => {
-      if (c.bucket !== "performance" && c.bucket !== "presenting") return false;
       if (mediaType !== "all" && c.mediaType !== mediaType) return false;
       if (!needle) return true;
-      return [c.title, ...c.characters, ...c.jobs].some((value) => value.toLowerCase().includes(needle));
+      return [c.title, ...(c.characters ?? []), ...(c.jobs ?? [])].some((value) => value.toLowerCase().includes(needle));
     });
-    const byDate = (a: Credit, b: Credit) => {
+    const byDate = (a: WorkCredit, b: WorkCredit) => {
       if (sort === "popular") return b.voteCount - a.voteCount || b.voteAverage - a.voteAverage;
       if (!a.date && !b.date) return b.voteCount - a.voteCount;
       if (!a.date) return 1;
@@ -150,8 +154,8 @@ export default function PersonWork({
       return b.date.localeCompare(a.date);
     };
     return {
-      screen: work.filter((c) => c.characters.length > 0).sort(byDate),
-      behind: work.filter((c) => c.isCrew && c.jobs.length > 0).sort(byDate),
+      screen: work.filter((c) => (c.characters?.length ?? 0) > 0).sort(byDate),
+      behind: work.filter((c) => c.isCrew && (c.jobs?.length ?? 0) > 0).sort(byDate),
     };
   }, [credits, mediaType, query, sort]);
 
@@ -182,7 +186,7 @@ export default function PersonWork({
   return (
     <div className="space-y-12">
       {/* The bounded set: how much of this person's work you have seen. */}
-      <SeenOf items={credits.filter((c) => c.mediaType === "movie" || c.mediaType === "tv").map((c) => ({ id: c.id, type: c.mediaType }))} noun="of their titles" className="mb-4" />
+      <SeenOf items={[...credits, ...otherTitles].filter((c) => c.mediaType === "movie" || c.mediaType === "tv").map((c) => ({ id: c.id, type: c.mediaType }))} noun="of their titles" className="mb-4" />
 
       <div className="flex flex-col gap-3 rounded-2xl border border-line/70 bg-raised/40 p-3 sm:flex-row sm:items-center">
         <label className="flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-line-strong bg-page/60 px-3 focus-within:border-accent-strong/50 focus-within:ring-2 focus-within:ring-focus">

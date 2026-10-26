@@ -54,6 +54,7 @@ export default function MovieDetailClient({
   movie,
   directors = [],
   credits,
+  castCount,
   trailer,
   videos = [],
   releaseDates = [],
@@ -231,7 +232,7 @@ export default function MovieDetailClient({
           </div>
 
           {cast.length > 0 && (
-            <Section title="Cast" subtitle={`${cast.length} actors`}>
+            <Section title="Cast" subtitle={`${castCount ?? cast.length} actors`}>
               <CastRow cast={cast} fullCreditsHref={`${titlePath("movie", movie.id, movie.title)}/cast`} />
             </Section>
           )}

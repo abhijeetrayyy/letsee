@@ -1,5 +1,7 @@
 import { Metadata } from "next";
 import { tmdbFetchJson, tmdbMissing } from "@/utils/tmdb";
+import { crewForSummaries } from "@components/detail/CrewBlock";
+import { CAST_SHOWN, POSTERS_SHOWN, STILLS_SHOWN, trimReleaseDates, trimReviews, trimVideos } from "@/utils/title/trim";
 import { notFound } from "next/navigation";
 import MovieDetailClient from "./MovieDetailClient";
 import { Countrydata } from "@/staticData/countryName";
@@ -178,26 +180,36 @@ export default async function MoviePage({ params }: PageProps) {
    * bytes are the ones never sent. Every field kept below was found by reading
    * what the components actually dereference, not by guessing.
    */
+  /**
+   * And only as many as are shown (25 Oct 2026). The cast row shows twenty
+   * (the count travels on its own), the crew block shows the first six of each
+   * department and the ranked jobs (`crewForSummaries`), the gallery twelve
+   * stills and eight posters. Inception sent its whole cast, its whole crew and
+   * ~150 posters: 130KB of the page's data, for a row of twenty faces.
+   */
   const rawCredits = movie.credits ?? { cast: [], crew: [] };
+  const castCount = (rawCredits.cast ?? []).length;
   const credits = {
-    cast: (rawCredits.cast ?? []).map((c: any) => ({
+    cast: (rawCredits.cast ?? []).slice(0, CAST_SHOWN).map((c: any) => ({
       id: c.id,
       name: c.name,
       character: c.character,
       profile_path: c.profile_path,
     })),
-    crew: (rawCredits.crew ?? []).map((c: any) => ({
-      id: c.id,
-      name: c.name,
-      job: c.job,
-      department: c.department,
-      profile_path: c.profile_path,
-    })),
+    crew: crewForSummaries(
+      (rawCredits.crew ?? []).map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        job: c.job,
+        department: c.department,
+        profile_path: c.profile_path,
+      })),
+    ),
   };
-  const videos = movie.videos?.results ?? [];
+  const videos = trimVideos(movie.videos?.results);
   const justPath = (i: any) => ({ file_path: i.file_path });
-  const backdrops = (movie.images?.backdrops ?? []).map(justPath);
-  const posters = (movie.images?.posters ?? []).map(justPath);
+  const backdrops = (movie.images?.backdrops ?? []).slice(0, STILLS_SHOWN).map(justPath);
+  const posters = (movie.images?.posters ?? []).slice(0, POSTERS_SHOWN).map(justPath);
   const keywords = movie.keywords?.keywords ?? movie.keywords?.results ?? [];
   const collection = movie.belongs_to_collection ?? null;
   const directors = credits.crew.filter((c: { job?: string }) => c.job === "Director");
@@ -206,8 +218,8 @@ export default async function MoviePage({ params }: PageProps) {
     Countrydata.filter((item: any) => item.iso_3166_1 === c).map((i: any) => i.english_name)
   );
 
-  const releaseDates = movie.release_dates?.results ?? [];
-  const reviews = movie.reviews?.results ?? [];
+  const releaseDates = trimReleaseDates(movie.release_dates?.results);
+  const reviews = trimReviews(movie.reviews?.results);
 
   /**
    * Every appended blob above is already extracted into a prop of its own, so
@@ -271,6 +283,7 @@ export default async function MoviePage({ params }: PageProps) {
         movie={movieForClient}
         directors={directors}
         credits={credits}
+        castCount={castCount}
         trailer={trailer}
         videos={videos}
         releaseDates={releaseDates}

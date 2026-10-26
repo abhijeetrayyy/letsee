@@ -224,3 +224,58 @@ export function recurringRoles(credits: Credit[], personName: string) {
     })
     .sort((a, b) => b.count - a.count);
 }
+
+/**
+ * A credit as "The work" needs it in the browser (components/person/PersonWork)
+ * — the fields it reads, with the empty ones left out.
+ *
+ * The full Credit carries seventeen fields; the grid reads ten, and only for
+ * the acting and presenting work it shows. Samuel L. Jackson's whole
+ * filmography was 128KB of his page's 262KB of data (25 Oct 2026). `key` is
+ * derived, `year`, `order`, `departments` and `flags` stay on the server (the
+ * sections that use them render there), and a rating keeps one decimal.
+ */
+export type WorkCredit = {
+  id: number;
+  mediaType: "movie" | "tv";
+  title: string;
+  posterPath: string | null;
+  date: string;
+  voteAverage: number;
+  voteCount: number;
+  characters?: string[];
+  /** Only when more than one: "· 12 eps". */
+  episodeCount?: number;
+  jobs?: string[];
+  isCrew?: true;
+};
+
+/**
+ * The work the grid shows, and every other title — the archive footage and
+ * appearances it doesn't show — as just an id, so "how much of their work
+ * you've seen" still counts them all.
+ */
+export function toWorkCredits(credits: Credit[]): { work: WorkCredit[]; otherTitles: { id: number; mediaType: "movie" | "tv" }[] } {
+  const work: WorkCredit[] = [];
+  const otherTitles: { id: number; mediaType: "movie" | "tv" }[] = [];
+  for (const c of credits) {
+    if (c.bucket !== "performance" && c.bucket !== "presenting") {
+      otherTitles.push({ id: c.id, mediaType: c.mediaType });
+      continue;
+    }
+    work.push({
+      id: c.id,
+      mediaType: c.mediaType,
+      title: c.title,
+      posterPath: c.posterPath,
+      date: c.date,
+      voteAverage: Math.round(c.voteAverage * 10) / 10,
+      voteCount: c.voteCount,
+      ...(c.characters.length ? { characters: c.characters } : {}),
+      ...(c.episodeCount > 1 ? { episodeCount: c.episodeCount } : {}),
+      ...(c.jobs.length ? { jobs: c.jobs } : {}),
+      ...(c.isCrew ? { isCrew: true as const } : {}),
+    });
+  }
+  return { work, otherTitles };
+}

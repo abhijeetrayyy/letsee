@@ -12,7 +12,7 @@ import LifeSection from "@components/person/LifeSection";
 import PersonExtras from "./PersonExtras";
 import { getPerson } from "@/utils/person/fetch";
 import { tmdbMissing } from "@/utils/tmdb";
-import { buildCredits, recurringRoles } from "@/utils/person/model";
+import { buildCredits, recurringRoles, toWorkCredits } from "@/utils/person/model";
 import { definingWork, careerLine } from "@/utils/person/rank";
 import { personLife } from "@/utils/person/dates";
 import JsonLd from "@components/seo/JsonLd";
@@ -120,6 +120,8 @@ export default async function PersonPage({ params }: PageProps) {
   if (!person.name) return notFound();
 
   const credits = buildCredits(person.combined_credits?.cast ?? [], person.combined_credits?.crew ?? []);
+  // What "The work" grid reads, and nothing else (toWorkCredits): the full list stays here.
+  const work = toWorkCredits(credits);
   const life = personLife(person);
   const kfd: string | null = person.known_for_department ?? null;
   const birthYear = life.born ? Number(life.born.iso.slice(0, 4)) : null;
@@ -194,7 +196,7 @@ export default async function PersonPage({ params }: PageProps) {
         <Section title="The work">
           {/* Keep their work as a set: progress, and your people on it too. */}
           <PersonSet personId={person.id} name={person.name} profilePath={person.profile_path ?? null} department={kfd} />
-          <PersonWork credits={credits} knownForDepartment={kfd} />
+          <PersonWork credits={work.work} otherTitles={work.otherTitles} knownForDepartment={kfd} />
         </Section>
 
         {roles.length > 0 && (
